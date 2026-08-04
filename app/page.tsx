@@ -46,9 +46,9 @@ export default function Home() {
       <header className="border-b border-white/10 bg-[#07111f]/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500 font-black text-[#07111f]">
-              FB
-            </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-green-300/30 bg-gradient-to-br from-green-300 to-green-600 font-black text-[#07111f] shadow-lg shadow-green-500/20">
+  FB
+</div>
 
             <div>
               <p className="text-lg font-black tracking-tight">FootBattle</p>
@@ -108,7 +108,7 @@ export default function Home() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/wordle"
-                className="rounded-xl bg-green-500 px-6 py-4 text-center font-black text-[#07111f] shadow-lg shadow-green-500/20 transition hover:-translate-y-0.5 hover:bg-green-400"
+                className="animate-pulse-glow rounded-xl bg-green-500 px-6 py-4 text-center font-black text-[#07111f] shadow-lg shadow-green-500/20 transition duration-300 hover:-translate-y-1 hover:scale-[1.02] hover:bg-green-400"
               >
                 Günün Wordle&apos;ını Oyna
               </Link>
@@ -119,7 +119,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl">
+          <div className="animate-float-soft rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/30">
             <div className="rounded-2xl border border-green-500/20 bg-gradient-to-br from-green-500/20 to-transparent p-6">
               <div className="flex items-center justify-between">
                 <span className="rounded-lg bg-green-500 px-3 py-1 text-xs font-black text-[#07111f]">
