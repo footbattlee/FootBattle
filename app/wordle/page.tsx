@@ -1,32 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
-const MAX_ATTEMPTS = 5;
-
-const PLAYER_POOL = [
-  "RONALDO",
-  "MESSI",
-  "NEYMAR",
-  "HAALAND",
-  "MBAPPE",
-  "BENZEMA",
-  "SALAH",
-  "DROGBA",
-  "SNEIJDER",
-  "MODRIC",
-  "INIESTA",
-  "PIRLO",
-  "RIBERY",
-  "ROBBEN",
-  "SUAREZ",
-  "LEWANDOWSKI",
-  "MARADONA",
-  "RONALDINHO",
-  "BECKHAM",
-  "IBRAHIMOVIC",
-];
+const DEFAULT_MAX_ATTEMPTS = 5;
 
 const KEYBOARD_ROWS = [
   ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
@@ -39,50 +21,58 @@ type GameStatus = "playing" | "won" | "lost";
 
 type EvaluatedLetter = {
   letter: string;
-  status: LetterStatus;
+  status: Exclude<LetterStatus, "empty">;
+};
+
+type EvaluatedGuess = {
+  guess: string;
+  evaluation: EvaluatedLetter[];
 };
 
 type DailyGame = {
   dateKey: string;
-  answer: string;
+  letterCount: number;
+  maxAttempts: number;
 };
 
 type SavedGame = {
-  answer: string;
-  guesses: string[];
+  dateKey: string;
+  letterCount: number;
+  maxAttempts: number;
+  evaluatedGuesses: EvaluatedGuess[];
   currentGuess: string;
   gameStatus: GameStatus;
   message: string;
+  resultSaved: boolean;
+  resultSaveMessage: string;
 };
 
-function getDailyGame(): DailyGame {
-  /*
-   * UTC tarihi kullandığımız için bütün kullanıcılar,
-   * dünyanın neresinde olursa olsun aynı günlük cevabı görür.
-   */
-  const now = new Date();
-  const dateKey = now.toISOString().slice(0, 10);
+type TodayResponse = {
+  ok?: boolean;
+  error?: string;
+  dateKey?: string;
+  letterCount?: number;
+  maxAttempts?: number;
+};
 
-  const startingDate = Date.UTC(2026, 7, 4);
-  const currentDate = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-  );
+type GuessResponse = {
+  ok?: boolean;
+  error?: string;
+  guess?: string;
+  evaluation?: EvaluatedLetter[];
+  won?: boolean;
+};
 
-  const elapsedDays = Math.floor(
-    (currentDate - startingDate) / 86_400_000,
-  );
-
-  const playerIndex =
-    ((elapsedDays % PLAYER_POOL.length) + PLAYER_POOL.length) %
-    PLAYER_POOL.length;
-
-  return {
-    dateKey,
-    answer: PLAYER_POOL[playerIndex],
-  };
-}
+type SaveResultResponse = {
+  ok?: boolean;
+  error?: string;
+  won?: boolean;
+  score?: number;
+  attemptCount?: number;
+  alreadyRecorded?: boolean;
+  currentStreak?: number | null;
+  bestStreak?: number | null;
+};
 
 function getStorageKey(dateKey: string) {
   return `footbattle-wordle-${dateKey}`;
@@ -96,47 +86,6 @@ function calculateScore(attemptCount: number, won: boolean) {
   const scoreTable = [250, 200, 150, 100, 50];
 
   return scoreTable[attemptCount - 1] ?? 0;
-}
-
-function evaluateGuess(
-  guess: string,
-  answer: string,
-): EvaluatedLetter[] {
-  const result: EvaluatedLetter[] = guess.split("").map((letter) => ({
-    letter,
-    status: "absent",
-  }));
-
-  const remainingLetters = answer.split("");
-
-  /*
-   * Önce doğru harf ve doğru pozisyonlar kontrol edilir.
-   * Bu işlem tekrar eden harflerin yanlış değerlendirilmesini önler.
-   */
-  guess.split("").forEach((letter, index) => {
-    if (letter === answer[index]) {
-      result[index].status = "correct";
-      remainingLetters[index] = "";
-    }
-  });
-
-  /*
-   * Daha sonra doğru harf fakat yanlış pozisyonlar bulunur.
-   */
-  guess.split("").forEach((letter, index) => {
-    if (result[index].status === "correct") {
-      return;
-    }
-
-    const remainingIndex = remainingLetters.indexOf(letter);
-
-    if (remainingIndex !== -1) {
-      result[index].status = "present";
-      remainingLetters[remainingIndex] = "";
-    }
-  });
-
-  return result;
 }
 
 function getTileClasses(status: LetterStatus) {
@@ -183,118 +132,178 @@ function getShareSymbol(status: LetterStatus) {
   return "⬛";
 }
 
+function normalizeKeyboardLetter(value: string) {
+  return value
+    .toLocaleUpperCase("tr-TR")
+    .replace(/İ/g, "I")
+    .replace(/Ç/g, "C")
+    .replace(/Ğ/g, "G")
+    .replace(/Ö/g, "O")
+    .replace(/Ş/g, "S")
+    .replace(/Ü/g, "U");
+}
+
 export default function WordlePage() {
-  const [dailyGame, setDailyGame] = useState<DailyGame | null>(null);
+  const [dailyGame, setDailyGame] =
+    useState<DailyGame | null>(null);
+
+  const [evaluatedGuesses, setEvaluatedGuesses] = useState<
+    EvaluatedGuess[]
+  >([]);
+
   const [currentGuess, setCurrentGuess] = useState("");
-  const [guesses, setGuesses] = useState<string[]>([]);
+
   const [message, setMessage] = useState(
     "😏 Footy: İlk tahminini görelim bakalım.",
   );
+
   const [gameStatus, setGameStatus] =
     useState<GameStatus>("playing");
+
   const [hydrated, setHydrated] = useState(false);
+  const [loadingError, setLoadingError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
   const [shareMessage, setShareMessage] = useState("");
   const [resultSaved, setResultSaved] = useState(false);
-const [resultSaveMessage, setResultSaveMessage] = useState("");
 
-  const answer = dailyGame?.answer ?? "";
-  async function saveGameResult(
-  completedGuesses: string[],
-  status: "won" | "lost",
-) {
-  if (resultSaved) {
-    return;
-  }
+  const [resultSaveMessage, setResultSaveMessage] =
+    useState("");
 
-  try {
-    setResultSaveMessage("Sonuç kaydediliyor...");
+  const guesses = useMemo(
+    () => evaluatedGuesses.map((item) => item.guess),
+    [evaluatedGuesses],
+  );
 
-    const response = await fetch("/api/wordle/result", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        guesses: completedGuesses,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (response.status === 401) {
-      setResultSaveMessage(
-        "Puanını kaydetmek için giriş yapmalısın.",
-      );
-      return;
-    }
-
-    if (!response.ok || !result.ok) {
-      throw new Error(
-        result.error ?? "Oyun sonucu kaydedilemedi.",
-      );
-    }
-
-    setResultSaved(true);
-
-    if (result.alreadyRecorded) {
-      setResultSaveMessage(
-        "Bugünkü sonucun daha önce kaydedilmiş.",
-      );
-      return;
-    }
-
-    setResultSaveMessage(
-      status === "won"
-        ? `${result.score} puan hesabına eklendi. 🔥`
-        : "Oyun sonucun kaydedildi.",
-    );
-  } catch (error) {
-    console.error("Sonuç kaydetme hatası:", error);
-
-    setResultSaveMessage(
-      error instanceof Error
-        ? error.message
-        : "Sonuç kaydedilirken hata oluştu.",
-    );
-  }
-}
+  const score = calculateScore(
+    evaluatedGuesses.length,
+    gameStatus === "won",
+  );
 
   /*
-   * Sayfa ilk açıldığında günün cevabı belirlenir ve daha önce
-   * kaydedilmiş bir oyun varsa localStorage içerisinden yüklenir.
+   * Bugünün oyun bilgisini Supabase tabanlı API'den alır.
+   * Cevabın kendisi tarayıcıya gönderilmez.
    */
   useEffect(() => {
-    const game = getDailyGame();
-    setDailyGame(game);
+    let cancelled = false;
 
-    const savedValue = localStorage.getItem(
-      getStorageKey(game.dateKey),
-    );
-
-    if (savedValue) {
+    async function loadDailyGame() {
       try {
-        const savedGame = JSON.parse(savedValue) as SavedGame;
+        setLoadingError("");
 
-        if (savedGame.answer === game.answer) {
-          setGuesses(savedGame.guesses ?? []);
-          setCurrentGuess(savedGame.currentGuess ?? "");
-          setGameStatus(savedGame.gameStatus ?? "playing");
-          setMessage(
-            savedGame.message ??
-              "😏 Footy: Kaldığın yerden devam et bakalım.",
+        const response = await fetch("/api/wordle/today", {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        const result = (await response.json()) as TodayResponse;
+
+        if (!response.ok || !result.ok) {
+          throw new Error(
+            result.error ?? "Günün oyunu yüklenemedi.",
           );
         }
-      } catch {
-        localStorage.removeItem(getStorageKey(game.dateKey));
+
+        if (
+          !result.dateKey ||
+          typeof result.letterCount !== "number"
+        ) {
+          throw new Error(
+            "Günün oyunu bilgileri eksik geldi.",
+          );
+        }
+
+        const game: DailyGame = {
+          dateKey: result.dateKey,
+          letterCount: result.letterCount,
+          maxAttempts:
+            result.maxAttempts ?? DEFAULT_MAX_ATTEMPTS,
+        };
+
+        if (cancelled) {
+          return;
+        }
+
+        setDailyGame(game);
+
+        const savedValue = localStorage.getItem(
+          getStorageKey(game.dateKey),
+        );
+
+        if (savedValue) {
+          try {
+            const savedGame = JSON.parse(
+              savedValue,
+            ) as SavedGame;
+
+            const storageMatchesGame =
+              savedGame.dateKey === game.dateKey &&
+              savedGame.letterCount === game.letterCount;
+
+            if (storageMatchesGame) {
+              setEvaluatedGuesses(
+                savedGame.evaluatedGuesses ?? [],
+              );
+
+              setCurrentGuess(
+                savedGame.currentGuess ?? "",
+              );
+
+              setGameStatus(
+                savedGame.gameStatus ?? "playing",
+              );
+
+              setMessage(
+                savedGame.message ??
+                  "😏 Footy: Kaldığın yerden devam et bakalım.",
+              );
+
+              setResultSaved(
+                savedGame.resultSaved ?? false,
+              );
+
+              setResultSaveMessage(
+                savedGame.resultSaveMessage ?? "",
+              );
+            } else {
+              localStorage.removeItem(
+                getStorageKey(game.dateKey),
+              );
+            }
+          } catch {
+            localStorage.removeItem(
+              getStorageKey(game.dateKey),
+            );
+          }
+        }
+
+        setHydrated(true);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error("Wordle yükleme hatası:", error);
+
+        setLoadingError(
+          error instanceof Error
+            ? error.message
+            : "Günün oyunu yüklenemedi.",
+        );
+
+        setHydrated(true);
       }
     }
 
-    setHydrated(true);
+    void loadDailyGame();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   /*
-   * Tahmin, mesaj veya oyun durumu değiştiğinde oyun tarayıcıya
-   * otomatik olarak kaydedilir.
+   * Oyun ilerlemesini localStorage içine kaydeder.
    */
   useEffect(() => {
     if (!hydrated || !dailyGame) {
@@ -302,11 +311,15 @@ const [resultSaveMessage, setResultSaveMessage] = useState("");
     }
 
     const savedGame: SavedGame = {
-      answer: dailyGame.answer,
-      guesses,
+      dateKey: dailyGame.dateKey,
+      letterCount: dailyGame.letterCount,
+      maxAttempts: dailyGame.maxAttempts,
+      evaluatedGuesses,
       currentGuess,
       gameStatus,
       message,
+      resultSaved,
+      resultSaveMessage,
     };
 
     localStorage.setItem(
@@ -316,127 +329,269 @@ const [resultSaveMessage, setResultSaveMessage] = useState("");
   }, [
     currentGuess,
     dailyGame,
+    evaluatedGuesses,
     gameStatus,
-    guesses,
     hydrated,
     message,
+    resultSaved,
+    resultSaveMessage,
   ]);
-
-  const evaluatedGuesses = useMemo(() => {
-    if (!answer) {
-      return [];
-    }
-
-    return guesses.map((guess) => evaluateGuess(guess, answer));
-  }, [answer, guesses]);
 
   const keyboardStatuses = useMemo(() => {
     const statusMap: Record<string, LetterStatus> = {};
 
-    evaluatedGuesses.flat().forEach(({ letter, status }) => {
-      const oldStatus = statusMap[letter];
+    evaluatedGuesses.forEach((evaluatedGuess) => {
+      evaluatedGuess.evaluation.forEach(
+        ({ letter, status }) => {
+          const oldStatus = statusMap[letter];
 
-      if (status === "correct") {
-        statusMap[letter] = "correct";
-        return;
-      }
+          if (status === "correct") {
+            statusMap[letter] = "correct";
+            return;
+          }
 
-      if (status === "present" && oldStatus !== "correct") {
-        statusMap[letter] = "present";
-        return;
-      }
+          if (
+            status === "present" &&
+            oldStatus !== "correct"
+          ) {
+            statusMap[letter] = "present";
+            return;
+          }
 
-      if (!oldStatus) {
-        statusMap[letter] = "absent";
-      }
+          if (!oldStatus) {
+            statusMap[letter] = "absent";
+          }
+        },
+      );
     });
 
     return statusMap;
   }, [evaluatedGuesses]);
 
-  const score = calculateScore(
-    guesses.length,
-    gameStatus === "won",
+  /*
+   * Tamamlanan oyunu veritabanına kaydeder.
+   */
+  const saveGameResult = useCallback(
+    async (
+      completedGuesses: string[],
+      status: "won" | "lost",
+    ) => {
+      if (resultSaved) {
+        return;
+      }
+
+      try {
+        setResultSaveMessage("Sonuç kaydediliyor...");
+
+        const response = await fetch("/api/wordle/result", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            guesses: completedGuesses,
+          }),
+        });
+
+        const result =
+          (await response.json()) as SaveResultResponse;
+
+        if (response.status === 401) {
+          setResultSaveMessage(
+            "Puanını kaydetmek için giriş yapmalısın.",
+          );
+          return;
+        }
+
+        if (!response.ok || !result.ok) {
+          throw new Error(
+            result.error ?? "Oyun sonucu kaydedilemedi.",
+          );
+        }
+
+        setResultSaved(true);
+
+        if (result.alreadyRecorded) {
+          setResultSaveMessage(
+            "Bugünkü sonucun daha önce kaydedilmiş.",
+          );
+          return;
+        }
+
+        setResultSaveMessage(
+          status === "won"
+            ? `${result.score ?? 0} puan hesabına eklendi. 🔥`
+            : "Oyun sonucun kaydedildi.",
+        );
+      } catch (error) {
+        console.error("Sonuç kaydetme hatası:", error);
+
+        setResultSaveMessage(
+          error instanceof Error
+            ? error.message
+            : "Sonuç kaydedilirken hata oluştu.",
+        );
+      }
+    },
+    [resultSaved],
   );
 
-  const submitGuess = useCallback(() => {
-    if (!dailyGame || gameStatus !== "playing") {
+  /*
+   * Tahmini sunucuya gönderir.
+   * Harf renkleri ve kazanma bilgisi sunucudan gelir.
+   */
+  const submitGuess = useCallback(async () => {
+    if (
+      !dailyGame ||
+      gameStatus !== "playing" ||
+      submitting
+    ) {
       return;
     }
 
-    if (currentGuess.length !== dailyGame.answer.length) {
+    if (currentGuess.length !== dailyGame.letterCount) {
       setMessage(
-        `😏 Footy: ${dailyGame.answer.length} harf lazım. Saymayı tekrar mı çalışsak?`,
+        `😏 Footy: ${dailyGame.letterCount} harf lazım. Saymayı tekrar mı çalışsak?`,
       );
       return;
     }
 
-    const nextGuesses = [...guesses, currentGuess];
-    setGuesses(nextGuesses);
+    try {
+      setSubmitting(true);
+      setMessage("👀 Footy: Tahminin kontrol ediliyor...");
 
-    void saveGameResult(nextGuesses, "won");
-    if (currentGuess === dailyGame.answer) {
-      setGameStatus("won");
+      const response = await fetch("/api/wordle/guess", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          guess: currentGuess,
+        }),
+      });
 
-      if (nextGuesses.length === 1) {
-        setMessage(
-          "🤯 Footy: İlk tahminde mi? Tamam, buna saygı duydum.",
-        );
-      } else if (nextGuesses.length <= 3) {
-        setMessage(
-          "😎 Footy: Fena değilsin. Çok da havaya girme.",
-        );
-      } else {
-        setMessage(
-          "😏 Footy: Son anda kurtardın. Yine de sayıyorum.",
+      const result = (await response.json()) as GuessResponse;
+
+      if (
+        !response.ok ||
+        !result.ok ||
+        !result.guess ||
+        !Array.isArray(result.evaluation)
+      ) {
+        throw new Error(
+          result.error ?? "Tahmin kontrol edilemedi.",
         );
       }
 
+      const evaluatedGuess: EvaluatedGuess = {
+        guess: result.guess,
+        evaluation: result.evaluation,
+      };
+
+      const nextEvaluatedGuesses = [
+        ...evaluatedGuesses,
+        evaluatedGuess,
+      ];
+
+      const nextGuesses = nextEvaluatedGuesses.map(
+        (item) => item.guess,
+      );
+
+      setEvaluatedGuesses(nextEvaluatedGuesses);
       setCurrentGuess("");
-      return;
+
+      if (result.won) {
+        setGameStatus("won");
+
+        if (nextEvaluatedGuesses.length === 1) {
+          setMessage(
+            "🤯 Footy: İlk tahminde mi? Tamam, buna saygı duydum.",
+          );
+        } else if (nextEvaluatedGuesses.length <= 3) {
+          setMessage(
+            "😎 Footy: Fena değilsin. Çok da havaya girme.",
+          );
+        } else {
+          setMessage(
+            "😏 Footy: Son anda kurtardın. Yine de sayıyorum.",
+          );
+        }
+
+        void saveGameResult(nextGuesses, "won");
+        return;
+      }
+
+      if (
+        nextEvaluatedGuesses.length >=
+        dailyGame.maxAttempts
+      ) {
+        setGameStatus("lost");
+
+        setMessage(
+          "😂 Footy: Bugün olmadı. Kol bozuk deme, yarın yeniden denersin.",
+        );
+
+        void saveGameResult(nextGuesses, "lost");
+        return;
+      }
+
+      const remainingAttempts =
+        dailyGame.maxAttempts -
+        nextEvaluatedGuesses.length;
+
+      setMessage(
+        `👀 Footy: Olmadı. ${remainingAttempts} hakkın kaldı, toparlan.`,
+      );
+    } catch (error) {
+      console.error("Tahmin gönderme hatası:", error);
+
+      setMessage(
+        error instanceof Error
+          ? `⚠️ Footy: ${error.message}`
+          : "⚠️ Footy: Tahmin kontrol edilirken hata oluştu.",
+      );
+    } finally {
+      setSubmitting(false);
     }
-
- if (nextGuesses.length >= MAX_ATTEMPTS) {
-  setGameStatus("lost");
-
-  setMessage(
-    `😂 Footy: Cevap ${dailyGame.answer} idi. Kol bozuk deme.`,
-  );
-
-  void saveGameResult(nextGuesses, "lost");
-  setCurrentGuess("");
-  return;
-}
-
-    const remainingAttempts =
-      MAX_ATTEMPTS - nextGuesses.length;
-
-    setMessage(
-      `👀 Footy: Olmadı. ${remainingAttempts} hakkın kaldı, toparlan.`,
-    );
-
-    setCurrentGuess("");
-  }, [currentGuess, dailyGame, gameStatus, guesses]);
+  }, [
+    currentGuess,
+    dailyGame,
+    evaluatedGuesses,
+    gameStatus,
+    saveGameResult,
+    submitting,
+  ]);
 
   const handleKey = useCallback(
     (key: string) => {
-      if (!dailyGame || gameStatus !== "playing") {
+      if (
+        !dailyGame ||
+        gameStatus !== "playing" ||
+        submitting
+      ) {
         return;
       }
 
       if (key === "ENTER") {
-        submitGuess();
+        void submitGuess();
         return;
       }
 
-      if (key === "DELETE" || key === "BACKSPACE") {
-        setCurrentGuess((previous) => previous.slice(0, -1));
+      if (
+        key === "DELETE" ||
+        key === "BACKSPACE"
+      ) {
+        setCurrentGuess((previous) =>
+          previous.slice(0, -1),
+        );
         return;
       }
 
       if (/^[A-Z]$/.test(key)) {
         setCurrentGuess((previous) => {
-          if (previous.length >= dailyGame.answer.length) {
+          if (
+            previous.length >= dailyGame.letterCount
+          ) {
             return previous;
           }
 
@@ -444,12 +599,19 @@ const [resultSaveMessage, setResultSaveMessage] = useState("");
         });
       }
     },
-    [dailyGame, gameStatus, submitGuess],
+    [
+      dailyGame,
+      gameStatus,
+      submitGuess,
+      submitting,
+    ],
   );
 
   useEffect(() => {
-    function handlePhysicalKeyboard(event: KeyboardEvent) {
-      const key = event.key.toUpperCase();
+    function handlePhysicalKeyboard(
+      event: KeyboardEvent,
+    ) {
+      const key = normalizeKeyboardLetter(event.key);
 
       if (key === "ENTER") {
         event.preventDefault();
@@ -468,7 +630,10 @@ const [resultSaveMessage, setResultSaveMessage] = useState("");
       }
     }
 
-    window.addEventListener("keydown", handlePhysicalKeyboard);
+    window.addEventListener(
+      "keydown",
+      handlePhysicalKeyboard,
+    );
 
     return () => {
       window.removeEventListener(
@@ -485,16 +650,20 @@ const [resultSaveMessage, setResultSaveMessage] = useState("");
 
     const resultRows = evaluatedGuesses
       .map((row) =>
-        row.map(({ status }) => getShareSymbol(status)).join(""),
+        row.evaluation
+          .map(({ status }) =>
+            getShareSymbol(status),
+          )
+          .join(""),
       )
       .join("\n");
 
     const resultText = [
-      `FootBattle Wordle`,
+      "FootBattle Wordle",
       dailyGame.dateKey,
       gameStatus === "won"
-        ? `${guesses.length}/${MAX_ATTEMPTS} — ${score} puan`
-        : `X/${MAX_ATTEMPTS} — 0 puan`,
+        ? `${evaluatedGuesses.length}/${dailyGame.maxAttempts} — ${score} puan`
+        : `X/${dailyGame.maxAttempts} — 0 puan`,
       "",
       resultRows,
       "",
@@ -503,7 +672,10 @@ const [resultSaveMessage, setResultSaveMessage] = useState("");
 
     try {
       await navigator.clipboard.writeText(resultText);
-      setShareMessage("Sonuç panoya kopyalandı! ✅");
+
+      setShareMessage(
+        "Sonuç panoya kopyalandı! ✅",
+      );
     } catch {
       setShareMessage(
         "Sonuç kopyalanamadı. Tarayıcı iznini kontrol et.",
@@ -516,33 +688,65 @@ const [resultSaveMessage, setResultSaveMessage] = useState("");
   }
 
   /*
-   * Bu buton yalnız geliştirme ve test aşamasında kullanılacak.
-   * Canlı sürümden önce kaldıracağız.
+   * Sadece geliştirme/test aşamasında kullanılacak.
+   * Veritabanındaki puan kaydını silmez.
    */
   function resetGameForTesting() {
     if (!dailyGame) {
       return;
     }
 
-    localStorage.removeItem(getStorageKey(dailyGame.dateKey));
+    localStorage.removeItem(
+      getStorageKey(dailyGame.dateKey),
+    );
 
     setCurrentGuess("");
-    setGuesses([]);
+    setEvaluatedGuesses([]);
     setGameStatus("playing");
+
     setMessage(
       "😏 Footy: Test için sıfırladın. Bu kez bahane yok.",
     );
+
     setShareMessage("");
+    setResultSaved(false);
+    setResultSaveMessage("");
   }
 
-  if (!dailyGame || !hydrated) {
+  if (!hydrated) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#07111f] text-white">
         <div className="text-center">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-green-500" />
+
           <p className="mt-4 text-sm text-slate-400">
             Günün oyunu hazırlanıyor...
           </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (loadingError || !dailyGame) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#07111f] px-4 text-white">
+        <div className="w-full max-w-md rounded-3xl border border-red-500/20 bg-red-500/10 p-7 text-center">
+          <p className="text-xl font-black">
+            Oyun yüklenemedi
+          </p>
+
+          <p className="mt-3 text-sm text-red-200">
+            {loadingError ||
+              "Bugünün oyunu henüz hazırlanmadı."}
+          </p>
+
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-5 rounded-xl bg-white px-5 py-3 font-black text-[#07111f]"
+          >
+            Tekrar Dene
+          </button>
         </div>
       </main>
     );
@@ -561,13 +765,15 @@ const [resultSaveMessage, setResultSaveMessage] = useState("");
 
           <div className="text-center">
             <p className="font-black">FootBattle</p>
+
             <p className="text-xs text-slate-500">
               Günün Wordle&apos;ı
             </p>
           </div>
 
           <div className="rounded-xl border border-white/10 px-4 py-2 text-sm">
-            {guesses.length}/{MAX_ATTEMPTS}
+            {evaluatedGuesses.length}/
+            {dailyGame.maxAttempts}
           </div>
         </header>
 
@@ -582,64 +788,68 @@ const [resultSaveMessage, setResultSaveMessage] = useState("");
             </h1>
 
             <p className="mt-2 text-sm text-slate-400 sm:text-base">
-              Bugünün futbolcu soyadını 5 tahminde bul.
+              Bugünün futbolcu soyadını{" "}
+              {dailyGame.maxAttempts} tahminde bul.
             </p>
 
             <p className="mt-2 text-xs text-slate-600">
-              Soyadı {answer.length} harften oluşuyor.
+              Soyadı {dailyGame.letterCount} harften oluşuyor.
             </p>
           </div>
 
           <div className="mt-8 space-y-2.5">
-            {Array.from({ length: MAX_ATTEMPTS }).map(
-              (_, rowIndex) => {
-                const submittedGuess =
-                  evaluatedGuesses[rowIndex];
+            {Array.from({
+              length: dailyGame.maxAttempts,
+            }).map((_, rowIndex) => {
+              const submittedGuess =
+                evaluatedGuesses[rowIndex];
 
-                const activeRow =
-                  rowIndex === guesses.length &&
-                  gameStatus === "playing";
+              const activeRow =
+                rowIndex === evaluatedGuesses.length &&
+                gameStatus === "playing";
 
-                return (
-                  <div
-                    key={rowIndex}
-                    className="flex justify-center gap-1.5 sm:gap-2"
-                  >
-                    {Array.from({ length: answer.length }).map(
-                      (_, letterIndex) => {
-                        const evaluatedLetter =
-                          submittedGuess?.[letterIndex];
+              return (
+                <div
+                  key={rowIndex}
+                  className="flex justify-center gap-1.5 sm:gap-2"
+                >
+                  {Array.from({
+                    length: dailyGame.letterCount,
+                  }).map((_, letterIndex) => {
+                    const evaluatedLetter =
+                      submittedGuess?.evaluation[
+                        letterIndex
+                      ];
 
-                        const activeLetter = activeRow
-                          ? currentGuess[letterIndex] ?? ""
-                          : "";
+                    const activeLetter = activeRow
+                      ? currentGuess[letterIndex] ?? ""
+                      : "";
 
-                        const displayedLetter =
-                          evaluatedLetter?.letter ?? activeLetter;
+                    const displayedLetter =
+                      evaluatedLetter?.letter ??
+                      activeLetter;
 
-                        const status =
-                          evaluatedLetter?.status ?? "empty";
+                    const status: LetterStatus =
+                      evaluatedLetter?.status ?? "empty";
 
-                        return (
-                          <div
-                            key={letterIndex}
-                            className={`flex h-11 w-10 items-center justify-center rounded-lg border text-lg font-black transition-all duration-300 sm:h-14 sm:w-12 sm:rounded-xl sm:text-xl ${getTileClasses(
-                              status,
-                            )} ${
-                              activeLetter
-                                ? "scale-105 border-green-400/50"
-                                : ""
-                            }`}
-                          >
-                            {displayedLetter}
-                          </div>
-                        );
-                      },
-                    )}
-                  </div>
-                );
-              },
-            )}
+                    return (
+                      <div
+                        key={letterIndex}
+                        className={`flex h-11 w-10 items-center justify-center rounded-lg border text-lg font-black transition-all duration-300 sm:h-14 sm:w-12 sm:rounded-xl sm:text-xl ${getTileClasses(
+                          status,
+                        )} ${
+                          activeLetter
+                            ? "scale-105 border-green-400/50"
+                            : ""
+                        }`}
+                      >
+                        {displayedLetter}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
 
           <div className="mt-7 rounded-2xl border border-white/10 bg-black/20 p-4 text-center">
@@ -649,35 +859,43 @@ const [resultSaveMessage, setResultSaveMessage] = useState("");
           </div>
 
           <div className="mt-6 space-y-2">
-            {KEYBOARD_ROWS.map((row, rowIndex) => (
-              <div
-                key={rowIndex}
-                className="flex justify-center gap-1 sm:gap-1.5"
-              >
-                {row.map((key) => {
-                  const isSpecialKey =
-                    key === "ENTER" || key === "DELETE";
+            {KEYBOARD_ROWS.map(
+              (row, rowIndex) => (
+                <div
+                  key={rowIndex}
+                  className="flex justify-center gap-1 sm:gap-1.5"
+                >
+                  {row.map((key) => {
+                    const isSpecialKey =
+                      key === "ENTER" ||
+                      key === "DELETE";
 
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => handleKey(key)}
-                      disabled={gameStatus !== "playing"}
-                      className={`flex h-11 items-center justify-center rounded-lg border text-xs font-black transition sm:h-12 sm:text-sm ${
-                        isSpecialKey
-                          ? "min-w-[58px] px-2 sm:min-w-[76px]"
-                          : "w-8 sm:w-10"
-                      } ${getKeyboardClasses(
-                        keyboardStatuses[key],
-                      )} disabled:cursor-not-allowed disabled:opacity-60`}
-                    >
-                      {key === "DELETE" ? "⌫" : key}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => handleKey(key)}
+                        disabled={
+                          gameStatus !== "playing" ||
+                          submitting
+                        }
+                        className={`flex h-11 items-center justify-center rounded-lg border text-xs font-black transition sm:h-12 sm:text-sm ${
+                          isSpecialKey
+                            ? "min-w-[58px] px-2 sm:min-w-[76px]"
+                            : "w-8 sm:w-10"
+                        } ${getKeyboardClasses(
+                          keyboardStatuses[key],
+                        )} disabled:cursor-not-allowed disabled:opacity-60`}
+                      >
+                        {key === "DELETE"
+                          ? "⌫"
+                          : key}
+                      </button>
+                    );
+                  })}
+                </div>
+              ),
+            )}
           </div>
 
           {gameStatus !== "playing" && (
@@ -690,13 +908,30 @@ const [resultSaveMessage, setResultSaveMessage] = useState("");
 
               <p className="mt-2 text-sm text-slate-400">
                 {gameStatus === "won"
-                  ? `${guesses.length} tahminde bildin.`
-                  : `Doğru cevap: ${answer}`}
+                  ? `${evaluatedGuesses.length} tahminde bildin.`
+                  : "Yarın yeni oyuncuyla tekrar dene."}
               </p>
 
               <p className="mt-3 text-3xl font-black text-green-400">
                 {score} puan
               </p>
+
+              {resultSaveMessage && (
+                <p
+                  className={`mt-3 text-sm font-semibold ${
+                    resultSaveMessage.includes(
+                      "hata",
+                    ) ||
+                    resultSaveMessage.includes(
+                      "giriş",
+                    )
+                      ? "text-amber-300"
+                      : "text-green-400"
+                  }`}
+                >
+                  {resultSaveMessage}
+                </p>
+              )}
 
               <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
                 <button
@@ -726,24 +961,30 @@ const [resultSaveMessage, setResultSaveMessage] = useState("");
           <div className="mt-6 grid grid-cols-3 gap-2 text-center text-xs">
             <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-3">
               <div className="mx-auto mb-2 h-4 w-4 rounded bg-green-500" />
-              <p className="text-slate-400">Doğru yer</p>
+              <p className="text-slate-400">
+                Doğru yer
+              </p>
             </div>
 
             <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 p-3">
               <div className="mx-auto mb-2 h-4 w-4 rounded bg-amber-400" />
-              <p className="text-slate-400">Yanlış yer</p>
+              <p className="text-slate-400">
+                Yanlış yer
+              </p>
             </div>
 
             <div className="rounded-xl border border-slate-600/30 bg-slate-700/20 p-3">
               <div className="mx-auto mb-2 h-4 w-4 rounded bg-slate-700" />
-              <p className="text-slate-400">Yok</p>
+              <p className="text-slate-400">
+                Yok
+              </p>
             </div>
           </div>
 
           <button
             type="button"
             onClick={resetGameForTesting}
-            className="mx-auto mt-5 block text-xs text-slate-700 transition hover:text-red-400"
+            className="mx-auto mt-5 block rounded-lg border border-red-400/20 px-4 py-2 text-xs font-semibold text-red-300 transition hover:bg-red-500/10"
           >
             Test için bugünkü oyunu sıfırla
           </button>
