@@ -1,5 +1,7 @@
-
 import Link from "next/link";
+
+import AuthButton from "@/components/AuthButton";
+import HomeStats from "@/components/HomeStats";
 
 const games = [
   {
@@ -13,7 +15,8 @@ const games = [
   },
   {
     title: "Guess the Player",
-    description: "Milliyet, yaş ve pozisyon ipuçlarından futbolcuyu bul.",
+    description:
+      "Milliyet, yaş ve pozisyon ipuçlarından futbolcuyu bul.",
     icon: "?",
     color: "from-purple-500/30 to-purple-950/30",
     button: "Yakında",
@@ -22,7 +25,8 @@ const games = [
   },
   {
     title: "Career Path",
-    description: "Kulüp geçmişinden gizli futbolcuyu tahmin et.",
+    description:
+      "Kulüp geçmişinden gizli futbolcuyu tahmin et.",
     icon: "↗",
     color: "from-amber-500/30 to-amber-950/30",
     button: "Yakında",
@@ -31,7 +35,8 @@ const games = [
   },
   {
     title: "Tic Tac Toe",
-    description: "Kulüp kesişimlerini doldur ve rakibine üçlü yap.",
+    description:
+      "Kulüp kesişimlerini doldur ve rakibine üçlü yap.",
     icon: "×",
     color: "from-blue-500/30 to-blue-950/30",
     button: "Yakında",
@@ -47,11 +52,14 @@ export default function Home() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-green-300/30 bg-gradient-to-br from-green-300 to-green-600 font-black text-[#07111f] shadow-lg shadow-green-500/20">
-  FB
-</div>
+              FB
+            </div>
 
             <div>
-              <p className="text-lg font-black tracking-tight">FootBattle</p>
+              <p className="text-lg font-black tracking-tight">
+                FootBattle
+              </p>
+
               <p className="text-xs text-slate-400">
                 Futbol oyunları arenası
               </p>
@@ -70,18 +78,22 @@ export default function Home() {
               Oyunlar
             </a>
 
-            <a className="transition hover:text-white" href="#">
+            <a
+              className="transition hover:text-white"
+              href="#"
+            >
               Düellolar
             </a>
 
-            <a className="transition hover:text-white" href="#">
+            <a
+              className="transition hover:text-white"
+              href="#"
+            >
               Liderlik
             </a>
           </nav>
 
-          <button className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold transition hover:border-green-400 hover:text-green-400">
-            Giriş Yap
-          </button>
+          <AuthButton />
         </div>
       </header>
 
@@ -102,7 +114,8 @@ export default function Home() {
             </h1>
 
             <p className="mt-6 max-w-xl text-base leading-7 text-slate-400 sm:text-lg">
-              Hazırsan başlayalım... ama kaybedersen kol bozuk demek yok.
+              Hazırsan başlayalım... ama kaybedersen kol bozuk
+              demek yok.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -132,14 +145,16 @@ export default function Home() {
               </div>
 
               <div className="my-8 flex justify-center gap-2">
-                {["F", "O", "O", "T", "Y"].map((letter, index) => (
-                  <div
-                    key={`${letter}-${index}`}
-                    className="flex h-12 w-12 items-center justify-center rounded-xl border border-green-500/30 bg-[#0c1929] text-xl font-black"
-                  >
-                    {letter}
-                  </div>
-                ))}
+                {["F", "O", "O", "T", "Y"].map(
+                  (letter, index) => (
+                    <div
+                      key={`${letter}-${index}`}
+                      className="flex h-12 w-12 items-center justify-center rounded-xl border border-green-500/30 bg-[#0c1929] text-xl font-black"
+                    >
+                      {letter}
+                    </div>
+                  ),
+                )}
               </div>
 
               <p className="text-center text-sm text-slate-400">
@@ -147,34 +162,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="mt-4 grid grid-cols-3 gap-3 text-center">
-              <div className="rounded-xl bg-white/[0.04] p-3">
-                <p className="text-xl font-black text-green-400">
-                  1
-                </p>
-                <p className="text-xs text-slate-500">
-                  Günlük oyun
-                </p>
-              </div>
-
-              <div className="rounded-xl bg-white/[0.04] p-3">
-                <p className="text-xl font-black">
-                  250
-                </p>
-                <p className="text-xs text-slate-500">
-                  Maks. puan
-                </p>
-              </div>
-
-              <div className="rounded-xl bg-white/[0.04] p-3">
-                <p className="text-xl font-black text-amber-400">
-                  🔥 0
-                </p>
-                <p className="text-xs text-slate-500">
-                  Günlük seri
-                </p>
-              </div>
-            </div>
+            <HomeStats />
           </div>
         </div>
       </section>
@@ -226,6 +214,7 @@ export default function Home() {
                 </Link>
               ) : (
                 <button
+                  type="button"
                   disabled
                   className="mt-6 w-full cursor-not-allowed rounded-xl bg-white/10 px-4 py-3 text-sm font-black text-slate-500"
                 >

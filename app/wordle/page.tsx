@@ -194,8 +194,70 @@ export default function WordlePage() {
     useState<GameStatus>("playing");
   const [hydrated, setHydrated] = useState(false);
   const [shareMessage, setShareMessage] = useState("");
+  const [resultSaved, setResultSaved] = useState(false);
+const [resultSaveMessage, setResultSaveMessage] = useState("");
 
   const answer = dailyGame?.answer ?? "";
+  async function saveGameResult(
+  completedGuesses: string[],
+  status: "won" | "lost",
+) {
+  if (resultSaved) {
+    return;
+  }
+
+  try {
+    setResultSaveMessage("Sonuç kaydediliyor...");
+
+    const response = await fetch("/api/wordle/result", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        guesses: completedGuesses,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (response.status === 401) {
+      setResultSaveMessage(
+        "Puanını kaydetmek için giriş yapmalısın.",
+      );
+      return;
+    }
+
+    if (!response.ok || !result.ok) {
+      throw new Error(
+        result.error ?? "Oyun sonucu kaydedilemedi.",
+      );
+    }
+
+    setResultSaved(true);
+
+    if (result.alreadyRecorded) {
+      setResultSaveMessage(
+        "Bugünkü sonucun daha önce kaydedilmiş.",
+      );
+      return;
+    }
+
+    setResultSaveMessage(
+      status === "won"
+        ? `${result.score} puan hesabına eklendi. 🔥`
+        : "Oyun sonucun kaydedildi.",
+    );
+  } catch (error) {
+    console.error("Sonuç kaydetme hatası:", error);
+
+    setResultSaveMessage(
+      error instanceof Error
+        ? error.message
+        : "Sonuç kaydedilirken hata oluştu.",
+    );
+  }
+}
 
   /*
    * Sayfa ilk açıldığında günün cevabı belirlenir ve daha önce
@@ -312,6 +374,7 @@ export default function WordlePage() {
     const nextGuesses = [...guesses, currentGuess];
     setGuesses(nextGuesses);
 
+    void saveGameResult(nextGuesses, "won");
     if (currentGuess === dailyGame.answer) {
       setGameStatus("won");
 
@@ -333,14 +396,17 @@ export default function WordlePage() {
       return;
     }
 
-    if (nextGuesses.length >= MAX_ATTEMPTS) {
-      setGameStatus("lost");
-      setMessage(
-        `😂 Footy: Cevap ${dailyGame.answer} idi. Kol bozuk deme.`,
-      );
-      setCurrentGuess("");
-      return;
-    }
+ if (nextGuesses.length >= MAX_ATTEMPTS) {
+  setGameStatus("lost");
+
+  setMessage(
+    `😂 Footy: Cevap ${dailyGame.answer} idi. Kol bozuk deme.`,
+  );
+
+  void saveGameResult(nextGuesses, "lost");
+  setCurrentGuess("");
+  return;
+}
 
     const remainingAttempts =
       MAX_ATTEMPTS - nextGuesses.length;
