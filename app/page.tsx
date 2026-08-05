@@ -14,19 +14,29 @@ const games = [
     href: "/wordle",
   },
   {
-  title: "Guess the Player",
-  description:
-    "Oyuncu özelliklerini karşılaştır ve gizli futbolcuyu bul.",
-  icon: "?",
-  color: "from-purple-500/30 to-purple-950/30",
-  button: "Oyna",
-  active: true,
-  href: "/guess-the-player",
-},
+    title: "Guess the Player",
+    description:
+      "Oyuncu özelliklerini karşılaştır ve gizli futbolcuyu bul.",
+    icon: "?",
+    color: "from-purple-500/30 to-purple-950/30",
+    button: "Oyna",
+    active: true,
+    href: "/guess-the-player",
+  },
+  {
+    title: "Player Quiz",
+    description:
+      "Futbolcunun doğum yılını, uyruğunu, kupasını ve kariyer kulüplerini tamamla.",
+    icon: "Q",
+    color: "from-yellow-500/30 to-yellow-950/30",
+    button: "Oyna",
+    active: true,
+    href: "/player-quiz",
+  },
   {
     title: "Career Path",
     description:
-      "Kulüp geçmişinden gizli futbolcuyu tahmin et.",
+      "Futbolcuyu tanı ve kariyerindeki takımları doğru sırayla bul.",
     icon: "↗",
     color: "from-amber-500/30 to-amber-950/30",
     button: "Yakında",
@@ -126,7 +136,10 @@ export default function Home() {
                 Günün Wordle&apos;ını Oyna
               </Link>
 
-              <button className="rounded-xl border border-white/15 px-6 py-4 font-semibold text-slate-200 transition hover:border-white/30 hover:bg-white/5">
+              <button
+                type="button"
+                className="rounded-xl border border-white/15 px-6 py-4 font-semibold text-slate-200 transition hover:border-white/30 hover:bg-white/5"
+              >
                 Nasıl Oynanır?
               </button>
             </div>
@@ -187,11 +200,11 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {games.map((game) => (
             <article
               key={game.title}
-              className={`group rounded-2xl border border-white/10 bg-gradient-to-br ${game.color} p-5 transition hover:-translate-y-1 hover:border-white/20`}
+              className={`group flex flex-col rounded-2xl border border-white/10 bg-gradient-to-br ${game.color} p-5 transition hover:-translate-y-1 hover:border-white/20`}
             >
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-black/20 text-xl font-black">
                 {game.icon}
@@ -201,7 +214,7 @@ export default function Home() {
                 {game.title}
               </h3>
 
-              <p className="mt-2 min-h-16 text-sm leading-6 text-slate-400">
+              <p className="mt-2 min-h-16 flex-1 text-sm leading-6 text-slate-400">
                 {game.description}
               </p>
 
