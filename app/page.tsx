@@ -14,15 +14,15 @@ const games = [
     href: "/wordle",
   },
   {
-    title: "Guess the Player",
-    description:
-      "Milliyet, yaş ve pozisyon ipuçlarından futbolcuyu bul.",
-    icon: "?",
-    color: "from-purple-500/30 to-purple-950/30",
-    button: "Yakında",
-    active: false,
-    href: "#",
-  },
+  title: "Guess the Player",
+  description:
+    "Oyuncu özelliklerini karşılaştır ve gizli futbolcuyu bul.",
+  icon: "?",
+  color: "from-purple-500/30 to-purple-950/30",
+  button: "Oyna",
+  active: true,
+  href: "/guess-the-player",
+},
   {
     title: "Career Path",
     description:
