@@ -33,16 +33,16 @@ const games = [
     active: true,
     href: "/player-quiz",
   },
-  {
-    title: "Career Path",
-    description:
-      "Futbolcuyu tanı ve kariyerindeki takımları doğru sırayla bul.",
-    icon: "↗",
-    color: "from-amber-500/30 to-amber-950/30",
-    button: "Yakında",
-    active: false,
-    href: "#",
-  },
+{
+  title: "Career Path",
+  description:
+    "Futbolcunun kariyerindeki kulüpleri bul ve doğru sıraya yerleştir.",
+  icon: "↗",
+  color: "from-amber-500/30 to-amber-950/30",
+  button: "Oyna",
+  active: true,
+  href: "/career-path",
+},
   {
     title: "Tic Tac Toe",
     description:
