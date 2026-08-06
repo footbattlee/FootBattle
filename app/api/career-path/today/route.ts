@@ -1,27 +1,28 @@
 import { NextResponse } from "next/server";
 
+import { getActiveGameDateKey } from "@/lib/game-day";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const MAX_WRONG_GUESSES = 5;
 const MINIMUM_SEARCH_LENGTH = 3;
 
-function getTurkeyDateKey() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Istanbul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-
 export async function GET() {
   try {
-    const playDate = getTurkeyDateKey();
+    /*
+     * İstanbul saatine göre:
+     * 00.00–01.59 → önceki günün oyunu
+     * 02.00 sonrası → bugünün oyunu
+     */
+    const playDate = getActiveGameDateKey();
 
     const { data: dailyGame, error: dailyGameError } =
       await supabaseAdmin
         .from("daily_career_path")
-        .select("play_date, player_id")
+        .select(`
+          play_date,
+          player_id,
+          is_published
+        `)
         .eq("play_date", playDate)
         .eq("is_published", true)
         .maybeSingle();
@@ -35,7 +36,7 @@ export async function GET() {
       return NextResponse.json(
         {
           ok: false,
-          error: "Bugünün Career Path oyunu kontrol edilemedi.",
+          error: "Aktif Career Path oyunu kontrol edilemedi.",
         },
         { status: 500 },
       );
@@ -45,7 +46,8 @@ export async function GET() {
       return NextResponse.json(
         {
           ok: false,
-          error: "Bugünün Career Path oyunu henüz hazırlanmadı.",
+          error: "Aktif Career Path oyunu henüz yayınlanmadı.",
+          dateKey: playDate,
         },
         { status: 404 },
       );
@@ -72,7 +74,7 @@ export async function GET() {
       return NextResponse.json(
         {
           ok: false,
-          error: "Günün oyuncusu okunamadı.",
+          error: "Career Path oyuncusu okunamadı.",
         },
         { status: 500 },
       );
@@ -82,7 +84,7 @@ export async function GET() {
       return NextResponse.json(
         {
           ok: false,
-          error: "Günün oyuncusu bulunamadı.",
+          error: "Career Path oyuncusu bulunamadı.",
         },
         { status: 404 },
       );
@@ -127,7 +129,7 @@ export async function GET() {
       dateKey: dailyGame.play_date,
 
       player: {
-        id: player.player_id,
+        id: Number(player.player_id),
         fullName: player.name,
         imageUrl: player.image_url ?? null,
       },

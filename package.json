@@ -11,8 +11,12 @@
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.0",
+    "clsx": "^2.1.1",
+    "csv-parse": "^7.0.2",
+    "date-fns": "^4.4.0",
+    "dotenv": "^17.4.2",
     "html-to-image": "^1.11.13",
-    "lucide-react": "^1.28.0",
+    "lucide-react": "^1.29.0",
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -25,6 +29,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
     "tailwindcss": "^4",
+    "tsx": "^4.23.9",
     "typescript": "^5"
   }
 }

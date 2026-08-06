@@ -1,45 +1,38 @@
 import { NextResponse } from "next/server";
 
+import { getActiveGameDateKey } from "@/lib/game-day";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const MAX_LIVES = 5;
 const GUESS_TIME_SECONDS = 20;
 const MINIMUM_SEARCH_LENGTH = 3;
 
-function getTurkeyDateKey() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Istanbul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-
 export async function GET() {
   try {
-    const playDate = getTurkeyDateKey();
+    const playDate = getActiveGameDateKey();
 
-    /*
-     * Bugünün yayınlanmış Player Quiz oyuncusunu bul.
-     */
-    const { data: dailyGame, error: dailyGameError } =
+    const { data: dailyGame, error: dailyError } =
       await supabaseAdmin
         .from("daily_player_quiz")
-        .select("play_date, player_id")
+        .select(`
+          play_date,
+          player_id,
+          is_published
+        `)
         .eq("play_date", playDate)
         .eq("is_published", true)
         .maybeSingle();
 
-    if (dailyGameError) {
+    if (dailyError) {
       console.error(
         "Player Quiz günlük oyun sorgusu başarısız:",
-        dailyGameError,
+        dailyError,
       );
 
       return NextResponse.json(
         {
           ok: false,
-          error: "Günün Player Quiz oyunu kontrol edilemedi.",
+          error: "Player Quiz okunamadı.",
         },
         { status: 500 },
       );
@@ -49,123 +42,164 @@ export async function GET() {
       return NextResponse.json(
         {
           ok: false,
-          error: "Bugünün Player Quiz oyunu henüz hazırlanmadı.",
+          error: "Aktif Player Quiz oyunu henüz yayınlanmadı.",
+          dateKey: playDate,
         },
         { status: 404 },
       );
     }
 
-    /*
-     * Oyuncunun yalnızca kullanıcıya açık bilgilerini getir.
-     */
-    const { data: player, error: playerError } =
-      await supabaseAdmin
+    const playerId = Number(dailyGame.player_id);
+
+    const [
+      playerResult,
+      detailResult,
+      clubsResult,
+      trophiesResult,
+    ] = await Promise.all([
+      supabaseAdmin
         .from("guess_players")
         .select(`
           player_id,
           name,
-          image_url
+          image_url,
+          nationality
         `)
-        .eq("player_id", dailyGame.player_id)
+        .eq("player_id", playerId)
         .eq("is_playable", 1)
-        .maybeSingle();
+        .maybeSingle(),
 
-    if (playerError) {
+      supabaseAdmin
+        .from("player_quiz_details")
+        .select("birth_year")
+        .eq("player_id", playerId)
+        .maybeSingle(),
+
+      supabaseAdmin
+        .from("player_quiz_clubs")
+        .select("id, club_name, career_order")
+        .eq("player_id", playerId)
+        .order("career_order", {
+          ascending: true,
+        }),
+
+      supabaseAdmin
+        .from("player_quiz_trophies")
+        .select("id, trophy_name")
+        .eq("player_id", playerId),
+    ]);
+
+    if (playerResult.error) {
       console.error(
         "Player Quiz oyuncusu okunamadı:",
-        playerError,
+        playerResult.error,
       );
 
       return NextResponse.json(
         {
           ok: false,
-          error: "Günün oyuncusu okunamadı.",
+          error: "Oyuncu bilgisi okunamadı.",
         },
         { status: 500 },
       );
     }
 
-    if (!player) {
+    if (!playerResult.data) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Günün oyuncusu bulunamadı.",
+          error: "Oyuncu bulunamadı.",
         },
         { status: 404 },
       );
     }
 
-    /*
-     * Ekranda kaç kulüp kutusu gösterileceğini hesapla.
-     * Kulüp isimleri tarayıcıya gönderilmez.
-     */
-    const { count: clubCount, error: clubCountError } =
-      await supabaseAdmin
-        .from("player_quiz_clubs")
-        .select("id", {
-          count: "exact",
-          head: true,
-        })
-        .eq("player_id", dailyGame.player_id);
-
-    if (clubCountError) {
+    if (detailResult.error) {
       console.error(
-        "Player Quiz kulüp sayısı okunamadı:",
-        clubCountError,
+        "Player Quiz doğum yılı okunamadı:",
+        detailResult.error,
       );
 
       return NextResponse.json(
         {
           ok: false,
-          error: "Oyuncunun kariyer bilgileri okunamadı.",
+          error: "Oyuncunun doğum yılı okunamadı.",
         },
         { status: 500 },
       );
     }
 
-    /*
-     * Oyuncunun Player Quiz detay kaydı mevcut mu kontrol et.
-     * Doğum yılını dışarı göndermiyoruz.
-     */
-    const { data: quizDetails, error: detailsError } =
-      await supabaseAdmin
-        .from("player_quiz_details")
-        .select("player_id")
-        .eq("player_id", dailyGame.player_id)
-        .maybeSingle();
-
-    if (detailsError) {
+    if (clubsResult.error) {
       console.error(
-        "Player Quiz detay kaydı okunamadı:",
-        detailsError,
+        "Player Quiz kulüpleri okunamadı:",
+        clubsResult.error,
       );
 
       return NextResponse.json(
         {
           ok: false,
-          error: "Oyuncunun quiz bilgileri okunamadı.",
+          error: "Oyuncunun kulüpleri okunamadı.",
         },
         { status: 500 },
       );
     }
 
-    if (!quizDetails) {
+    if (trophiesResult.error) {
+      console.error(
+        "Player Quiz kupaları okunamadı:",
+        trophiesResult.error,
+      );
+
       return NextResponse.json(
         {
           ok: false,
-          error: "Oyuncunun Player Quiz detayları hazırlanmamış.",
+          error: "Oyuncunun kupaları okunamadı.",
         },
-        { status: 404 },
+        { status: 500 },
       );
     }
 
-    if (!clubCount || clubCount < 1) {
+    const player = playerResult.data;
+    const clubs = clubsResult.data ?? [];
+    const trophies = trophiesResult.data ?? [];
+
+    if (!detailResult.data?.birth_year) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Oyuncunun doğum yılı hazırlanmamış.",
+        },
+        { status: 422 },
+      );
+    }
+
+    if (!player.nationality?.trim()) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Oyuncunun milliyeti hazırlanmamış.",
+        },
+        { status: 422 },
+      );
+    }
+
+    if (clubs.length < 1) {
       return NextResponse.json(
         {
           ok: false,
           error: "Oyuncunun kariyer kulüpleri hazırlanmamış.",
         },
-        { status: 404 },
+        { status: 422 },
+      );
+    }
+
+    if (trophies.length < 1) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Oyuncunun kupa bilgileri hazırlanmamış.",
+        },
+        { status: 422 },
       );
     }
 
@@ -174,7 +208,7 @@ export async function GET() {
       dateKey: dailyGame.play_date,
 
       player: {
-        id: player.player_id,
+        id: Number(player.player_id),
         fullName: player.name,
         imageUrl: player.image_url ?? null,
       },
@@ -187,8 +221,12 @@ export async function GET() {
         birthYearSlots: 1,
         nationalitySlots: 1,
         trophySlots: 1,
-        clubSlots: clubCount,
-        totalSlots: clubCount + 3,
+        clubSlots: clubs.length,
+        totalSlots: clubs.length + 3,
+      },
+
+      scoring: {
+        completionScore: 500,
       },
     });
   } catch (error) {
