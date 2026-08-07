@@ -1,254 +1,689 @@
-import Link from "next/link";
+"use client";
 
-import AuthButton from "@/components/AuthButton";
-import HomeStats from "@/components/HomeStats";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+import LeaderboardCard from "../components/LeaderboardCard";
+import { createClient } from "../lib/supabase/client";
+
+type Profile = {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  total_score: number;
+  current_streak: number;
+  best_streak: number;
+  games_played: number;
+  games_won: number;
+};
+
+type HomeUser = {
+  id: string;
+  email?: string;
+};
 
 const games = [
   {
     title: "Wordle",
-    description: "Günün futbolcu soyadını 5 tahminde bul.",
-    icon: "W",
-    color: "from-green-500/30 to-green-950/30",
-    button: "Oyna",
-    active: true,
+    description:
+      "Günün futbolcusunun soyadını 5 tahminde bul.",
     href: "/wordle",
+    tag: "GÜNLÜK",
   },
   {
     title: "Guess the Player",
     description:
-      "Oyuncu özelliklerini karşılaştır ve gizli futbolcuyu bul.",
-    icon: "?",
-    color: "from-purple-500/30 to-purple-950/30",
-    button: "Oyna",
-    active: true,
+      "İpuçlarını takip et, gizli futbolcuyu tahmin et.",
     href: "/guess-the-player",
+    tag: "GÜNLÜK",
   },
   {
     title: "Player Quiz",
     description:
-      "Futbolcunun doğum yılını, uyruğunu, kupasını ve kariyer kulüplerini tamamla.",
-    icon: "Q",
-    color: "from-yellow-500/30 to-yellow-950/30",
-    button: "Oyna",
-    active: true,
+      "Kulüp, kupa, ülke ve doğum yılı bilgilerini bul.",
     href: "/player-quiz",
+    tag: "GÜNLÜK",
   },
-{
-  title: "Career Path",
-  description:
-    "Futbolcunun kariyerindeki kulüpleri bul ve doğru sıraya yerleştir.",
-  icon: "↗",
-  color: "from-amber-500/30 to-amber-950/30",
-  button: "Oyna",
-  active: true,
-  href: "/career-path",
-},
   {
-    title: "Tic Tac Toe",
+    title: "Career Path",
     description:
-      "Kulüp kesişimlerini doldur ve rakibine üçlü yap.",
-    icon: "×",
-    color: "from-blue-500/30 to-blue-950/30",
-    button: "Yakında",
-    active: false,
-    href: "#",
+      "Oyuncunun kariyerinde forma giydiği kulüpleri bul.",
+    href: "/career-path",
+    tag: "GÜNLÜK",
   },
 ];
 
-export default function Home() {
+const builders = [
+  {
+    title: "Takım Kadro Oluşturucu",
+    description:
+      "Takımını seç, ilk 11'i düzenle, transfer ekle ve paylaş.",
+    href: "/takim-kadro",
+    button: "Kadronu Kur",
+    icon: "⚽",
+  },
+  {
+    title: "Halısaha Kadro Oluşturucu",
+    description:
+      "Arkadaşlarını sahaya diz, kadronu oluştur ve paylaş.",
+    href: "/halisaha-kadro",
+    button: "Halısaha Kadrosu Kur",
+    icon: "👟",
+  },
+];
+
+export default function HomePage() {
+  const [user, setUser] =
+    useState<HomeUser | null>(null);
+
+  const [profile, setProfile] =
+    useState<Profile | null>(null);
+
+  const [loadingUser, setLoadingUser] =
+    useState(true);
+
+  useEffect(() => {
+    async function loadUser() {
+      try {
+        const supabase = createClient();
+
+        const {
+          data: { user: authUser },
+        } = await supabase.auth.getUser();
+
+        if (!authUser) {
+          setUser(null);
+          setProfile(null);
+          return;
+        }
+
+        setUser({
+          id: authUser.id,
+          email: authUser.email,
+        });
+
+        const { data: profileData } =
+          await supabase
+            .from("profiles")
+            .select(`
+              id,
+              username,
+              display_name,
+              avatar_url,
+              total_score,
+              current_streak,
+              best_streak,
+              games_played,
+              games_won
+            `)
+            .eq("id", authUser.id)
+            .maybeSingle();
+
+        if (profileData) {
+          setProfile(
+            profileData as Profile,
+          );
+        }
+      } finally {
+        setLoadingUser(false);
+      }
+    }
+
+    loadUser();
+  }, []);
+
+  async function handleLogout() {
+    const supabase =
+      createClient();
+
+    await supabase.auth.signOut();
+
+    window.location.href = "/";
+  }
+
+  function scrollToSection(
+    id: string,
+  ) {
+    const element =
+      document.getElementById(id);
+
+    if (!element) {
+      return;
+    }
+
+    element.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
   return (
     <main className="min-h-screen bg-[#07111f] text-white">
-      <header className="border-b border-white/10 bg-[#07111f]/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-green-300/30 bg-gradient-to-br from-green-300 to-green-600 font-black text-[#07111f] shadow-lg shadow-green-500/20">
+
+      {/* HEADER */}
+
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#07111f]/95 backdrop-blur-xl">
+
+        <div className="mx-auto flex h-[72px] max-w-[1180px] items-center justify-between px-5 lg:px-6">
+
+          <Link
+            href="/"
+            className="flex items-center gap-3"
+          >
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-500 text-base font-black text-[#07111f] shadow-lg shadow-green-500/20">
               FB
             </div>
 
             <div>
-              <p className="text-lg font-black tracking-tight">
+              <p className="text-lg font-black leading-none">
                 FootBattle
               </p>
 
-              <p className="text-xs text-slate-400">
+              <p className="mt-1 text-xs text-slate-500">
                 Futbol oyunları arenası
               </p>
             </div>
-          </div>
+          </Link>
 
-          <nav className="hidden items-center gap-7 text-sm text-slate-300 md:flex">
-            <a className="text-green-400" href="#">
+          <nav className="hidden items-center gap-6 text-sm font-bold text-slate-400 xl:flex">
+
+            <button
+              type="button"
+              onClick={() =>
+                scrollToSection("anasayfa")
+              }
+              className="text-green-400 transition hover:text-green-300"
+            >
               Ana Sayfa
-            </a>
+            </button>
 
-            <a
+            <button
+              type="button"
+              onClick={() =>
+                scrollToSection("oyunlar")
+              }
               className="transition hover:text-white"
-              href="#oyunlar"
             >
               Oyunlar
-            </a>
+            </button>
 
-            <a
+            <button
+              type="button"
+              onClick={() =>
+                scrollToSection("duellolar")
+              }
               className="transition hover:text-white"
-              href="#"
             >
               Düellolar
-            </a>
+            </button>
 
-            <a
+            <Link
+              href="/takim-kadro"
               className="transition hover:text-white"
-              href="#"
+            >
+              Kadro Kur
+            </Link>
+
+            <Link
+              href="/halisaha-kadro"
+              className="transition hover:text-white"
+            >
+              Halısaha Kadro
+            </Link>
+
+            <button
+              type="button"
+              onClick={() =>
+                scrollToSection("liderlik")
+              }
+              className="transition hover:text-white"
             >
               Liderlik
-            </a>
+            </button>
+
           </nav>
 
-          <AuthButton />
+          <div className="flex items-center gap-2">
+
+            {!loadingUser &&
+              user &&
+              profile && (
+                <>
+                  <Link
+                    href="/profile"
+                    className="rounded-xl border border-green-500/25 bg-green-500/10 px-4 py-2.5 text-sm font-black text-green-400 transition hover:bg-green-500/15"
+                  >
+                    {profile.display_name ||
+                      profile.username ||
+                      "Profil"}
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-black text-slate-300 transition hover:border-white/20 hover:text-white"
+                  >
+                    Çıkış
+                  </button>
+                </>
+              )}
+
+            {!loadingUser &&
+              !user && (
+                <Link
+                  href="/login"
+                  className="rounded-xl bg-green-500 px-4 py-2.5 text-sm font-black text-[#07111f] transition hover:bg-green-400"
+                >
+                  Giriş Yap
+                </Link>
+              )}
+
+          </div>
+
         </div>
+
       </header>
 
-      <section className="relative overflow-hidden">
-        <div className="absolute left-1/2 top-10 h-72 w-72 -translate-x-1/2 rounded-full bg-green-500/10 blur-3xl" />
+      {/* HERO */}
 
-        <div className="relative mx-auto grid max-w-6xl gap-10 px-5 py-16 md:grid-cols-[1.3fr_0.7fr] md:py-24">
+      <section
+        id="anasayfa"
+        className="scroll-mt-24"
+      >
+        <div className="mx-auto grid max-w-[1180px] gap-8 px-5 pb-12 pt-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.75fr)] lg:px-6">
+
           <div className="flex flex-col justify-center">
-            <span className="mb-5 w-fit rounded-full border border-green-500/30 bg-green-500/10 px-4 py-2 text-sm font-semibold text-green-400">
-              Günün oyunu hazır
-            </span>
 
-            <h1 className="max-w-3xl text-4xl font-black leading-tight tracking-tight sm:text-5xl md:text-6xl">
+            <div className="inline-flex w-fit items-center rounded-full border border-green-500/30 bg-green-500/10 px-4 py-2 text-sm font-black text-green-400">
+              Günün oyunu hazır
+            </div>
+
+            <h1 className="mt-6 max-w-[620px] text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl lg:text-[54px]">
+
               Futbol bilgini
-              <span className="block text-green-400">
-                kanıtlamaya hazır mısın?
+
+              <span className="mt-2 block text-green-400">
+                kanıtlamaya hazır
               </span>
+
+              <span className="block text-green-400">
+                mısın?
+              </span>
+
             </h1>
 
-            <p className="mt-6 max-w-xl text-base leading-7 text-slate-400 sm:text-lg">
-              Hazırsan başlayalım... ama kaybedersen kol bozuk
+            <p className="mt-6 max-w-xl text-base leading-7 text-slate-400">
+              Hazırsan başlayalım...
+              ama kaybedersen kol bozuk
               demek yok.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-7 flex flex-wrap gap-3">
+
               <Link
                 href="/wordle"
-                className="animate-pulse-glow rounded-xl bg-green-500 px-6 py-4 text-center font-black text-[#07111f] shadow-lg shadow-green-500/20 transition duration-300 hover:-translate-y-1 hover:scale-[1.02] hover:bg-green-400"
+                className="rounded-xl bg-green-500 px-6 py-3.5 text-sm font-black text-[#07111f] transition hover:-translate-y-0.5 hover:bg-green-400"
               >
                 Günün Wordle&apos;ını Oyna
               </Link>
 
               <button
                 type="button"
-                className="rounded-xl border border-white/15 px-6 py-4 font-semibold text-slate-200 transition hover:border-white/30 hover:bg-white/5"
+                onClick={() =>
+                  scrollToSection("oyunlar")
+                }
+                className="rounded-xl border border-white/15 px-6 py-3.5 text-sm font-black text-slate-200 transition hover:border-white/30 hover:bg-white/[0.04]"
               >
-                Nasıl Oynanır?
+                Oyunları Gör
               </button>
-            </div>
-          </div>
 
-          <div className="animate-float-soft rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/30">
-            <div className="rounded-2xl border border-green-500/20 bg-gradient-to-br from-green-500/20 to-transparent p-6">
-              <div className="flex items-center justify-between">
-                <span className="rounded-lg bg-green-500 px-3 py-1 text-xs font-black text-[#07111f]">
-                  GÜNLÜK
-                </span>
-
-                <span className="text-sm text-slate-400">
-                  5 tahmin
-                </span>
-              </div>
-
-              <div className="my-8 flex justify-center gap-2">
-                {["F", "O", "O", "T", "Y"].map(
-                  (letter, index) => (
-                    <div
-                      key={`${letter}-${index}`}
-                      className="flex h-12 w-12 items-center justify-center rounded-xl border border-green-500/30 bg-[#0c1929] text-xl font-black"
-                    >
-                      {letter}
-                    </div>
-                  ),
-                )}
-              </div>
-
-              <p className="text-center text-sm text-slate-400">
-                Footy seni bekliyor. Çok güveniyorsan başla.
-              </p>
             </div>
 
-            <HomeStats />
+            {profile && (
+              <div className="mt-8 grid max-w-md grid-cols-3 gap-3">
+
+                <HeroStat
+                  value={
+                    profile.games_played
+                  }
+                  label="Oynanan oyun"
+                />
+
+                <HeroStat
+                  value={
+                    profile.total_score
+                  }
+                  label="Toplam puan"
+                />
+
+                <HeroStat
+                  value={`🔥 ${profile.current_streak}`}
+                  label="Günlük seri"
+                />
+
+              </div>
+            )}
+
           </div>
+
+          <div
+            id="liderlik"
+            className="scroll-mt-24 self-start"
+          >
+            <LeaderboardCard />
+          </div>
+
         </div>
       </section>
+
+      {/* OYUNLAR */}
 
       <section
         id="oyunlar"
-        className="mx-auto max-w-6xl px-5 pb-20"
+        className="scroll-mt-24 border-t border-white/5 bg-[#081523]"
       >
-        <div className="mb-7 flex items-end justify-between">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-widest text-green-400">
-              Oyunlar
-            </p>
+        <div className="mx-auto max-w-[1180px] px-5 py-14 lg:px-6">
 
-            <h2 className="mt-2 text-3xl font-black">
-              Arenanı seç
-            </h2>
-          </div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 
-          <p className="hidden text-sm text-slate-500 sm:block">
-            Yeni oyunlar yakında eklenecek.
-          </p>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {games.map((game) => (
-            <article
-              key={game.title}
-              className={`group flex flex-col rounded-2xl border border-white/10 bg-gradient-to-br ${game.color} p-5 transition hover:-translate-y-1 hover:border-white/20`}
-            >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-black/20 text-xl font-black">
-                {game.icon}
-              </div>
-
-              <h3 className="mt-7 text-xl font-black">
-                {game.title}
-              </h3>
-
-              <p className="mt-2 min-h-16 flex-1 text-sm leading-6 text-slate-400">
-                {game.description}
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-green-400">
+                Oyunlar
               </p>
 
-              {game.active ? (
-                <Link
-                  href={game.href}
-                  className="mt-6 block w-full rounded-xl bg-green-500 px-4 py-3 text-center text-sm font-black text-[#07111f] transition hover:bg-green-400"
-                >
-                  {game.button}
-                </Link>
-              ) : (
-                <button
-                  type="button"
-                  disabled
-                  className="mt-6 w-full cursor-not-allowed rounded-xl bg-white/10 px-4 py-3 text-sm font-black text-slate-500"
-                >
-                  {game.button}
-                </button>
-              )}
-            </article>
-          ))}
-        </div>
+              <h2 className="mt-2 text-3xl font-black">
+                Her gün yeni mücadele
+              </h2>
 
-        <div className="mt-10 rounded-2xl border border-dashed border-white/10 p-5 text-center text-sm text-slate-600">
-          Sponsor / reklam alanı ileride burada kullanılacak.
+              <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
+                Dört günlük oyunu
+                tamamla, puanını topla
+                ve leaderboard&apos;da
+                yüksel.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                scrollToSection("liderlik")
+              }
+              className="w-fit rounded-xl border border-white/10 px-4 py-2.5 text-sm font-black text-slate-300 transition hover:border-yellow-400/30 hover:text-yellow-300"
+            >
+              Liderliğe Git →
+            </button>
+
+          </div>
+
+          <div className="mt-7 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+
+            {games.map(
+              (game) => (
+                <GameCard
+                  key={game.href}
+                  {...game}
+                />
+              ),
+            )}
+
+          </div>
+
         </div>
       </section>
 
+      {/* KADRO ARAÇLARI */}
+
+      <section className="border-t border-white/5">
+        <div className="mx-auto max-w-[1180px] px-5 py-14 lg:px-6">
+
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-yellow-400">
+              Kadro Araçları
+            </p>
+
+            <h2 className="mt-2 text-3xl font-black">
+              Sahaya sen karar ver
+            </h2>
+
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+              İster profesyonel takım
+              kadrosunu düzenle, ister
+              halısaha ekibini kur.
+            </p>
+          </div>
+
+          <div className="mt-7 grid gap-4 lg:grid-cols-2">
+
+            {builders.map(
+              (builder) => (
+                <BuilderCard
+                  key={builder.href}
+                  {...builder}
+                />
+              ),
+            )}
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* DUELLOLAR */}
+
+      <section
+        id="duellolar"
+        className="scroll-mt-24 border-t border-white/5 bg-[#081523]"
+      >
+        <div className="mx-auto max-w-[1180px] px-5 py-14 lg:px-6">
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-6 sm:p-7">
+
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+
+              <div>
+
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-red-400">
+                  Düellolar
+                </p>
+
+                <h2 className="mt-2 text-2xl font-black">
+                  Arkadaşına meydan oku
+                </h2>
+
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+                  İki kişilik oyunlar
+                  burada yer alacak.
+                  Rastgele futbolcu ve
+                  takımlarla arkadaşına
+                  karşı mücadele
+                  edebileceksin.
+                </p>
+
+              </div>
+
+              <div className="w-fit rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-4 py-2.5 text-sm font-black text-yellow-300">
+                Yakında
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* LIDERLIK CTA */}
+
+      <section className="border-t border-white/5">
+        <div className="mx-auto max-w-[1180px] px-5 py-12 lg:px-6">
+
+          <div className="flex flex-col gap-4 rounded-2xl border border-yellow-400/15 bg-yellow-400/[0.035] p-6 sm:flex-row sm:items-center sm:justify-between">
+
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-yellow-400">
+                Liderlik
+              </p>
+
+              <h2 className="mt-2 text-xl font-black">
+                Zirvede kim var?
+              </h2>
+
+              <p className="mt-1 text-sm text-slate-400">
+                Genel veya oyun bazlı
+                sıralamayı incele.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                scrollToSection("liderlik")
+              }
+              className="rounded-xl bg-yellow-400 px-5 py-2.5 text-sm font-black text-[#07111f] transition hover:bg-yellow-300"
+            >
+              Leaderboard&apos;u Gör
+            </button>
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* FOOTER */}
+
       <footer className="border-t border-white/10">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-7 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-          <p>© 2026 FootBattle</p>
-          <p>Futbol bilgini konuşma, göster.</p>
+        <div className="mx-auto flex max-w-[1180px] flex-col gap-3 px-5 py-7 text-xs text-slate-600 sm:flex-row sm:items-center sm:justify-between lg:px-6">
+
+          <p>
+            © 2026 FootBattle
+          </p>
+
+          <span>
+            Futbol oyunları arenası
+          </span>
+
         </div>
       </footer>
+
     </main>
+  );
+}
+
+function HeroStat({
+  value,
+  label,
+}: {
+  value: number | string;
+  label: string;
+}) {
+  return (
+    <div className="rounded-xl border border-white/5 bg-white/[0.04] p-3">
+
+      <p className="text-lg font-black text-green-400">
+        {typeof value === "number"
+          ? new Intl.NumberFormat(
+              "tr-TR",
+            ).format(value)
+          : value}
+      </p>
+
+      <p className="mt-1 text-[11px] text-slate-500">
+        {label}
+      </p>
+
+    </div>
+  );
+}
+
+function GameCard({
+  title,
+  description,
+  href,
+  tag,
+}: {
+  title: string;
+  description: string;
+  href: string;
+  tag: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex min-h-[200px] flex-col rounded-2xl border border-white/10 bg-white/[0.035] p-5 transition hover:-translate-y-1 hover:border-green-400/25 hover:bg-white/[0.05]"
+    >
+
+      <div className="flex items-center justify-between gap-3">
+
+        <span className="rounded-lg bg-green-500/10 px-2.5 py-1 text-[10px] font-black text-green-400">
+          {tag}
+        </span>
+
+        <span className="text-base text-slate-700 transition group-hover:text-green-400">
+          ↗
+        </span>
+
+      </div>
+
+      <h3 className="mt-5 text-xl font-black">
+        {title}
+      </h3>
+
+      <p className="mt-2 flex-1 text-sm leading-6 text-slate-400">
+        {description}
+      </p>
+
+      <p className="mt-4 text-sm font-black text-green-400">
+        Oyna →
+      </p>
+
+    </Link>
+  );
+}
+
+function BuilderCard({
+  title,
+  description,
+  href,
+  button,
+  icon,
+}: {
+  title: string;
+  description: string;
+  href: string;
+  button: string;
+  icon: string;
+}) {
+  return (
+    <article className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035] p-6">
+
+      <div className="flex items-start gap-4">
+
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 text-xl">
+          {icon}
+        </div>
+
+        <div className="min-w-0 flex-1">
+
+          <h3 className="text-xl font-black">
+            {title}
+          </h3>
+
+          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
+            {description}
+          </p>
+
+          <Link
+            href={href}
+            className="mt-5 inline-flex rounded-xl bg-yellow-400 px-4 py-2.5 text-sm font-black text-[#07111f] transition hover:bg-yellow-300"
+          >
+            {button}
+          </Link>
+
+        </div>
+
+      </div>
+
+    </article>
   );
 }
