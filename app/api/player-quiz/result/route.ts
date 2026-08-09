@@ -1,35 +1,32 @@
 import { NextResponse } from "next/server";
 
-import { createClient as createAuthClient } from "@/lib/supabase/auth-server";
+import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const COMPLETION_SCORE = 500;
 
-type FinishReason = "won" | "lost";
+type FinishReason =
+  | "won"
+  | "lost";
 
 type ResultRequest = {
+  sessionId?: string;
   finishReason?: FinishReason;
   birthYear?: string | number;
   nationality?: string;
-  trophy?: string;
   solvedClubIds?: number[];
   attemptCount?: number;
 };
 
-type RpcResult = {
-  already_recorded?: boolean;
-  current_streak?: number | null;
-  best_streak?: number | null;
+type RawCareerClub = {
+  id: number;
+  club_name: string;
+  career_order: number | null;
 };
 
-function getTurkeyDateKey() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Istanbul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
+/* =========================================================
+   NORMALIZE TEXT
+========================================================= */
 
 function normalizeText(value: unknown) {
   return String(value ?? "")
@@ -41,338 +38,930 @@ function normalizeText(value: unknown) {
     .replace(/ö/g, "o")
     .replace(/ş/g, "s")
     .replace(/ü/g, "u")
+    .replace(/&/g, " ")
     .replace(/[.\-_/]/g, " ")
-    .replace(/\s+/g, " ");
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-function normalizeRpcResult(value: unknown): RpcResult {
-  if (Array.isArray(value)) {
-    const firstItem = value[0];
+/* =========================================================
+   YOUTH FILTER
+========================================================= */
 
-    return firstItem &&
-      typeof firstItem === "object"
-      ? (firstItem as RpcResult)
-      : {};
+function isYouthClubName(value: unknown) {
+  const clubName =
+    normalizeText(value);
+
+  if (!clubName) {
+    return true;
   }
 
-  return value && typeof value === "object"
-    ? (value as RpcResult)
-    : {};
+  return (
+    /\bu\s?\d{2}\b/.test(clubName) ||
+    /\byth\b/.test(clubName) ||
+    /\byouth\b/.test(clubName) ||
+    /\bacademy\b/.test(clubName) ||
+    /\bakademi\b/.test(clubName) ||
+    /\breserve\b/.test(clubName) ||
+    /\breserves\b/.test(clubName) ||
+    /\bprimavera\b/.test(clubName) ||
+    /\bjuvenil\b/.test(clubName) ||
+    /\bjuniors?\b/.test(clubName)
+  );
 }
 
-export async function POST(request: Request) {
+/* =========================================================
+   CLUB NORMALIZATION
+========================================================= */
+
+function normalizeClubName(value: unknown) {
+  const normalized =
+    normalizeText(value);
+
+  if (!normalized) {
+    return "";
+  }
+
+  const removableWords =
+    new Set([
+      "fc",
+      "afc",
+      "cf",
+      "sc",
+      "sk",
+      "fk",
+      "ac",
+      "jk",
+      "football",
+      "club",
+      "futbol",
+      "futebol",
+      "calcio",
+    ]);
+
+  return normalized
+    .split(" ")
+    .filter(
+      (word) =>
+        word &&
+        !removableWords.has(
+          word,
+        ),
+    )
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/* =========================================================
+   BUILD SENIOR CAREER
+========================================================= */
+
+function buildSeniorCareer(
+  rawClubs: RawCareerClub[],
+) {
+  const seniorClubs =
+    rawClubs.filter(
+      (club) =>
+        !isYouthClubName(
+          club.club_name,
+        ),
+    );
+
+  const sortedClubs =
+    [...seniorClubs].sort(
+      (
+        first,
+        second,
+      ) =>
+        Number(
+          first.career_order ??
+            999999,
+        ) -
+        Number(
+          second.career_order ??
+            999999,
+        ),
+    );
+
+  const uniqueClubMap =
+    new Map<
+      string,
+      {
+        id: number;
+        name: string;
+        originalOrder: number;
+      }
+    >();
+
+  for (
+    const club of
+      sortedClubs
+  ) {
+    const normalized =
+      normalizeClubName(
+        club.club_name,
+      );
+
+    if (!normalized) {
+      continue;
+    }
+
+    if (
+      uniqueClubMap.has(
+        normalized,
+      )
+    ) {
+      continue;
+    }
+
+    uniqueClubMap.set(
+      normalized,
+      {
+        id:
+          Number(
+            club.id,
+          ),
+
+        name:
+          club.club_name,
+
+        originalOrder:
+          Number(
+            club.career_order ??
+              0,
+          ),
+      },
+    );
+  }
+
+  return Array.from(
+    uniqueClubMap.values(),
+  )
+    .sort(
+      (
+        first,
+        second,
+      ) =>
+        first.originalOrder -
+        second.originalOrder,
+    )
+    .map(
+      (
+        club,
+        index,
+      ) => ({
+        id:
+          club.id,
+
+        name:
+          club.name,
+
+        careerOrder:
+          index + 1,
+      }),
+    );
+}
+
+/* =========================================================
+   POST
+========================================================= */
+
+export async function POST(
+  request: Request,
+) {
   try {
-    /*
-     * Giriş yapan kullanıcıyı sunucuda doğrula.
-     */
-    const authClient = await createAuthClient();
+    /* =====================================================
+       1. AUTH
+    ===================================================== */
+
+    const authClient =
+      await createAuthServerClient();
 
     const {
       data: { user },
       error: userError,
-    } = await authClient.auth.getUser();
+    } =
+      await authClient.auth.getUser();
 
-    if (userError || !user) {
+    if (
+      userError ||
+      !user
+    ) {
       return NextResponse.json(
         {
           ok: false,
           error:
             "Sonucu kaydetmek için giriş yapmalısın.",
         },
-        { status: 401 },
+        {
+          status: 401,
+        },
       );
     }
+
+    /* =====================================================
+       2. BODY
+    ===================================================== */
 
     const body =
       (await request.json()) as ResultRequest;
 
+    const sessionId =
+      body.sessionId?.trim();
+
+    if (!sessionId) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Oyun oturumu bulunamadı.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
     if (
-      body.finishReason !== "won" &&
-      body.finishReason !== "lost"
+      body.finishReason !==
+        "won" &&
+      body.finishReason !==
+        "lost"
     ) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Oyun bitiş bilgisi geçersiz.",
-        },
-        { status: 400 },
-      );
-    }
-
-    const playDate = getTurkeyDateKey();
-
-    /*
-     * Bugünün hedef oyuncusunu bul.
-     */
-    const { data: dailyGame, error: dailyGameError } =
-      await supabaseAdmin
-        .from("daily_player_quiz")
-        .select("player_id")
-        .eq("play_date", playDate)
-        .eq("is_published", true)
-        .maybeSingle();
-
-    if (dailyGameError) {
-      console.error(
-        "Player Quiz günlük oyun okunamadı:",
-        dailyGameError,
-      );
-
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Bugünün oyunu kontrol edilemedi.",
-        },
-        { status: 500 },
-      );
-    }
-
-    if (!dailyGame) {
-      return NextResponse.json(
-        {
-          ok: false,
           error:
-            "Bugünün Player Quiz oyunu bulunamadı.",
+            "Oyun bitiş bilgisi geçersiz.",
         },
-        { status: 404 },
-      );
-    }
-
-    const playerId = Number(dailyGame.player_id);
-
-    /*
-     * Doğum yılı
-     */
-    const { data: details, error: detailsError } =
-      await supabaseAdmin
-        .from("player_quiz_details")
-        .select("birth_year")
-        .eq("player_id", playerId)
-        .maybeSingle();
-
-    if (detailsError || !details) {
-      console.error(
-        "Player Quiz detayları okunamadı:",
-        detailsError,
-      );
-
-      return NextResponse.json(
         {
-          ok: false,
-          error:
-            "Oyuncunun quiz detayları okunamadı.",
+          status: 400,
         },
-        { status: 500 },
       );
     }
-
-    /*
-     * Milliyet
-     */
-    const { data: player, error: playerError } =
-      await supabaseAdmin
-        .from("guess_players")
-        .select("nationality")
-        .eq("player_id", playerId)
-        .maybeSingle();
-
-    if (playerError || !player) {
-      console.error(
-        "Player Quiz oyuncusu okunamadı:",
-        playerError,
-      );
-
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Oyuncu bilgileri okunamadı.",
-        },
-        { status: 500 },
-      );
-    }
-
-    /*
-     * Oyuncunun kupaları
-     */
-    const { data: trophies, error: trophiesError } =
-      await supabaseAdmin
-        .from("player_quiz_trophies")
-        .select("id, trophy_name")
-        .eq("player_id", playerId);
-
-    if (trophiesError) {
-      console.error(
-        "Player Quiz kupaları okunamadı:",
-        trophiesError,
-      );
-
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Kupa bilgileri okunamadı.",
-        },
-        { status: 500 },
-      );
-    }
-
-    /*
-     * Oyuncunun kariyer kulüpleri
-     */
-    const { data: clubs, error: clubsError } =
-      await supabaseAdmin
-        .from("player_quiz_clubs")
-        .select("id, club_name, career_order")
-        .eq("player_id", playerId)
-        .order("career_order", {
-          ascending: true,
-        });
-
-    if (clubsError) {
-      console.error(
-        "Player Quiz kulüpleri okunamadı:",
-        clubsError,
-      );
-
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Kulüp bilgileri okunamadı.",
-        },
-        { status: 500 },
-      );
-    }
-
-    const solvedClubIds = Array.isArray(
-      body.solvedClubIds,
-    )
-      ? Array.from(
-          new Set(
-            body.solvedClubIds
-              .map(Number)
-              .filter(
-                (id) =>
-                  Number.isInteger(id) && id > 0,
-              ),
-          ),
-        )
-      : [];
-
-    const targetClubIds = new Set(
-      (clubs ?? []).map((club) => Number(club.id)),
-    );
-
-    const allSubmittedClubsBelongToPlayer =
-      solvedClubIds.every((id) =>
-        targetClubIds.has(id),
-      );
-
-    const allClubsSolved =
-      targetClubIds.size > 0 &&
-      solvedClubIds.length === targetClubIds.size &&
-      allSubmittedClubsBelongToPlayer;
-
-    const birthYearCorrect =
-      Number(body.birthYear) ===
-      Number(details.birth_year);
-
-    const nationalityCorrect =
-      normalizeText(body.nationality) ===
-      normalizeText(player.nationality);
-
-    const trophyCorrect = (trophies ?? []).some(
-      (trophy) =>
-        normalizeText(trophy.trophy_name) ===
-        normalizeText(body.trophy),
-    );
-
-    /*
-     * Kazanma bilgisine istemciden güvenmiyoruz.
-     * Gerçek cevapları sunucuda tekrar doğruluyoruz.
-     */
-    const won =
-      birthYearCorrect &&
-      nationalityCorrect &&
-      trophyCorrect &&
-      allClubsSolved;
-
-    if (body.finishReason === "won" && !won) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Oyun tamamlanmış görünmüyor. Eksik veya geçersiz cevap var.",
-        },
-        { status: 400 },
-      );
-    }
-
-    const score = won ? COMPLETION_SCORE : 0;
 
     const attemptCount =
-      typeof body.attemptCount === "number" &&
-      Number.isInteger(body.attemptCount) &&
-      body.attemptCount >= 0
+      typeof body.attemptCount ===
+        "number" &&
+      Number.isInteger(
+        body.attemptCount,
+      ) &&
+      body.attemptCount >=
+        0
         ? body.attemptCount
         : 0;
 
-    /*
-     * Ortak kayıt fonksiyonumuz:
-     *
-     * game_results
-     * game_stats
-     * profiles
-     *
-     * tablolarını tek işlemde günceller.
-     */
-    const { data: rpcData, error: recordError } =
-      await supabaseAdmin.rpc(
-        "record_game_result",
-        {
-          p_user_id: user.id,
-          p_game_code: "player_quiz",
-          p_play_date: playDate,
-          p_score: score,
-          p_attempt_count: attemptCount,
-          p_won: won,
-          p_duration_seconds: null,
-          p_game_data: {
-            target_player_id: playerId,
-            birth_year: body.birthYear ?? null,
-            nationality: body.nationality ?? null,
-            trophy: body.trophy ?? null,
-            solved_club_ids: solvedClubIds,
-            finish_reason: body.finishReason,
-          },
-        },
-      );
+    const solvedClubIds =
+      Array.isArray(
+        body.solvedClubIds,
+      )
+        ? Array.from(
+            new Set(
+              body.solvedClubIds
+                .map(Number)
+                .filter(
+                  (id) =>
+                    Number.isInteger(
+                      id,
+                    ) &&
+                    id > 0,
+                ),
+            ),
+          )
+        : [];
 
-    if (recordError) {
+    /* =====================================================
+       3. SESSION
+    ===================================================== */
+
+    const {
+      data: session,
+      error: sessionError,
+    } = await supabaseAdmin
+      .from(
+        "player_quiz_sessions",
+      )
+      .select(`
+        id,
+        player_id,
+        max_lives,
+        guess_time_seconds,
+        completed,
+        result_applied,
+        won,
+        score,
+        attempt_count,
+        user_id
+      `)
+      .eq(
+        "id",
+        sessionId,
+      )
+      .maybeSingle();
+
+    if (sessionError) {
       console.error(
-        "Player Quiz sonucu kaydedilemedi:",
-        recordError,
+        "Player Quiz session okunamadı:",
+        sessionError,
       );
 
       return NextResponse.json(
         {
           ok: false,
-          error: "Oyun sonucu kaydedilemedi.",
+          error:
+            "Player Quiz oturumu kontrol edilemedi.",
         },
-        { status: 500 },
+        {
+          status: 500,
+        },
       );
     }
 
-    const result = normalizeRpcResult(rpcData);
+    if (!session) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Player Quiz oyunu bulunamadı.",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    const playerId =
+      Number(
+        session.player_id,
+      );
+
+    /* =====================================================
+       4. GERÇEK CEVAPLARI OKU
+    ===================================================== */
+
+    const [
+      detailResult,
+      playerResult,
+      clubsResult,
+    ] =
+      await Promise.all([
+        supabaseAdmin
+          .from(
+            "player_quiz_details",
+          )
+          .select(
+            "birth_year",
+          )
+          .eq(
+            "player_id",
+            playerId,
+          )
+          .maybeSingle(),
+
+        supabaseAdmin
+          .from(
+            "guess_players",
+          )
+          .select(`
+            player_id,
+            name,
+            image_url,
+            nationality
+          `)
+          .eq(
+            "player_id",
+            playerId,
+          )
+          .maybeSingle(),
+
+        supabaseAdmin
+          .from(
+            "player_quiz_clubs",
+          )
+          .select(`
+            id,
+            club_name,
+            career_order
+          `)
+          .eq(
+            "player_id",
+            playerId,
+          )
+          .not(
+            "club_name",
+            "is",
+            null,
+          )
+          .order(
+            "career_order",
+            {
+              ascending: true,
+            },
+          ),
+      ]);
+
+    if (
+      detailResult.error ||
+      !detailResult.data
+    ) {
+      console.error(
+        "Player Quiz doğum yılı okunamadı:",
+        detailResult.error,
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Oyuncunun doğum yılı okunamadı.",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    if (
+      playerResult.error ||
+      !playerResult.data
+    ) {
+      console.error(
+        "Player Quiz oyuncusu okunamadı:",
+        playerResult.error,
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Oyuncu bilgileri okunamadı.",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    if (
+      clubsResult.error
+    ) {
+      console.error(
+        "Player Quiz kulüpleri okunamadı:",
+        clubsResult.error,
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Kulüp bilgileri okunamadı.",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    const player =
+      playerResult.data;
+
+    const seniorCareer =
+      buildSeniorCareer(
+        clubsResult.data ??
+          [],
+      );
+
+    if (
+      seniorCareer.length ===
+      0
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Oyuncunun A takım kariyeri bulunamadı.",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    /* =====================================================
+       5. BIRTH YEAR VALIDATION
+    ===================================================== */
+
+    const birthYearCorrect =
+      Number(
+        body.birthYear,
+      ) ===
+      Number(
+        detailResult.data
+          .birth_year,
+      );
+
+    /* =====================================================
+       6. NATIONALITY VALIDATION
+    ===================================================== */
+
+    const nationalityCorrect =
+      normalizeText(
+        body.nationality,
+      ) ===
+      normalizeText(
+        player.nationality,
+      );
+
+    /* =====================================================
+       7. CLUB VALIDATION
+    ===================================================== */
+
+    const targetClubIds =
+      new Set(
+        seniorCareer.map(
+          (club) =>
+            club.id,
+        ),
+      );
+
+    const submittedClubsAreValid =
+      solvedClubIds.every(
+        (id) =>
+          targetClubIds.has(
+            id,
+          ),
+      );
+
+    if (
+      !submittedClubsAreValid
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Gönderilen kulüp bilgilerinden biri oyuncunun A takım kariyerine ait değil.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const allClubsSolved =
+      targetClubIds.size >
+        0 &&
+      solvedClubIds.length ===
+        targetClubIds.size;
+
+    /* =====================================================
+       8. REAL RESULT
+
+       TROPHY ARTIK YOK.
+    ===================================================== */
+
+    const won =
+      birthYearCorrect &&
+      nationalityCorrect &&
+      allClubsSolved;
+
+    if (
+      body.finishReason ===
+        "won" &&
+      !won
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Player Quiz tamamlanmış görünmüyor. Eksik veya yanlış cevap var.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const score =
+      won
+        ? COMPLETION_SCORE
+        : 0;
+
+    /* =====================================================
+       9. DOĞRU CEVAPLAR
+
+       Kaybedince frontend gösterebilir.
+    ===================================================== */
+
+    const correctAnswers = {
+      birthYear:
+        Number(
+          detailResult.data
+            .birth_year,
+        ),
+
+      nationality:
+        player.nationality,
+
+      clubs:
+        seniorCareer,
+    };
+
+    /* =====================================================
+       10. ALREADY RECORDED
+    ===================================================== */
+
+    if (
+      session.result_applied
+    ) {
+      return NextResponse.json({
+        ok: true,
+
+        alreadyRecorded:
+          true,
+
+        won:
+          session.won,
+
+        score:
+          session.score ??
+          0,
+
+        attemptCount:
+          session.attempt_count ??
+          attemptCount,
+
+        player: {
+          id:
+            Number(
+              player.player_id,
+            ),
+
+          fullName:
+            player.name,
+
+          imageUrl:
+            player.image_url ??
+            null,
+        },
+
+        correctAnswers,
+      });
+    }
+
+    /* =====================================================
+       11. COMPLETE SESSION
+    ===================================================== */
+
+    const now =
+      new Date().toISOString();
+
+    const {
+      data: completedSession,
+      error: completeError,
+    } = await supabaseAdmin
+      .from(
+        "player_quiz_sessions",
+      )
+      .update({
+        completed:
+          true,
+
+        result_applied:
+          true,
+
+        won,
+
+        score,
+
+        attempt_count:
+          attemptCount,
+
+        user_id:
+          user.id,
+
+        completed_at:
+          now,
+      })
+      .eq(
+        "id",
+        sessionId,
+      )
+      .eq(
+        "result_applied",
+        false,
+      )
+      .select(
+        "id",
+      )
+      .maybeSingle();
+
+    if (
+      completeError
+    ) {
+      console.error(
+        "Player Quiz session tamamlama hatası:",
+        completeError,
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Player Quiz sonucu kaydedilemedi.",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    /* =====================================================
+       12. RACE CONDITION
+    ===================================================== */
+
+    if (!completedSession) {
+      return NextResponse.json({
+        ok: true,
+
+        alreadyRecorded:
+          true,
+
+        won,
+
+        score,
+
+        attemptCount,
+
+        player: {
+          id:
+            Number(
+              player.player_id,
+            ),
+
+          fullName:
+            player.name,
+
+          imageUrl:
+            player.image_url ??
+            null,
+        },
+
+        correctAnswers,
+      });
+    }
+
+    /* =====================================================
+       13. PROFILE
+    ===================================================== */
+
+    const {
+      data: profile,
+      error: profileError,
+    } = await supabaseAdmin
+      .from(
+        "profiles",
+      )
+      .select(`
+        id,
+        total_score,
+        games_played,
+        games_won,
+        current_streak,
+        best_streak
+      `)
+      .eq(
+        "id",
+        user.id,
+      )
+      .maybeSingle();
+
+    if (
+      profileError ||
+      !profile
+    ) {
+      console.error(
+        "Player Quiz profil okunamadı:",
+        profileError,
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Kullanıcı profili okunamadı.",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    const nextTotalScore =
+      (profile.total_score ??
+        0) +
+      score;
+
+    const nextGamesPlayed =
+      (profile.games_played ??
+        0) +
+      1;
+
+    const nextGamesWon =
+      (profile.games_won ??
+        0) +
+      (won ? 1 : 0);
+
+    const {
+      error:
+        profileUpdateError,
+    } = await supabaseAdmin
+      .from(
+        "profiles",
+      )
+      .update({
+        total_score:
+          nextTotalScore,
+
+        games_played:
+          nextGamesPlayed,
+
+        games_won:
+          nextGamesWon,
+      })
+      .eq(
+        "id",
+        user.id,
+      );
+
+    if (
+      profileUpdateError
+    ) {
+      console.error(
+        "Player Quiz profil güncelleme hatası:",
+        profileUpdateError,
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Kullanıcı istatistikleri güncellenemedi.",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    /* =====================================================
+       14. RESPONSE
+    ===================================================== */
 
     return NextResponse.json({
       ok: true,
+
       won,
+
       score,
-      alreadyRecorded: Boolean(
-        result.already_recorded,
-      ),
+
+      attemptCount,
+
+      alreadyRecorded:
+        false,
+
+      player: {
+        id:
+          Number(
+            player.player_id,
+          ),
+
+        fullName:
+          player.name,
+
+        imageUrl:
+          player.image_url ??
+          null,
+      },
+
+      correctAnswers,
+
       currentStreak:
-        result.current_streak ?? null,
-      bestStreak: result.best_streak ?? null,
+        profile.current_streak ??
+        0,
+
+      bestStreak:
+        profile.best_streak ??
+        0,
+
+      totalScore:
+        nextTotalScore,
+
+      gamesPlayed:
+        nextGamesPlayed,
+
+      gamesWon:
+        nextGamesWon,
     });
   } catch (error) {
     console.error(
@@ -383,9 +972,15 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: false,
-        error: "Beklenmeyen bir hata oluştu.",
+
+        error:
+          error instanceof Error
+            ? error.message
+            : "Beklenmeyen bir hata oluştu.",
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }

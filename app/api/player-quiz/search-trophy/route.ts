@@ -21,17 +21,24 @@ function normalizeSearchText(value: string) {
 
 export async function GET(request: Request) {
   try {
-    const requestUrl = new URL(request.url);
+    const requestUrl =
+      new URL(request.url);
+
     const rawQuery =
       requestUrl.searchParams.get("q") ?? "";
 
-    const query = normalizeSearchText(rawQuery);
+    const query =
+      normalizeSearchText(rawQuery);
 
-    if (query.length < MINIMUM_SEARCH_LENGTH) {
+    if (
+      query.length <
+      MINIMUM_SEARCH_LENGTH
+    ) {
       return NextResponse.json({
         ok: true,
         trophies: [],
-        minimumSearchLength: MINIMUM_SEARCH_LENGTH,
+        minimumSearchLength:
+          MINIMUM_SEARCH_LENGTH,
       });
     }
 
@@ -39,12 +46,32 @@ export async function GET(request: Request) {
       .replace(/%/g, "")
       .replace(/_/g, "");
 
-    const { data, error } = await supabaseAdmin
-      .from("player_quiz_trophies")
-      .select("trophy_name")
-      .not("trophy_name", "is", null)
-      .ilike("trophy_name", `${safeQuery}%`)
-      .limit(100);
+    /*
+     * Herhangi bir yerden eşleşme:
+     *
+     * "league" ->
+     * Champions League
+     * Premier League
+     * Europa League
+     *
+     * gibi sonuçları bulabilir.
+     */
+    const { data, error } =
+      await supabaseAdmin
+        .from(
+          "player_quiz_trophies",
+        )
+        .select("trophy_name")
+        .not(
+          "trophy_name",
+          "is",
+          null,
+        )
+        .ilike(
+          "trophy_name",
+          `%${safeQuery}%`,
+        )
+        .limit(300);
 
     if (error) {
       console.error(
@@ -55,30 +82,46 @@ export async function GET(request: Request) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Kupalar aranırken bir hata oluştu.",
+          error:
+            "Kupalar aranırken bir hata oluştu.",
         },
         { status: 500 },
       );
     }
 
+    /*
+     * Aynı kupa binlerce oyuncuda
+     * bulunduğu için tekrarları kaldır.
+     */
     const trophies = Array.from(
       new Set(
         (data ?? [])
-          .map((row) => row.trophy_name)
+          .map((row) =>
+            row.trophy_name?.trim(),
+          )
           .filter(
-            (trophy): trophy is string =>
-              typeof trophy === "string" &&
-              trophy.trim().length > 0,
+            (
+              trophy,
+            ): trophy is string =>
+              typeof trophy ===
+                "string" &&
+              trophy.length > 0,
           ),
       ),
     )
-      .sort((a, b) => a.localeCompare(b, "tr"))
-      .slice(0, MAXIMUM_RESULTS);
+      .sort((a, b) =>
+        a.localeCompare(b, "tr"),
+      )
+      .slice(
+        0,
+        MAXIMUM_RESULTS,
+      );
 
     return NextResponse.json({
       ok: true,
       trophies,
-      minimumSearchLength: MINIMUM_SEARCH_LENGTH,
+      minimumSearchLength:
+        MINIMUM_SEARCH_LENGTH,
     });
   } catch (error) {
     console.error(
@@ -89,7 +132,8 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         ok: false,
-        error: "Beklenmeyen bir hata oluştu.",
+        error:
+          "Beklenmeyen bir hata oluştu.",
       },
       { status: 500 },
     );

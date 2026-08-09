@@ -1,44 +1,69 @@
-import { createClient as createAuthClient } from "@/lib/supabase/auth-server";
+import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export async function requireAdmin() {
-  const authClient = await createAuthClient();
+  const authClient =
+    await createAuthServerClient();
 
   const {
     data: { user },
     error: userError,
-  } = await authClient.auth.getUser();
+  } =
+    await authClient.auth.getUser();
 
-  if (userError || !user) {
+  if (
+    userError ||
+    !user
+  ) {
     return {
       ok: false as const,
       status: 401,
-      error: "Bu işlem için giriş yapmalısın.",
+      error: "Giriş yapmalısın.",
       user: null,
+      profile: null,
     };
   }
 
-  const { data, error } = await supabaseAdmin.rpc("is_app_admin", {
-    p_user_id: user.id,
-  });
+  const {
+    data: profile,
+    error: profileError,
+  } = await supabaseAdmin
+    .from("profiles")
+    .select(`
+      id,
+      username,
+      display_name,
+      is_admin
+    `)
+    .eq("id", user.id)
+    .maybeSingle();
 
-  if (error) {
-    console.error("Admin kontrolü başarısız:", error);
+  if (profileError) {
+    console.error(
+      "Admin profile sorgu hatası:",
+      profileError,
+    );
 
     return {
       ok: false as const,
       status: 500,
-      error: "Admin yetkisi kontrol edilemedi.",
+      error: "Admin bilgisi kontrol edilemedi.",
       user,
+      profile: null,
     };
   }
 
-  if (!data) {
+  if (
+    !profile ||
+    profile.is_admin !== true
+  ) {
     return {
       ok: false as const,
       status: 403,
-      error: "Bu sayfaya erişim yetkin yok.",
+      error: "Bu işlem için admin yetkisi gerekiyor.",
       user,
+      profile:
+        profile ?? null,
     };
   }
 
@@ -47,5 +72,6 @@ export async function requireAdmin() {
     status: 200,
     error: null,
     user,
+    profile,
   };
 }

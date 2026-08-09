@@ -13,128 +13,230 @@ const DEFAULT_MAX_ATTEMPTS = 5;
 const KEYBOARD_ROWS = [
   ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
   ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
-  ["ENTER", "Z", "X", "C", "V", "B", "N", "M", "DELETE"],
+  [
+    "ENTER",
+    "Z",
+    "X",
+    "C",
+    "V",
+    "B",
+    "N",
+    "M",
+    "DELETE",
+  ],
 ];
 
-type LetterStatus = "correct" | "present" | "absent" | "empty";
-type GameStatus = "playing" | "won" | "lost";
+/* =========================================================
+   TYPES
+========================================================= */
+
+type LetterStatus =
+  | "correct"
+  | "present"
+  | "absent"
+  | "empty";
+
+type GameStatus =
+  | "playing"
+  | "won"
+  | "lost";
 
 type EvaluatedLetter = {
   letter: string;
-  status: Exclude<LetterStatus, "empty">;
+
+  status: Exclude<
+    LetterStatus,
+    "empty"
+  >;
 };
 
 type EvaluatedGuess = {
   guess: string;
-  evaluation: EvaluatedLetter[];
+
+  evaluation:
+    EvaluatedLetter[];
 };
 
-type DailyGame = {
-  dateKey: string;
+type WordleGame = {
+  sessionId: string;
+
   letterCount: number;
+
   maxAttempts: number;
 };
 
-type SavedGame = {
-  dateKey: string;
-  letterCount: number;
-  maxAttempts: number;
-  evaluatedGuesses: EvaluatedGuess[];
-  currentGuess: string;
-  gameStatus: GameStatus;
-  message: string;
-  resultSaved: boolean;
-  resultSaveMessage: string;
-};
-
-type TodayResponse = {
+type NewGameResponse = {
   ok?: boolean;
+
   error?: string;
-  dateKey?: string;
+
+  sessionId?: string;
+
   letterCount?: number;
+
   maxAttempts?: number;
 };
 
 type GuessResponse = {
   ok?: boolean;
+
   error?: string;
+
   guess?: string;
+
   evaluation?: EvaluatedLetter[];
+
   won?: boolean;
 };
 
 type SaveResultResponse = {
   ok?: boolean;
+
   error?: string;
+
   won?: boolean;
+
   score?: number;
+
   attemptCount?: number;
+
   alreadyRecorded?: boolean;
-  currentStreak?: number | null;
-  bestStreak?: number | null;
+
+  answerPlayerName?:
+    | string
+    | null;
+
+  currentStreak?:
+    | number
+    | null;
+
+  bestStreak?:
+    | number
+    | null;
+
+  totalScore?: number;
+
+  gamesPlayed?: number;
+
+  gamesWon?: number;
 };
 
-function getStorageKey(dateKey: string) {
-  return `footbattle-wordle-${dateKey}`;
-}
+/* =========================================================
+   SCORE
+========================================================= */
 
-function calculateScore(attemptCount: number, won: boolean) {
+function calculateScore(
+  attemptCount: number,
+  won: boolean,
+) {
   if (!won) {
     return 0;
   }
 
-  const scoreTable = [250, 200, 150, 100, 50];
+  const scoreTable = [
+    250,
+    200,
+    150,
+    100,
+    50,
+  ];
 
-  return scoreTable[attemptCount - 1] ?? 0;
+  return (
+    scoreTable[
+      attemptCount - 1
+    ] ?? 0
+  );
 }
 
-function getTileClasses(status: LetterStatus) {
-  if (status === "correct") {
+/* =========================================================
+   TILE CLASSES
+========================================================= */
+
+function getTileClasses(
+  status: LetterStatus,
+) {
+  if (
+    status === "correct"
+  ) {
     return "border-green-400 bg-green-500 text-[#07111f]";
   }
 
-  if (status === "present") {
+  if (
+    status === "present"
+  ) {
     return "border-amber-400 bg-amber-400 text-[#07111f]";
   }
 
-  if (status === "absent") {
+  if (
+    status === "absent"
+  ) {
     return "border-slate-600 bg-slate-700 text-white";
   }
 
   return "border-white/15 bg-[#0c1929] text-white";
 }
 
-function getKeyboardClasses(status?: LetterStatus) {
-  if (status === "correct") {
+/* =========================================================
+   KEYBOARD CLASSES
+========================================================= */
+
+function getKeyboardClasses(
+  status?: LetterStatus,
+) {
+  if (
+    status === "correct"
+  ) {
     return "border-green-400 bg-green-500 text-[#07111f]";
   }
 
-  if (status === "present") {
+  if (
+    status === "present"
+  ) {
     return "border-amber-400 bg-amber-400 text-[#07111f]";
   }
 
-  if (status === "absent") {
+  if (
+    status === "absent"
+  ) {
     return "border-slate-700 bg-slate-800 text-slate-500";
   }
 
   return "border-white/10 bg-white/10 text-white hover:bg-white/20";
 }
 
-function getShareSymbol(status: LetterStatus) {
-  if (status === "correct") {
+/* =========================================================
+   SHARE SYMBOL
+========================================================= */
+
+function getShareSymbol(
+  status: LetterStatus,
+) {
+  if (
+    status === "correct"
+  ) {
     return "🟩";
   }
 
-  if (status === "present") {
+  if (
+    status === "present"
+  ) {
     return "🟨";
   }
 
   return "⬛";
 }
 
-function normalizeKeyboardLetter(value: string) {
+/* =========================================================
+   NORMALIZE KEYBOARD
+========================================================= */
+
+function normalizeKeyboardLetter(
+  value: string,
+) {
   return value
-    .toLocaleUpperCase("tr-TR")
+    .toLocaleUpperCase(
+      "tr-TR",
+    )
     .replace(/İ/g, "I")
     .replace(/Ç/g, "C")
     .replace(/Ğ/g, "G")
@@ -143,476 +245,843 @@ function normalizeKeyboardLetter(value: string) {
     .replace(/Ü/g, "U");
 }
 
+/* =========================================================
+   PAGE
+========================================================= */
+
 export default function WordlePage() {
-  const [dailyGame, setDailyGame] =
-    useState<DailyGame | null>(null);
+  /* =======================================================
+     GAME
+  ======================================================= */
 
-  const [evaluatedGuesses, setEvaluatedGuesses] = useState<
-    EvaluatedGuess[]
-  >([]);
+  const [
+    game,
+    setGame,
+  ] =
+    useState<WordleGame | null>(
+      null,
+    );
 
-  const [currentGuess, setCurrentGuess] = useState("");
+  const [
+    loadingGame,
+    setLoadingGame,
+  ] =
+    useState(true);
 
-  const [message, setMessage] = useState(
-    "😏 Footy: İlk tahminini görelim bakalım.",
-  );
-
-  const [gameStatus, setGameStatus] =
-    useState<GameStatus>("playing");
-
-  const [hydrated, setHydrated] = useState(false);
-  const [loadingError, setLoadingError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const [shareMessage, setShareMessage] = useState("");
-  const [resultSaved, setResultSaved] = useState(false);
-
-  const [resultSaveMessage, setResultSaveMessage] =
+  const [
+    loadingError,
+    setLoadingError,
+  ] =
     useState("");
 
-  const guesses = useMemo(
-    () => evaluatedGuesses.map((item) => item.guess),
-    [evaluatedGuesses],
-  );
+  /* =======================================================
+     GAME STATE
+  ======================================================= */
 
-  const score = calculateScore(
-    evaluatedGuesses.length,
-    gameStatus === "won",
-  );
+  const [
+    evaluatedGuesses,
+    setEvaluatedGuesses,
+  ] =
+    useState<
+      EvaluatedGuess[]
+    >([]);
+
+  const [
+    currentGuess,
+    setCurrentGuess,
+  ] =
+    useState("");
+
+  const [
+    message,
+    setMessage,
+  ] =
+    useState(
+      "😏 Footy: İlk tahminini görelim bakalım.",
+    );
+
+  const [
+    gameStatus,
+    setGameStatus,
+  ] =
+    useState<GameStatus>(
+      "playing",
+    );
+
+  const [
+    submitting,
+    setSubmitting,
+  ] =
+    useState(false);
+
+  /* =======================================================
+     RESULT
+  ======================================================= */
+
+  const [
+    resultSaved,
+    setResultSaved,
+  ] =
+    useState(false);
+
+  const [
+    resultSaveMessage,
+    setResultSaveMessage,
+  ] =
+    useState("");
+
+  const [
+    answerPlayerName,
+    setAnswerPlayerName,
+  ] =
+    useState<string | null>(
+      null,
+    );
+
+  const [
+    resultLoading,
+    setResultLoading,
+  ] =
+    useState(false);
+
+  const [
+    shareMessage,
+    setShareMessage,
+  ] =
+    useState("");
+
+  /* =======================================================
+     COMPUTED
+  ======================================================= */
+
+  const score =
+    calculateScore(
+      evaluatedGuesses.length,
+      gameStatus ===
+        "won",
+    );
+
+  /* =======================================================
+     RESET LOCAL GAME
+  ======================================================= */
+
+  const resetLocalGame =
+    useCallback(() => {
+      setEvaluatedGuesses(
+        [],
+      );
+
+      setCurrentGuess(
+        "",
+      );
+
+      setGameStatus(
+        "playing",
+      );
+
+      setMessage(
+        "⚽ Footy: Yeni oyuncu hazır. Göster kendini.",
+      );
+
+      setResultSaved(
+        false,
+      );
+
+      setResultSaveMessage(
+        "",
+      );
+
+      setAnswerPlayerName(
+        null,
+      );
+
+      setResultLoading(
+        false,
+      );
+
+      setShareMessage(
+        "",
+      );
+    }, []);
+
+  /* =======================================================
+     START NEW GAME
+  ======================================================= */
+
+  const startNewGame =
+    useCallback(
+      async (
+        initial =
+          false,
+      ) => {
+        try {
+          setLoadingGame(
+            true,
+          );
+
+          setLoadingError(
+            "",
+          );
+
+          if (!initial) {
+            resetLocalGame();
+          }
+
+          const response =
+            await fetch(
+              "/api/wordle/today",
+              {
+                method:
+                  "GET",
+
+                cache:
+                  "no-store",
+              },
+            );
+
+          const result =
+            (await response.json()) as NewGameResponse;
+
+          if (
+            !response.ok ||
+            !result.ok
+          ) {
+            throw new Error(
+              result.error ??
+                "Yeni Wordle oyunu hazırlanamadı.",
+            );
+          }
+
+          if (
+            !result.sessionId ||
+            typeof result.letterCount !==
+              "number"
+          ) {
+            throw new Error(
+              "Wordle oturum bilgileri eksik geldi.",
+            );
+          }
+
+          setGame({
+            sessionId:
+              result.sessionId,
+
+            letterCount:
+              result.letterCount,
+
+            maxAttempts:
+              result.maxAttempts ??
+              DEFAULT_MAX_ATTEMPTS,
+          });
+
+          setEvaluatedGuesses(
+            [],
+          );
+
+          setCurrentGuess(
+            "",
+          );
+
+          setGameStatus(
+            "playing",
+          );
+
+          setMessage(
+            initial
+              ? "😏 Footy: İlk tahminini görelim bakalım."
+              : "⚽ Footy: Yeni oyuncu hazır. Göster kendini.",
+          );
+
+          setResultSaved(
+            false,
+          );
+
+          setResultSaveMessage(
+            "",
+          );
+
+          setAnswerPlayerName(
+            null,
+          );
+
+          setResultLoading(
+            false,
+          );
+
+          setShareMessage(
+            "",
+          );
+        } catch (error) {
+          console.error(
+            "Wordle yükleme hatası:",
+            error,
+          );
+
+          setGame(
+            null,
+          );
+
+          setLoadingError(
+            error instanceof Error
+              ? error.message
+              : "Yeni Wordle oyunu hazırlanamadı.",
+          );
+        } finally {
+          setLoadingGame(
+            false,
+          );
+        }
+      },
+      [
+        resetLocalGame,
+      ],
+    );
+
+  /* =======================================================
+     INITIAL GAME
+  ======================================================= */
 
   useEffect(() => {
-    let cancelled = false;
+    void startNewGame(
+      true,
+    );
+  }, [startNewGame]);
 
-    async function loadDailyGame() {
-      try {
-        setLoadingError("");
+  /* =======================================================
+     KEYBOARD STATUSES
+  ======================================================= */
 
-        const response = await fetch("/api/wordle/today", {
-          method: "GET",
-          cache: "no-store",
-        });
+  const keyboardStatuses =
+    useMemo(() => {
+      const statusMap:
+        Record<
+          string,
+          LetterStatus
+        > = {};
 
-        const result = (await response.json()) as TodayResponse;
+      evaluatedGuesses.forEach(
+        (
+          evaluatedGuess,
+        ) => {
+          evaluatedGuess.evaluation.forEach(
+            ({
+              letter,
+              status,
+            }) => {
+              const oldStatus =
+                statusMap[
+                  letter
+                ];
 
-        if (!response.ok || !result.ok) {
-          throw new Error(
-            result.error ?? "Günün oyunu yüklenemedi.",
+              if (
+                status ===
+                "correct"
+              ) {
+                statusMap[
+                  letter
+                ] =
+                  "correct";
+
+                return;
+              }
+
+              if (
+                status ===
+                  "present" &&
+                oldStatus !==
+                  "correct"
+              ) {
+                statusMap[
+                  letter
+                ] =
+                  "present";
+
+                return;
+              }
+
+              if (!oldStatus) {
+                statusMap[
+                  letter
+                ] =
+                  "absent";
+              }
+            },
           );
+        },
+      );
+
+      return statusMap;
+    }, [
+      evaluatedGuesses,
+    ]);
+
+  /* =======================================================
+     SAVE RESULT
+  ======================================================= */
+
+  const saveGameResult =
+    useCallback(
+      async (
+        completedGuesses:
+          string[],
+
+        status:
+          | "won"
+          | "lost",
+      ) => {
+        if (
+          resultSaved ||
+          !game
+        ) {
+          return;
+        }
+
+        try {
+          setResultLoading(
+            true,
+          );
+
+          setResultSaveMessage(
+            "Sonuç kaydediliyor...",
+          );
+
+          const response =
+            await fetch(
+              "/api/wordle/result",
+              {
+                method:
+                  "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+
+                body:
+                  JSON.stringify({
+                    sessionId:
+                      game.sessionId,
+
+                    guesses:
+                      completedGuesses,
+                  }),
+              },
+            );
+
+          const result =
+            (await response.json()) as SaveResultResponse;
+
+          /* =================================================
+             LOGIN YOK
+          ================================================= */
+
+          if (
+            response.status ===
+            401
+          ) {
+            setResultSaveMessage(
+              "Puanını kaydetmek için giriş yapmalısın.",
+            );
+
+            return;
+          }
+
+          /* =================================================
+             ERROR
+          ================================================= */
+
+          if (
+            !response.ok ||
+            !result.ok
+          ) {
+            throw new Error(
+              result.error ??
+                "Oyun sonucu kaydedilemedi.",
+            );
+          }
+
+          /* =================================================
+             ANSWER PLAYER
+          ================================================= */
+
+          setAnswerPlayerName(
+            result.answerPlayerName ??
+              null,
+          );
+
+          setResultSaved(
+            true,
+          );
+
+          if (
+            result.alreadyRecorded
+          ) {
+            setResultSaveMessage(
+              "Bu oyunun sonucu zaten kaydedilmiş.",
+            );
+
+            return;
+          }
+
+          setResultSaveMessage(
+            status ===
+              "won"
+              ? `${result.score ?? 0} puan hesabına eklendi. 🔥`
+              : "Oyun sonucun kaydedildi.",
+          );
+        } catch (error) {
+          console.error(
+            "Sonuç kaydetme hatası:",
+            error,
+          );
+
+          setResultSaveMessage(
+            error instanceof Error
+              ? error.message
+              : "Sonuç kaydedilirken hata oluştu.",
+          );
+        } finally {
+          setResultLoading(
+            false,
+          );
+        }
+      },
+      [
+        game,
+        resultSaved,
+      ],
+    );
+
+  /* =======================================================
+     SUBMIT GUESS
+  ======================================================= */
+
+  const submitGuess =
+    useCallback(
+      async () => {
+        if (
+          !game ||
+          gameStatus !==
+            "playing" ||
+          submitting
+        ) {
+          return;
         }
 
         if (
-          !result.dateKey ||
-          typeof result.letterCount !== "number"
+          currentGuess.length !==
+          game.letterCount
         ) {
-          throw new Error(
-            "Günün oyunu bilgileri eksik geldi.",
+          setMessage(
+            `😏 Footy: ${game.letterCount} harf lazım. Saymayı tekrar mı çalışsak?`,
           );
-        }
 
-        const game: DailyGame = {
-          dateKey: result.dateKey,
-          letterCount: result.letterCount,
-          maxAttempts:
-            result.maxAttempts ?? DEFAULT_MAX_ATTEMPTS,
-        };
-
-        if (cancelled) {
           return;
         }
 
-        setDailyGame(game);
+        try {
+          setSubmitting(
+            true,
+          );
 
-        const savedValue = localStorage.getItem(
-          getStorageKey(game.dateKey),
-        );
+          setMessage(
+            "👀 Footy: Tahminin kontrol ediliyor...",
+          );
 
-        if (savedValue) {
-          try {
-            const savedGame = JSON.parse(
-              savedValue,
-            ) as SavedGame;
+          const response =
+            await fetch(
+              "/api/wordle/guess",
+              {
+                method:
+                  "POST",
 
-            const storageMatchesGame =
-              savedGame.dateKey === game.dateKey &&
-              savedGame.letterCount === game.letterCount;
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
 
-            if (storageMatchesGame) {
-              setEvaluatedGuesses(
-                savedGame.evaluatedGuesses ?? [],
-              );
+                body:
+                  JSON.stringify({
+                    sessionId:
+                      game.sessionId,
 
-              setCurrentGuess(
-                savedGame.currentGuess ?? "",
-              );
+                    guess:
+                      currentGuess,
+                  }),
+              },
+            );
 
-              setGameStatus(
-                savedGame.gameStatus ?? "playing",
-              );
+          const result =
+            (await response.json()) as GuessResponse;
 
-              setMessage(
-                savedGame.message ??
-                  "😏 Footy: Kaldığın yerden devam et bakalım.",
-              );
-
-              setResultSaved(
-                savedGame.resultSaved ?? false,
-              );
-
-              setResultSaveMessage(
-                savedGame.resultSaveMessage ?? "",
-              );
-            } else {
-              localStorage.removeItem(
-                getStorageKey(game.dateKey),
-              );
-            }
-          } catch {
-            localStorage.removeItem(
-              getStorageKey(game.dateKey),
+          if (
+            !response.ok ||
+            !result.ok ||
+            !result.guess ||
+            !Array.isArray(
+              result.evaluation,
+            )
+          ) {
+            throw new Error(
+              result.error ??
+                "Tahmin kontrol edilemedi.",
             );
           }
+
+          const evaluatedGuess:
+            EvaluatedGuess =
+            {
+              guess:
+                result.guess,
+
+              evaluation:
+                result.evaluation,
+            };
+
+          const nextEvaluatedGuesses =
+            [
+              ...evaluatedGuesses,
+              evaluatedGuess,
+            ];
+
+          const nextGuesses =
+            nextEvaluatedGuesses.map(
+              (
+                item,
+              ) =>
+                item.guess,
+            );
+
+          setEvaluatedGuesses(
+            nextEvaluatedGuesses,
+          );
+
+          setCurrentGuess(
+            "",
+          );
+
+          /* =================================================
+             WON
+          ================================================= */
+
+          if (
+            result.won
+          ) {
+            setGameStatus(
+              "won",
+            );
+
+            if (
+              nextEvaluatedGuesses.length ===
+              1
+            ) {
+              setMessage(
+                "🤯 Footy: İlk tahminde mi? Tamam, buna saygı duydum.",
+              );
+            } else if (
+              nextEvaluatedGuesses.length <=
+              3
+            ) {
+              setMessage(
+                "😎 Footy: Fena değilsin. Çok da havaya girme.",
+              );
+            } else {
+              setMessage(
+                "😏 Footy: Son anda kurtardın. Yine de sayıyorum.",
+              );
+            }
+
+            void saveGameResult(
+              nextGuesses,
+              "won",
+            );
+
+            return;
+          }
+
+          /* =================================================
+             LOST
+          ================================================= */
+
+          if (
+            nextEvaluatedGuesses.length >=
+            game.maxAttempts
+          ) {
+            setGameStatus(
+              "lost",
+            );
+
+            setMessage(
+              "😂 Footy: Bu oyuncu seni ters köşe yaptı. Cevabı aşağıda görelim.",
+            );
+
+            void saveGameResult(
+              nextGuesses,
+              "lost",
+            );
+
+            return;
+          }
+
+          /* =================================================
+             CONTINUE
+          ================================================= */
+
+          const remainingAttempts =
+            game.maxAttempts -
+            nextEvaluatedGuesses.length;
+
+          setMessage(
+            `👀 Footy: Olmadı. ${remainingAttempts} hakkın kaldı, toparlan.`,
+          );
+        } catch (error) {
+          console.error(
+            "Tahmin gönderme hatası:",
+            error,
+          );
+
+          setMessage(
+            error instanceof Error
+              ? `⚠️ Footy: ${error.message}`
+              : "⚠️ Footy: Tahmin kontrol edilirken hata oluştu.",
+          );
+        } finally {
+          setSubmitting(
+            false,
+          );
         }
-
-        setHydrated(true);
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-
-        console.error("Wordle yükleme hatası:", error);
-
-        setLoadingError(
-          error instanceof Error
-            ? error.message
-            : "Günün oyunu yüklenemedi.",
-        );
-
-        setHydrated(true);
-      }
-    }
-
-    void loadDailyGame();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated || !dailyGame) {
-      return;
-    }
-
-    const savedGame: SavedGame = {
-      dateKey: dailyGame.dateKey,
-      letterCount: dailyGame.letterCount,
-      maxAttempts: dailyGame.maxAttempts,
-      evaluatedGuesses,
-      currentGuess,
-      gameStatus,
-      message,
-      resultSaved,
-      resultSaveMessage,
-    };
-
-    localStorage.setItem(
-      getStorageKey(dailyGame.dateKey),
-      JSON.stringify(savedGame),
+      },
+      [
+        currentGuess,
+        evaluatedGuesses,
+        game,
+        gameStatus,
+        saveGameResult,
+        submitting,
+      ],
     );
-  }, [
-    currentGuess,
-    dailyGame,
-    evaluatedGuesses,
-    gameStatus,
-    hydrated,
-    message,
-    resultSaved,
-    resultSaveMessage,
-  ]);
 
-  const keyboardStatuses = useMemo(() => {
-    const statusMap: Record<string, LetterStatus> = {};
+  /* =======================================================
+     HANDLE KEY
+  ======================================================= */
 
-    evaluatedGuesses.forEach((evaluatedGuess) => {
-      evaluatedGuess.evaluation.forEach(
-        ({ letter, status }) => {
-          const oldStatus = statusMap[letter];
-
-          if (status === "correct") {
-            statusMap[letter] = "correct";
-            return;
-          }
-
-          if (
-            status === "present" &&
-            oldStatus !== "correct"
-          ) {
-            statusMap[letter] = "present";
-            return;
-          }
-
-          if (!oldStatus) {
-            statusMap[letter] = "absent";
-          }
-        },
-      );
-    });
-
-    return statusMap;
-  }, [evaluatedGuesses]);
-
-  const saveGameResult = useCallback(
-    async (
-      completedGuesses: string[],
-      status: "won" | "lost",
-    ) => {
-      if (resultSaved) {
-        return;
-      }
-
-      try {
-        setResultSaveMessage("Sonuç kaydediliyor...");
-
-        const response = await fetch("/api/wordle/result", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            guesses: completedGuesses,
-          }),
-        });
-
-        const result =
-          (await response.json()) as SaveResultResponse;
-
-        if (response.status === 401) {
-          setResultSaveMessage(
-            "Puanını kaydetmek için giriş yapmalısın.",
-          );
+  const handleKey =
+    useCallback(
+      (
+        key: string,
+      ) => {
+        if (
+          !game ||
+          gameStatus !==
+            "playing" ||
+          submitting
+        ) {
           return;
         }
 
-        if (!response.ok || !result.ok) {
-          throw new Error(
-            result.error ?? "Oyun sonucu kaydedilemedi.",
-          );
-        }
+        if (
+          key ===
+          "ENTER"
+        ) {
+          void submitGuess();
 
-        setResultSaved(true);
-
-        if (result.alreadyRecorded) {
-          setResultSaveMessage(
-            "Bugünkü sonucun daha önce kaydedilmiş.",
-          );
           return;
         }
 
-        setResultSaveMessage(
-          status === "won"
-            ? `${result.score ?? 0} puan hesabına eklendi. 🔥`
-            : "Oyun sonucun kaydedildi.",
-        );
-      } catch (error) {
-        console.error("Sonuç kaydetme hatası:", error);
-
-        setResultSaveMessage(
-          error instanceof Error
-            ? error.message
-            : "Sonuç kaydedilirken hata oluştu.",
-        );
-      }
-    },
-    [resultSaved],
-  );
-
-  const submitGuess = useCallback(async () => {
-    if (
-      !dailyGame ||
-      gameStatus !== "playing" ||
-      submitting
-    ) {
-      return;
-    }
-
-    if (currentGuess.length !== dailyGame.letterCount) {
-      setMessage(
-        `😏 Footy: ${dailyGame.letterCount} harf lazım. Saymayı tekrar mı çalışsak?`,
-      );
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      setMessage("👀 Footy: Tahminin kontrol ediliyor...");
-
-      const response = await fetch("/api/wordle/guess", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          guess: currentGuess,
-        }),
-      });
-
-      const result = (await response.json()) as GuessResponse;
-
-      if (
-        !response.ok ||
-        !result.ok ||
-        !result.guess ||
-        !Array.isArray(result.evaluation)
-      ) {
-        throw new Error(
-          result.error ?? "Tahmin kontrol edilemedi.",
-        );
-      }
-
-      const evaluatedGuess: EvaluatedGuess = {
-        guess: result.guess,
-        evaluation: result.evaluation,
-      };
-
-      const nextEvaluatedGuesses = [
-        ...evaluatedGuesses,
-        evaluatedGuess,
-      ];
-
-      const nextGuesses = nextEvaluatedGuesses.map(
-        (item) => item.guess,
-      );
-
-      setEvaluatedGuesses(nextEvaluatedGuesses);
-      setCurrentGuess("");
-
-      if (result.won) {
-        setGameStatus("won");
-
-        if (nextEvaluatedGuesses.length === 1) {
-          setMessage(
-            "🤯 Footy: İlk tahminde mi? Tamam, buna saygı duydum.",
+        if (
+          key ===
+            "DELETE" ||
+          key ===
+            "BACKSPACE"
+        ) {
+          setCurrentGuess(
+            (previous) =>
+              previous.slice(
+                0,
+                -1,
+              ),
           );
-        } else if (nextEvaluatedGuesses.length <= 3) {
-          setMessage(
-            "😎 Footy: Fena değilsin. Çok da havaya girme.",
-          );
-        } else {
-          setMessage(
-            "😏 Footy: Son anda kurtardın. Yine de sayıyorum.",
-          );
+
+          return;
         }
 
-        void saveGameResult(nextGuesses, "won");
-        return;
-      }
+        if (
+          /^[A-Z]$/.test(
+            key,
+          )
+        ) {
+          setCurrentGuess(
+            (previous) => {
+              if (
+                previous.length >=
+                game.letterCount
+              ) {
+                return previous;
+              }
 
-      if (
-        nextEvaluatedGuesses.length >=
-        dailyGame.maxAttempts
-      ) {
-        setGameStatus("lost");
+              return (
+                previous +
+                key
+              );
+            },
+          );
+        }
+      },
+      [
+        game,
+        gameStatus,
+        submitGuess,
+        submitting,
+      ],
+    );
 
-        setMessage(
-          "😂 Footy: Bugün olmadı. Kol bozuk deme, yarın yeniden denersin.",
-        );
-
-        void saveGameResult(nextGuesses, "lost");
-        return;
-      }
-
-      const remainingAttempts =
-        dailyGame.maxAttempts -
-        nextEvaluatedGuesses.length;
-
-      setMessage(
-        `👀 Footy: Olmadı. ${remainingAttempts} hakkın kaldı, toparlan.`,
-      );
-    } catch (error) {
-      console.error("Tahmin gönderme hatası:", error);
-
-      setMessage(
-        error instanceof Error
-          ? `⚠️ Footy: ${error.message}`
-          : "⚠️ Footy: Tahmin kontrol edilirken hata oluştu.",
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  }, [
-    currentGuess,
-    dailyGame,
-    evaluatedGuesses,
-    gameStatus,
-    saveGameResult,
-    submitting,
-  ]);
-
-  const handleKey = useCallback(
-    (key: string) => {
-      if (
-        !dailyGame ||
-        gameStatus !== "playing" ||
-        submitting
-      ) {
-        return;
-      }
-
-      if (key === "ENTER") {
-        void submitGuess();
-        return;
-      }
-
-      if (
-        key === "DELETE" ||
-        key === "BACKSPACE"
-      ) {
-        setCurrentGuess((previous) =>
-          previous.slice(0, -1),
-        );
-        return;
-      }
-
-      if (/^[A-Z]$/.test(key)) {
-        setCurrentGuess((previous) => {
-          if (
-            previous.length >= dailyGame.letterCount
-          ) {
-            return previous;
-          }
-
-          return previous + key;
-        });
-      }
-    },
-    [
-      dailyGame,
-      gameStatus,
-      submitGuess,
-      submitting,
-    ],
-  );
+  /* =======================================================
+     PHYSICAL KEYBOARD
+  ======================================================= */
 
   useEffect(() => {
     function handlePhysicalKeyboard(
       event: KeyboardEvent,
     ) {
-      const key = normalizeKeyboardLetter(event.key);
+      const key =
+        normalizeKeyboardLetter(
+          event.key,
+        );
 
-      if (key === "ENTER") {
+      if (
+        key ===
+        "ENTER"
+      ) {
         event.preventDefault();
-        handleKey("ENTER");
+
+        handleKey(
+          "ENTER",
+        );
+
         return;
       }
 
-      if (key === "BACKSPACE") {
+      if (
+        key ===
+        "BACKSPACE"
+      ) {
         event.preventDefault();
-        handleKey("BACKSPACE");
+
+        handleKey(
+          "BACKSPACE",
+        );
+
         return;
       }
 
-      if (/^[A-Z]$/.test(key)) {
-        handleKey(key);
+      if (
+        /^[A-Z]$/.test(
+          key,
+        )
+      ) {
+        handleKey(
+          key,
+        );
       }
     }
 
@@ -627,37 +1096,70 @@ export default function WordlePage() {
         handlePhysicalKeyboard,
       );
     };
-  }, [handleKey]);
+  }, [
+    handleKey,
+  ]);
+
+  /* =======================================================
+     SHARE RESULT
+  ======================================================= */
 
   async function shareResult() {
-    if (!dailyGame || gameStatus === "playing") {
+    if (
+      !game ||
+      gameStatus ===
+        "playing"
+    ) {
       return;
     }
 
-    const resultRows = evaluatedGuesses
-      .map((row) =>
-        row.evaluation
-          .map(({ status }) =>
-            getShareSymbol(status),
-          )
-          .join(""),
-      )
-      .join("\n");
+    const resultRows =
+      evaluatedGuesses
+        .map(
+          (
+            row,
+          ) =>
+            row.evaluation
+              .map(
+                ({
+                  status,
+                }) =>
+                  getShareSymbol(
+                    status,
+                  ),
+              )
+              .join(
+                "",
+              ),
+        )
+        .join(
+          "\n",
+        );
 
-    const resultText = [
-      "FootBattle Wordle",
-      dailyGame.dateKey,
-      gameStatus === "won"
-        ? `${evaluatedGuesses.length}/${dailyGame.maxAttempts} — ${score} puan`
-        : `X/${dailyGame.maxAttempts} — 0 puan`,
-      "",
-      resultRows,
-      "",
-      "Futbol bilgini konuşma, göster.",
-    ].join("\n");
+    const resultText =
+      [
+        "FootBattle Wordle ⚽",
+
+        gameStatus ===
+        "won"
+          ? `${evaluatedGuesses.length}/${game.maxAttempts} — ${score} puan`
+          : `X/${game.maxAttempts} — 0 puan`,
+
+        "",
+
+        resultRows,
+
+        "",
+
+        "Futbol bilgini konuşma, göster.",
+      ].join(
+        "\n",
+      );
 
     try {
-      await navigator.clipboard.writeText(resultText);
+      await navigator.clipboard.writeText(
+        resultText,
+      );
 
       setShareMessage(
         "Sonuç panoya kopyalandı! ✅",
@@ -668,261 +1170,447 @@ export default function WordlePage() {
       );
     }
 
-    window.setTimeout(() => {
-      setShareMessage("");
-    }, 3000);
+    window.setTimeout(
+      () => {
+        setShareMessage(
+          "",
+        );
+      },
+      3000,
+    );
   }
 
-  function resetGameForTesting() {
-    if (!dailyGame) {
+  /* =======================================================
+     NEW GAME
+  ======================================================= */
+
+  async function handleNewGame() {
+    if (
+      loadingGame ||
+      submitting
+    ) {
       return;
     }
 
-    localStorage.removeItem(
-      getStorageKey(dailyGame.dateKey),
+    await startNewGame(
+      false,
     );
-
-    setCurrentGuess("");
-    setEvaluatedGuesses([]);
-    setGameStatus("playing");
-
-    setMessage(
-      "😏 Footy: Test için sıfırladın. Bu kez bahane yok.",
-    );
-
-    setShareMessage("");
-    setResultSaved(false);
-    setResultSaveMessage("");
   }
 
-  if (!hydrated) {
+  /* =======================================================
+     LOADING
+  ======================================================= */
+
+  if (
+    loadingGame &&
+    !game
+  ) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#07111f] text-white">
+
         <div className="text-center">
+
           <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-white/10 border-t-green-500" />
 
           <p className="mt-3 text-sm text-slate-400">
-            Günün oyunu hazırlanıyor...
+            Yeni oyuncu seçiliyor...
           </p>
+
         </div>
+
       </main>
     );
   }
 
-  if (loadingError || !dailyGame) {
+  /* =======================================================
+     ERROR
+  ======================================================= */
+
+  if (
+    loadingError ||
+    !game
+  ) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#07111f] px-4 text-white">
+
         <div className="w-full max-w-sm rounded-[22px] border border-red-500/20 bg-red-500/10 p-6 text-center">
+
           <p className="text-lg font-black">
             Oyun yüklenemedi
           </p>
 
           <p className="mt-2 text-sm text-red-200">
             {loadingError ||
-              "Bugünün oyunu henüz hazırlanmadı."}
+              "Yeni Wordle oyunu hazırlanamadı."}
           </p>
 
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={() =>
+              void startNewGame(
+                true,
+              )
+            }
             className="mt-4 rounded-xl bg-white px-5 py-2.5 text-sm font-black text-[#07111f]"
           >
             Tekrar Dene
           </button>
+
         </div>
+
       </main>
     );
   }
 
+  /* =======================================================
+     PAGE
+  ======================================================= */
+
   return (
     <main className="min-h-screen bg-[#07111f] text-white">
+
       <div className="mx-auto w-full max-w-[1120px] px-4 sm:px-6">
 
-        {/* ÜST BAR */}
+        {/* =================================================
+            HEADER
+        ================================================= */}
 
         <header className="grid min-h-[68px] grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-white/10">
 
           <div className="flex justify-start">
+
             <Link
               href="/"
               className="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-400 transition hover:border-green-400/40 hover:text-green-400"
             >
               ← Ana Sayfa
             </Link>
+
           </div>
 
           <div className="text-center">
+
             <p className="text-base font-black">
               FootBattle
             </p>
 
             <p className="text-[11px] text-slate-500">
-              Günün Wordle&apos;ı
+              Wordle
             </p>
+
           </div>
 
           <div className="flex justify-end">
+
             <div className="rounded-xl border border-white/10 px-4 py-2 text-sm font-black">
-              {evaluatedGuesses.length}/
-              {dailyGame.maxAttempts}
+              {evaluatedGuesses.length}
+              /
+              {game.maxAttempts}
             </div>
+
           </div>
 
         </header>
 
-        {/* OYUN ALANI */}
+        {/* =================================================
+            GAME AREA
+        ================================================= */}
 
         <div className="py-7 sm:py-8">
+
           <section className="mx-auto w-full max-w-[760px] rounded-[22px] border border-white/10 bg-white/[0.04] px-4 py-5 shadow-2xl shadow-black/20 sm:px-6 sm:py-6">
 
-            {/* BAŞLIK */}
+            {/* ===============================================
+                TITLE
+            =============================================== */}
 
             <div className="text-center">
+
               <span className="inline-block rounded-full border border-green-500/30 bg-green-500/10 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-green-400">
-                {dailyGame.dateKey}
+                SINIRSIZ MOD
               </span>
 
               <h1 className="mt-4 text-[30px] font-black leading-tight sm:text-[34px]">
-                Futbolcuyu Bul
+                Oyuncuyu Bul
               </h1>
 
               <p className="mt-1.5 text-sm text-slate-400">
-                Bugünün futbolcu soyadını{" "}
-                {dailyGame.maxAttempts} tahminde bul.
+                Oyuncunun soyadını{" "}
+                {game.maxAttempts} tahminde bul.
               </p>
 
               <p className="mt-1.5 text-[11px] text-slate-600">
-                Soyadı {dailyGame.letterCount} harften oluşuyor.
+                Soyadı{" "}
+                {game.letterCount}{" "}
+                harften oluşuyor.
               </p>
+
+              <p className="mt-2 text-[11px] font-bold text-green-400/70">
+                İstediğin kadar yeni oyuncuyla oynayabilirsin.
+              </p>
+
             </div>
 
-            {/* WORDLE BOARD */}
+            {/* ===============================================
+                BOARD
+            =============================================== */}
 
             <div className="mt-6 space-y-2">
+
               {Array.from({
-                length: dailyGame.maxAttempts,
-              }).map((_, rowIndex) => {
-                const submittedGuess =
-                  evaluatedGuesses[rowIndex];
+                length:
+                  game.maxAttempts,
+              }).map(
+                (
+                  _,
+                  rowIndex,
+                ) => {
+                  const submittedGuess =
+                    evaluatedGuesses[
+                      rowIndex
+                    ];
 
-                const activeRow =
-                  rowIndex === evaluatedGuesses.length &&
-                  gameStatus === "playing";
+                  const activeRow =
+                    rowIndex ===
+                      evaluatedGuesses.length &&
+                    gameStatus ===
+                      "playing";
 
-                return (
-                  <div
-                    key={rowIndex}
-                    className="flex justify-center gap-1.5"
-                  >
-                    {Array.from({
-                      length: dailyGame.letterCount,
-                    }).map((_, letterIndex) => {
-                      const evaluatedLetter =
-                        submittedGuess?.evaluation[
-                          letterIndex
-                        ];
+                  return (
+                    <div
+                      key={
+                        rowIndex
+                      }
+                      className="flex justify-center gap-1.5"
+                    >
 
-                      const activeLetter = activeRow
-                        ? currentGuess[letterIndex] ?? ""
-                        : "";
+                      {Array.from({
+                        length:
+                          game.letterCount,
+                      }).map(
+                        (
+                          _,
+                          letterIndex,
+                        ) => {
+                          const evaluatedLetter =
+                            submittedGuess
+                              ?.evaluation[
+                              letterIndex
+                            ];
 
-                      const displayedLetter =
-                        evaluatedLetter?.letter ??
-                        activeLetter;
+                          const activeLetter =
+                            activeRow
+                              ? currentGuess[
+                                  letterIndex
+                                ] ??
+                                ""
+                              : "";
 
-                      const status: LetterStatus =
-                        evaluatedLetter?.status ?? "empty";
+                          const displayedLetter =
+                            evaluatedLetter
+                              ?.letter ??
+                            activeLetter;
 
-                      return (
-                        <div
-                          key={letterIndex}
-                          className={`flex h-[50px] w-[44px] items-center justify-center rounded-[10px] border text-lg font-black transition-all duration-300 sm:h-[52px] sm:w-[46px] sm:text-xl ${getTileClasses(
-                            status,
-                          )} ${
-                            activeLetter
-                              ? "scale-[1.04] border-green-400/50"
-                              : ""
-                          }`}
-                        >
-                          {displayedLetter}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
+                          const status:
+                            LetterStatus =
+                            evaluatedLetter
+                              ?.status ??
+                            "empty";
+
+                          return (
+                            <div
+                              key={
+                                letterIndex
+                              }
+                              className={`flex h-[50px] w-[44px] items-center justify-center rounded-[10px] border text-lg font-black transition-all duration-300 sm:h-[52px] sm:w-[46px] sm:text-xl ${getTileClasses(
+                                status,
+                              )} ${
+                                activeLetter
+                                  ? "scale-[1.04] border-green-400/50"
+                                  : ""
+                              }`}
+                            >
+                              {displayedLetter}
+                            </div>
+                          );
+                        },
+                      )}
+
+                    </div>
+                  );
+                },
+              )}
+
             </div>
 
-            {/* FOOTY MESAJ */}
+            {/* ===============================================
+                FOOTY MESSAGE
+            =============================================== */}
 
             <div className="mt-5 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-center">
+
               <p className="text-sm leading-5 text-slate-300">
                 {message}
               </p>
+
             </div>
 
-            {/* KLAVYE */}
+            {/* ===============================================
+                KEYBOARD
+            =============================================== */}
 
             <div className="mt-5 space-y-1.5">
+
               {KEYBOARD_ROWS.map(
-                (row, rowIndex) => (
+                (
+                  row,
+                  rowIndex,
+                ) => (
                   <div
-                    key={rowIndex}
+                    key={
+                      rowIndex
+                    }
                     className="flex justify-center gap-1"
                   >
-                    {row.map((key) => {
-                      const isSpecialKey =
-                        key === "ENTER" ||
-                        key === "DELETE";
 
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => handleKey(key)}
-                          disabled={
-                            gameStatus !== "playing" ||
-                            submitting
-                          }
-                          className={`flex h-10 items-center justify-center rounded-lg border text-[11px] font-black transition sm:h-11 sm:text-xs ${
-                            isSpecialKey
-                              ? "min-w-[56px] px-2 sm:min-w-[70px]"
-                              : "w-[30px] sm:w-9"
-                          } ${getKeyboardClasses(
-                            keyboardStatuses[key],
-                          )} disabled:cursor-not-allowed disabled:opacity-60`}
-                        >
-                          {key === "DELETE"
-                            ? "⌫"
-                            : key}
-                        </button>
-                      );
-                    })}
+                    {row.map(
+                      (
+                        key,
+                      ) => {
+                        const isSpecialKey =
+                          key ===
+                            "ENTER" ||
+                          key ===
+                            "DELETE";
+
+                        return (
+                          <button
+                            key={
+                              key
+                            }
+                            type="button"
+                            onClick={() =>
+                              handleKey(
+                                key,
+                              )
+                            }
+                            disabled={
+                              gameStatus !==
+                                "playing" ||
+                              submitting
+                            }
+                            className={`flex h-10 items-center justify-center rounded-lg border text-[11px] font-black transition sm:h-11 sm:text-xs ${
+                              isSpecialKey
+                                ? "min-w-[56px] px-2 sm:min-w-[70px]"
+                                : "w-[30px] sm:w-9"
+                            } ${getKeyboardClasses(
+                              keyboardStatuses[
+                                key
+                              ],
+                            )} disabled:cursor-not-allowed disabled:opacity-60`}
+                          >
+                            {key ===
+                            "DELETE"
+                              ? "⌫"
+                              : key}
+                          </button>
+                        );
+                      },
+                    )}
+
                   </div>
                 ),
               )}
+
             </div>
 
-            {/* OYUN SONU */}
+            {/* ===============================================
+                RESULT
+            =============================================== */}
 
-            {gameStatus !== "playing" && (
-              <div className="mt-5 rounded-2xl border border-green-500/20 bg-green-500/10 p-4 text-center">
+            {gameStatus !==
+              "playing" && (
+              <div
+                className={`mt-5 rounded-2xl border p-5 text-center ${
+                  gameStatus ===
+                  "won"
+                    ? "border-green-500/20 bg-green-500/10"
+                    : "border-red-500/20 bg-red-500/[0.07]"
+                }`}
+              >
 
-                <p className="text-lg font-black">
-                  {gameStatus === "won"
-                    ? "Tebrikler! 🎉"
-                    : "Bugün olmadı 😏"}
+                <p className="text-3xl">
+                  {gameStatus ===
+                  "won"
+                    ? "🏆"
+                    : "😤"}
                 </p>
 
-                <p className="mt-1.5 text-sm text-slate-400">
-                  {gameStatus === "won"
-                    ? `${evaluatedGuesses.length} tahminde bildin.`
-                    : "Yarın yeni oyuncuyla tekrar dene."}
+                <p className="mt-2 text-lg font-black">
+                  {gameStatus ===
+                  "won"
+                    ? "Tebrikler!"
+                    : "Oyuncuyu bulamadın!"}
                 </p>
 
-                <p className="mt-2 text-2xl font-black text-green-400">
+                {/* ===========================================
+                    WIN TEXT
+                =========================================== */}
+
+                {gameStatus ===
+                  "won" && (
+                  <p className="mt-1.5 text-sm text-slate-400">
+                    {
+                      evaluatedGuesses.length
+                    }{" "}
+                    tahminde bildin.
+                  </p>
+                )}
+
+                {/* ===========================================
+                    LOST ANSWER
+                =========================================== */}
+
+                {gameStatus ===
+                  "lost" && (
+                  <div className="mt-3">
+
+                    {resultLoading ? (
+                      <p className="text-sm text-slate-500">
+                        Doğru oyuncu yükleniyor...
+                      </p>
+                    ) : answerPlayerName ? (
+                      <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                          Doğru Oyuncu
+                        </p>
+
+                        <p className="mt-1 text-xl font-black text-white">
+                          {answerPlayerName}
+                        </p>
+
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500">
+                        Doğru oyuncu bilgisi alınamadı.
+                      </p>
+                    )}
+
+                  </div>
+                )}
+
+                {/* ===========================================
+                    SCORE
+                =========================================== */}
+
+                <p className="mt-3 text-2xl font-black text-green-400">
                   {score} puan
                 </p>
+
+                {/* ===========================================
+                    RESULT SAVE MESSAGE
+                =========================================== */}
 
                 {resultSaveMessage && (
                   <p
@@ -941,21 +1629,43 @@ export default function WordlePage() {
                   </p>
                 )}
 
-                <div className="mt-4 flex flex-col justify-center gap-2 sm:flex-row">
+                {/* ===========================================
+                    ACTIONS
+                =========================================== */}
+
+                <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
 
                   <button
                     type="button"
-                    onClick={shareResult}
-                    className="rounded-xl bg-green-500 px-5 py-2.5 text-sm font-black text-[#07111f] transition hover:bg-green-400"
+                    disabled={
+                      loadingGame ||
+                      resultLoading
+                    }
+                    onClick={() =>
+                      void handleNewGame()
+                    }
+                    className="rounded-xl bg-green-500 px-5 py-3 text-sm font-black text-[#07111f] transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {loadingGame
+                      ? "Yeni oyuncu seçiliyor..."
+                      : "⚽ Yeni Oyuncuyla Tekrar Oyna"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={
+                      shareResult
+                    }
+                    className="rounded-xl border border-white/15 px-5 py-3 text-sm font-black transition hover:border-white/30 hover:bg-white/5"
                   >
                     Sonucu Paylaş
                   </button>
 
                   <Link
                     href="/"
-                    className="rounded-xl border border-white/15 px-5 py-2.5 text-sm font-semibold transition hover:border-white/30 hover:bg-white/5"
+                    className="rounded-xl border border-white/15 px-5 py-3 text-sm font-semibold transition hover:border-white/30 hover:bg-white/5"
                   >
-                    Ana Sayfaya Dön
+                    Ana Sayfa
                   </Link>
 
                 </div>
@@ -969,47 +1679,50 @@ export default function WordlePage() {
               </div>
             )}
 
-            {/* RENK AÇIKLAMALARI */}
+            {/* ===============================================
+                COLOR INFO
+            =============================================== */}
 
             <div className="mt-5 grid grid-cols-3 gap-2 text-center text-[11px]">
 
               <div className="rounded-xl border border-green-500/20 bg-green-500/10 px-2 py-2.5">
+
                 <div className="mx-auto mb-1.5 h-3.5 w-3.5 rounded bg-green-500" />
+
                 <p className="text-slate-400">
                   Doğru yer
                 </p>
+
               </div>
 
               <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-2 py-2.5">
+
                 <div className="mx-auto mb-1.5 h-3.5 w-3.5 rounded bg-amber-400" />
+
                 <p className="text-slate-400">
                   Yanlış yer
                 </p>
+
               </div>
 
               <div className="rounded-xl border border-slate-600/30 bg-slate-700/20 px-2 py-2.5">
+
                 <div className="mx-auto mb-1.5 h-3.5 w-3.5 rounded bg-slate-700" />
+
                 <p className="text-slate-400">
                   Yok
                 </p>
+
               </div>
 
             </div>
 
-            {/* TEST RESET */}
-
-            <button
-              type="button"
-              onClick={resetGameForTesting}
-              className="mx-auto mt-4 block rounded-lg border border-red-400/20 px-3 py-1.5 text-[11px] font-semibold text-red-300 transition hover:bg-red-500/10"
-            >
-              Test için bugünkü oyunu sıfırla
-            </button>
-
           </section>
+
         </div>
 
       </div>
+
     </main>
   );
 }

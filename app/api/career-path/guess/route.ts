@@ -3,18 +3,14 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 type GuessRequest = {
+  sessionId?: string;
   clubName?: string;
   solvedClubIds?: number[];
 };
 
-function getTurkeyDateKey() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Istanbul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
+/* =========================================================
+   NORMALIZE TEXT
+========================================================= */
 
 function normalizeText(value: unknown) {
   return String(value ?? "")
@@ -26,81 +22,378 @@ function normalizeText(value: unknown) {
     .replace(/ö/g, "o")
     .replace(/ş/g, "s")
     .replace(/ü/g, "u")
+    .replace(/&/g, " ")
     .replace(/[.\-_/]/g, " ")
-    .replace(/\s+/g, " ");
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-export async function POST(request: Request) {
-  try {
-    const body = (await request.json()) as GuessRequest;
+/* =========================================================
+   YOUTH / RESERVE FILTER
+========================================================= */
 
-    const clubName = body.clubName?.trim() ?? "";
+function isYouthClubName(value: unknown) {
+  const clubName =
+    normalizeText(value);
+
+  if (!clubName) {
+    return true;
+  }
+
+  return (
+    /\bu\s?\d{2}\b/.test(clubName) ||
+    /\byth\b/.test(clubName) ||
+    /\byouth\b/.test(clubName) ||
+    /\bacademy\b/.test(clubName) ||
+    /\bakademi\b/.test(clubName) ||
+    /\breserve\b/.test(clubName) ||
+    /\breserves\b/.test(clubName) ||
+    /\bprimavera\b/.test(clubName) ||
+    /\bjuvenil\b/.test(clubName) ||
+    /\bjuniors?\b/.test(clubName)
+  );
+}
+
+/* =========================================================
+   CLUB NORMALIZATION
+
+   Kulüp adındaki genel ekleri temizliyoruz.
+
+   Sunderland AFC
+   -> Sunderland
+
+   Real Madrid CF
+   -> Real Madrid
+
+   FC Barcelona
+   -> Barcelona
+========================================================= */
+
+function normalizeClubName(value: unknown) {
+  const normalized =
+    normalizeText(value);
+
+  if (!normalized) {
+    return "";
+  }
+
+  const removableWords =
+    new Set([
+      "fc",
+      "afc",
+      "cf",
+      "sc",
+      "sk",
+      "fk",
+      "ac",
+      "jk",
+      "football",
+      "club",
+      "futbol",
+      "futebol",
+      "calcio",
+    ]);
+
+  return normalized
+    .split(" ")
+    .filter(
+      (word) =>
+        word &&
+        !removableWords.has(
+          word,
+        ),
+    )
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/* =========================================================
+   CLUB EQUIVALENCE
+
+   Önce birebir normalize eşleşme.
+
+   Sonra uzun/kısa isim kontrolü:
+
+   Brighton
+   Brighton Hove Albion
+
+   Sunderland
+   Sunderland AFC
+
+   gibi farklara izin veriyoruz.
+========================================================= */
+
+function clubsAreEquivalent(
+  firstValue: unknown,
+  secondValue: unknown,
+) {
+  const first =
+    normalizeClubName(
+      firstValue,
+    );
+
+  const second =
+    normalizeClubName(
+      secondValue,
+    );
+
+  if (
+    !first ||
+    !second
+  ) {
+    return false;
+  }
+
+  /* =======================================================
+     1. EXACT
+  ======================================================= */
+
+  if (
+    first === second
+  ) {
+    return true;
+  }
+
+  /* =======================================================
+     2. WORD BASED PREFIX/SUFFIX
+
+     Brighton
+     Brighton Hove Albion
+
+     Uzunluğu en az 6 karakter olan kısa isimlerde.
+  ======================================================= */
+
+  const shorter =
+    first.length <=
+    second.length
+      ? first
+      : second;
+
+  const longer =
+    first.length >
+    second.length
+      ? first
+      : second;
+
+  if (
+    shorter.length >= 6 &&
+    (
+      longer.startsWith(
+        `${shorter} `,
+      ) ||
+      longer.endsWith(
+        ` ${shorter}`,
+      )
+    )
+  ) {
+    return true;
+  }
+
+  /* =======================================================
+     3. TOKEN CHECK
+
+     Örnek:
+     Brighton
+     Brighton Hove Albion
+
+     Kısa isim tek kelimeyse ve uzun isimde
+     tam kelime olarak bulunuyorsa eşleştir.
+
+     Ama minimum 6 karakter kuralı var.
+     Bu "Inter" gibi çok genel isimlerin
+     yanlış eşleşmesini azaltır.
+  ======================================================= */
+
+  const shorterWords =
+    shorter.split(" ");
+
+  const longerWords =
+    longer.split(" ");
+
+  if (
+    shorter.length >= 6 &&
+    shorterWords.every(
+      (word) =>
+        longerWords.includes(
+          word,
+        ),
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/* =========================================================
+   POST
+========================================================= */
+
+export async function POST(
+  request: Request,
+) {
+  try {
+    /* =====================================================
+       1. BODY
+    ===================================================== */
+
+    const body =
+      (await request.json()) as GuessRequest;
+
+    const sessionId =
+      body.sessionId?.trim();
+
+    const clubName =
+      body.clubName?.trim() ??
+      "";
+
+    if (!sessionId) {
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "Oyun oturumu bulunamadı.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
 
     if (!clubName) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Kulüp seçimi boş olamaz.",
+
+          error:
+            "Kulüp seçimi boş olamaz.",
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
 
-    const solvedClubIds = Array.isArray(body.solvedClubIds)
-      ? body.solvedClubIds
-          .map(Number)
-          .filter(
-            (id) => Number.isInteger(id) && id > 0,
-          )
-      : [];
+    const solvedClubIds =
+      Array.isArray(
+        body.solvedClubIds,
+      )
+        ? body.solvedClubIds
+            .map(Number)
+            .filter(
+              (id) =>
+                Number.isInteger(
+                  id,
+                ) &&
+                id > 0,
+            )
+        : [];
 
-    const playDate = getTurkeyDateKey();
+    /* =====================================================
+       2. SESSION
+    ===================================================== */
 
-    const { data: dailyGame, error: dailyGameError } =
-      await supabaseAdmin
-        .from("daily_career_path")
-        .select("player_id")
-        .eq("play_date", playDate)
-        .eq("is_published", true)
-        .maybeSingle();
+    const {
+      data: session,
+      error: sessionError,
+    } = await supabaseAdmin
+      .from(
+        "career_path_sessions",
+      )
+      .select(`
+        id,
+        player_id,
+        max_wrong_guesses,
+        completed
+      `)
+      .eq(
+        "id",
+        sessionId,
+      )
+      .maybeSingle();
 
-    if (dailyGameError) {
+    if (sessionError) {
       console.error(
-        "Career Path günlük oyun okunamadı:",
-        dailyGameError,
+        "Career Path session okunamadı:",
+        sessionError,
       );
 
       return NextResponse.json(
         {
           ok: false,
-          error: "Bugünün oyunu kontrol edilemedi.",
+
+          error:
+            "Oyun oturumu kontrol edilemedi.",
         },
-        { status: 500 },
+        {
+          status: 500,
+        },
       );
     }
 
-    if (!dailyGame) {
+    if (!session) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Bugünün Career Path oyunu bulunamadı.",
+
+          error:
+            "Career Path oyunu bulunamadı.",
         },
-        { status: 404 },
+        {
+          status: 404,
+        },
       );
     }
 
-    const { data: clubs, error: clubsError } =
-      await supabaseAdmin
-        .from("player_quiz_clubs")
-        .select(`
-          id,
-          club_name,
-          career_order
-        `)
-        .eq("player_id", dailyGame.player_id)
-        .order("career_order", {
+    if (
+      session.completed
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "Bu Career Path oyunu zaten tamamlandı.",
+        },
+        {
+          status: 409,
+        },
+      );
+    }
+
+    /* =====================================================
+       3. RAW CAREER CLUBS
+    ===================================================== */
+
+    const {
+      data: rawClubs,
+      error: clubsError,
+    } = await supabaseAdmin
+      .from(
+        "player_quiz_clubs",
+      )
+      .select(`
+        id,
+        club_name,
+        career_order
+      `)
+      .eq(
+        "player_id",
+        session.player_id,
+      )
+      .not(
+        "club_name",
+        "is",
+        null,
+      )
+      .order(
+        "career_order",
+        {
           ascending: true,
-        });
+        },
+      );
 
     if (clubsError) {
       console.error(
@@ -111,44 +404,311 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Kulüp bilgileri kontrol edilemedi.",
+
+          error:
+            "Kulüp bilgileri kontrol edilemedi.",
         },
-        { status: 500 },
+        {
+          status: 500,
+        },
       );
     }
 
-    const matchedClub = (clubs ?? []).find(
-      (club) =>
-        normalizeText(club.club_name) ===
-        normalizeText(clubName),
-    );
+    if (
+      !rawClubs ||
+      rawClubs.length === 0
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "Oyuncunun kariyer kulüpleri bulunamadı.",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    /* =====================================================
+       4. ONLY SENIOR CLUBS
+    ===================================================== */
+
+    const seniorClubs =
+      rawClubs.filter(
+        (club) =>
+          !isYouthClubName(
+            club.club_name,
+          ),
+      );
+
+    if (
+      seniorClubs.length === 0
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "Oyuncunun A takım kariyeri bulunamadı.",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    /* =====================================================
+       5. SORT ORIGINAL CAREER
+    ===================================================== */
+
+    const sortedClubs =
+      [...seniorClubs].sort(
+        (
+          first,
+          second,
+        ) =>
+          Number(
+            first.career_order ??
+              999999,
+          ) -
+          Number(
+            second.career_order ??
+              999999,
+          ),
+      );
+
+    /* =====================================================
+       6. UNIQUE CLUBS
+
+       Aynı kulübe tekrar dönmüşse bir kere say.
+    ===================================================== */
+
+    const uniqueClubMap =
+      new Map<
+        string,
+        {
+          id: number;
+          club_name: string;
+          original_order: number;
+        }
+      >();
+
+    for (
+      const club of
+        sortedClubs
+    ) {
+      const normalized =
+        normalizeClubName(
+          club.club_name,
+        );
+
+      if (!normalized) {
+        continue;
+      }
+
+      /*
+       * Burada normal exact normalize yeterli.
+       *
+       * Aynı kariyerde:
+       * Sunderland
+       * Sunderland AFC
+       *
+       * gibi iki farklı varyant varsa
+       * normalized isim üzerinden tek kulüp sayılır.
+       */
+      if (
+        uniqueClubMap.has(
+          normalized,
+        )
+      ) {
+        continue;
+      }
+
+      uniqueClubMap.set(
+        normalized,
+        {
+          id:
+            Number(
+              club.id,
+            ),
+
+          club_name:
+            club.club_name,
+
+          original_order:
+            Number(
+              club.career_order ??
+                0,
+            ),
+        },
+      );
+    }
+
+    /* =====================================================
+       7. REBUILD CAREER ORDER
+
+       Youth çıktıktan sonra:
+
+       4 Doncaster
+       6 Aston Villa
+       7 Newcastle
+
+       yerine:
+
+       1 Doncaster
+       2 Aston Villa
+       3 Newcastle
+    ===================================================== */
+
+    const careerClubs =
+      Array.from(
+        uniqueClubMap.values(),
+      )
+        .sort(
+          (
+            first,
+            second,
+          ) =>
+            first.original_order -
+            second.original_order,
+        )
+        .map(
+          (
+            club,
+            index,
+          ) => ({
+            id:
+              club.id,
+
+            club_name:
+              club.club_name,
+
+            career_order:
+              index + 1,
+          }),
+        );
+
+    if (
+      careerClubs.length === 0
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "Oyuncunun geçerli A takım kariyer kulüpleri bulunamadı.",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    /* =====================================================
+       8. MATCH
+
+       Artık sadece exact normalize değil,
+       clubsAreEquivalent kullanıyoruz.
+
+       Brighton & Hove Albion
+       ↔ Brighton
+
+       Sunderland AFC
+       ↔ Sunderland
+
+       Real Madrid CF
+       ↔ Real Madrid
+    ===================================================== */
+
+    const matchedClub =
+      careerClubs.find(
+        (club) =>
+          clubsAreEquivalent(
+            club.club_name,
+            clubName,
+          ),
+      );
+
+    /* =====================================================
+       9. WRONG
+    ===================================================== */
 
     if (!matchedClub) {
       return NextResponse.json({
         ok: true,
-        correct: false,
-        duplicate: false,
-        matchedClub: null,
+
+        correct:
+          false,
+
+        duplicate:
+          false,
+
+        matchedClub:
+          null,
+
+        /*
+         * Geçici debug.
+         * Testler bitince kaldırabiliriz.
+         */
+        debug: {
+          guessedClub:
+            clubName,
+
+          normalizedGuess:
+            normalizeClubName(
+              clubName,
+            ),
+        },
       });
     }
 
-    if (solvedClubIds.includes(Number(matchedClub.id))) {
+    /* =====================================================
+       10. DUPLICATE
+    ===================================================== */
+
+    if (
+      solvedClubIds.includes(
+        matchedClub.id,
+      )
+    ) {
       return NextResponse.json({
         ok: true,
-        correct: false,
-        duplicate: true,
-        matchedClub: null,
+
+        correct:
+          false,
+
+        duplicate:
+          true,
+
+        matchedClub:
+          null,
       });
     }
+
+    /* =====================================================
+       11. CORRECT
+    ===================================================== */
 
     return NextResponse.json({
       ok: true,
-      correct: true,
-      duplicate: false,
+
+      correct:
+        true,
+
+      duplicate:
+        false,
+
       matchedClub: {
-        id: matchedClub.id,
-        name: matchedClub.club_name,
-        careerOrder: matchedClub.career_order,
+        id:
+          matchedClub.id,
+
+        name:
+          matchedClub.club_name,
+
+        careerOrder:
+          matchedClub.career_order,
       },
     });
   } catch (error) {
@@ -160,9 +720,15 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: false,
-        error: "Cevap kontrol edilirken hata oluştu.",
+
+        error:
+          error instanceof Error
+            ? error.message
+            : "Cevap kontrol edilirken hata oluştu.",
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }

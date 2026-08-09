@@ -1,15 +1,20 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-export async function createClient() {
+export async function createAuthServerClient() {
   const cookieStore = await cookies();
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL;
+
   const supabasePublishableKey =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    process.env
+      .NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
   if (!supabaseUrl) {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL tanımlı değil.");
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL tanımlı değil.",
+    );
   }
 
   if (!supabasePublishableKey) {
@@ -30,16 +35,22 @@ export async function createClient() {
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(
-              ({ name, value, options }) => {
-                cookieStore.set(name, value, options);
+              ({
+                name,
+                value,
+                options,
+              }) => {
+                cookieStore.set(
+                  name,
+                  value,
+                  options,
+                );
               },
             );
           } catch {
-            /*
-             * Server Component içerisinden cookie yazılamazsa
-             * oturum yenileme katmanı daha sonra proxy üzerinden
-             * yapılacak.
-             */
+            // Server Component içinde cookie yazımı
+            // mümkün olmayabilir.
+            // Route Handler tarafında sorun olmaz.
           }
         },
       },

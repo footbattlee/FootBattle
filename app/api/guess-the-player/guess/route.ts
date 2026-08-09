@@ -11,33 +11,51 @@ type ComparisonStatus =
 type PlayerRecord = {
   player_id: number;
   name: string;
-  nationality: string | null;
-  position: string | null;
-  sub_position: string | null;
-  age: number | string | null;
-  current_club_name: string | null;
-  current_competition_id: string | null;
-  preferred_foot: string | null;
-  image_url: string | null;
+  nationality:
+    | string
+    | null;
+  position:
+    | string
+    | null;
+  sub_position:
+    | string
+    | null;
+  age:
+    | number
+    | string
+    | null;
+  current_club_name:
+    | string
+    | null;
+  current_competition_id:
+    | string
+    | null;
+  preferred_foot:
+    | string
+    | null;
+  image_url:
+    | string
+    | null;
 };
 
 type GuessRequest = {
+  sessionId?: string;
   playerId?: number;
 };
 
-function getTurkeyDateKey() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Istanbul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-
-function normalizeValue(value: string | null | undefined) {
-  return (value ?? "")
+function normalizeValue(
+  value:
+    | string
+    | null
+    | undefined,
+) {
+  return (
+    value ?? ""
+  )
     .trim()
-    .toLocaleUpperCase("tr-TR")
+    .toLocaleUpperCase(
+      "tr-TR",
+    )
     .replace(/İ/g, "I")
     .replace(/Ç/g, "C")
     .replace(/Ğ/g, "G")
@@ -47,173 +65,307 @@ function normalizeValue(value: string | null | undefined) {
 }
 
 function compareText(
-  guessedValue: string | null,
-  targetValue: string | null,
+  guessedValue:
+    | string
+    | null,
+
+  targetValue:
+    | string
+    | null,
 ): ComparisonStatus {
-  return normalizeValue(guessedValue) ===
-    normalizeValue(targetValue)
+  return normalizeValue(
+    guessedValue,
+  ) ===
+    normalizeValue(
+      targetValue,
+    )
     ? "correct"
     : "wrong";
 }
 
 function compareAge(
-  guessedAgeValue: number | string | null,
-  targetAgeValue: number | string | null,
-): ComparisonStatus {
-  const guessedAge = Number(guessedAgeValue ?? 0);
-  const targetAge = Number(targetAgeValue ?? 0);
+  guessedAgeValue:
+    | number
+    | string
+    | null,
 
-  if (!guessedAge || !targetAge) {
+  targetAgeValue:
+    | number
+    | string
+    | null,
+): ComparisonStatus {
+  const guessedAge =
+    Number(
+      guessedAgeValue ??
+        0,
+    );
+
+  const targetAge =
+    Number(
+      targetAgeValue ??
+        0,
+    );
+
+  if (
+    !guessedAge ||
+    !targetAge
+  ) {
     return "wrong";
   }
 
-  if (guessedAge === targetAge) {
+  if (
+    guessedAge ===
+    targetAge
+  ) {
     return "correct";
   }
 
   /*
-   * Tahmin edilen oyuncu hedef oyuncudan gençse:
-   * Daha yüksek yaşa çıkılması gerektiğini belirtir.
+   * Tahmin edilen oyuncu daha gençse,
+   * hedef oyuncunun yaşı daha yüksek.
    */
-  if (guessedAge < targetAge) {
+  if (
+    guessedAge <
+    targetAge
+  ) {
     return "higher";
   }
 
   return "lower";
 }
 
-function mapPlayer(player: PlayerRecord) {
+function mapPlayer(
+  player: PlayerRecord,
+) {
   return {
-    id: player.player_id,
-    fullName: player.name,
-    nationality: player.nationality ?? "Bilinmiyor",
+    id:
+      player.player_id,
+
+    fullName:
+      player.name,
+
+    nationality:
+      player.nationality ??
+      "Bilinmiyor",
+
     position:
       player.sub_position ??
       player.position ??
       "Bilinmiyor",
-    club: player.current_club_name ?? "Kulüpsüz",
+
+    club:
+      player.current_club_name ??
+      "Kulüpsüz",
+
     league:
-      player.current_competition_id ?? "Bilinmiyor",
-    age: Number(player.age ?? 0),
+      player.current_competition_id ??
+      "Bilinmiyor",
+
+    age:
+      Number(
+        player.age ??
+          0,
+      ),
+
     preferredFoot:
-      player.preferred_foot ?? "Bilinmiyor",
-    imageUrl: player.image_url ?? null,
+      player.preferred_foot ??
+      "Bilinmiyor",
+
+    imageUrl:
+      player.image_url ??
+      null,
   };
 }
 
-export async function POST(request: Request) {
+export async function POST(
+  request: Request,
+) {
   try {
-    const body = (await request.json()) as GuessRequest;
-    const playerId = Number(body.playerId);
+    const body =
+      (await request.json()) as GuessRequest;
 
-    if (!Number.isInteger(playerId) || playerId <= 0) {
+    const sessionId =
+      body.sessionId?.trim();
+
+    const playerId =
+      Number(
+        body.playerId,
+      );
+
+    if (!sessionId) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Geçerli bir oyuncu seçmelisin.",
+          error:
+            "Oyun oturumu bulunamadı.",
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
 
-    const playDate = getTurkeyDateKey();
-
-    const { data: dailyGame, error: dailyGameError } =
-      await supabaseAdmin
-        .from("daily_guess_player")
-        .select("player_id")
-        .eq("play_date", playDate)
-        .eq("is_published", true)
-        .maybeSingle();
-
-    if (dailyGameError) {
-      console.error(
-        "Günlük Guess the Player kaydı okunamadı:",
-        dailyGameError,
-      );
-
+    if (
+      !Number.isInteger(
+        playerId,
+      ) ||
+      playerId <= 0
+    ) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Günün oyunu kontrol edilemedi.",
+
+          error:
+            "Geçerli bir oyuncu seçmelisin.",
         },
-        { status: 500 },
+        {
+          status: 400,
+        },
       );
     }
 
-    if (!dailyGame) {
+    /* =====================================================
+       SESSION
+    ===================================================== */
+
+    const {
+      data: session,
+      error: sessionError,
+    } = await supabaseAdmin
+      .from(
+        "guess_player_sessions",
+      )
+      .select(`
+        id,
+        player_id,
+        max_attempts,
+        completed
+      `)
+      .eq(
+        "id",
+        sessionId,
+      )
+      .maybeSingle();
+
+    if (sessionError) {
+      throw sessionError;
+    }
+
+    if (!session) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Bugünün oyunu henüz hazırlanmadı.",
+          error:
+            "Oyun bulunamadı.",
         },
-        { status: 404 },
+        {
+          status: 404,
+        },
       );
     }
 
-    const { data: guessedPlayer, error: guessedPlayerError } =
-      await supabaseAdmin
-        .from("guess_players")
-        .select(`
-          player_id,
-          name,
-          nationality,
-          position,
-          sub_position,
-          age,
-          current_club_name,
-          current_competition_id,
-          preferred_foot,
-          image_url
-        `)
-        .eq("player_id", playerId)
-        .eq("is_playable", 1)
-        .maybeSingle();
+    if (
+      session.completed
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Bu oyun zaten tamamlandı.",
+        },
+        {
+          status: 409,
+        },
+      );
+    }
 
-    if (guessedPlayerError) {
-      console.error(
-        "Tahmin edilen oyuncu okunamadı:",
+    /* =====================================================
+       GUESSED PLAYER
+    ===================================================== */
+
+    const {
+      data: guessedPlayer,
+      error:
         guessedPlayerError,
-      );
+    } = await supabaseAdmin
+      .from(
+        "guess_players",
+      )
+      .select(`
+        player_id,
+        name,
+        nationality,
+        position,
+        sub_position,
+        age,
+        current_club_name,
+        current_competition_id,
+        preferred_foot,
+        image_url
+      `)
+      .eq(
+        "player_id",
+        playerId,
+      )
+      .eq(
+        "is_playable",
+        1,
+      )
+      .maybeSingle();
 
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Oyuncu bilgileri okunamadı.",
-        },
-        { status: 500 },
-      );
+    if (
+      guessedPlayerError
+    ) {
+      throw guessedPlayerError;
     }
 
     if (!guessedPlayer) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Seçilen oyuncu bulunamadı.",
+          error:
+            "Seçilen oyuncu bulunamadı.",
         },
-        { status: 404 },
+        {
+          status: 404,
+        },
       );
     }
 
-    const { data: targetPlayer, error: targetPlayerError } =
-      await supabaseAdmin
-        .from("guess_players")
-        .select(`
-          player_id,
-          name,
-          nationality,
-          position,
-          sub_position,
-          age,
-          current_club_name,
-          current_competition_id,
-          preferred_foot,
-          image_url
-        `)
-        .eq("player_id", dailyGame.player_id)
-        .maybeSingle();
+    /* =====================================================
+       TARGET PLAYER
+    ===================================================== */
 
-    if (targetPlayerError || !targetPlayer) {
+    const {
+      data: targetPlayer,
+      error:
+        targetPlayerError,
+    } = await supabaseAdmin
+      .from(
+        "guess_players",
+      )
+      .select(`
+        player_id,
+        name,
+        nationality,
+        position,
+        sub_position,
+        age,
+        current_club_name,
+        current_competition_id,
+        preferred_foot,
+        image_url
+      `)
+      .eq(
+        "player_id",
+        session.player_id,
+      )
+      .maybeSingle();
+
+    if (
+      targetPlayerError ||
+      !targetPlayer
+    ) {
       console.error(
         "Hedef oyuncu okunamadı:",
         targetPlayerError,
@@ -222,9 +374,13 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Hedef oyuncu bilgileri okunamadı.",
+
+          error:
+            "Hedef oyuncu bilgileri okunamadı.",
         },
-        { status: 500 },
+        {
+          status: 500,
+        },
       );
     }
 
@@ -237,44 +393,67 @@ export async function POST(request: Request) {
       targetPlayer.position;
 
     const won =
-      guessedPlayer.player_id === targetPlayer.player_id;
+      guessedPlayer.player_id ===
+      targetPlayer.player_id;
 
     return NextResponse.json({
       ok: true,
+
       won,
-      player: mapPlayer(guessedPlayer),
+
+      player:
+        mapPlayer(
+          guessedPlayer,
+        ),
+
       comparison: {
-        nationality: compareText(
-          guessedPlayer.nationality,
-          targetPlayer.nationality,
-        ),
-        position: compareText(
-          guessedPosition,
-          targetPosition,
-        ),
-        club: compareText(
-          guessedPlayer.current_club_name,
-          targetPlayer.current_club_name,
-        ),
-        league: compareText(
-          guessedPlayer.current_competition_id,
-          targetPlayer.current_competition_id,
-        ),
-        age: compareAge(
-          guessedPlayer.age,
-          targetPlayer.age,
-        ),
-        preferredFoot: compareText(
-          guessedPlayer.preferred_foot,
-          targetPlayer.preferred_foot,
-        ),
+        nationality:
+          compareText(
+            guessedPlayer.nationality,
+            targetPlayer.nationality,
+          ),
+
+        position:
+          compareText(
+            guessedPosition,
+            targetPosition,
+          ),
+
+        club:
+          compareText(
+            guessedPlayer.current_club_name,
+            targetPlayer.current_club_name,
+          ),
+
+        league:
+          compareText(
+            guessedPlayer.current_competition_id,
+            targetPlayer.current_competition_id,
+          ),
+
+        age:
+          compareAge(
+            guessedPlayer.age,
+            targetPlayer.age,
+          ),
+
+        preferredFoot:
+          compareText(
+            guessedPlayer.preferred_foot,
+            targetPlayer.preferred_foot,
+          ),
       },
+
       /*
-       * Hedef oyuncu yalnız doğru tahminde açıklanır.
+       * Doğru tahminde cevap gösterilir.
+       * Kaybedince result route gösterecek.
        */
-      targetPlayer: won
-        ? mapPlayer(targetPlayer)
-        : null,
+      targetPlayer:
+        won
+          ? mapPlayer(
+              targetPlayer,
+            )
+          : null,
     });
   } catch (error) {
     console.error(
@@ -285,9 +464,15 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: false,
-        error: "Tahmin kontrol edilirken hata oluştu.",
+
+        error:
+          error instanceof Error
+            ? error.message
+            : "Tahmin kontrol edilirken hata oluştu.",
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }

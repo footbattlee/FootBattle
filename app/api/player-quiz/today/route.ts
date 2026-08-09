@@ -1,228 +1,201 @@
 import { NextResponse } from "next/server";
 
-import { getActiveGameDateKey } from "@/lib/game-day";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const MAX_LIVES = 5;
 const GUESS_TIME_SECONDS = 20;
 const MINIMUM_SEARCH_LENGTH = 3;
+const MINIMUM_POPULARITY_SCORE = 72;
+
+type CandidatePlayer = {
+  player_id: number;
+  name: string;
+  image_url: string | null;
+  nationality: string | null;
+  popularity_score: number | null;
+};
 
 export async function GET() {
   try {
-    const playDate = getActiveGameDateKey();
-
-    const { data: dailyGame, error: dailyError } =
+    /*
+     * Önce yeterince bilinen ve oynanabilir oyuncuları alıyoruz.
+     */
+    const { data: candidates, error: candidatesError } =
       await supabaseAdmin
-        .from("daily_player_quiz")
-        .select(`
-          play_date,
-          player_id,
-          is_published
-        `)
-        .eq("play_date", playDate)
-        .eq("is_published", true)
-        .maybeSingle();
-
-    if (dailyError) {
-      console.error(
-        "Player Quiz günlük oyun sorgusu başarısız:",
-        dailyError,
-      );
-
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Player Quiz okunamadı.",
-        },
-        { status: 500 },
-      );
-    }
-
-    if (!dailyGame) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Aktif Player Quiz oyunu henüz yayınlanmadı.",
-          dateKey: playDate,
-        },
-        { status: 404 },
-      );
-    }
-
-    const playerId = Number(dailyGame.player_id);
-
-    const [
-      playerResult,
-      detailResult,
-      clubsResult,
-      trophiesResult,
-    ] = await Promise.all([
-      supabaseAdmin
         .from("guess_players")
         .select(`
           player_id,
           name,
           image_url,
-          nationality
+          nationality,
+          popularity_score
         `)
-        .eq("player_id", playerId)
         .eq("is_playable", 1)
-        .maybeSingle(),
+        .gte("popularity_score", MINIMUM_POPULARITY_SCORE)
+        .not("nationality", "is", null)
+        .order("popularity_score", {
+          ascending: false,
+          nullsFirst: false,
+        });
 
-      supabaseAdmin
-        .from("player_quiz_details")
-        .select("birth_year")
-        .eq("player_id", playerId)
-        .maybeSingle(),
-
-      supabaseAdmin
-        .from("player_quiz_clubs")
-        .select("id, club_name, career_order")
-        .eq("player_id", playerId)
-        .order("career_order", {
-          ascending: true,
-        }),
-
-      supabaseAdmin
-        .from("player_quiz_trophies")
-        .select("id, trophy_name")
-        .eq("player_id", playerId),
-    ]);
-
-    if (playerResult.error) {
+    if (candidatesError) {
       console.error(
-        "Player Quiz oyuncusu okunamadı:",
-        playerResult.error,
+        "Player Quiz oyuncu havuzu okunamadı:",
+        candidatesError,
       );
 
       return NextResponse.json(
         {
           ok: false,
-          error: "Oyuncu bilgisi okunamadı.",
+          error: "Oyuncu havuzu okunamadı.",
         },
         { status: 500 },
       );
     }
 
-    if (!playerResult.data) {
+    if (!candidates || candidates.length === 0) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Oyuncu bulunamadı.",
+          error: "Player Quiz için uygun oyuncu bulunamadı.",
         },
         { status: 404 },
       );
     }
 
-    if (detailResult.error) {
+    /*
+     * Listeyi rastgele sıraya sokuyoruz.
+     * Uygun detay/kulüp bilgisi olan ilk oyuncuyu seçiyoruz.
+     */
+    const shuffled = [...candidates].sort(
+      () => Math.random() - 0.5,
+    );
+
+    let selectedPlayer: CandidatePlayer | null = null;
+    let selectedBirthYear: number | null = null;
+    let selectedClubs:
+      | {
+          id: number;
+          club_name: string;
+          career_order: number;
+        }[]
+      | null = null;
+
+    for (const candidate of shuffled.slice(0, 100)) {
+      const [detailResult, clubsResult] =
+        await Promise.all([
+          supabaseAdmin
+            .from("player_quiz_details")
+            .select("birth_year")
+            .eq("player_id", candidate.player_id)
+            .maybeSingle(),
+
+          supabaseAdmin
+            .from("player_quiz_clubs")
+            .select("id, club_name, career_order")
+            .eq("player_id", candidate.player_id)
+            .order("career_order", {
+              ascending: true,
+            }),
+        ]);
+
+      if (
+        detailResult.error ||
+        clubsResult.error
+      ) {
+        continue;
+      }
+
+      const birthYear =
+        detailResult.data?.birth_year ?? null;
+
+      const clubs = clubsResult.data ?? [];
+
+      if (
+        birthYear &&
+        candidate.nationality?.trim() &&
+        clubs.length > 0
+      ) {
+        selectedPlayer = candidate;
+        selectedBirthYear = Number(birthYear);
+        selectedClubs = clubs;
+
+        break;
+      }
+    }
+
+    if (
+      !selectedPlayer ||
+      !selectedBirthYear ||
+      !selectedClubs
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Player Quiz için gerekli bilgileri tamamlanmış uygun oyuncu seçilemedi.",
+        },
+        { status: 404 },
+      );
+    }
+
+    /*
+     * Yeni sınırsız oyun session'ı oluştur.
+     */
+    const { data: session, error: sessionError } =
+      await supabaseAdmin
+        .from("player_quiz_sessions")
+        .insert({
+          player_id: selectedPlayer.player_id,
+          max_lives: MAX_LIVES,
+          guess_time_seconds: GUESS_TIME_SECONDS,
+        })
+        .select(`
+          id,
+          max_lives,
+          guess_time_seconds
+        `)
+        .single();
+
+    if (sessionError || !session) {
       console.error(
-        "Player Quiz doğum yılı okunamadı:",
-        detailResult.error,
+        "Player Quiz session oluşturulamadı:",
+        sessionError,
       );
 
       return NextResponse.json(
         {
           ok: false,
-          error: "Oyuncunun doğum yılı okunamadı.",
+          error: "Yeni Player Quiz oyunu oluşturulamadı.",
         },
         { status: 500 },
-      );
-    }
-
-    if (clubsResult.error) {
-      console.error(
-        "Player Quiz kulüpleri okunamadı:",
-        clubsResult.error,
-      );
-
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Oyuncunun kulüpleri okunamadı.",
-        },
-        { status: 500 },
-      );
-    }
-
-    if (trophiesResult.error) {
-      console.error(
-        "Player Quiz kupaları okunamadı:",
-        trophiesResult.error,
-      );
-
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Oyuncunun kupaları okunamadı.",
-        },
-        { status: 500 },
-      );
-    }
-
-    const player = playerResult.data;
-    const clubs = clubsResult.data ?? [];
-    const trophies = trophiesResult.data ?? [];
-
-    if (!detailResult.data?.birth_year) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Oyuncunun doğum yılı hazırlanmamış.",
-        },
-        { status: 422 },
-      );
-    }
-
-    if (!player.nationality?.trim()) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Oyuncunun milliyeti hazırlanmamış.",
-        },
-        { status: 422 },
-      );
-    }
-
-    if (clubs.length < 1) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Oyuncunun kariyer kulüpleri hazırlanmamış.",
-        },
-        { status: 422 },
-      );
-    }
-
-    if (trophies.length < 1) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Oyuncunun kupa bilgileri hazırlanmamış.",
-        },
-        { status: 422 },
       );
     }
 
     return NextResponse.json({
       ok: true,
-      dateKey: dailyGame.play_date,
+
+      sessionId: session.id,
 
       player: {
-        id: Number(player.player_id),
-        fullName: player.name,
-        imageUrl: player.image_url ?? null,
+        id: Number(selectedPlayer.player_id),
+        fullName: selectedPlayer.name,
+        imageUrl: selectedPlayer.image_url ?? null,
       },
 
-      maxLives: MAX_LIVES,
-      guessTimeSeconds: GUESS_TIME_SECONDS,
+      maxLives: session.max_lives,
+      guessTimeSeconds: session.guess_time_seconds,
       minimumSearchLength: MINIMUM_SEARCH_LENGTH,
 
       board: {
         birthYearSlots: 1,
         nationalitySlots: 1,
-        trophySlots: 1,
-        clubSlots: clubs.length,
-        totalSlots: clubs.length + 3,
+        clubSlots: selectedClubs.length,
+
+        /*
+         * Trophy artık yok.
+         */
+        totalSlots: selectedClubs.length + 2,
       },
 
       scoring: {
@@ -238,7 +211,10 @@ export async function GET() {
     return NextResponse.json(
       {
         ok: false,
-        error: "Beklenmeyen bir hata oluştu.",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Yeni Player Quiz hazırlanırken hata oluştu.",
       },
       { status: 500 },
     );

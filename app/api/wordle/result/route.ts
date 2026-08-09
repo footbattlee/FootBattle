@@ -1,24 +1,34 @@
 import { NextResponse } from "next/server";
 
-import { createClient as createAuthClient } from "@/lib/supabase/auth-server";
+import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const MAX_ATTEMPTS = 5;
-const SCORE_TABLE = [250, 200, 150, 100, 50];
 
-function getTurkeyDateKey() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Istanbul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
+const SCORE_TABLE = [
+  250,
+  200,
+  150,
+  100,
+  50,
+];
 
-function normalizeGuess(value: string) {
+type ResultRequest = {
+  sessionId?: string;
+
+  guesses?: string[];
+
+  durationSeconds?: number;
+};
+
+function normalizeGuess(
+  value: string,
+) {
   return value
     .trim()
-    .toLocaleUpperCase("tr-TR")
+    .toLocaleUpperCase(
+      "tr-TR",
+    )
     .replace(/İ/g, "I")
     .replace(/Ç/g, "C")
     .replace(/Ğ/g, "G")
@@ -27,194 +37,572 @@ function normalizeGuess(value: string) {
     .replace(/Ü/g, "U");
 }
 
-type ResultRequest = {
-  guesses?: string[];
-  durationSeconds?: number;
-};
-
-export async function POST(request: Request) {
+export async function POST(
+  request: Request,
+) {
   try {
-    /*
-     * Cookie üzerinden giriş yapan kullanıcıyı doğrula.
-     */
-    const authClient = await createAuthClient();
+    /* =====================================================
+       1. AUTH
+    ===================================================== */
+
+    const authClient =
+      await createAuthServerClient();
 
     const {
       data: { user },
       error: userError,
-    } = await authClient.auth.getUser();
+    } =
+      await authClient.auth.getUser();
 
-    if (userError || !user) {
+    if (
+      userError ||
+      !user
+    ) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Sonucu kaydetmek için giriş yapmalısın.",
+
+          error:
+            "Sonucu kaydetmek için giriş yapmalısın.",
         },
-        { status: 401 },
+        {
+          status: 401,
+        },
       );
     }
 
-    const body = (await request.json()) as ResultRequest;
+    /* =====================================================
+       2. BODY
+    ===================================================== */
 
-    const guesses = Array.isArray(body.guesses)
-      ? body.guesses.map(normalizeGuess)
-      : [];
+    const body =
+      (await request.json()) as ResultRequest;
 
-    if (guesses.length < 1 || guesses.length > MAX_ATTEMPTS) {
+    const sessionId =
+      body.sessionId?.trim();
+
+    if (!sessionId) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Tahmin sayısı geçersiz.",
+
+          error:
+            "Oyun oturumu bulunamadı.",
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
 
-    const playDate = getTurkeyDateKey();
-
-    /*
-     * Günün gerçek cevabını yalnızca sunucu tarafında oku.
-     */
-    const { data: dailyGame, error: dailyGameError } =
-      await supabaseAdmin
-        .from("daily_wordle")
-        .select(`
-          play_date,
-          players!inner (
-            normalized_last_name
+    const guesses =
+      Array.isArray(
+        body.guesses,
+      )
+        ? body.guesses.map(
+            normalizeGuess,
           )
-        `)
-        .eq("play_date", playDate)
-        .eq("is_published", true)
-        .single();
+        : [];
 
-    if (dailyGameError || !dailyGame) {
+    if (
+      guesses.length < 1 ||
+      guesses.length >
+        MAX_ATTEMPTS
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "Tahmin sayısı geçersiz.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    /* =====================================================
+       3. SESSION
+    ===================================================== */
+
+    const {
+      data: session,
+      error: sessionError,
+    } = await supabaseAdmin
+      .from(
+        "wordle_sessions",
+      )
+      .select(`
+        id,
+        player_id,
+        answer_normalized,
+        letter_count,
+        max_attempts,
+        completed,
+        result_applied,
+        won,
+        score,
+        attempt_count,
+        user_id
+      `)
+      .eq(
+        "id",
+        sessionId,
+      )
+      .maybeSingle();
+
+    if (sessionError) {
       console.error(
-        "Günün Wordle kaydı okunamadı:",
-        dailyGameError,
+        "Wordle session sorgu hatası:",
+        sessionError,
       );
 
       return NextResponse.json(
         {
           ok: false,
-          error: "Bugünün oyunu bulunamadı.",
+
+          error:
+            "Wordle oyunu okunamadı.",
         },
-        { status: 404 },
+        {
+          status: 500,
+        },
       );
     }
 
-    const player = Array.isArray(dailyGame.players)
-      ? dailyGame.players[0]
-      : dailyGame.players;
+    if (!session) {
+      return NextResponse.json(
+        {
+          ok: false,
 
-    const answer = player?.normalized_last_name;
+          error:
+            "Wordle oyunu bulunamadı.",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    /* =====================================================
+       4. CEVAP OYUNCUSU
+    ===================================================== */
+
+    const {
+      data: answerPlayer,
+      error: answerPlayerError,
+    } = await supabaseAdmin
+      .from(
+        "guess_players",
+      )
+      .select(`
+        player_id,
+        name
+      `)
+      .eq(
+        "player_id",
+        session.player_id,
+      )
+      .maybeSingle();
+
+    if (answerPlayerError) {
+      console.error(
+        "Wordle cevap oyuncusu okunamadı:",
+        answerPlayerError,
+      );
+    }
+
+    const answerPlayerName =
+      answerPlayer?.name ??
+      null;
+
+    /* =====================================================
+       5. ZATEN KAYDEDİLDİ
+    ===================================================== */
+
+    if (
+      session.result_applied
+    ) {
+      return NextResponse.json({
+        ok: true,
+
+        alreadyRecorded:
+          true,
+
+        won:
+          session.won,
+
+        score:
+          session.score ??
+          0,
+
+        attemptCount:
+          session.attempt_count ??
+          guesses.length,
+
+        answerPlayerName,
+      });
+    }
+
+    /* =====================================================
+       6. TAHMİNLERİ DOĞRULA
+    ===================================================== */
+
+    const answer =
+      session.answer_normalized;
 
     if (!answer) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Bugünün oyuncu bilgisi bulunamadı.",
+
+          error:
+            "Wordle cevabı bulunamadı.",
         },
-        { status: 500 },
+        {
+          status: 500,
+        },
       );
     }
 
-    const invalidGuess = guesses.some(
-      (guess) => guess.length !== answer.length,
-    );
+    const invalidGuess =
+      guesses.some(
+        (guess) =>
+          guess.length !==
+          answer.length,
+      );
 
     if (invalidGuess) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Tahminlerden birinin harf sayısı geçersiz.",
+
+          error:
+            "Tahminlerden birinin harf sayısı geçersiz.",
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
 
-    const lastGuess = guesses[guesses.length - 1];
-    const won = lastGuess === answer;
+    const lastGuess =
+      guesses[
+        guesses.length - 1
+      ];
+
+    const won =
+      lastGuess ===
+      answer;
 
     /*
-     * Kaybedilen oyun yalnızca 5 tahmin tamamlandıysa kaydedilir.
+     * Kaybedilmiş sonuç ancak bütün
+     * haklar kullanıldıysa kaydedilebilir.
      */
-    if (!won && guesses.length < MAX_ATTEMPTS) {
+    if (
+      !won &&
+      guesses.length <
+        session.max_attempts
+    ) {
       return NextResponse.json(
         {
           ok: false,
-          error: "Oyun henüz tamamlanmadı.",
+
+          error:
+            "Oyun henüz tamamlanmadı.",
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
 
-    const score = won
-      ? SCORE_TABLE[guesses.length - 1] ?? 0
-      : 0;
+    /* =====================================================
+       7. SCORE
+    ===================================================== */
+
+    const score =
+      won
+        ? SCORE_TABLE[
+            guesses.length -
+              1
+          ] ?? 0
+        : 0;
 
     const durationSeconds =
-      typeof body.durationSeconds === "number" &&
-      Number.isFinite(body.durationSeconds) &&
-      body.durationSeconds >= 0
-        ? Math.floor(body.durationSeconds)
+      typeof body.durationSeconds ===
+        "number" &&
+      Number.isFinite(
+        body.durationSeconds,
+      ) &&
+      body.durationSeconds >=
+        0
+        ? Math.floor(
+            body.durationSeconds,
+          )
         : null;
 
-    /*
-     * Ortak veritabanı fonksiyonunu çağır:
-     * - game_results kaydı
-     * - toplam puan
-     * - oynanan/kazanılan oyun
-     * - günlük seri
-     */
-    const { data: result, error: recordError } =
-      await supabaseAdmin.rpc("record_game_result", {
-        p_user_id: user.id,
-        p_game_code: "wordle",
-        p_play_date: playDate,
-        p_score: score,
-        p_attempt_count: guesses.length,
-        p_won: won,
-        p_duration_seconds: durationSeconds,
-        p_game_data: {
-          guesses,
-          answer_length: answer.length,
-        },
-      });
+    const now =
+      new Date().toISOString();
 
-    if (recordError) {
+    /* =====================================================
+       8. SESSION'I TAMAMLA
+
+       result_applied=false kontrolü aynı session'ın
+       iki kere puan yazmasını engeller.
+    ===================================================== */
+
+    const {
+      data: completedSession,
+      error: completeError,
+    } = await supabaseAdmin
+      .from(
+        "wordle_sessions",
+      )
+      .update({
+        completed:
+          true,
+
+        result_applied:
+          true,
+
+        won,
+
+        score,
+
+        attempt_count:
+          guesses.length,
+
+        user_id:
+          user.id,
+
+        completed_at:
+          now,
+      })
+      .eq(
+        "id",
+        sessionId,
+      )
+      .eq(
+        "result_applied",
+        false,
+      )
+      .select(`
+        id
+      `)
+      .maybeSingle();
+
+    if (completeError) {
       console.error(
-        "Wordle sonucu kaydedilemedi:",
-        recordError,
+        "Wordle session tamamlama hatası:",
+        completeError,
       );
 
       return NextResponse.json(
         {
           ok: false,
-          error: "Oyun sonucu kaydedilemedi.",
+
+          error:
+            "Oyun sonucu kaydedilemedi.",
         },
-        { status: 500 },
+        {
+          status: 500,
+        },
       );
     }
+
+    /*
+     * Aynı anda iki result isteği geldiyse
+     * ikinci istek tekrar puan yazmasın.
+     */
+    if (!completedSession) {
+      return NextResponse.json({
+        ok: true,
+
+        alreadyRecorded:
+          true,
+
+        won,
+
+        score,
+
+        attemptCount:
+          guesses.length,
+
+        answerPlayerName,
+      });
+    }
+
+    /* =====================================================
+       9. PROFILE
+    ===================================================== */
+
+    const {
+      data: profile,
+      error: profileError,
+    } = await supabaseAdmin
+      .from("profiles")
+      .select(`
+        id,
+        total_score,
+        games_played,
+        games_won,
+        current_streak,
+        best_streak
+      `)
+      .eq(
+        "id",
+        user.id,
+      )
+      .maybeSingle();
+
+    if (profileError) {
+      console.error(
+        "Wordle profil sorgu hatası:",
+        profileError,
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "Kullanıcı profili okunamadı.",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    if (!profile) {
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "Kullanıcı profili bulunamadı.",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    const nextTotalScore =
+      (profile.total_score ??
+        0) +
+      score;
+
+    const nextGamesPlayed =
+      (profile.games_played ??
+        0) +
+      1;
+
+    const nextGamesWon =
+      (profile.games_won ??
+        0) +
+      (won ? 1 : 0);
+
+    /*
+     * Sınırsız oyun olduğu için günlük streak'e
+     * burada dokunmuyoruz.
+     */
+    const {
+      error: profileUpdateError,
+    } = await supabaseAdmin
+      .from("profiles")
+      .update({
+        total_score:
+          nextTotalScore,
+
+        games_played:
+          nextGamesPlayed,
+
+        games_won:
+          nextGamesWon,
+      })
+      .eq(
+        "id",
+        user.id,
+      );
+
+    if (profileUpdateError) {
+      console.error(
+        "Wordle profil güncelleme hatası:",
+        profileUpdateError,
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "Kullanıcı istatistikleri güncellenemedi.",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    /* =====================================================
+       10. RESPONSE
+    ===================================================== */
 
     return NextResponse.json({
       ok: true,
+
       won,
+
       score,
-      attemptCount: guesses.length,
-      alreadyRecorded: Boolean(result?.already_recorded),
-      currentStreak: result?.current_streak ?? null,
-      bestStreak: result?.best_streak ?? null,
+
+      attemptCount:
+        guesses.length,
+
+      alreadyRecorded:
+        false,
+
+      answerPlayerName,
+
+      currentStreak:
+        profile.current_streak ??
+        0,
+
+      bestStreak:
+        profile.best_streak ??
+        0,
+
+      totalScore:
+        nextTotalScore,
+
+      gamesPlayed:
+        nextGamesPlayed,
+
+      gamesWon:
+        nextGamesWon,
+
+      durationSeconds,
     });
   } catch (error) {
-    console.error("Wordle result endpoint error:", error);
+    console.error(
+      "Wordle result endpoint error:",
+      error,
+    );
 
     return NextResponse.json(
       {
         ok: false,
-        error: "Beklenmeyen bir hata oluştu.",
+
+        error:
+          error instanceof Error
+            ? error.message
+            : "Beklenmeyen bir hata oluştu.",
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }

@@ -1,68 +1,107 @@
 import { NextResponse } from "next/server";
 
-import { getActiveGameDateKey } from "@/lib/game-day";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-const MAX_ATTEMPTS = 8;
-const MINIMUM_SEARCH_LENGTH = 2;
+const MAX_ATTEMPTS = 5;
+const MINIMUM_SEARCH_LENGTH = 3;
+const MINIMUM_POPULARITY_SCORE = 72;
+
+type CandidatePlayer = {
+  player_id: number;
+  nationality: string | null;
+  position: string | null;
+  sub_position: string | null;
+  age: number | string | null;
+  current_club_name: string | null;
+  current_competition_id: string | null;
+  preferred_foot: string | null;
+  popularity_score: number | null;
+};
+
+function isCompletePlayer(
+  player: CandidatePlayer,
+) {
+  return Boolean(
+    player.nationality &&
+      player.position &&
+      player.age !== null &&
+      player.current_club_name &&
+      player.current_competition_id &&
+      player.preferred_foot,
+  );
+}
 
 export async function GET() {
   try {
-    /*
-     * İstanbul saatine göre:
-     * 00.00–01.59 → önceki günün oyunu
-     * 02.00 sonrası → bugünün oyunu
-     */
-    const playDate = getActiveGameDateKey();
+    /* =====================================================
+       1. PLAYABLE + BİLİNİRLİĞİ YETERLİ OYUNCU SAYISI
+    ===================================================== */
 
-    const { data: dailyGame, error: dailyGameError } =
-      await supabaseAdmin
-        .from("daily_guess_player")
-        .select(`
-          play_date,
-          player_id,
-          is_published
-        `)
-        .eq("play_date", playDate)
-        .eq("is_published", true)
-        .maybeSingle();
+    const {
+      count,
+      error: countError,
+    } = await supabaseAdmin
+      .from("guess_players")
+      .select(
+        "player_id",
+        {
+          count: "exact",
+          head: true,
+        },
+      )
+      .eq(
+        "is_playable",
+        1,
+      )
+      .gte(
+        "popularity_score",
+        MINIMUM_POPULARITY_SCORE,
+      );
 
-    if (dailyGameError) {
+    if (
+      countError ||
+      !count
+    ) {
       console.error(
-        "Guess the Player günlük oyun sorgusu başarısız:",
-        dailyGameError,
+        "Guess the Player oyuncu sayısı okunamadı:",
+        countError,
       );
 
       return NextResponse.json(
         {
           ok: false,
           error:
-            "Aktif Guess the Player oyunu kontrol edilemedi.",
+            "Oyuncu havuzu okunamadı.",
         },
-        { status: 500 },
-      );
-    }
-
-    if (!dailyGame) {
-      return NextResponse.json(
         {
-          ok: false,
-          error:
-            "Aktif Guess the Player oyunu henüz yayınlanmadı.",
-          dateKey: playDate,
+          status: 500,
         },
-        { status: 404 },
       );
     }
 
-    /*
-     * Hedef oyuncunun gerçekten geçerli ve oynanabilir
-     * olduğunu sunucu tarafında kontrol ediyoruz.
-     *
-     * Oyuncunun adını veya cevabı istemciye göndermiyoruz.
-     */
-    const { data: player, error: playerError } =
-      await supabaseAdmin
+    /* =====================================================
+       2. RANDOM UYGUN OYUNCU
+    ===================================================== */
+
+    let targetPlayer:
+      | CandidatePlayer
+      | null = null;
+
+    for (
+      let attempt = 0;
+      attempt < 30;
+      attempt += 1
+    ) {
+      const randomIndex =
+        Math.floor(
+          Math.random() *
+            count,
+        );
+
+      const {
+        data,
+        error,
+      } = await supabaseAdmin
         .from("guess_players")
         .select(`
           player_id,
@@ -72,70 +111,125 @@ export async function GET() {
           age,
           current_club_name,
           current_competition_id,
-          preferred_foot
+          preferred_foot,
+          popularity_score
         `)
-        .eq("player_id", dailyGame.player_id)
-        .eq("is_playable", 1)
+        .eq(
+          "is_playable",
+          1,
+        )
+        .gte(
+          "popularity_score",
+          MINIMUM_POPULARITY_SCORE,
+        )
+        .order(
+          "player_id",
+          {
+            ascending: true,
+          },
+        )
+        .range(
+          randomIndex,
+          randomIndex,
+        )
         .maybeSingle();
 
-    if (playerError) {
-      console.error(
-        "Guess the Player hedef oyuncusu okunamadı:",
-        playerError,
-      );
+      if (error) {
+        throw error;
+      }
 
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Günün oyuncusu okunamadı.",
-        },
-        { status: 500 },
-      );
+      if (
+        data &&
+        isCompletePlayer(
+          data,
+        )
+      ) {
+        targetPlayer =
+          data;
+
+        break;
+      }
     }
 
-    if (!player) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Günün oyuncusu bulunamadı.",
-        },
-        { status: 404 },
-      );
-    }
-
-    /*
-     * Oyun için gerekli temel özelliklerin dolu olduğunu
-     * kontrol ediyoruz.
-     */
-    const playerDataIsComplete =
-      player.nationality &&
-      player.position &&
-      player.age !== null &&
-      player.current_club_name &&
-      player.current_competition_id &&
-      player.preferred_foot;
-
-    if (!playerDataIsComplete) {
+    if (!targetPlayer) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            "Seçilen oyuncunun Guess the Player bilgileri eksik.",
+            "Guess the Player için uygun oyuncu seçilemedi.",
         },
-        { status: 422 },
+        {
+          status: 500,
+        },
       );
     }
 
+    /* =====================================================
+       3. SESSION OLUŞTUR
+    ===================================================== */
+
+    const {
+      data: session,
+      error: sessionError,
+    } = await supabaseAdmin
+      .from(
+        "guess_player_sessions",
+      )
+      .insert({
+        player_id:
+          targetPlayer.player_id,
+
+        max_attempts:
+          MAX_ATTEMPTS,
+      })
+      .select(`
+        id,
+        max_attempts
+      `)
+      .single();
+
+    if (
+      sessionError ||
+      !session
+    ) {
+      console.error(
+        "Guess the Player session oluşturma hatası:",
+        sessionError,
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Yeni oyun oluşturulamadı.",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    /* =====================================================
+       4. RESPONSE
+
+       Hedef oyuncuyu istemciye göndermiyoruz.
+    ===================================================== */
+
     return NextResponse.json({
       ok: true,
-      dateKey: dailyGame.play_date,
-      maxAttempts: MAX_ATTEMPTS,
-      minimumSearchLength: MINIMUM_SEARCH_LENGTH,
 
-      /*
-       * Hedef oyuncu bilgileri burada özellikle gönderilmiyor.
-       * Tahminlerin doğrulanması guess endpoint'inde yapılmalı.
-       */
+      sessionId:
+        session.id,
+
+      maxAttempts:
+        session.max_attempts,
+
+      minimumSearchLength:
+        MINIMUM_SEARCH_LENGTH,
+
+      minimumPopularityScore:
+        MINIMUM_POPULARITY_SCORE,
+
       board: {
         columns: [
           "nationality",
@@ -156,9 +250,15 @@ export async function GET() {
     return NextResponse.json(
       {
         ok: false,
-        error: "Beklenmeyen bir hata oluştu.",
+
+        error:
+          error instanceof Error
+            ? error.message
+            : "Yeni oyun hazırlanırken hata oluştu.",
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }

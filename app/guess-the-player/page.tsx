@@ -1,10 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+/* =========================================================
+   SETTINGS
+========================================================= */
 
 const DEFAULT_MAX_ATTEMPTS = 5;
+
 const DEFAULT_MINIMUM_SEARCH_LENGTH = 3;
+
+/* =========================================================
+   TYPES
+========================================================= */
 
 type ComparisonStatus =
   | "correct"
@@ -12,411 +27,682 @@ type ComparisonStatus =
   | "higher"
   | "lower";
 
-type GameStatus = "playing" | "won" | "lost";
+type GameStatus =
+  | "playing"
+  | "won"
+  | "lost";
 
 type Player = {
   id: number;
+
   fullName: string;
+
   nationality: string;
+
   position: string;
+
   club: string;
+
   league: string;
+
   age: number;
+
   preferredFoot: string;
-  imageUrl: string | null;
+
+  imageUrl:
+    | string
+    | null;
 };
 
 type GuessComparison = {
   nationality: ComparisonStatus;
+
   position: ComparisonStatus;
+
   club: ComparisonStatus;
+
   league: ComparisonStatus;
+
   age: ComparisonStatus;
+
   preferredFoot: ComparisonStatus;
 };
 
 type GuessRow = {
   player: Player;
+
   comparison: GuessComparison;
 };
 
-type DailyGame = {
-  dateKey: string;
-  maxAttempts: number;
-  minimumSearchLength: number;
-};
+type GameSession = {
+  sessionId: string;
 
-type SavedGame = {
-  dateKey: string;
-  guesses: GuessRow[];
-  gameStatus: GameStatus;
-  message: string;
-  revealedPlayer: Player | null;
-  resultSaved: boolean;
-  resultSaveMessage: string;
+  maxAttempts: number;
+
+  minimumSearchLength: number;
 };
 
 type TodayResponse = {
   ok?: boolean;
+
   error?: string;
-  dateKey?: string;
+
+  sessionId?: string;
+
   maxAttempts?: number;
+
   minimumSearchLength?: number;
 };
 
 type SearchResponse = {
   ok?: boolean;
+
   error?: string;
+
   players?: Player[];
 };
 
 type GuessResponse = {
   ok?: boolean;
+
   error?: string;
+
   won?: boolean;
+
   player?: Player;
+
   comparison?: GuessComparison;
-  targetPlayer?: Player | null;
+
+  targetPlayer?:
+    | Player
+    | null;
 };
 
 type ResultResponse = {
   ok?: boolean;
+
   error?: string;
+
   won?: boolean;
+
   score?: number;
+
   attemptCount?: number;
+
   alreadyRecorded?: boolean;
-  currentStreak?: number | null;
-  bestStreak?: number | null;
+
+  targetPlayer?:
+    | Player
+    | null;
+
+  currentStreak?:
+    | number
+    | null;
+
+  bestStreak?:
+    | number
+    | null;
+
+  totalScore?: number;
+
+  gamesPlayed?: number;
+
+  gamesWon?: number;
 };
 
-function getStorageKey(dateKey: string) {
-  return `footbattle-guess-player-${dateKey}`;
-}
+/* =========================================================
+   HELPERS
+========================================================= */
 
-function getComparisonClasses(status: ComparisonStatus) {
-  if (status === "correct") {
+function getComparisonClasses(
+  status: ComparisonStatus,
+) {
+  if (
+    status ===
+    "correct"
+  ) {
     return "border-green-400/40 bg-green-500/20 text-green-200";
   }
 
-  if (status === "higher" || status === "lower") {
+  if (
+    status ===
+      "higher" ||
+    status ===
+      "lower"
+  ) {
     return "border-amber-400/40 bg-amber-400/15 text-amber-200";
   }
 
   return "border-red-500/30 bg-red-500/15 text-red-200";
 }
 
-function getAgeDirection(status: ComparisonStatus) {
-  if (status === "higher") {
+function getAgeDirection(
+  status: ComparisonStatus,
+) {
+  if (
+    status ===
+    "higher"
+  ) {
     return "↑";
   }
 
-  if (status === "lower") {
+  if (
+    status ===
+    "lower"
+  ) {
     return "↓";
   }
 
   return "";
 }
 
-function calculateScore(attemptCount: number, won: boolean) {
+function calculateScore(
+  attemptCount: number,
+  won: boolean,
+) {
   if (!won) {
     return 0;
   }
 
-  const scores = [250, 200, 150, 100, 50];
+  const scores = [
+    250,
+    200,
+    150,
+    100,
+    50,
+  ];
 
-  return scores[attemptCount - 1] ?? 0;
+  return (
+    scores[
+      attemptCount - 1
+    ] ?? 0
+  );
 }
 
+/* =========================================================
+   PAGE
+========================================================= */
+
 export default function GuessThePlayerPage() {
-  const [dailyGame, setDailyGame] =
-    useState<DailyGame | null>(null);
+  /* =======================================================
+     SESSION
+  ======================================================= */
 
-  const [searchText, setSearchText] = useState("");
+  const [
+    gameSession,
+    setGameSession,
+  ] =
+    useState<GameSession | null>(
+      null,
+    );
 
-  const [searchResults, setSearchResults] =
-    useState<Player[]>([]);
+  const [
+    loadingGame,
+    setLoadingGame,
+  ] =
+    useState(true);
 
-  const [selectedPlayer, setSelectedPlayer] =
-    useState<Player | null>(null);
-
-  const [guesses, setGuesses] = useState<GuessRow[]>([]);
-
-  const [gameStatus, setGameStatus] =
-    useState<GameStatus>("playing");
-
-  const [message, setMessage] = useState(
-    "😏 Footy: Üç harf yaz da kimi düşündüğünü görelim.",
-  );
-
-  const [revealedPlayer, setRevealedPlayer] =
-    useState<Player | null>(null);
-
-  const [loadingGame, setLoadingGame] = useState(true);
-
-  const [loadingError, setLoadingError] = useState("");
-
-  const [searchLoading, setSearchLoading] =
-    useState(false);
-
-  const [searchError, setSearchError] = useState("");
-
-  const [submitting, setSubmitting] = useState(false);
-
-  const [hydrated, setHydrated] = useState(false);
-
-  const [resultSaved, setResultSaved] = useState(false);
-
-  const [resultSaveMessage, setResultSaveMessage] =
+  const [
+    loadingError,
+    setLoadingError,
+  ] =
     useState("");
 
+  /* =======================================================
+     SEARCH
+  ======================================================= */
+
+  const [
+    searchText,
+    setSearchText,
+  ] =
+    useState("");
+
+  const [
+    searchResults,
+    setSearchResults,
+  ] =
+    useState<Player[]>([]);
+
+  const [
+    selectedPlayer,
+    setSelectedPlayer,
+  ] =
+    useState<Player | null>(
+      null,
+    );
+
+  const [
+    searchLoading,
+    setSearchLoading,
+  ] =
+    useState(false);
+
+  const [
+    searchError,
+    setSearchError,
+  ] =
+    useState("");
+
+  /* =======================================================
+     GAME
+  ======================================================= */
+
+  const [
+    guesses,
+    setGuesses,
+  ] =
+    useState<GuessRow[]>([]);
+
+  const [
+    gameStatus,
+    setGameStatus,
+  ] =
+    useState<GameStatus>(
+      "playing",
+    );
+
+  const [
+    message,
+    setMessage,
+  ] =
+    useState(
+      "😏 Footy: Üç harf yaz da kimi düşündüğünü görelim.",
+    );
+
+  const [
+    revealedPlayer,
+    setRevealedPlayer,
+  ] =
+    useState<Player | null>(
+      null,
+    );
+
+  const [
+    submitting,
+    setSubmitting,
+  ] =
+    useState(false);
+
+  /* =======================================================
+     RESULT
+  ======================================================= */
+
+  const [
+    resultSaved,
+    setResultSaved,
+  ] =
+    useState(false);
+
+  const [
+    resultLoading,
+    setResultLoading,
+  ] =
+    useState(false);
+
+  const [
+    resultSaveMessage,
+    setResultSaveMessage,
+  ] =
+    useState("");
+
+  /* =======================================================
+     NEW GAME
+  ======================================================= */
+
+  const [
+    newGameLoading,
+    setNewGameLoading,
+  ] =
+    useState(false);
+
+  /* =======================================================
+     COMPUTED
+  ======================================================= */
+
   const maxAttempts =
-    dailyGame?.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
+    gameSession?.maxAttempts ??
+    DEFAULT_MAX_ATTEMPTS;
 
   const minimumSearchLength =
-    dailyGame?.minimumSearchLength ??
+    gameSession
+      ?.minimumSearchLength ??
     DEFAULT_MINIMUM_SEARCH_LENGTH;
 
-  const score = calculateScore(
-    guesses.length,
-    gameStatus === "won",
-  );
+  const score =
+    calculateScore(
+      guesses.length,
+      gameStatus ===
+        "won",
+    );
 
-  const guessedPlayerIds = useMemo(
-    () => new Set(guesses.map((guess) => guess.player.id)),
-    [guesses],
-  );
+  const guessedPlayerIds =
+    useMemo(
+      () =>
+        new Set(
+          guesses.map(
+            (
+              guess,
+            ) =>
+              guess.player.id,
+          ),
+        ),
+      [
+        guesses,
+      ],
+    );
 
-  const visibleSearchResults = useMemo(
-    () =>
-      searchResults.filter(
-        (player) => !guessedPlayerIds.has(player.id),
-      ),
-    [guessedPlayerIds, searchResults],
-  );
+  const visibleSearchResults =
+    useMemo(
+      () =>
+        searchResults.filter(
+          (
+            player,
+          ) =>
+            !guessedPlayerIds.has(
+              player.id,
+            ),
+        ),
+      [
+        guessedPlayerIds,
+        searchResults,
+      ],
+    );
 
-  /*
-   * Günün oyununu yükle ve daha önce kaydedilmiş
-   * tarayıcı ilerlemesini geri getir.
-   */
-  useEffect(() => {
-    let cancelled = false;
+  /* =======================================================
+     RESET LOCAL STATE
+  ======================================================= */
 
-    async function loadDailyGame() {
-      try {
-        setLoadingGame(true);
-        setLoadingError("");
+  const resetGameState =
+    useCallback(() => {
+      setSearchText("");
 
-        const response = await fetch(
-          "/api/guess-the-player/today",
-          {
-            cache: "no-store",
-          },
-        );
+      setSearchResults(
+        [],
+      );
 
-        const result =
-          (await response.json()) as TodayResponse;
+      setSelectedPlayer(
+        null,
+      );
 
-        if (!response.ok || !result.ok) {
-          throw new Error(
-            result.error ?? "Günün oyunu yüklenemedi.",
-          );
-        }
+      setSearchLoading(
+        false,
+      );
 
-        if (!result.dateKey) {
-          throw new Error(
-            "Günün oyun tarihi alınamadı.",
-          );
-        }
+      setSearchError(
+        "",
+      );
 
-        const game: DailyGame = {
-          dateKey: result.dateKey,
-          maxAttempts:
-            result.maxAttempts ?? DEFAULT_MAX_ATTEMPTS,
-          minimumSearchLength:
-            result.minimumSearchLength ??
-            DEFAULT_MINIMUM_SEARCH_LENGTH,
-        };
+      setGuesses(
+        [],
+      );
 
-        if (cancelled) {
-          return;
-        }
+      setGameStatus(
+        "playing",
+      );
 
-        setDailyGame(game);
+      setRevealedPlayer(
+        null,
+      );
 
-        const savedValue = localStorage.getItem(
-          getStorageKey(game.dateKey),
-        );
+      setSubmitting(
+        false,
+      );
 
-        if (savedValue) {
-          try {
-            const savedGame = JSON.parse(
-              savedValue,
-            ) as SavedGame;
+      setResultSaved(
+        false,
+      );
 
-            if (savedGame.dateKey === game.dateKey) {
-              setGuesses(savedGame.guesses ?? []);
+      setResultLoading(
+        false,
+      );
 
-              setGameStatus(
-                savedGame.gameStatus ?? "playing",
-              );
+      setResultSaveMessage(
+        "",
+      );
 
-              setMessage(
-                savedGame.message ??
-                  "😏 Footy: Kaldığın yerden devam et.",
-              );
+      setMessage(
+        "😏 Footy: Üç harf yaz da kimi düşündüğünü görelim.",
+      );
+    }, []);
 
-              setRevealedPlayer(
-                savedGame.revealedPlayer ?? null,
-              );
+  /* =======================================================
+     CREATE NEW SESSION
+  ======================================================= */
 
-              setResultSaved(
-                savedGame.resultSaved ?? false,
-              );
-
-              setResultSaveMessage(
-                savedGame.resultSaveMessage ?? "",
-              );
-            }
-          } catch {
-            localStorage.removeItem(
-              getStorageKey(game.dateKey),
+  const startNewGame =
+    useCallback(
+      async (
+        initial =
+          false,
+      ) => {
+        try {
+          if (initial) {
+            setLoadingGame(
+              true,
+            );
+          } else {
+            setNewGameLoading(
+              true,
             );
           }
-        }
 
-        setHydrated(true);
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
+          setLoadingError(
+            "",
+          );
 
-        console.error(
-          "Guess the Player yükleme hatası:",
-          error,
-        );
+          resetGameState();
 
-        setLoadingError(
-          error instanceof Error
-            ? error.message
-            : "Günün oyunu yüklenemedi.",
-        );
-      } finally {
-        if (!cancelled) {
-          setLoadingGame(false);
-        }
-      }
-    }
+          const response =
+            await fetch(
+              "/api/guess-the-player/today",
+              {
+                method:
+                  "GET",
 
-    void loadDailyGame();
+                cache:
+                  "no-store",
+              },
+            );
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+          const result =
+            (await response.json()) as TodayResponse;
 
-  /*
-   * Oyun ilerlemesini tarayıcıda sakla.
-   */
-  useEffect(() => {
-    if (!hydrated || !dailyGame) {
-      return;
-    }
+          if (
+            !response.ok ||
+            !result.ok
+          ) {
+            throw new Error(
+              result.error ??
+                "Yeni oyun hazırlanamadı.",
+            );
+          }
 
-    const savedGame: SavedGame = {
-      dateKey: dailyGame.dateKey,
-      guesses,
-      gameStatus,
-      message,
-      revealedPlayer,
-      resultSaved,
-      resultSaveMessage,
-    };
+          if (
+            !result.sessionId
+          ) {
+            throw new Error(
+              "Oyun oturum numarası alınamadı.",
+            );
+          }
 
-    localStorage.setItem(
-      getStorageKey(dailyGame.dateKey),
-      JSON.stringify(savedGame),
-    );
-  }, [
-    dailyGame,
-    gameStatus,
-    guesses,
-    hydrated,
-    message,
-    revealedPlayer,
-    resultSaved,
-    resultSaveMessage,
-  ]);
+          setGameSession({
+            sessionId:
+              result.sessionId,
 
-  /*
-   * En az üç harf girildiğinde gerçek oyuncu
-   * arama API'sini çağır.
-   */
-  useEffect(() => {
-    const query = searchText.trim();
+            maxAttempts:
+              result.maxAttempts ??
+              DEFAULT_MAX_ATTEMPTS,
 
-    if (
-      query.length < minimumSearchLength ||
-      selectedPlayer ||
-      gameStatus !== "playing"
-    ) {
-      setSearchResults([]);
-      setSearchLoading(false);
-      setSearchError("");
-      return;
-    }
+            minimumSearchLength:
+              result.minimumSearchLength ??
+              DEFAULT_MINIMUM_SEARCH_LENGTH,
+          });
 
-    const abortController = new AbortController();
+          setMessage(
+            initial
+              ? "😏 Footy: Üç harf yaz da kimi düşündüğünü görelim."
+              : "⚽ Footy: Yeni gizli oyuncu hazır. Hadi bakalım.",
+          );
+        } catch (error) {
+          console.error(
+            "Guess the Player yükleme hatası:",
+            error,
+          );
 
-    const timer = window.setTimeout(async () => {
-      try {
-        setSearchLoading(true);
-        setSearchError("");
+          setGameSession(
+            null,
+          );
 
-        const response = await fetch(
-          `/api/guess-the-player/search?q=${encodeURIComponent(
-            query,
-          )}`,
-          {
-            signal: abortController.signal,
-            cache: "no-store",
-          },
-        );
+          setLoadingError(
+            error instanceof Error
+              ? error.message
+              : "Yeni oyun hazırlanamadı.",
+          );
+        } finally {
+          setLoadingGame(
+            false,
+          );
 
-        const result =
-          (await response.json()) as SearchResponse;
-
-        if (!response.ok || !result.ok) {
-          throw new Error(
-            result.error ?? "Oyuncular aranamadı.",
+          setNewGameLoading(
+            false,
           );
         }
+      },
+      [
+        resetGameState,
+      ],
+    );
 
-        setSearchResults(result.players ?? []);
-      } catch (error) {
-        if (
-          error instanceof DOMException &&
-          error.name === "AbortError"
-        ) {
-          return;
-        }
+  /* =======================================================
+     INITIAL GAME
+  ======================================================= */
 
-        console.error("Oyuncu arama hatası:", error);
+  useEffect(() => {
+    void startNewGame(
+      true,
+    );
+  }, [
+    startNewGame,
+  ]);
 
-        setSearchResults([]);
+  /* =======================================================
+     SEARCH PLAYER
 
-        setSearchError(
-          error instanceof Error
-            ? error.message
-            : "Oyuncular aranamadı.",
-        );
-      } finally {
-        setSearchLoading(false);
-      }
-    }, 300);
+     3 HARFTEN SONRA
+     API ARTIK %QUERY% ARIYOR.
+  ======================================================= */
+
+  useEffect(() => {
+    const query =
+      searchText.trim();
+
+    if (
+      query.length <
+        minimumSearchLength ||
+      selectedPlayer ||
+      gameStatus !==
+        "playing"
+    ) {
+      setSearchResults(
+        [],
+      );
+
+      setSearchLoading(
+        false,
+      );
+
+      setSearchError(
+        "",
+      );
+
+      return;
+    }
+
+    const abortController =
+      new AbortController();
+
+    const timer =
+      window.setTimeout(
+        async () => {
+          try {
+            setSearchLoading(
+              true,
+            );
+
+            setSearchError(
+              "",
+            );
+
+            const response =
+              await fetch(
+                `/api/guess-the-player/search?q=${encodeURIComponent(
+                  query,
+                )}`,
+                {
+                  signal:
+                    abortController.signal,
+
+                  cache:
+                    "no-store",
+                },
+              );
+
+            const result =
+              (await response.json()) as SearchResponse;
+
+            if (
+              !response.ok ||
+              !result.ok
+            ) {
+              throw new Error(
+                result.error ??
+                  "Oyuncular aranamadı.",
+              );
+            }
+
+            setSearchResults(
+              result.players ??
+                [],
+            );
+          } catch (error) {
+            if (
+              error instanceof
+                DOMException &&
+              error.name ===
+                "AbortError"
+            ) {
+              return;
+            }
+
+            console.error(
+              "Oyuncu arama hatası:",
+              error,
+            );
+
+            setSearchResults(
+              [],
+            );
+
+            setSearchError(
+              error instanceof Error
+                ? error.message
+                : "Oyuncular aranamadı.",
+            );
+          } finally {
+            setSearchLoading(
+              false,
+            );
+          }
+        },
+        250,
+      );
 
     return () => {
-      window.clearTimeout(timer);
+      window.clearTimeout(
+        timer,
+      );
+
       abortController.abort();
     };
   }, [
@@ -426,72 +712,150 @@ export default function GuessThePlayerPage() {
     selectedPlayer,
   ]);
 
-  /*
-   * Oyun bittikten sonra sonucu sunucuya kaydet.
-   *
-   * Sunucu tarafında:
-   * - game_results
-   * - game_stats
-   * - profiles
-   *
-   * tabloları güncellenir.
-   */
-  async function saveGameResult(
-    completedGuesses: GuessRow[],
+  /* =======================================================
+     SELECT PLAYER
+  ======================================================= */
+
+  function selectPlayer(
+    player: Player,
   ) {
-    if (resultSaved) {
+    setSelectedPlayer(
+      player,
+    );
+
+    setSearchText(
+      player.fullName,
+    );
+
+    setSearchResults(
+      [],
+    );
+
+    setSearchError(
+      "",
+    );
+
+    setMessage(
+      `👀 Footy: ${player.fullName} diyorsun. Eminsen tahmini gönder.`,
+    );
+  }
+
+  /* =======================================================
+     SAVE RESULT
+  ======================================================= */
+
+  async function saveGameResult(
+    completedGuesses:
+      GuessRow[],
+  ) {
+    if (
+      resultSaved ||
+      resultLoading ||
+      !gameSession
+    ) {
       return;
     }
 
     try {
-      setResultSaveMessage("Sonuç kaydediliyor...");
-
-      const response = await fetch(
-        "/api/guess-the-player/result",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            playerIds: completedGuesses.map(
-              (guess) => guess.player.id,
-            ),
-          }),
-        },
+      setResultLoading(
+        true,
       );
+
+      setResultSaveMessage(
+        "Sonuç kaydediliyor...",
+      );
+
+      const response =
+        await fetch(
+          "/api/guess-the-player/result",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                sessionId:
+                  gameSession.sessionId,
+
+                playerIds:
+                  completedGuesses.map(
+                    (
+                      guess,
+                    ) =>
+                      guess.player.id,
+                  ),
+              }),
+          },
+        );
 
       const result =
         (await response.json()) as ResultResponse;
 
-      if (response.status === 401) {
+      /* =================================================
+         LOGIN YOK
+      ================================================= */
+
+      if (
+        response.status ===
+        401
+      ) {
         setResultSaveMessage(
           "Puanını kaydetmek için giriş yapmalısın.",
         );
+
         return;
       }
 
-      if (!response.ok || !result.ok) {
+      /* =================================================
+         ERROR
+      ================================================= */
+
+      if (
+        !response.ok ||
+        !result.ok
+      ) {
         throw new Error(
-          result.error ?? "Oyun sonucu kaydedilemedi.",
+          result.error ??
+            "Oyun sonucu kaydedilemedi.",
         );
       }
 
-      setResultSaved(true);
+      setResultSaved(
+        true,
+      );
 
-      if (result.alreadyRecorded) {
-        setResultSaveMessage(
-          "Bugünkü sonucun daha önce kaydedilmiş.",
+      /*
+       * Kaybedince gizli oyuncu result
+       * endpointinden geliyor.
+       */
+      if (
+        result.targetPlayer
+      ) {
+        setRevealedPlayer(
+          result.targetPlayer,
         );
+      }
+
+      if (
+        result.alreadyRecorded
+      ) {
+        setResultSaveMessage(
+          "Bu oyunun sonucu daha önce kaydedilmiş.",
+        );
+
         return;
       }
 
-      if (result.won) {
-        const savedScore = result.score ?? 0;
-        const currentStreak = result.currentStreak ?? 1;
-
+      if (
+        result.won
+      ) {
         setResultSaveMessage(
-          `${savedScore} puan hesabına eklendi. 🔥 Guess the Player serisi: ${currentStreak}`,
+          `${result.score ?? 0} puan hesabına eklendi. 🔥`,
         );
       } else {
         setResultSaveMessage(
@@ -509,57 +873,136 @@ export default function GuessThePlayerPage() {
           ? error.message
           : "Sonuç kaydedilirken hata oluştu.",
       );
+    } finally {
+      setResultLoading(
+        false,
+      );
     }
   }
 
-  function selectPlayer(player: Player) {
-    setSelectedPlayer(player);
-    setSearchText(player.fullName);
-    setSearchResults([]);
-
-    setMessage(
-      `👀 Footy: ${player.fullName} diyorsun. Eminsen tahmini gönder.`,
-    );
-  }
+  /* =======================================================
+     SUBMIT GUESS
+  ======================================================= */
 
   async function submitGuess() {
-    if (gameStatus !== "playing" || submitting) {
+    if (
+      gameStatus !==
+        "playing" ||
+      submitting ||
+      !gameSession
+    ) {
       return;
     }
 
-    if (!selectedPlayer) {
+    if (
+      !selectedPlayer
+    ) {
+      /*
+       * Enter'a basılmış ve listede
+       * tek sonuç varsa onu seçip
+       * tahmine gönderebiliriz.
+       */
+      if (
+        visibleSearchResults.length ===
+        1
+      ) {
+        const onlyPlayer =
+          visibleSearchResults[0];
+
+        setSelectedPlayer(
+          onlyPlayer,
+        );
+
+        setSearchText(
+          onlyPlayer.fullName,
+        );
+
+        await submitSelectedPlayer(
+          onlyPlayer,
+        );
+
+        return;
+      }
+
       setMessage(
         "😏 Footy: Oyuncuyu listeden seçmeden tahmin olmaz.",
       );
+
       return;
     }
 
-    if (guessedPlayerIds.has(selectedPlayer.id)) {
+    await submitSelectedPlayer(
+      selectedPlayer,
+    );
+  }
+
+  /* =======================================================
+     ACTUAL GUESS
+  ======================================================= */
+
+  async function submitSelectedPlayer(
+    player: Player,
+  ) {
+    if (
+      !gameSession ||
+      submitting ||
+      gameStatus !==
+        "playing"
+    ) {
+      return;
+    }
+
+    if (
+      guessedPlayerIds.has(
+        player.id,
+      )
+    ) {
       setMessage(
         "😏 Footy: Bu oyuncuyu zaten tahmin ettin.",
       );
+
+      setSelectedPlayer(
+        null,
+      );
+
+      setSearchText(
+        "",
+      );
+
       return;
     }
 
     try {
-      setSubmitting(true);
+      setSubmitting(
+        true,
+      );
 
       setMessage(
         "👀 Footy: Tahminin kontrol ediliyor...",
       );
 
-      const response = await fetch(
-        "/api/guess-the-player/guess",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+      const response =
+        await fetch(
+          "/api/guess-the-player/guess",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                sessionId:
+                  gameSession.sessionId,
+
+                playerId:
+                  player.id,
+              }),
           },
-          body: JSON.stringify({
-            playerId: selectedPlayer.id,
-          }),
-        },
-      );
+        );
 
       const result =
         (await response.json()) as GuessResponse;
@@ -571,53 +1014,105 @@ export default function GuessThePlayerPage() {
         !result.comparison
       ) {
         throw new Error(
-          result.error ?? "Tahmin kontrol edilemedi.",
+          result.error ??
+            "Tahmin kontrol edilemedi.",
         );
       }
 
-      const nextGuesses: GuessRow[] = [
-        ...guesses,
-        {
-          player: result.player,
-          comparison: result.comparison,
-        },
-      ];
+      const nextGuesses:
+        GuessRow[] = [
+          ...guesses,
+          {
+            player:
+              result.player,
 
-      setGuesses(nextGuesses);
-      setSelectedPlayer(null);
-      setSearchText("");
-      setSearchResults([]);
+            comparison:
+              result.comparison,
+          },
+        ];
 
-      if (result.won) {
-        setGameStatus("won");
+      setGuesses(
+        nextGuesses,
+      );
+
+      setSelectedPlayer(
+        null,
+      );
+
+      setSearchText(
+        "",
+      );
+
+      setSearchResults(
+        [],
+      );
+
+      /* =================================================
+         WON
+      ================================================= */
+
+      if (
+        result.won
+      ) {
+        setGameStatus(
+          "won",
+        );
 
         setRevealedPlayer(
-          result.targetPlayer ?? result.player,
+          result.targetPlayer ??
+            result.player,
         );
 
-        setMessage(
-          `🎉 Footy: Bildin! ${result.player.fullName}, doğru cevap.`,
-        );
+        if (
+          nextGuesses.length ===
+          1
+        ) {
+          setMessage(
+            `🤯 Footy: İlk tahminde ${result.player.fullName}! Buna lafım yok.`,
+          );
+        } else {
+          setMessage(
+            `🎉 Footy: Bildin! ${result.player.fullName} doğru cevap.`,
+          );
+        }
 
-        void saveGameResult(nextGuesses);
+        void saveGameResult(
+          nextGuesses,
+        );
 
         return;
       }
 
-      if (nextGuesses.length >= maxAttempts) {
-        setGameStatus("lost");
+      /* =================================================
+         LOST
+      ================================================= */
 
-        setMessage(
-          "😂 Footy: Beş hakkı da kullandın. Bugün olmadı.",
+      if (
+        nextGuesses.length >=
+        maxAttempts
+      ) {
+        setGameStatus(
+          "lost",
         );
 
-        void saveGameResult(nextGuesses);
+        setMessage(
+          "😂 Footy: Hakların bitti. Gizli oyuncuyu aşağıda görelim.",
+        );
+
+        void saveGameResult(
+          nextGuesses,
+        );
 
         return;
       }
+
+      /* =================================================
+         CONTINUE
+      ================================================= */
 
       const remainingAttempts =
-        maxAttempts - nextGuesses.length;
+        maxAttempts -
+        nextGuesses.length;
 
       setMessage(
         `👀 Footy: Olmadı. ${remainingAttempts} hakkın kaldı.`,
@@ -634,76 +1129,110 @@ export default function GuessThePlayerPage() {
           : "⚠️ Footy: Tahmin kontrol edilemedi.",
       );
     } finally {
-      setSubmitting(false);
+      setSubmitting(
+        false,
+      );
     }
   }
 
-  function resetGameForTesting() {
-    if (!dailyGame) {
+  /* =======================================================
+     NEW GAME BUTTON
+  ======================================================= */
+
+  async function handleNewGame() {
+    if (
+      newGameLoading ||
+      submitting ||
+      resultLoading
+    ) {
       return;
     }
 
-    localStorage.removeItem(
-      getStorageKey(dailyGame.dateKey),
-    );
-
-    setSearchText("");
-    setSearchResults([]);
-    setSelectedPlayer(null);
-    setGuesses([]);
-    setGameStatus("playing");
-    setRevealedPlayer(null);
-    setSearchError("");
-    setResultSaved(false);
-    setResultSaveMessage("");
-
-    setMessage(
-      "😏 Footy: Oyun sıfırlandı. Bu kez daha dikkatli ol.",
+    await startNewGame(
+      false,
     );
   }
 
-  if (loadingGame) {
+  /* =======================================================
+     LOADING
+  ======================================================= */
+
+  if (
+    loadingGame &&
+    !gameSession
+  ) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#07111f] text-white">
+
         <div className="text-center">
+
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-purple-500" />
 
           <p className="mt-4 text-sm text-slate-400">
-            Günün oyunu hazırlanıyor...
+            Yeni gizli oyuncu seçiliyor...
           </p>
+
         </div>
+
       </main>
     );
   }
 
-  if (loadingError || !dailyGame) {
+  /* =======================================================
+     ERROR
+  ======================================================= */
+
+  if (
+    loadingError ||
+    !gameSession
+  ) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#07111f] px-4 text-white">
+
         <div className="w-full max-w-md rounded-3xl border border-red-500/20 bg-red-500/10 p-7 text-center">
+
           <p className="text-xl font-black">
             Oyun yüklenemedi
           </p>
 
           <p className="mt-3 text-sm text-red-200">
-            {loadingError}
+            {loadingError ||
+              "Yeni oyun hazırlanamadı."}
           </p>
 
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={() =>
+              void startNewGame(
+                true,
+              )
+            }
             className="mt-5 rounded-xl bg-white px-5 py-3 font-black text-[#07111f]"
           >
             Tekrar Dene
           </button>
+
         </div>
+
       </main>
     );
   }
 
+  /* =======================================================
+     PAGE
+  ======================================================= */
+
   return (
     <main className="min-h-screen bg-[#07111f] px-4 py-6 text-white sm:px-6">
+
       <div className="mx-auto max-w-6xl">
+
+        {/* =================================================
+            HEADER
+        ================================================= */}
+
         <header className="flex items-center justify-between border-b border-white/10 pb-5">
+
           <Link
             href="/"
             className="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-400 transition hover:border-purple-400/40 hover:text-purple-300"
@@ -712,73 +1241,142 @@ export default function GuessThePlayerPage() {
           </Link>
 
           <div className="text-center">
-            <p className="font-black">FootBattle</p>
+
+            <p className="font-black">
+              FootBattle
+            </p>
 
             <p className="text-xs text-slate-500">
               Guess the Player
             </p>
+
           </div>
 
-          <div className="rounded-xl border border-white/10 px-4 py-2 text-sm">
-            {guesses.length}/{maxAttempts}
+          <div className="rounded-xl border border-white/10 px-4 py-2 text-sm font-black">
+
+            {guesses.length}
+            /
+            {maxAttempts}
+
           </div>
+
         </header>
 
+        {/* =================================================
+            GAME CARD
+        ================================================= */}
+
         <section className="mt-7 rounded-3xl border border-white/10 bg-white/[0.04] p-4 shadow-2xl shadow-black/30 sm:p-7">
+
+          {/* ===============================================
+              TITLE
+          =============================================== */}
+
           <div className="text-center">
+
             <span className="inline-block rounded-full border border-purple-500/30 bg-purple-500/10 px-4 py-2 text-xs font-black uppercase tracking-widest text-purple-300">
-              {dailyGame.dateKey}
+              SINIRSIZ MOD
             </span>
 
             <h1 className="mt-5 text-3xl font-black sm:text-4xl">
-              Gizli Futbolcuyu Bul
+              Gizli Oyuncuyu Bul
             </h1>
 
             <p className="mt-2 text-sm text-slate-400 sm:text-base">
-              Oyuncuları karşılaştır ve hedef futbolcuyu{" "}
+              Oyuncuları karşılaştır ve gizli futbolcuyu{" "}
               {maxAttempts} tahminde bul.
             </p>
+
+            <p className="mt-2 text-xs font-semibold text-purple-300/70">
+              Her yeni oyunda otomatik olarak farklı bir oyuncu seçilir.
+            </p>
+
           </div>
 
+          {/* ===============================================
+              SEARCH
+          =============================================== */}
+
           <div className="mx-auto mt-8 max-w-2xl">
+
             <div className="relative">
+
               <input
                 type="text"
-                value={searchText}
-                disabled={
-                  gameStatus !== "playing" || submitting
+                value={
+                  searchText
                 }
-                onChange={(event) => {
-                  setSearchText(event.target.value);
-                  setSelectedPlayer(null);
+                disabled={
+                  gameStatus !==
+                    "playing" ||
+                  submitting
+                }
+                onChange={(
+                  event,
+                ) => {
+                  setSearchText(
+                    event.target.value,
+                  );
+
+                  setSelectedPlayer(
+                    null,
+                  );
+
+                  setSearchError(
+                    "",
+                  );
                 }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
+                onKeyDown={(
+                  event,
+                ) => {
+                  if (
+                    event.key ===
+                    "Enter"
+                  ) {
+                    event.preventDefault();
+
                     void submitGuess();
                   }
                 }}
                 placeholder={`Oyuncu ara... En az ${minimumSearchLength} harf`}
+                autoComplete="off"
                 className="w-full rounded-2xl border border-white/10 bg-[#0c1929] px-5 py-4 pr-28 text-white outline-none transition placeholder:text-slate-600 focus:border-purple-400/60 disabled:cursor-not-allowed disabled:opacity-60"
               />
 
               <button
                 type="button"
-                onClick={() => void submitGuess()}
+                onClick={() =>
+                  void submitGuess()
+                }
                 disabled={
-                  !selectedPlayer ||
-                  gameStatus !== "playing" ||
+                  (
+                    !selectedPlayer &&
+                    visibleSearchResults.length !==
+                      1
+                  ) ||
+                  gameStatus !==
+                    "playing" ||
                   submitting
                 }
                 className="absolute bottom-2 right-2 top-2 rounded-xl bg-purple-500 px-5 text-sm font-black text-white transition hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {submitting ? "Kontrol..." : "Tahmin Et"}
+                {submitting
+                  ? "Kontrol..."
+                  : "Tahmin Et"}
               </button>
 
-              {searchText.trim().length >=
+              {/* =============================================
+                  SEARCH RESULTS
+              ============================================= */}
+
+              {searchText.trim()
+                .length >=
                 minimumSearchLength &&
                 !selectedPlayer &&
-                gameStatus === "playing" && (
+                gameStatus ===
+                  "playing" && (
                   <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 max-h-96 overflow-y-auto rounded-2xl border border-white/10 bg-[#0c1929] shadow-2xl shadow-black/50">
+
                     {searchLoading ? (
                       <p className="px-5 py-4 text-sm text-slate-500">
                         Oyuncular aranıyor...
@@ -787,65 +1385,142 @@ export default function GuessThePlayerPage() {
                       <p className="px-5 py-4 text-sm text-red-300">
                         {searchError}
                       </p>
-                    ) : visibleSearchResults.length > 0 ? (
-                      visibleSearchResults.map((player) => (
-                        <button
-                          key={player.id}
-                          type="button"
-                          onClick={() => selectPlayer(player)}
-                          className="flex w-full items-center gap-4 border-b border-white/5 px-5 py-4 text-left transition last:border-b-0 hover:bg-white/5"
-                        >
-                          {player.imageUrl ? (
-                            <img
-                              src={player.imageUrl}
-                              alt=""
-                              className="h-10 w-10 rounded-full bg-white/5 object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-500/10 font-black text-purple-300">
-                              ?
+                    ) : visibleSearchResults.length >
+                      0 ? (
+                      visibleSearchResults.map(
+                        (
+                          player,
+                        ) => (
+                          <button
+                            key={
+                              player.id
+                            }
+                            type="button"
+                            onClick={() =>
+                              selectPlayer(
+                                player,
+                              )
+                            }
+                            className="flex w-full items-center gap-4 border-b border-white/5 px-5 py-4 text-left transition last:border-b-0 hover:bg-white/5"
+                          >
+
+                            {player.imageUrl ? (
+                              <img
+                                src={
+                                  player.imageUrl
+                                }
+                                alt={
+                                  player.fullName
+                                }
+                                className="h-10 w-10 rounded-full bg-white/5 object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-500/10 font-black text-purple-300">
+                                ?
+                              </div>
+                            )}
+
+                            <div className="min-w-0 flex-1">
+
+                              <p className="truncate font-bold">
+                                {player.fullName}
+                              </p>
+
+                              <p className="mt-1 truncate text-xs text-slate-500">
+                                {player.club}
+                                {" · "}
+                                {player.nationality}
+                              </p>
+
                             </div>
-                          )}
 
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate font-bold">
-                              {player.fullName}
-                            </p>
+                            <span className="text-sm font-semibold text-purple-300">
+                              Seç
+                            </span>
 
-                            <p className="mt-1 truncate text-xs text-slate-500">
-                              {player.club} ·{" "}
-                              {player.nationality}
-                            </p>
-                          </div>
-
-                          <span className="text-sm font-semibold text-purple-300">
-                            Seç
-                          </span>
-                        </button>
-                      ))
+                          </button>
+                        ),
+                      )
                     ) : (
                       <p className="px-5 py-4 text-sm text-slate-500">
-                        Bu harflerle başlayan oyuncu bulunamadı.
+                        Bu aramayla eşleşen oyuncu bulunamadı.
                       </p>
                     )}
+
                   </div>
                 )}
+
             </div>
 
+            {/* SELECTED PLAYER */}
+
+            {selectedPlayer && (
+              <div className="mt-3 flex items-center justify-between rounded-xl border border-purple-500/20 bg-purple-500/10 px-4 py-3">
+
+                <div>
+
+                  <p className="text-xs font-black uppercase tracking-wider text-purple-300">
+                    Seçilen Oyuncu
+                  </p>
+
+                  <p className="mt-1 font-black">
+                    {selectedPlayer.fullName}
+                  </p>
+
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPlayer(
+                      null,
+                    );
+
+                    setSearchText(
+                      "",
+                    );
+                  }}
+                  className="rounded-lg border border-white/10 px-3 py-2 text-xs font-black text-slate-400 transition hover:text-white"
+                >
+                  Değiştir
+                </button>
+
+              </div>
+            )}
+
             <p className="mt-3 text-center text-xs text-slate-600">
-              Oyuncu yalnızca arama listesinden seçilebilir.
+              Adın veya soyadın herhangi bir yerinden 3 harf yazabilirsin.
+              Örneğin{" "}
+              <strong className="text-slate-500">
+                nei
+              </strong>{" "}
+              → Wesley Sneijder.
             </p>
+
           </div>
 
+          {/* ===============================================
+              FOOTY
+          =============================================== */}
+
           <div className="mt-7 rounded-2xl border border-white/10 bg-black/20 p-4 text-center">
+
             <p className="text-sm leading-6 text-slate-300">
               {message}
             </p>
+
           </div>
 
+          {/* ===============================================
+              COMPARISON TABLE
+          =============================================== */}
+
           <div className="mt-8 overflow-x-auto">
+
             <div className="min-w-[900px]">
+
               <div className="grid grid-cols-[1.4fr_repeat(6,1fr)] gap-2 text-center text-xs font-bold uppercase tracking-wider text-slate-500">
+
                 {[
                   "Oyuncu",
                   "Milliyet",
@@ -854,145 +1529,278 @@ export default function GuessThePlayerPage() {
                   "Lig",
                   "Yaş",
                   "Ayak",
-                ].map((title) => (
-                  <div
-                    key={title}
-                    className="rounded-xl bg-white/[0.03] p-3"
-                  >
-                    {title}
-                  </div>
-                ))}
+                ].map(
+                  (
+                    title,
+                  ) => (
+                    <div
+                      key={
+                        title
+                      }
+                      className="rounded-xl bg-white/[0.03] p-3"
+                    >
+                      {title}
+                    </div>
+                  ),
+                )}
+
               </div>
 
               <div className="mt-2 space-y-2">
-                {Array.from({
-                  length: maxAttempts,
-                }).map((_, rowIndex) => {
-                  const guess = guesses[rowIndex];
 
-                  if (!guess) {
+                {Array.from({
+                  length:
+                    maxAttempts,
+                }).map(
+                  (
+                    _,
+                    rowIndex,
+                  ) => {
+                    const guess =
+                      guesses[
+                        rowIndex
+                      ];
+
+                    /* =======================================
+                       EMPTY ROW
+                    ======================================= */
+
+                    if (!guess) {
+                      return (
+                        <div
+                          key={
+                            rowIndex
+                          }
+                          className="grid grid-cols-[1.4fr_repeat(6,1fr)] gap-2"
+                        >
+
+                          {Array.from({
+                            length:
+                              7,
+                          }).map(
+                            (
+                              _,
+                              columnIndex,
+                            ) => (
+                              <div
+                                key={
+                                  columnIndex
+                                }
+                                className="h-[70px] rounded-xl border border-white/10 bg-white/[0.02]"
+                              />
+                            ),
+                          )}
+
+                        </div>
+                      );
+                    }
+
+                    const playerIsCorrect =
+                      Object.values(
+                        guess.comparison,
+                      ).every(
+                        (
+                          status,
+                        ) =>
+                          status ===
+                          "correct",
+                      );
+
                     return (
                       <div
-                        key={rowIndex}
+                        key={
+                          rowIndex
+                        }
                         className="grid grid-cols-[1.4fr_repeat(6,1fr)] gap-2"
                       >
-                        {Array.from({ length: 7 }).map(
-                          (_, columnIndex) => (
-                            <div
-                              key={columnIndex}
-                              className="h-[70px] rounded-xl border border-white/10 bg-white/[0.02]"
-                            />
-                          ),
-                        )}
+
+                        {/* PLAYER */}
+
+                        <div
+                          className={`flex min-h-[70px] items-center rounded-xl border px-4 font-bold ${
+                            playerIsCorrect
+                              ? getComparisonClasses(
+                                  "correct",
+                                )
+                              : getComparisonClasses(
+                                  "wrong",
+                                )
+                          }`}
+                        >
+                          {guess.player.fullName}
+                        </div>
+
+                        {/* NATIONALITY */}
+
+                        <div
+                          className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
+                            guess.comparison
+                              .nationality,
+                          )}`}
+                        >
+                          {guess.player.nationality}
+                        </div>
+
+                        {/* POSITION */}
+
+                        <div
+                          className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
+                            guess.comparison
+                              .position,
+                          )}`}
+                        >
+                          {guess.player.position}
+                        </div>
+
+                        {/* CLUB */}
+
+                        <div
+                          className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
+                            guess.comparison
+                              .club,
+                          )}`}
+                        >
+                          {guess.player.club}
+                        </div>
+
+                        {/* LEAGUE */}
+
+                        <div
+                          className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
+                            guess.comparison
+                              .league,
+                          )}`}
+                        >
+                          {guess.player.league}
+                        </div>
+
+                        {/* AGE */}
+
+                        <div
+                          className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
+                            guess.comparison
+                              .age,
+                          )}`}
+                        >
+                          <span>
+                            {guess.player.age}
+                            {" "}
+
+                            <strong className="text-lg">
+                              {getAgeDirection(
+                                guess.comparison
+                                  .age,
+                              )}
+                            </strong>
+                          </span>
+                        </div>
+
+                        {/* FOOT */}
+
+                        <div
+                          className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
+                            guess.comparison
+                              .preferredFoot,
+                          )}`}
+                        >
+                          {
+                            guess.player
+                              .preferredFoot
+                          }
+                        </div>
+
                       </div>
                     );
-                  }
+                  },
+                )}
 
-                  const playerIsCorrect =
-                    Object.values(guess.comparison).every(
-                      (status) => status === "correct",
-                    );
-
-                  return (
-                    <div
-                      key={rowIndex}
-                      className="grid grid-cols-[1.4fr_repeat(6,1fr)] gap-2"
-                    >
-                      <div
-                        className={`flex min-h-[70px] items-center rounded-xl border px-4 font-bold ${
-                          playerIsCorrect
-                            ? getComparisonClasses("correct")
-                            : getComparisonClasses("wrong")
-                        }`}
-                      >
-                        {guess.player.fullName}
-                      </div>
-
-                      <div
-                        className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
-                          guess.comparison.nationality,
-                        )}`}
-                      >
-                        {guess.player.nationality}
-                      </div>
-
-                      <div
-                        className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
-                          guess.comparison.position,
-                        )}`}
-                      >
-                        {guess.player.position}
-                      </div>
-
-                      <div
-                        className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
-                          guess.comparison.club,
-                        )}`}
-                      >
-                        {guess.player.club}
-                      </div>
-
-                      <div
-                        className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
-                          guess.comparison.league,
-                        )}`}
-                      >
-                        {guess.player.league}
-                      </div>
-
-                      <div
-                        className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
-                          guess.comparison.age,
-                        )}`}
-                      >
-                        <span>
-                          {guess.player.age}{" "}
-                          <strong className="text-lg">
-                            {getAgeDirection(
-                              guess.comparison.age,
-                            )}
-                          </strong>
-                        </span>
-                      </div>
-
-                      <div
-                        className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
-                          guess.comparison.preferredFoot,
-                        )}`}
-                      >
-                        {guess.player.preferredFoot}
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
+
             </div>
+
           </div>
 
-          {gameStatus !== "playing" && (
+          {/* ===============================================
+              RESULT
+          =============================================== */}
+
+          {gameStatus !==
+            "playing" && (
             <div
-              className={`mt-7 rounded-2xl border p-5 text-center ${
-                gameStatus === "won"
+              className={`mt-7 rounded-2xl border p-6 text-center ${
+                gameStatus ===
+                "won"
                   ? "border-green-500/20 bg-green-500/10"
                   : "border-red-500/20 bg-red-500/10"
               }`}
             >
-              <p className="text-xl font-black">
-                {gameStatus === "won"
-                  ? "Tebrikler! 🎉"
-                  : "Bugün olmadı 😏"}
+
+              <p className="text-4xl">
+                {gameStatus ===
+                "won"
+                  ? "🏆"
+                  : "😤"}
               </p>
 
+              <p className="mt-3 text-xl font-black">
+                {gameStatus ===
+                "won"
+                  ? "Tebrikler!"
+                  : "Oyuncuyu bulamadın!"}
+              </p>
+
+              {/* TARGET PLAYER */}
+
+              {gameStatus ===
+                "lost" &&
+                resultLoading && (
+                  <p className="mt-4 text-sm text-slate-400">
+                    Gizli oyuncu yükleniyor...
+                  </p>
+                )}
+
               {revealedPlayer && (
-                <p className="mt-2 text-sm text-slate-300">
-                  Gizli oyuncu:{" "}
-                  <strong>{revealedPlayer.fullName}</strong>
-                </p>
+                <div className="mx-auto mt-4 max-w-sm rounded-xl border border-white/10 bg-black/20 p-4">
+
+                  <p className="text-xs font-black uppercase tracking-wider text-slate-500">
+                    Gizli Oyuncu
+                  </p>
+
+                  <div className="mt-3 flex items-center justify-center gap-3">
+
+                    {revealedPlayer.imageUrl && (
+                      <img
+                        src={
+                          revealedPlayer.imageUrl
+                        }
+                        alt={
+                          revealedPlayer.fullName
+                        }
+                        className="h-12 w-12 rounded-full object-cover"
+                      />
+                    )}
+
+                    <div className="text-left">
+
+                      <p className="text-lg font-black text-white">
+                        {revealedPlayer.fullName}
+                      </p>
+
+                      <p className="text-xs text-slate-500">
+                        {revealedPlayer.club}
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                </div>
               )}
 
               <p
-                className={`mt-3 text-3xl font-black ${
-                  gameStatus === "won"
+                className={`mt-4 text-3xl font-black ${
+                  gameStatus ===
+                  "won"
                     ? "text-green-400"
                     : "text-slate-400"
                 }`}
@@ -1003,8 +1811,12 @@ export default function GuessThePlayerPage() {
               {resultSaveMessage && (
                 <p
                   className={`mt-3 text-sm font-semibold ${
-                    resultSaveMessage.includes("giriş") ||
-                    resultSaveMessage.includes("hata") ||
+                    resultSaveMessage.includes(
+                      "giriş",
+                    ) ||
+                    resultSaveMessage.includes(
+                      "hata",
+                    ) ||
                     resultSaveMessage.includes(
                       "kaydedilemedi",
                     )
@@ -1015,27 +1827,67 @@ export default function GuessThePlayerPage() {
                   {resultSaveMessage}
                 </p>
               )}
+
+              {/* ACTIONS */}
+
+              <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
+
+                <button
+                  type="button"
+                  disabled={
+                    newGameLoading ||
+                    resultLoading
+                  }
+                  onClick={() =>
+                    void handleNewGame()
+                  }
+                  className="rounded-xl bg-purple-500 px-6 py-3 text-sm font-black text-white transition hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {newGameLoading
+                    ? "Yeni oyuncu seçiliyor..."
+                    : "⚽ Yeni Oyuncuyla Tekrar Oyna"}
+                </button>
+
+                <Link
+                  href="/"
+                  className="rounded-xl border border-white/15 px-6 py-3 text-sm font-black transition hover:bg-white/5"
+                >
+                  Ana Sayfa
+                </Link>
+
+              </div>
+
             </div>
           )}
 
+          {/* ===============================================
+              LEGEND
+          =============================================== */}
+
           <div className="mt-7 grid grid-cols-3 gap-2 text-center text-xs">
+
             <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-3">
+
               <div className="mx-auto mb-2 h-4 w-4 rounded bg-green-500" />
 
               <p className="text-slate-400">
                 Doğru
               </p>
+
             </div>
 
             <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3">
+
               <div className="mx-auto mb-2 h-4 w-4 rounded bg-red-500" />
 
               <p className="text-slate-400">
                 Yanlış
               </p>
+
             </div>
 
             <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 p-3">
+
               <p className="mb-1 text-lg font-black text-amber-300">
                 ↑ ↓
               </p>
@@ -1043,18 +1895,15 @@ export default function GuessThePlayerPage() {
               <p className="text-slate-400">
                 Hedef yaş yönü
               </p>
+
             </div>
+
           </div>
 
-          <button
-            type="button"
-            onClick={resetGameForTesting}
-            className="mx-auto mt-5 block rounded-lg border border-red-400/20 px-4 py-2 text-xs font-semibold text-red-300 transition hover:bg-red-500/10"
-          >
-            Test için oyunu sıfırla
-          </button>
         </section>
+
       </div>
+
     </main>
   );
 }
