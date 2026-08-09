@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
 
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
+
+import {
+  buildPlayerQuizSeniorCareer,
+  normalizePlayerQuizText,
+  type RawPlayerQuizClub,
+} from "@/lib/player-quiz/clubs";
+
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-const COMPLETION_SCORE = 500;
+const COMPLETION_SCORE =
+  500;
 
 type FinishReason =
   | "won"
@@ -11,221 +19,19 @@ type FinishReason =
 
 type ResultRequest = {
   sessionId?: string;
+
   finishReason?: FinishReason;
-  birthYear?: string | number;
+
+  birthYear?:
+    | string
+    | number;
+
   nationality?: string;
+
   solvedClubIds?: number[];
+
   attemptCount?: number;
 };
-
-type RawCareerClub = {
-  id: number;
-  club_name: string;
-  career_order: number | null;
-};
-
-/* =========================================================
-   NORMALIZE TEXT
-========================================================= */
-
-function normalizeText(value: unknown) {
-  return String(value ?? "")
-    .trim()
-    .toLocaleLowerCase("tr-TR")
-    .replace(/ı/g, "i")
-    .replace(/ç/g, "c")
-    .replace(/ğ/g, "g")
-    .replace(/ö/g, "o")
-    .replace(/ş/g, "s")
-    .replace(/ü/g, "u")
-    .replace(/&/g, " ")
-    .replace(/[.\-_/]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/* =========================================================
-   YOUTH FILTER
-========================================================= */
-
-function isYouthClubName(value: unknown) {
-  const clubName =
-    normalizeText(value);
-
-  if (!clubName) {
-    return true;
-  }
-
-  return (
-    /\bu\s?\d{2}\b/.test(clubName) ||
-    /\byth\b/.test(clubName) ||
-    /\byouth\b/.test(clubName) ||
-    /\bacademy\b/.test(clubName) ||
-    /\bakademi\b/.test(clubName) ||
-    /\breserve\b/.test(clubName) ||
-    /\breserves\b/.test(clubName) ||
-    /\bprimavera\b/.test(clubName) ||
-    /\bjuvenil\b/.test(clubName) ||
-    /\bjuniors?\b/.test(clubName)
-  );
-}
-
-/* =========================================================
-   CLUB NORMALIZATION
-========================================================= */
-
-function normalizeClubName(value: unknown) {
-  const normalized =
-    normalizeText(value);
-
-  if (!normalized) {
-    return "";
-  }
-
-  const removableWords =
-    new Set([
-      "fc",
-      "afc",
-      "cf",
-      "sc",
-      "sk",
-      "fk",
-      "ac",
-      "jk",
-      "football",
-      "club",
-      "futbol",
-      "futebol",
-      "calcio",
-    ]);
-
-  return normalized
-    .split(" ")
-    .filter(
-      (word) =>
-        word &&
-        !removableWords.has(
-          word,
-        ),
-    )
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/* =========================================================
-   BUILD SENIOR CAREER
-========================================================= */
-
-function buildSeniorCareer(
-  rawClubs: RawCareerClub[],
-) {
-  const seniorClubs =
-    rawClubs.filter(
-      (club) =>
-        !isYouthClubName(
-          club.club_name,
-        ),
-    );
-
-  const sortedClubs =
-    [...seniorClubs].sort(
-      (
-        first,
-        second,
-      ) =>
-        Number(
-          first.career_order ??
-            999999,
-        ) -
-        Number(
-          second.career_order ??
-            999999,
-        ),
-    );
-
-  const uniqueClubMap =
-    new Map<
-      string,
-      {
-        id: number;
-        name: string;
-        originalOrder: number;
-      }
-    >();
-
-  for (
-    const club of
-      sortedClubs
-  ) {
-    const normalized =
-      normalizeClubName(
-        club.club_name,
-      );
-
-    if (!normalized) {
-      continue;
-    }
-
-    if (
-      uniqueClubMap.has(
-        normalized,
-      )
-    ) {
-      continue;
-    }
-
-    uniqueClubMap.set(
-      normalized,
-      {
-        id:
-          Number(
-            club.id,
-          ),
-
-        name:
-          club.club_name,
-
-        originalOrder:
-          Number(
-            club.career_order ??
-              0,
-          ),
-      },
-    );
-  }
-
-  return Array.from(
-    uniqueClubMap.values(),
-  )
-    .sort(
-      (
-        first,
-        second,
-      ) =>
-        first.originalOrder -
-        second.originalOrder,
-    )
-    .map(
-      (
-        club,
-        index,
-      ) => ({
-        id:
-          club.id,
-
-        name:
-          club.name,
-
-        careerOrder:
-          index + 1,
-      }),
-    );
-}
-
-/* =========================================================
-   POST
-========================================================= */
 
 export async function POST(
   request: Request,
@@ -301,17 +107,6 @@ export async function POST(
       );
     }
 
-    const attemptCount =
-      typeof body.attemptCount ===
-        "number" &&
-      Number.isInteger(
-        body.attemptCount,
-      ) &&
-      body.attemptCount >=
-        0
-        ? body.attemptCount
-        : 0;
-
     const solvedClubIds =
       Array.isArray(
         body.solvedClubIds,
@@ -331,6 +126,17 @@ export async function POST(
           )
         : [];
 
+    const attemptCount =
+      typeof body.attemptCount ===
+        "number" &&
+      Number.isInteger(
+        body.attemptCount,
+      ) &&
+      body.attemptCount >=
+        0
+        ? body.attemptCount
+        : 0;
+
     /* =====================================================
        3. SESSION
     ===================================================== */
@@ -345,14 +151,11 @@ export async function POST(
       .select(`
         id,
         player_id,
-        max_lives,
-        guess_time_seconds,
         completed,
         result_applied,
         won,
         score,
-        attempt_count,
-        user_id
+        attempt_count
       `)
       .eq(
         "id",
@@ -360,7 +163,10 @@ export async function POST(
       )
       .maybeSingle();
 
-    if (sessionError) {
+    if (
+      sessionError ||
+      !session
+    ) {
       console.error(
         "Player Quiz session okunamadı:",
         sessionError,
@@ -370,20 +176,7 @@ export async function POST(
         {
           ok: false,
           error:
-            "Player Quiz oturumu kontrol edilemedi.",
-        },
-        {
-          status: 500,
-        },
-      );
-    }
-
-    if (!session) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Player Quiz oyunu bulunamadı.",
+            "Player Quiz oturumu bulunamadı.",
         },
         {
           status: 404,
@@ -397,7 +190,7 @@ export async function POST(
       );
 
     /* =====================================================
-       4. GERÇEK CEVAPLARI OKU
+       4. REAL ANSWERS
     ===================================================== */
 
     const [
@@ -465,11 +258,6 @@ export async function POST(
       detailResult.error ||
       !detailResult.data
     ) {
-      console.error(
-        "Player Quiz doğum yılı okunamadı:",
-        detailResult.error,
-      );
-
       return NextResponse.json(
         {
           ok: false,
@@ -486,11 +274,6 @@ export async function POST(
       playerResult.error ||
       !playerResult.data
     ) {
-      console.error(
-        "Player Quiz oyuncusu okunamadı:",
-        playerResult.error,
-      );
-
       return NextResponse.json(
         {
           ok: false,
@@ -506,11 +289,6 @@ export async function POST(
     if (
       clubsResult.error
     ) {
-      console.error(
-        "Player Quiz kulüpleri okunamadı:",
-        clubsResult.error,
-      );
-
       return NextResponse.json(
         {
           ok: false,
@@ -527,29 +305,15 @@ export async function POST(
       playerResult.data;
 
     const seniorCareer =
-      buildSeniorCareer(
-        clubsResult.data ??
-          [],
+      buildPlayerQuizSeniorCareer(
+        (
+          clubsResult.data ??
+          []
+        ) as RawPlayerQuizClub[],
       );
-
-    if (
-      seniorCareer.length ===
-      0
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Oyuncunun A takım kariyeri bulunamadı.",
-        },
-        {
-          status: 404,
-        },
-      );
-    }
 
     /* =====================================================
-       5. BIRTH YEAR VALIDATION
+       5. VALIDATE
     ===================================================== */
 
     const birthYearCorrect =
@@ -561,21 +325,13 @@ export async function POST(
           .birth_year,
       );
 
-    /* =====================================================
-       6. NATIONALITY VALIDATION
-    ===================================================== */
-
     const nationalityCorrect =
-      normalizeText(
+      normalizePlayerQuizText(
         body.nationality,
       ) ===
-      normalizeText(
+      normalizePlayerQuizText(
         player.nationality,
       );
-
-    /* =====================================================
-       7. CLUB VALIDATION
-    ===================================================== */
 
     const targetClubIds =
       new Set(
@@ -585,7 +341,7 @@ export async function POST(
         ),
       );
 
-    const submittedClubsAreValid =
+    const submittedValid =
       solvedClubIds.every(
         (id) =>
           targetClubIds.has(
@@ -593,9 +349,7 @@ export async function POST(
           ),
       );
 
-    if (
-      !submittedClubsAreValid
-    ) {
+    if (!submittedValid) {
       return NextResponse.json(
         {
           ok: false,
@@ -614,12 +368,6 @@ export async function POST(
       solvedClubIds.length ===
         targetClubIds.size;
 
-    /* =====================================================
-       8. REAL RESULT
-
-       TROPHY ARTIK YOK.
-    ===================================================== */
-
     const won =
       birthYearCorrect &&
       nationalityCorrect &&
@@ -634,7 +382,7 @@ export async function POST(
         {
           ok: false,
           error:
-            "Player Quiz tamamlanmış görünmüyor. Eksik veya yanlış cevap var.",
+            "Player Quiz tamamlanmış görünmüyor.",
         },
         {
           status: 400,
@@ -646,12 +394,6 @@ export async function POST(
       won
         ? COMPLETION_SCORE
         : 0;
-
-    /* =====================================================
-       9. DOĞRU CEVAPLAR
-
-       Kaybedince frontend gösterebilir.
-    ===================================================== */
 
     const correctAnswers = {
       birthYear:
@@ -668,7 +410,7 @@ export async function POST(
     };
 
     /* =====================================================
-       10. ALREADY RECORDED
+       6. ALREADY DONE
     ===================================================== */
 
     if (
@@ -710,11 +452,8 @@ export async function POST(
     }
 
     /* =====================================================
-       11. COMPLETE SESSION
+       7. LOCK SESSION
     ===================================================== */
-
-    const now =
-      new Date().toISOString();
 
     const {
       data: completedSession,
@@ -741,7 +480,7 @@ export async function POST(
           user.id,
 
         completed_at:
-          now,
+          new Date().toISOString(),
       })
       .eq(
         "id",
@@ -756,9 +495,7 @@ export async function POST(
       )
       .maybeSingle();
 
-    if (
-      completeError
-    ) {
+    if (completeError) {
       console.error(
         "Player Quiz session tamamlama hatası:",
         completeError,
@@ -776,10 +513,6 @@ export async function POST(
       );
     }
 
-    /* =====================================================
-       12. RACE CONDITION
-    ===================================================== */
-
     if (!completedSession) {
       return NextResponse.json({
         ok: true,
@@ -793,26 +526,12 @@ export async function POST(
 
         attemptCount,
 
-        player: {
-          id:
-            Number(
-              player.player_id,
-            ),
-
-          fullName:
-            player.name,
-
-          imageUrl:
-            player.image_url ??
-            null,
-        },
-
         correctAnswers,
       });
     }
 
     /* =====================================================
-       13. PROFILE
+       8. PROFILE
     ===================================================== */
 
     const {
@@ -840,11 +559,6 @@ export async function POST(
       profileError ||
       !profile
     ) {
-      console.error(
-        "Player Quiz profil okunamadı:",
-        profileError,
-      );
-
       return NextResponse.json(
         {
           ok: false,
@@ -858,19 +572,29 @@ export async function POST(
     }
 
     const nextTotalScore =
-      (profile.total_score ??
-        0) +
+      (
+        profile.total_score ??
+        0
+      ) +
       score;
 
     const nextGamesPlayed =
-      (profile.games_played ??
-        0) +
+      (
+        profile.games_played ??
+        0
+      ) +
       1;
 
     const nextGamesWon =
-      (profile.games_won ??
-        0) +
-      (won ? 1 : 0);
+      (
+        profile.games_won ??
+        0
+      ) +
+      (
+        won
+          ? 1
+          : 0
+      );
 
     const {
       error:
@@ -897,11 +621,6 @@ export async function POST(
     if (
       profileUpdateError
     ) {
-      console.error(
-        "Player Quiz profil güncelleme hatası:",
-        profileUpdateError,
-      );
-
       return NextResponse.json(
         {
           ok: false,
@@ -915,7 +634,7 @@ export async function POST(
     }
 
     /* =====================================================
-       14. RESPONSE
+       9. DONE
     ===================================================== */
 
     return NextResponse.json({
@@ -929,20 +648,6 @@ export async function POST(
 
       alreadyRecorded:
         false,
-
-      player: {
-        id:
-          Number(
-            player.player_id,
-          ),
-
-        fullName:
-          player.name,
-
-        imageUrl:
-          player.image_url ??
-          null,
-      },
 
       correctAnswers,
 

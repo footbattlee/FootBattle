@@ -68,6 +68,110 @@ type FriendsResponse = {
 };
 
 /* =========================================================
+   DUEL TYPES
+========================================================= */
+
+type DuelPlayer = {
+  id: string;
+  username: string | null;
+  displayName: string;
+  avatarUrl: string | null;
+
+  online: boolean;
+  lastSeenText: string;
+};
+
+type IncomingDuel = {
+  id: number;
+
+  gameCode: string;
+  gameLabel: string;
+
+  status: string;
+
+  otherPlayer:
+    | DuelPlayer
+    | null;
+
+  createdAt: string;
+};
+
+type DuelsResponse = {
+  ok?: boolean;
+  error?: string;
+
+  summary?: {
+    incomingCount?: number;
+  };
+
+  incoming?: IncomingDuel[];
+};
+
+type DuelRespondResponse = {
+  ok?: boolean;
+  error?: string;
+  message?: string;
+
+  duel?: {
+    id?: number;
+    status?: string;
+  };
+};
+
+/* =========================================================
+   ROTATING HERO GAME
+========================================================= */
+
+type HeroGame = {
+  title: string;
+  shortTitle: string;
+  description: string;
+  href: string;
+  accent: string;
+};
+
+const HERO_GAMES: HeroGame[] = [
+  {
+    title: "Wordle",
+    shortTitle: "Wordle Oyna",
+    description:
+      "Futbolcunun soyadını 5 tahminde bul.",
+    href: "/wordle",
+    accent: "🟩",
+  },
+
+  {
+    title: "Guess the Player",
+    shortTitle:
+      "Guess the Player Oyna",
+    description:
+      "İpuçlarını karşılaştır ve gizli futbolcuyu bul.",
+    href: "/guess-the-player",
+    accent: "🕵️",
+  },
+
+  {
+    title: "Player Quiz",
+    shortTitle:
+      "Player Quiz Oyna",
+    description:
+      "Doğum yılı, uyruk ve kariyer kulüplerini tamamla.",
+    href: "/player-quiz",
+    accent: "🧠",
+  },
+
+  {
+    title: "Career Path",
+    shortTitle:
+      "Career Path Oyna",
+    description:
+      "Futbolcunun kariyerindeki kulüpleri bul.",
+    href: "/career-path",
+    accent: "🛣️",
+  },
+];
+
+/* =========================================================
    DATA
 ========================================================= */
 
@@ -77,13 +181,13 @@ const games = [
       "Wordle",
 
     description:
-      "Günün futbolcusunun soyadını 5 tahminde bul.",
+      "Futbolcunun soyadını 5 tahminde bul.",
 
     href:
       "/wordle",
 
     tag:
-      "GÜNLÜK",
+      "SINIRSIZ",
   },
 
   {
@@ -97,7 +201,7 @@ const games = [
       "/guess-the-player",
 
     tag:
-      "GÜNLÜK",
+      "SINIRSIZ",
   },
 
   {
@@ -105,13 +209,13 @@ const games = [
       "Player Quiz",
 
     description:
-      "Kulüp, kupa, ülke ve doğum yılı bilgilerini bul.",
+      "Doğum yılı, uyruk ve kariyer kulüplerini tamamla.",
 
     href:
       "/player-quiz",
 
     tag:
-      "GÜNLÜK",
+      "SINIRSIZ",
   },
 
   {
@@ -125,7 +229,7 @@ const games = [
       "/career-path",
 
     tag:
-      "GÜNLÜK",
+      "SINIRSIZ",
   },
 ];
 
@@ -213,6 +317,42 @@ function getFriendInitials(
   ).toUpperCase();
 }
 
+function getDuelInitials(
+  player: DuelPlayer,
+) {
+  const value =
+    player.displayName ||
+    player.username ||
+    "FB";
+
+  const parts =
+    value
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+  if (
+    parts.length === 0
+  ) {
+    return "FB";
+  }
+
+  if (
+    parts.length === 1
+  ) {
+    return parts[0]
+      .slice(0, 2)
+      .toUpperCase();
+  }
+
+  return (
+    parts[0].slice(0, 1) +
+    parts[
+      parts.length - 1
+    ].slice(0, 1)
+  ).toUpperCase();
+}
+
 /* =========================================================
    PAGE
 ========================================================= */
@@ -239,6 +379,44 @@ export default function HomePage() {
     setLoadingUser,
   ] =
     useState(true);
+
+  /* =======================================================
+     HERO ROTATION
+  ======================================================= */
+
+  const [
+    activeHeroGameIndex,
+    setActiveHeroGameIndex,
+  ] =
+    useState(0);
+
+  const activeHeroGame =
+    HERO_GAMES[
+      activeHeroGameIndex
+    ];
+
+  useEffect(() => {
+    const intervalId =
+      window.setInterval(
+        () => {
+          setActiveHeroGameIndex(
+            (current) =>
+              (
+                current +
+                1
+              ) %
+              HERO_GAMES.length,
+          );
+        },
+        15_000,
+      );
+
+    return () => {
+      window.clearInterval(
+        intervalId,
+      );
+    };
+  }, []);
 
   /* =======================================================
      FRIENDS
@@ -269,6 +447,44 @@ export default function HomePage() {
     setFriendsLoading,
   ] =
     useState(false);
+
+  /* =======================================================
+     DUELS
+  ======================================================= */
+
+  const [
+    incomingDuels,
+    setIncomingDuels,
+  ] =
+    useState<IncomingDuel[]>(
+      [],
+    );
+
+  const [
+    duelsLoading,
+    setDuelsLoading,
+  ] =
+    useState(false);
+
+  const [
+    duelActionId,
+    setDuelActionId,
+  ] =
+    useState<number | null>(
+      null,
+    );
+
+  const [
+    duelMessage,
+    setDuelMessage,
+  ] =
+    useState("");
+
+  const [
+    duelError,
+    setDuelError,
+  ] =
+    useState("");
 
   /* =======================================================
      LOAD USER
@@ -405,10 +621,6 @@ export default function HomePage() {
           return;
         }
 
-        /*
-         * Çevrimiçi arkadaşları
-         * listenin başına al.
-         */
         const orderedFriends =
           [
             ...(result.friends ??
@@ -476,10 +688,6 @@ export default function HomePage() {
 
     void loadFriends();
 
-    /*
-     * Presence bilgilerini ana
-     * sayfada da taze tut.
-     */
     const intervalId =
       window.setInterval(
         () => {
@@ -497,6 +705,205 @@ export default function HomePage() {
       );
     };
   }, [user]);
+
+  /* =======================================================
+     LOAD DUELS
+  ======================================================= */
+
+  useEffect(() => {
+    if (!user) {
+      setIncomingDuels(
+        [],
+      );
+
+      return;
+    }
+
+    let cancelled =
+      false;
+
+    async function loadDuels() {
+      try {
+        setDuelsLoading(
+          true,
+        );
+
+        const response =
+          await fetch(
+            "/api/duels",
+            {
+              cache:
+                "no-store",
+            },
+          );
+
+        const result =
+          (await response.json()) as DuelsResponse;
+
+        if (
+          cancelled
+        ) {
+          return;
+        }
+
+        if (
+          !response.ok ||
+          !result.ok
+        ) {
+          return;
+        }
+
+        setIncomingDuels(
+          result.incoming ??
+            [],
+        );
+      } catch {
+        /*
+         * Düello API'si ana sayfayı
+         * bozmasın.
+         */
+      } finally {
+        if (!cancelled) {
+          setDuelsLoading(
+            false,
+          );
+        }
+      }
+    }
+
+    void loadDuels();
+
+    /*
+     * Yeni düello davetleri hızlı
+     * fark edilsin.
+     */
+    const intervalId =
+      window.setInterval(
+        () => {
+          void loadDuels();
+        },
+        10_000,
+      );
+
+    return () => {
+      cancelled =
+        true;
+
+      window.clearInterval(
+        intervalId,
+      );
+    };
+  }, [user]);
+
+  /* =======================================================
+     RESPOND DUEL
+  ======================================================= */
+
+  async function respondToDuel(
+    duelId: number,
+    action:
+      | "accept"
+      | "reject",
+  ) {
+    if (
+      duelActionId !==
+      null
+    ) {
+      return;
+    }
+
+    try {
+      setDuelActionId(
+        duelId,
+      );
+
+      setDuelError(
+        "",
+      );
+
+      setDuelMessage(
+        "",
+      );
+
+      const response =
+        await fetch(
+          "/api/duels/respond",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                duelId,
+                action,
+              }),
+          },
+        );
+
+      const result =
+        (await response.json()) as DuelRespondResponse;
+
+      if (
+        !response.ok ||
+        !result.ok
+      ) {
+        throw new Error(
+          result.error ??
+            "Düello daveti cevaplanamadı.",
+        );
+      }
+
+      /*
+       * Kartı anında kaldır.
+       */
+      setIncomingDuels(
+        (current) =>
+          current.filter(
+            (duel) =>
+              duel.id !==
+              duelId,
+          ),
+      );
+
+      if (
+        action ===
+        "accept"
+      ) {
+        setDuelMessage(
+          "Düello kabul edildi. Arena açılıyor... ⚔️",
+        );
+
+        window.setTimeout(
+          () => {
+            window.location.href =
+              `/duels/${duelId}`;
+          },
+          500,
+        );
+
+        return;
+      }
+
+      setDuelMessage(
+        "Düello daveti reddedildi.",
+      );
+    } catch (error) {
+      setDuelError(
+        error instanceof Error
+          ? error.message
+          : "Düello daveti cevaplanamadı.",
+      );
+    } finally {
+      setDuelActionId(
+        null,
+      );
+    }
+  }
 
   /* =======================================================
      LOGOUT
@@ -548,7 +955,7 @@ export default function HomePage() {
           HEADER
       =================================================== */}
 
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#07111f]/95 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#07111f]/95 shadow-lg shadow-black/10 backdrop-blur-xl">
 
         <div className="mx-auto flex h-[72px] max-w-[1180px] items-center justify-between px-5 lg:px-6">
 
@@ -695,17 +1102,39 @@ export default function HomePage() {
         className="scroll-mt-24"
       >
 
-        <div className="mx-auto grid max-w-[1180px] gap-8 px-5 pb-12 pt-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.75fr)] lg:px-6">
+        <div className="mx-auto grid max-w-[1180px] gap-8 px-5 pb-12 pt-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.75fr)] lg:px-6">
 
           {/* LEFT */}
 
-          <div className="flex flex-col justify-center">
+          <div className="flex flex-col justify-start pt-8">
 
-            <div className="inline-flex w-fit items-center rounded-full border border-green-500/30 bg-green-500/10 px-4 py-2 text-sm font-black text-green-400">
-              Günün oyunu hazır
+            {/* ROTATING GAME BADGE */}
+
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-green-500/30 bg-green-500/10 px-4 py-2 text-sm font-black text-green-400">
+
+              <span>
+                {
+                  activeHeroGame.accent
+                }
+              </span>
+
+              <span>
+                Sınırsız oyun
+              </span>
+
+              <span className="text-green-300/60">
+                •
+              </span>
+
+              <span>
+                {
+                  activeHeroGame.title
+                }
+              </span>
+
             </div>
 
-            <h1 className="mt-6 max-w-[620px] text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl lg:text-[54px]">
+            <h1 className="mt-5 max-w-[620px] text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl lg:text-[54px]">
 
               Futbol bilgini
 
@@ -719,19 +1148,90 @@ export default function HomePage() {
 
             </h1>
 
-            <p className="mt-6 max-w-xl text-base leading-7 text-slate-400">
+            <p className="mt-5 max-w-xl text-base leading-7 text-slate-400">
               Hazırsan başlayalım...
               ama kaybedersen kol bozuk
               demek yok.
             </p>
 
-            <div className="mt-7 flex flex-wrap gap-3">
+            {/* ROTATING GAME INFO */}
+
+            <div className="mt-5 max-w-xl rounded-2xl border border-green-500/10 bg-green-500/[0.035] px-4 py-3">
+
+              <div className="flex items-center gap-3">
+
+                <span className="text-xl">
+                  {
+                    activeHeroGame.accent
+                  }
+                </span>
+
+                <div>
+
+                  <p className="text-sm font-black text-white">
+                    {
+                      activeHeroGame.title
+                    }
+                  </p>
+
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {
+                      activeHeroGame.description
+                    }
+                  </p>
+
+                </div>
+
+              </div>
+
+              {/* ROTATION DOTS */}
+
+              <div className="mt-3 flex gap-1.5">
+
+                {HERO_GAMES.map(
+                  (
+                    game,
+                    index,
+                  ) => (
+                    <button
+                      key={
+                        game.href
+                      }
+                      type="button"
+                      aria-label={
+                        game.title
+                      }
+                      onClick={() =>
+                        setActiveHeroGameIndex(
+                          index,
+                        )
+                      }
+                      className={`h-1.5 rounded-full transition-all ${
+                        index ===
+                        activeHeroGameIndex
+                          ? "w-8 bg-green-400"
+                          : "w-3 bg-white/10 hover:bg-white/20"
+                      }`}
+                    />
+                  ),
+                )}
+
+              </div>
+
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-3">
 
               <Link
-                href="/wordle"
+                href={
+                  activeHeroGame.href
+                }
                 className="rounded-xl bg-green-500 px-6 py-3.5 text-sm font-black text-[#07111f] transition hover:-translate-y-0.5 hover:bg-green-400"
               >
-                Günün Wordle&apos;ını Oyna
+                {activeHeroGame.accent}{" "}
+                {
+                  activeHeroGame.shortTitle
+                }
               </Link>
 
               <Link
@@ -760,7 +1260,7 @@ export default function HomePage() {
             </div>
 
             {profile && (
-              <div className="mt-8 grid max-w-md grid-cols-3 gap-3">
+              <div className="mt-7 grid max-w-md grid-cols-3 gap-3">
 
                 <HeroStat
                   value={
@@ -809,6 +1309,59 @@ export default function HomePage() {
               />
             )}
 
+            {/* =================================================
+                INCOMING DUEL
+            ================================================= */}
+
+            {user &&
+              incomingDuels.length >
+                0 && (
+                <IncomingDuelCard
+                  duel={
+                    incomingDuels[0]
+                  }
+                  totalCount={
+                    incomingDuels.length
+                  }
+                  loading={
+                    duelsLoading
+                  }
+                  responding={
+                    duelActionId ===
+                    incomingDuels[0]
+                      .id
+                  }
+                  onAccept={() =>
+                    void respondToDuel(
+                      incomingDuels[0]
+                        .id,
+                      "accept",
+                    )
+                  }
+                  onReject={() =>
+                    void respondToDuel(
+                      incomingDuels[0]
+                        .id,
+                      "reject",
+                    )
+                  }
+                />
+              )}
+
+            {/* DUEL MESSAGE */}
+
+            {duelMessage && (
+              <div className="rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-sm font-bold text-green-300">
+                {duelMessage}
+              </div>
+            )}
+
+            {duelError && (
+              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300">
+                {duelError}
+              </div>
+            )}
+
             {/* LEADERBOARD */}
 
             <div
@@ -844,14 +1397,14 @@ export default function HomePage() {
               </p>
 
               <h2 className="mt-2 text-3xl font-black">
-                Her gün yeni mücadele
+                İstediğin kadar oyna
               </h2>
 
               <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
-                Dört günlük oyunu
-                tamamla, puanını topla
-                ve leaderboard&apos;da
-                yüksel.
+                Dört tek kişilik
+                oyunda istediğin zaman
+                yeni bir oyuncuyla tekrar
+                mücadele et.
               </p>
 
             </div>
@@ -1153,6 +1706,183 @@ export default function HomePage() {
 }
 
 /* =========================================================
+   INCOMING DUEL CARD
+========================================================= */
+
+function IncomingDuelCard({
+  duel,
+  totalCount,
+  loading,
+  responding,
+  onAccept,
+  onReject,
+}: {
+  duel: IncomingDuel;
+  totalCount: number;
+  loading: boolean;
+  responding: boolean;
+  onAccept: () => void;
+  onReject: () => void;
+}) {
+  const player =
+    duel.otherPlayer;
+
+  return (
+    <section className="relative overflow-hidden rounded-2xl border border-purple-400/40 bg-purple-500/[0.10] shadow-lg shadow-purple-950/20">
+
+      {/* GLOW */}
+
+      <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-purple-500/10 blur-3xl" />
+
+      <div className="relative p-5">
+
+        <div className="flex items-start justify-between gap-4">
+
+          <div>
+
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-purple-300">
+              ⚔️ Düello Daveti
+            </p>
+
+            <h2 className="mt-1 text-xl font-black">
+              Meydan okuma geldi!
+            </h2>
+
+          </div>
+
+          {totalCount >
+            1 && (
+            <span className="rounded-full border border-purple-400/25 bg-purple-500/15 px-3 py-1 text-[10px] font-black text-purple-200">
+              +{totalCount - 1} davet
+            </span>
+          )}
+
+        </div>
+
+        {player && (
+          <div className="mt-4 flex items-center gap-3">
+
+            <div className="relative shrink-0">
+
+              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-purple-500 text-xs font-black text-white">
+
+                {player.avatarUrl ? (
+                  <img
+                    src={
+                      player.avatarUrl
+                    }
+                    alt={
+                      player.displayName
+                    }
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  getDuelInitials(
+                    player,
+                  )
+                )}
+
+              </div>
+
+              <span
+                className={`absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-[#17172d] ${
+                  player.online
+                    ? "bg-green-400"
+                    : "bg-slate-600"
+                }`}
+              />
+
+            </div>
+
+            <div className="min-w-0 flex-1">
+
+              <p className="truncate font-black">
+                {
+                  player.displayName
+                }
+              </p>
+
+              <div className="mt-0.5 flex items-center gap-2">
+
+                {player.username && (
+                  <span className="truncate text-xs font-bold text-purple-300">
+                    @{player.username}
+                  </span>
+                )}
+
+                <span className="text-[10px] font-bold text-green-400">
+                  {player.online
+                    ? "Çevrimiçi"
+                    : player.lastSeenText}
+                </span>
+
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        <div className="mt-4 rounded-xl border border-white/[0.07] bg-black/10 px-4 py-3">
+
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+            Oyun
+          </p>
+
+          <p className="mt-1 text-sm font-black text-white">
+            {duel.gameLabel}
+          </p>
+
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+
+          <button
+            type="button"
+            disabled={
+              responding ||
+              loading
+            }
+            onClick={
+              onReject
+            }
+            className="rounded-xl border border-white/10 px-4 py-3 text-sm font-black text-slate-300 transition hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Reddet
+          </button>
+
+          <button
+            type="button"
+            disabled={
+              responding ||
+              loading
+            }
+            onClick={
+              onAccept
+            }
+            className="rounded-xl bg-purple-500 px-4 py-3 text-sm font-black text-white transition hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {responding
+              ? "İşleniyor..."
+              : "⚔️ Kabul Et"}
+          </button>
+
+        </div>
+
+        <Link
+          href="/duels"
+          className="mt-4 block text-center text-xs font-black text-purple-300 transition hover:text-purple-200"
+        >
+          Tüm düelloları gör →
+        </Link>
+
+      </div>
+
+    </section>
+  );
+}
+
+/* =========================================================
    HOME FRIENDS
 ========================================================= */
 
@@ -1167,11 +1897,6 @@ function HomeFriendsCard({
   onlineFriendCount: number;
   loading: boolean;
 }) {
-  /*
-   * Ana sayfada ilk 4 arkadaş yeter.
-   * Tam liste profile veya challenge
-   * ekranında gösterilebilir.
-   */
   const visibleFriends =
     friends.slice(
       0,
@@ -1180,8 +1905,6 @@ function HomeFriendsCard({
 
   return (
     <section className="overflow-hidden rounded-2xl border border-green-500/15 bg-[#0d1a2a]">
-
-      {/* HEADER */}
 
       <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
 
@@ -1210,8 +1933,6 @@ function HomeFriendsCard({
         </div>
 
       </div>
-
-      {/* CONTENT */}
 
       <div className="p-4">
 
@@ -1258,8 +1979,6 @@ function HomeFriendsCard({
           </div>
         )}
 
-        {/* FOOTER */}
-
         {friendCount > 0 && (
           <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
 
@@ -1297,8 +2016,6 @@ function HomeFriendRow({
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.025] p-3 transition hover:border-white/10 hover:bg-white/[0.04]">
-
-      {/* AVATAR */}
 
       <Link
         href={
@@ -1339,8 +2056,6 @@ function HomeFriendRow({
 
       </Link>
 
-      {/* PLAYER */}
-
       <div className="min-w-0 flex-1">
 
         <Link
@@ -1377,8 +2092,6 @@ function HomeFriendRow({
         </div>
 
       </div>
-
-      {/* DUEL */}
 
       <Link
         href={`/duels/challenge?opponent=${encodeURIComponent(

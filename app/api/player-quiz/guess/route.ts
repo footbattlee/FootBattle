@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 
+import {
+  buildPlayerQuizSeniorCareer,
+  normalizePlayerQuizText,
+  playerQuizClubsAreEquivalent,
+  type RawPlayerQuizClub,
+} from "@/lib/player-quiz/clubs";
+
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 type FieldType =
@@ -9,286 +16,22 @@ type FieldType =
 
 type GuessRequest = {
   sessionId?: string;
+
   field?: FieldType;
-  value?: string | number;
+
+  value?:
+    | string
+    | number;
+
   solvedClubIds?: number[];
 };
 
-const ALLOWED_FIELDS: FieldType[] = [
-  "birthYear",
-  "nationality",
-  "club",
-];
-
-/* =========================================================
-   NORMALIZE TEXT
-========================================================= */
-
-function normalizeText(value: unknown) {
-  return String(value ?? "")
-    .trim()
-    .toLocaleLowerCase("tr-TR")
-    .replace(/ı/g, "i")
-    .replace(/ç/g, "c")
-    .replace(/ğ/g, "g")
-    .replace(/ö/g, "o")
-    .replace(/ş/g, "s")
-    .replace(/ü/g, "u")
-    .replace(/&/g, " ")
-    .replace(/[.\-_/]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/* =========================================================
-   YOUTH FILTER
-========================================================= */
-
-function isYouthClubName(value: unknown) {
-  const clubName = normalizeText(value);
-
-  if (!clubName) {
-    return true;
-  }
-
-  return (
-    /\bu\s?\d{2}\b/.test(clubName) ||
-    /\byth\b/.test(clubName) ||
-    /\byouth\b/.test(clubName) ||
-    /\bacademy\b/.test(clubName) ||
-    /\bakademi\b/.test(clubName) ||
-    /\breserve\b/.test(clubName) ||
-    /\breserves\b/.test(clubName) ||
-    /\bprimavera\b/.test(clubName) ||
-    /\bjuvenil\b/.test(clubName) ||
-    /\bjuniors?\b/.test(clubName)
-  );
-}
-
-/* =========================================================
-   CLUB NORMALIZATION
-========================================================= */
-
-function normalizeClubName(value: unknown) {
-  const normalized = normalizeText(value);
-
-  if (!normalized) {
-    return "";
-  }
-
-  const removableWords = new Set([
-    "fc",
-    "afc",
-    "cf",
-    "sc",
-    "sk",
-    "fk",
-    "ac",
-    "jk",
-    "football",
+const ALLOWED_FIELDS: FieldType[] =
+  [
+    "birthYear",
+    "nationality",
     "club",
-    "futbol",
-    "futebol",
-    "calcio",
-  ]);
-
-  return normalized
-    .split(" ")
-    .filter(
-      (word) =>
-        word &&
-        !removableWords.has(word),
-    )
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/* =========================================================
-   CLUB EQUIVALENCE
-========================================================= */
-
-function clubsAreEquivalent(
-  firstValue: unknown,
-  secondValue: unknown,
-) {
-  const first =
-    normalizeClubName(firstValue);
-
-  const second =
-    normalizeClubName(secondValue);
-
-  if (!first || !second) {
-    return false;
-  }
-
-  if (first === second) {
-    return true;
-  }
-
-  const shorter =
-    first.length <= second.length
-      ? first
-      : second;
-
-  const longer =
-    first.length > second.length
-      ? first
-      : second;
-
-  /*
-   * Örnek:
-   * Brighton
-   * Brighton Hove Albion
-   */
-  if (
-    shorter.length >= 6 &&
-    (
-      longer.startsWith(
-        `${shorter} `,
-      ) ||
-      longer.endsWith(
-        ` ${shorter}`,
-      )
-    )
-  ) {
-    return true;
-  }
-
-  const shorterWords =
-    shorter.split(" ");
-
-  const longerWords =
-    longer.split(" ");
-
-  if (
-    shorter.length >= 6 &&
-    shorterWords.every(
-      (word) =>
-        longerWords.includes(word),
-    )
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-/* =========================================================
-   BUILD SENIOR CAREER
-========================================================= */
-
-function buildSeniorCareer(
-  rawClubs: {
-    id: number;
-    club_name: string;
-    career_order: number | null;
-  }[],
-) {
-  const seniorClubs =
-    rawClubs.filter(
-      (club) =>
-        !isYouthClubName(
-          club.club_name,
-        ),
-    );
-
-  const sortedClubs =
-    [...seniorClubs].sort(
-      (
-        first,
-        second,
-      ) =>
-        Number(
-          first.career_order ??
-            999999,
-        ) -
-        Number(
-          second.career_order ??
-            999999,
-        ),
-    );
-
-  const uniqueClubMap =
-    new Map<
-      string,
-      {
-        id: number;
-        name: string;
-        originalOrder: number;
-      }
-    >();
-
-  for (
-    const club of
-      sortedClubs
-  ) {
-    const normalized =
-      normalizeClubName(
-        club.club_name,
-      );
-
-    if (!normalized) {
-      continue;
-    }
-
-    if (
-      uniqueClubMap.has(
-        normalized,
-      )
-    ) {
-      continue;
-    }
-
-    uniqueClubMap.set(
-      normalized,
-      {
-        id:
-          Number(club.id),
-
-        name:
-          club.club_name,
-
-        originalOrder:
-          Number(
-            club.career_order ??
-              0,
-          ),
-      },
-    );
-  }
-
-  return Array.from(
-    uniqueClubMap.values(),
-  )
-    .sort(
-      (
-        first,
-        second,
-      ) =>
-        first.originalOrder -
-        second.originalOrder,
-    )
-    .map(
-      (
-        club,
-        index,
-      ) => ({
-        id:
-          club.id,
-
-        name:
-          club.name,
-
-        careerOrder:
-          index + 1,
-      }),
-    );
-}
-
-/* =========================================================
-   POST
-========================================================= */
+  ];
 
 export async function POST(
   request: Request,
@@ -342,10 +85,13 @@ export async function POST(
     }
 
     if (
-      rawValue === undefined ||
-      rawValue === null ||
-      String(rawValue).trim() ===
-        ""
+      rawValue ===
+        undefined ||
+      rawValue ===
+        null ||
+      String(
+        rawValue,
+      ).trim() === ""
     ) {
       return NextResponse.json(
         {
@@ -373,8 +119,6 @@ export async function POST(
       .select(`
         id,
         player_id,
-        max_lives,
-        guess_time_seconds,
         completed
       `)
       .eq(
@@ -443,7 +187,9 @@ export async function POST(
       "birthYear"
     ) {
       const guessedBirthYear =
-        Number(rawValue);
+        Number(
+          rawValue,
+        );
 
       if (
         !Number.isInteger(
@@ -482,7 +228,10 @@ export async function POST(
         )
         .maybeSingle();
 
-      if (error) {
+      if (
+        error ||
+        !data
+      ) {
         console.error(
           "Player Quiz doğum yılı okunamadı:",
           error,
@@ -496,19 +245,6 @@ export async function POST(
           },
           {
             status: 500,
-          },
-        );
-      }
-
-      if (!data) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error:
-              "Oyuncunun doğum yılı hazırlanmamış.",
-          },
-          {
-            status: 404,
           },
         );
       }
@@ -550,7 +286,10 @@ export async function POST(
         )
         .maybeSingle();
 
-      if (error) {
+      if (
+        error ||
+        !data?.nationality
+      ) {
         console.error(
           "Player Quiz milliyet okunamadı:",
           error,
@@ -568,38 +307,23 @@ export async function POST(
         );
       }
 
-      if (
-        !data?.nationality
-      ) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error:
-              "Oyuncunun milliyet bilgisi bulunamadı.",
-          },
-          {
-            status: 404,
-          },
-        );
-      }
-
       return NextResponse.json({
         ok: true,
 
         field,
 
         correct:
-          normalizeText(
+          normalizePlayerQuizText(
             rawValue,
           ) ===
-          normalizeText(
+          normalizePlayerQuizText(
             data.nationality,
           ),
       });
     }
 
     /* =====================================================
-       5. CLUB
+       5. CLUBS
     ===================================================== */
 
     const solvedClubIds =
@@ -663,26 +387,12 @@ export async function POST(
       );
     }
 
-    if (
-      !rawClubs ||
-      rawClubs.length ===
-        0
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Oyuncunun kulüp bilgileri bulunamadı.",
-        },
-        {
-          status: 404,
-        },
-      );
-    }
-
     const seniorCareer =
-      buildSeniorCareer(
-        rawClubs,
+      buildPlayerQuizSeniorCareer(
+        (
+          rawClubs ??
+          []
+        ) as RawPlayerQuizClub[],
       );
 
     if (
@@ -702,13 +412,13 @@ export async function POST(
     }
 
     /* =====================================================
-       6. CLUB MATCH
+       6. MATCH
     ===================================================== */
 
     const matchedClub =
       seniorCareer.find(
         (club) =>
-          clubsAreEquivalent(
+          playerQuizClubsAreEquivalent(
             club.name,
             rawValue,
           ),
@@ -731,10 +441,6 @@ export async function POST(
       });
     }
 
-    /* =====================================================
-       7. DUPLICATE
-    ===================================================== */
-
     if (
       solvedClubIds.includes(
         matchedClub.id,
@@ -756,10 +462,6 @@ export async function POST(
       });
     }
 
-    /* =====================================================
-       8. CORRECT
-    ===================================================== */
-
     return NextResponse.json({
       ok: true,
 
@@ -771,16 +473,7 @@ export async function POST(
       duplicate:
         false,
 
-      matchedClub: {
-        id:
-          matchedClub.id,
-
-        name:
-          matchedClub.name,
-
-        careerOrder:
-          matchedClub.careerOrder,
-      },
+      matchedClub,
     });
   } catch (error) {
     console.error(

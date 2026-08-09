@@ -15,15 +15,15 @@ const SUPABASE_URL =
 const SUPABASE_SERVICE_ROLE_KEY =
   process.env.SUPABASE_SECRET_KEY;
 
-if (!SUPABASE_SERVICE_ROLE_KEY) {
+if (!SUPABASE_URL) {
   throw new Error(
-    "SUPABASE_SECRET_KEY .env.local içinde bulunamadı.",
+    "NEXT_PUBLIC_SUPABASE_URL .env.local içinde bulunamadı.",
   );
 }
 
 if (!SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error(
-    "SUPABASE_SERVICE_ROLE_KEY .env.local içinde bulunamadı.",
+    "SUPABASE_SECRET_KEY .env.local içinde bulunamadı.",
   );
 }
 

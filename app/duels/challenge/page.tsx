@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  Suspense,
   useEffect,
   useMemo,
   useState,
@@ -140,6 +141,30 @@ function getInitials(
 ========================================================= */
 
 export default function DuelChallengePage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#07111f] text-white">
+          <div className="mx-auto max-w-[1050px] px-5 py-8 sm:px-6">
+            <div className="rounded-3xl border border-white/10 bg-[#101c2c] p-8 text-center">
+              <p className="text-sm font-bold text-slate-400">
+                Düello ekranı yükleniyor...
+              </p>
+            </div>
+          </div>
+        </main>
+      }
+    >
+      <DuelChallengeContent />
+    </Suspense>
+  );
+}
+
+/* =========================================================
+   CONTENT
+========================================================= */
+
+function DuelChallengeContent() {
   const router =
     useRouter();
 
