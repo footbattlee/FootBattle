@@ -29,6 +29,8 @@ type GameOption = {
   enabled: boolean;
 
   badge?: string;
+
+  rules?: string[];
 };
 
 type CreateChallengeResponse = {
@@ -48,13 +50,6 @@ type CreateChallengeResponse = {
 
 /* =========================================================
    GAME OPTIONS
-
-   Burayı ileride ortak challenge oyun listesi olarak
-   büyüteceğiz.
-
-   club_clash  -> 2 Takım 1 Oyuncu
-   club_country -> 1 Takım 1 Millet
-   tic_tac_toe -> Tic Tac Toe
 ========================================================= */
 
 const GAME_OPTIONS: GameOption[] = [
@@ -75,6 +70,37 @@ const GAME_OPTIONS: GameOption[] = [
 
     badge:
       "HAZIR",
+
+    rules: [
+      "⚡ 5 Round",
+      "🏆 İlk 3",
+      "🚀 Hız",
+    ],
+  },
+
+  {
+    code: "player_quiz",
+
+    title:
+      "Player Quiz",
+
+    description:
+      "Aynı futbolcu için doğum yılı, milliyet ve kariyer kulüplerini rakibinden daha iyi tamamla.",
+
+    icon:
+      "🧠",
+
+    enabled:
+      true,
+
+    badge:
+      "HAZIR",
+
+    rules: [
+      "⏱ 250 sn",
+      "🧠 Bilgi",
+      "⚔️ VS",
+    ],
   },
 
   {
@@ -131,6 +157,63 @@ function cleanPlayerName(
     );
 }
 
+async function readJsonSafely<T>(
+  response: Response,
+): Promise<T> {
+  const contentType =
+    response.headers.get(
+      "content-type",
+    ) ?? "";
+
+  /*
+   * API route yanlışsa Next/Vercel bazen
+   * HTML 404/500 sayfası döndürebilir.
+   *
+   * Direkt response.json() yaparsak:
+   *
+   * Unexpected token '<'
+   *
+   * hatası alırız.
+   */
+  if (
+    !contentType
+      .toLowerCase()
+      .includes(
+        "application/json",
+      )
+  ) {
+    const rawText =
+      await response.text();
+
+    console.error(
+      "Challenge API JSON dışı cevap:",
+      {
+        status:
+          response.status,
+
+        statusText:
+          response.statusText,
+
+        contentType,
+
+        body:
+          rawText.slice(
+            0,
+            700,
+          ),
+      },
+    );
+
+    throw new Error(
+      `Challenge API geçersiz cevap döndürdü. HTTP ${response.status}`,
+    );
+  }
+
+  return (
+    await response.json()
+  ) as T;
+}
+
 /* =========================================================
    PAGE
 ========================================================= */
@@ -185,17 +268,12 @@ function DuelChallengeContent() {
 
   /* =======================================================
      DEFAULT GAME
-
-     Ana sayfadan:
-     /duels/challenge?game=club_clash
-
-     şeklinde gelebilir.
   ======================================================= */
 
   const initialGameCode =
     useMemo(
       () => {
-        const found =
+        const requested =
           GAME_OPTIONS.find(
             (
               game,
@@ -205,8 +283,10 @@ function DuelChallengeContent() {
               game.enabled,
           );
 
-        if (found) {
-          return found.code;
+        if (
+          requested
+        ) {
+          return requested.code;
         }
 
         return "club_clash";
@@ -251,7 +331,7 @@ function DuelChallengeContent() {
     useState("");
 
   /* =======================================================
-     KEEP URL GAME IN SYNC
+     URL SYNC
   ======================================================= */
 
   useEffect(() => {
@@ -298,6 +378,10 @@ function DuelChallengeContent() {
         challengerName,
       );
 
+    /* -------------------------------------------------------
+       NAME VALIDATION
+    ------------------------------------------------------- */
+
     if (!cleanName) {
       setError(
         "Düelloda görünecek ismini yaz.",
@@ -328,6 +412,10 @@ function DuelChallengeContent() {
       return;
     }
 
+    /* -------------------------------------------------------
+       GAME VALIDATION
+    ------------------------------------------------------- */
+
     if (
       !selectedGame
     ) {
@@ -357,27 +445,29 @@ function DuelChallengeContent() {
         "",
       );
 
-      /*
-       * Yeni guest challenge sistemi.
-       *
-       * Artık:
-       *
-       * /api/duels/request
-       *
-       * kullanmıyoruz.
-       *
-       * Challenge oluşturuyoruz.
-       */
+      /* =====================================================
+         CREATE REQUEST
+
+         ÖNEMLİ:
+         Route:
+         app/api/challenges/create/route.ts
+
+         URL:
+         /api/challenges/create
+      ===================================================== */
 
       const response =
         await fetch(
-          "/api/challenges",
+          "/api/challenges/create",
           {
             method:
               "POST",
 
             headers: {
               "Content-Type":
+                "application/json",
+
+              Accept:
                 "application/json",
             },
 
@@ -392,8 +482,18 @@ function DuelChallengeContent() {
           },
         );
 
+      /* =====================================================
+         SAFE JSON
+      ===================================================== */
+
       const json =
-        (await response.json()) as CreateChallengeResponse;
+        await readJsonSafely<CreateChallengeResponse>(
+          response,
+        );
+
+      /* =====================================================
+         API ERROR
+      ===================================================== */
 
       if (
         !response.ok ||
@@ -401,49 +501,61 @@ function DuelChallengeContent() {
       ) {
         throw new Error(
           json.error ??
-            "Meydan okuma oluşturulamadı.",
+            `Meydan okuma oluşturulamadı. HTTP ${response.status}`,
         );
       }
 
-      /*
-       * Endpoint token'i iki farklı şekilde
-       * döndürebilir.
-       *
-       * {
-       *   token: "..."
-       * }
-       *
-       * veya:
-       *
-       * {
-       *   challenge: {
-       *     token: "..."
-       *   }
-       * }
-       */
+      /* =====================================================
+         TOKEN
 
-      const token =
+         API iki şekilde dönebilir:
+
+         {
+           token: "abc"
+         }
+
+         veya:
+
+         {
+           challenge: {
+             token: "abc"
+           }
+         }
+      ===================================================== */
+
+      const challengeToken =
         json.challenge
           ?.token ??
         json.token;
 
-      if (!token) {
+      if (
+        !challengeToken
+      ) {
+        console.error(
+          "Challenge oluşturuldu fakat token yok:",
+          json,
+        );
+
         throw new Error(
-          "Challenge oluşturuldu fakat davet tokeni alınamadı.",
+          "Challenge oluşturuldu fakat davet bağlantısı alınamadı.",
         );
       }
 
-      /*
-       * Challenge sahibini direkt
-       * bekleme / paylaşım ekranına götür.
-       */
+      /* =====================================================
+         REDIRECT
+      ===================================================== */
 
       router.push(
         `/challenge/${encodeURIComponent(
-          token,
+          challengeToken,
         )}`,
       );
     } catch (err) {
+      console.error(
+        "Challenge create frontend hatası:",
+        err,
+      );
+
       setError(
         err instanceof Error
           ? err.message
@@ -508,7 +620,9 @@ function DuelChallengeContent() {
 
         {error && (
           <div className="mt-6 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300">
+
             {error}
+
           </div>
         )}
 
@@ -627,22 +741,24 @@ function DuelChallengeContent() {
                             {game.description}
                           </p>
 
-                          {game.code ===
-                            "club_clash" &&
-                            game.enabled && (
+                          {game.rules &&
+                            game.rules.length >
+                              0 && (
                               <div className="mt-3 flex flex-wrap gap-2">
 
-                                <GameRuleBadge>
-                                  ⚡ 5 Round
-                                </GameRuleBadge>
-
-                                <GameRuleBadge>
-                                  🏆 İlk 3
-                                </GameRuleBadge>
-
-                                <GameRuleBadge>
-                                  🚀 Hız
-                                </GameRuleBadge>
+                                {game.rules.map(
+                                  (
+                                    rule,
+                                  ) => (
+                                    <GameRuleBadge
+                                      key={
+                                        rule
+                                      }
+                                    >
+                                      {rule}
+                                    </GameRuleBadge>
+                                  ),
+                                )}
 
                               </div>
                             )}
@@ -739,7 +855,7 @@ function DuelChallengeContent() {
 
             </div>
 
-            {/* INFO */}
+            {/* NO ACCOUNT */}
 
             <div className="mt-6 rounded-2xl border border-green-500/15 bg-green-500/[0.05] p-4">
 
@@ -794,14 +910,14 @@ function DuelChallengeContent() {
         </div>
 
         {/* =================================================
-            SUMMARY
+            SUMMARY / CREATE
         ================================================= */}
 
         <section className="mt-6 rounded-3xl border border-purple-500/20 bg-purple-500/[0.05] p-6">
 
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
 
-            {/* LEFT */}
+            {/* INFO */}
 
             <div className="min-w-0">
 
@@ -840,7 +956,7 @@ function DuelChallengeContent() {
 
             </div>
 
-            {/* BUTTON */}
+            {/* CREATE BUTTON */}
 
             <button
               type="button"
@@ -900,7 +1016,7 @@ function DuelChallengeContent() {
 }
 
 /* =========================================================
-   COMPONENTS
+   GAME RULE BADGE
 ========================================================= */
 
 function GameRuleBadge({

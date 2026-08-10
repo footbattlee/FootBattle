@@ -4,6 +4,10 @@ import { cookies } from "next/headers";
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
+/* =========================================================
+   SETTINGS
+========================================================= */
+
 const GUEST_COOKIE_NAME =
   "footbattle_guest";
 
@@ -17,6 +21,10 @@ const ALLOWED_GAME_CODES = [
   "guess_the_player",
 ] as const;
 
+/* =========================================================
+   TYPES
+========================================================= */
+
 type AllowedGameCode =
   (typeof ALLOWED_GAME_CODES)[number];
 
@@ -25,44 +33,94 @@ type CreateChallengeBody = {
   challengerName?: string;
 };
 
+/* =========================================================
+   HELPERS
+========================================================= */
+
 function generateInviteToken() {
-  return crypto.randomUUID()
-    .replace(/-/g, "")
-    .slice(0, 12);
+  return crypto
+    .randomUUID()
+    .replace(
+      /-/g,
+      "",
+    )
+    .slice(
+      0,
+      12,
+    );
 }
 
 function isAllowedGameCode(
   value: unknown,
 ): value is AllowedGameCode {
   return (
-    typeof value === "string" &&
+    typeof value ===
+      "string" &&
     ALLOWED_GAME_CODES.includes(
       value as AllowedGameCode,
     )
   );
 }
 
-function sanitizeGuestName(
+function sanitizePlayerName(
   value: unknown,
 ) {
   const name =
-    String(value ?? "")
+    String(
+      value ?? "",
+    )
       .trim()
-      .replace(/\s+/g, " ");
+      .replace(
+        /\s+/g,
+        " ",
+      );
 
   if (!name) {
     return "Misafir";
   }
 
-  return name.slice(0, 30);
+  return name.slice(
+    0,
+    30,
+  );
 }
+
+/* =========================================================
+   POST
+========================================================= */
 
 export async function POST(
   request: Request,
 ) {
   try {
-    const body =
-      (await request.json()) as CreateChallengeBody;
+    /* =====================================================
+       BODY
+    ===================================================== */
+
+    let body:
+      CreateChallengeBody;
+
+    try {
+      body =
+        (await request.json()) as CreateChallengeBody;
+    } catch {
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "Geçersiz istek verisi.",
+        },
+        {
+          status:
+            400,
+        },
+      );
+    }
+
+    /* =====================================================
+       GAME VALIDATION
+    ===================================================== */
 
     if (
       !isAllowedGameCode(
@@ -72,19 +130,51 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Geçersiz düello oyunu.",
         },
         {
-          status: 400,
+          status:
+            400,
         },
       );
     }
 
-    /*
-     * Kullanıcı giriş yaptıysa user_id kullan.
-     * Giriş yapmadıysa guest cookie üret / mevcut olanı kullan.
-     */
+    /* =====================================================
+       PLAYER NAME
+    ===================================================== */
+
+    const challengerName =
+      sanitizePlayerName(
+        body.challengerName,
+      );
+
+    if (
+      challengerName.length <
+      2
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "Oyuncu adı en az 2 karakter olmalı.",
+        },
+        {
+          status:
+            400,
+        },
+      );
+    }
+
+    /* =====================================================
+       AUTH
+
+       Kullanıcı giriş yapmış olabilir.
+       Giriş zorunlu değil.
+    ===================================================== */
+
     const authClient =
       await createAuthServerClient();
 
@@ -92,8 +182,30 @@ export async function POST(
       data: {
         user,
       },
+      error:
+        userError,
     } =
       await authClient.auth.getUser();
+
+    /*
+     * Auth cookie yoksa Supabase burada hata
+     * döndürebilir. Guest challenge için bu
+     * fatal bir hata değildir.
+     */
+    if (
+      userError &&
+      process.env.NODE_ENV !==
+        "production"
+    ) {
+      console.log(
+        "Challenge create auth bilgisi alınamadı:",
+        userError.message,
+      );
+    }
+
+    /* =====================================================
+       GUEST COOKIE
+    ===================================================== */
 
     const cookieStore =
       await cookies();
@@ -101,12 +213,13 @@ export async function POST(
     let guestId =
       cookieStore.get(
         GUEST_COOKIE_NAME,
-      )?.value ?? null;
+      )?.value ??
+      null;
 
     /*
-     * Kullanıcı giriş yapmışsa guest_id yazmak zorunda değiliz.
-     *
-     * Giriş yoksa guest id garanti ediyoruz.
+     * Kayıtlı kullanıcı değilse browser'ı
+     * challenge sahibi olarak tanımak için
+     * kalıcı guest id gerekiyor.
      */
     if (
       !user &&
@@ -116,8 +229,16 @@ export async function POST(
         crypto.randomUUID();
     }
 
+    /* =====================================================
+       INVITE TOKEN
+    ===================================================== */
+
     const inviteToken =
       generateInviteToken();
+
+    /* =====================================================
+       EXPIRATION
+    ===================================================== */
 
     const expiresAt =
       new Date(
@@ -128,16 +249,15 @@ export async function POST(
             1000,
       ).toISOString();
 
-    const challengerName =
-      user
-        ? null
-        : sanitizeGuestName(
-            body.challengerName,
-          );
+    /* =====================================================
+       INSERT
+    ===================================================== */
 
     const {
-      data: challenge,
-      error: insertError,
+      data:
+        challenge,
+      error:
+        insertError,
     } =
       await supabaseAdmin
         .from(
@@ -153,14 +273,25 @@ export async function POST(
           status:
             "waiting",
 
+          /*
+           * Giriş yaptıysa UUID burada tutulur.
+           */
           challenger_user_id:
-            user?.id ?? null,
+            user?.id ??
+            null,
 
+          /*
+           * Guest ise cookie kimliği burada tutulur.
+           */
           challenger_guest_id:
             user
               ? null
               : guestId,
 
+          /*
+           * Girişli/girişsiz fark etmeksizin
+           * challenge ekranında gösterilecek isim.
+           */
           challenger_name:
             challengerName,
 
@@ -190,13 +321,28 @@ export async function POST(
           invite_token,
           game_code,
           status,
+
           challenger_user_id,
           challenger_guest_id,
           challenger_name,
+
+          opponent_user_id,
+          opponent_guest_id,
+          opponent_name,
+
+          challenger_score,
+          opponent_score,
+
+          winner_side,
+
           created_at,
           expires_at
         `)
         .single();
+
+    /* =====================================================
+       INSERT ERROR
+    ===================================================== */
 
     if (
       insertError ||
@@ -210,22 +356,32 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
+
           error:
+            insertError?.message ??
             "Meydan okuma oluşturulamadı.",
         },
         {
-          status: 500,
+          status:
+            500,
         },
       );
     }
+
+    /* =====================================================
+       SHARE URL
+    ===================================================== */
+
+    const requestOrigin =
+      new URL(
+        request.url,
+      ).origin;
 
     const baseUrl =
       (
         process.env
           .NEXT_PUBLIC_SITE_URL ??
-        new URL(
-          request.url,
-        ).origin
+        requestOrigin
       ).replace(
         /\/$/,
         "",
@@ -236,6 +392,10 @@ export async function POST(
 
     const shareUrl =
       `${baseUrl}${sharePath}`;
+
+    /* =====================================================
+       RESPONSE
+    ===================================================== */
 
     const response =
       NextResponse.json({
@@ -256,6 +416,9 @@ export async function POST(
           status:
             challenge.status,
 
+          challengerName:
+            challenge.challenger_name,
+
           sharePath,
 
           shareUrl,
@@ -265,15 +428,12 @@ export async function POST(
         },
       });
 
-    /*
-     * Guest kullanıcı için kalıcı kimlik cookie'si.
-     *
-     * HttpOnly:
-     * JS tarafından okunamaz.
-     *
-     * SameSite Lax:
-     * Challenge linkiyle siteye gelirken cookie kullanılabilir.
-     */
+    /* =====================================================
+       SET GUEST COOKIE
+
+       Sadece login olmayan challenge sahibi için.
+    ===================================================== */
+
     if (
       !user &&
       guestId
@@ -282,7 +442,9 @@ export async function POST(
         GUEST_COOKIE_NAME,
         guestId,
         {
-          httpOnly: true,
+          httpOnly:
+            true,
+
           secure:
             process.env
               .NODE_ENV ===
@@ -313,13 +475,15 @@ export async function POST(
     return NextResponse.json(
       {
         ok: false,
+
         error:
           error instanceof Error
             ? error.message
             : "Meydan okuma oluşturulurken hata oluştu.",
       },
       {
-        status: 500,
+        status:
+          500,
       },
     );
   }
