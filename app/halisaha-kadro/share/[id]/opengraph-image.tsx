@@ -13,6 +13,9 @@ export const size = {
 export const contentType =
   "image/png";
 
+export const runtime =
+  "nodejs";
+
 type PlayerPosition = {
   x: number;
   y: number;
@@ -39,9 +42,7 @@ async function getShare(
     data,
     error,
   } = await supabaseAdmin
-    .from(
-      "halisaha_shares",
-    )
+    .from("halisaha_shares")
     .select(`
       id,
       squad_name,
@@ -51,10 +52,7 @@ async function getShare(
       sleeve_color,
       positions
     `)
-    .eq(
-      "id",
-      id,
-    )
+    .eq("id", id)
     .maybeSingle();
 
   if (
@@ -73,24 +71,48 @@ async function getShare(
 }
 
 /* =========================================================
+   HELPERS
+========================================================= */
+
+function cleanPlayerName(
+  value: string | null | undefined,
+  index: number,
+) {
+  const name =
+    String(value ?? "").trim();
+
+  if (!name) {
+    return `Oyuncu ${index + 1}`;
+  }
+
+  /*
+   * WhatsApp preview içinde çok uzun isimler
+   * formaların birbirine girmesine sebep olmasın.
+   */
+  if (name.length > 14) {
+    return `${name.slice(0, 12)}…`;
+  }
+
+  return name;
+}
+
+/* =========================================================
    IMAGE
 ========================================================= */
 
-export default async function Image(
-  props: {
-    params: Promise<{
-      id: string;
-    }>;
-  },
-) {
+export default async function Image({
+  params,
+}: {
+  params: Promise<{
+    id: string;
+  }>;
+}) {
   const {
     id,
-  } = await props.params;
+  } = await params;
 
   const share =
-    await getShare(
-      id,
-    );
+    await getShare(id);
 
   /* =======================================================
      FALLBACK
@@ -123,12 +145,20 @@ export default async function Image(
               "#07111f",
 
             color:
-              "white",
+              "#ffffff",
+
+            fontFamily:
+              "Arial",
           }}
         >
-
           <div
             style={{
+              display:
+                "flex",
+
+              alignItems:
+                "center",
+
               fontSize:
                 72,
 
@@ -140,7 +170,7 @@ export default async function Image(
             <span
               style={{
                 color:
-                  "#facc15",
+                  "#22c55e",
               }}
             >
               Battle
@@ -149,6 +179,9 @@ export default async function Image(
 
           <div
             style={{
+              display:
+                "flex",
+
               marginTop:
                 20,
 
@@ -161,10 +194,11 @@ export default async function Image(
           >
             Halısaha Kadrosu
           </div>
-
         </div>
       ),
-      size,
+      {
+        ...size,
+      },
     );
   }
 
@@ -202,298 +236,27 @@ export default async function Image(
           display:
             "flex",
 
+          flexDirection:
+            "column",
+
           background:
             "#07111f",
 
           color:
-            "white",
-
-          padding:
-            "34px",
+            "#ffffff",
 
           fontFamily:
             "Arial",
         }}
       >
-
         {/* =================================================
-            LEFT INFO
+            TOP BRAND BAR
         ================================================= */}
 
         <div
           style={{
-            width:
-              "440px",
-
             height:
-              "562px",
-
-            display:
-              "flex",
-
-            flexDirection:
-              "column",
-
-            justifyContent:
-              "space-between",
-
-            padding:
-              "38px",
-
-            borderRadius:
-              "30px",
-
-            border:
-              "1px solid rgba(255,255,255,0.12)",
-
-            background:
-              "#0d1828",
-          }}
-        >
-
-          <div
-            style={{
-              display:
-                "flex",
-
-              flexDirection:
-                "column",
-            }}
-          >
-
-            {/* BRAND */}
-
-            <div
-              style={{
-                display:
-                  "flex",
-
-                alignItems:
-                  "center",
-              }}
-            >
-
-              <div
-                style={{
-                  width:
-                    "64px",
-
-                  height:
-                    "64px",
-
-                  borderRadius:
-                    "16px",
-
-                  display:
-                    "flex",
-
-                  alignItems:
-                    "center",
-
-                  justifyContent:
-                    "center",
-
-                  background:
-                    "#22c55e",
-
-                  color:
-                    "#07111f",
-
-                  fontWeight:
-                    900,
-
-                  fontSize:
-                    24,
-                }}
-              >
-                FB
-              </div>
-
-              <div
-                style={{
-                  marginLeft:
-                    "18px",
-
-                  display:
-                    "flex",
-
-                  flexDirection:
-                    "column",
-                }}
-              >
-
-                <div
-                  style={{
-                    fontSize:
-                      32,
-
-                    fontWeight:
-                      900,
-                  }}
-                >
-                  FootBattle
-                </div>
-
-                <div
-                  style={{
-                    marginTop:
-                      "4px",
-
-                    color:
-                      "#64748b",
-
-                    fontSize:
-                      17,
-                  }}
-                >
-                  Halısaha Kadro
-                </div>
-
-              </div>
-
-            </div>
-
-            {/* LABEL */}
-
-            <div
-              style={{
-                marginTop:
-                  "60px",
-
-                color:
-                  "#facc15",
-
-                fontSize:
-                  18,
-
-                fontWeight:
-                  900,
-
-                letterSpacing:
-                  "2px",
-              }}
-            >
-              PAYLAŞILAN KADRO
-            </div>
-
-            {/* SQUAD */}
-
-            <div
-              style={{
-                marginTop:
-                  "14px",
-
-                fontSize:
-                  50,
-
-                lineHeight:
-                  1,
-
-                fontWeight:
-                  900,
-
-                maxWidth:
-                  "350px",
-              }}
-            >
-              {share.squad_name}
-            </div>
-
-            <div
-              style={{
-                marginTop:
-                  "18px",
-
-                fontSize:
-                  22,
-
-                color:
-                  "#94a3b8",
-              }}
-            >
-              {share.player_count}
-              {" "}
-              kişilik kadro
-            </div>
-
-          </div>
-
-          {/* BOTTOM */}
-
-          <div
-            style={{
-              display:
-                "flex",
-
-              flexDirection:
-                "column",
-            }}
-          >
-
-            <div
-              style={{
-                width:
-                  "100%",
-
-                height:
-                  "1px",
-
-                background:
-                  "rgba(255,255,255,0.08)",
-              }}
-            />
-
-            <div
-              style={{
-                marginTop:
-                  "22px",
-
-                fontSize:
-                  18,
-
-                color:
-                  "#94a3b8",
-              }}
-            >
-              Kadroyu görüntülemek için bağlantıya dokun ⚽
-            </div>
-
-            <div
-              style={{
-                marginTop:
-                  "10px",
-
-                color:
-                  "#22c55e",
-
-                fontSize:
-                  18,
-
-                fontWeight:
-                  800,
-              }}
-            >
-              foot-battle.vercel.app
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* =================================================
-            RIGHT PITCH
-        ================================================= */}
-
-        <div
-          style={{
-            marginLeft:
-              "30px",
-
-            width:
-              "662px",
-
-            height:
-              "562px",
+              "92px",
 
             display:
               "flex",
@@ -502,372 +265,702 @@ export default async function Image(
               "center",
 
             justifyContent:
-              "center",
-
-            borderRadius:
-              "30px",
-
-            border:
-              "1px solid rgba(255,255,255,0.12)",
-
-            background:
-              "#0d1828",
+              "space-between",
 
             padding:
-              "18px",
+              "0 42px",
+
+            borderBottom:
+              "1px solid rgba(255,255,255,0.10)",
+
+            background:
+              "#091625",
           }}
         >
-
           <div
             style={{
-              position:
-                "relative",
-
-              width:
-                "395px",
-
-              height:
-                "526px",
-
               display:
                 "flex",
 
-              overflow:
-                "hidden",
-
-              borderRadius:
-                "22px",
-
-              border:
-                "5px solid #14532d",
-
-              background:
-                "#37a823",
+              alignItems:
+                "center",
             }}
           >
-
-            {/* =================================================
-                PITCH STRIPES
-            ================================================= */}
-
             <div
               style={{
-                position:
-                  "absolute",
-
-                left:
-                  "0",
-
-                top:
-                  "0",
-
                 width:
-                  "25%",
+                  "54px",
 
                 height:
-                  "100%",
+                  "54px",
 
-                background:
-                  "rgba(255,255,255,0.035)",
-              }}
-            />
+                display:
+                  "flex",
 
-            <div
-              style={{
-                position:
-                  "absolute",
+                alignItems:
+                  "center",
 
-                left:
-                  "50%",
-
-                top:
-                  "0",
-
-                width:
-                  "25%",
-
-                height:
-                  "100%",
-
-                background:
-                  "rgba(255,255,255,0.035)",
-              }}
-            />
-
-            {/* OUTER LINE */}
-
-            <div
-              style={{
-                position:
-                  "absolute",
-
-                left:
-                  "14px",
-
-                right:
-                  "14px",
-
-                top:
-                  "14px",
-
-                bottom:
-                  "14px",
-
-                border:
-                  "3px solid rgba(255,255,255,0.82)",
-              }}
-            />
-
-            {/* CENTER LINE */}
-
-            <div
-              style={{
-                position:
-                  "absolute",
-
-                left:
-                  "14px",
-
-                right:
-                  "14px",
-
-                top:
-                  "50%",
-
-                height:
-                  "3px",
-
-                background:
-                  "rgba(255,255,255,0.82)",
-              }}
-            />
-
-            {/* CENTER CIRCLE */}
-
-            <div
-              style={{
-                position:
-                  "absolute",
-
-                left:
-                  "50%",
-
-                top:
-                  "50%",
-
-                width:
-                  "112px",
-
-                height:
-                  "112px",
-
-                transform:
-                  "translate(-50%, -50%)",
+                justifyContent:
+                  "center",
 
                 borderRadius:
-                  "999px",
-
-                border:
-                  "3px solid rgba(255,255,255,0.82)",
-              }}
-            />
-
-            {/* CENTER POINT */}
-
-            <div
-              style={{
-                position:
-                  "absolute",
-
-                left:
-                  "50%",
-
-                top:
-                  "50%",
-
-                width:
-                  "8px",
-
-                height:
-                  "8px",
-
-                transform:
-                  "translate(-50%, -50%)",
-
-                borderRadius:
-                  "999px",
+                  "14px",
 
                 background:
-                  "white",
-              }}
-            />
+                  "#22c55e",
 
-            {/* TOP PENALTY */}
+                color:
+                  "#07111f",
+
+                fontSize:
+                  21,
+
+                fontWeight:
+                  900,
+              }}
+            >
+              FB
+            </div>
 
             <div
               style={{
-                position:
-                  "absolute",
-
-                left:
-                  "50%",
-
-                top:
-                  "14px",
-
-                width:
-                  "190px",
-
-                height:
-                  "88px",
-
-                transform:
-                  "translateX(-50%)",
-
-                borderLeft:
-                  "3px solid rgba(255,255,255,0.82)",
-
-                borderRight:
-                  "3px solid rgba(255,255,255,0.82)",
-
-                borderBottom:
-                  "3px solid rgba(255,255,255,0.82)",
-              }}
-            />
-
-            {/* TOP SMALL BOX */}
-
-            <div
-              style={{
-                position:
-                  "absolute",
-
-                left:
-                  "50%",
-
-                top:
-                  "14px",
-
-                width:
-                  "102px",
-
-                height:
-                  "43px",
-
-                transform:
-                  "translateX(-50%)",
-
-                borderLeft:
-                  "3px solid rgba(255,255,255,0.82)",
-
-                borderRight:
-                  "3px solid rgba(255,255,255,0.82)",
-
-                borderBottom:
-                  "3px solid rgba(255,255,255,0.82)",
-              }}
-            />
-
-            {/* BOTTOM PENALTY */}
-
-            <div
-              style={{
-                position:
-                  "absolute",
-
-                left:
-                  "50%",
-
-                bottom:
-                  "14px",
-
-                width:
-                  "190px",
-
-                height:
-                  "88px",
-
-                transform:
-                  "translateX(-50%)",
-
-                borderLeft:
-                  "3px solid rgba(255,255,255,0.82)",
-
-                borderRight:
-                  "3px solid rgba(255,255,255,0.82)",
-
-                borderTop:
-                  "3px solid rgba(255,255,255,0.82)",
-              }}
-            />
-
-            {/* BOTTOM SMALL BOX */}
-
-            <div
-              style={{
-                position:
-                  "absolute",
-
-                left:
-                  "50%",
-
-                bottom:
-                  "14px",
-
-                width:
-                  "102px",
-
-                height:
-                  "43px",
-
-                transform:
-                  "translateX(-50%)",
-
-                borderLeft:
-                  "3px solid rgba(255,255,255,0.82)",
-
-                borderRight:
-                  "3px solid rgba(255,255,255,0.82)",
-
-                borderTop:
-                  "3px solid rgba(255,255,255,0.82)",
-              }}
-            />
-
-            {/* WATERMARK */}
-
-            <div
-              style={{
-                position:
-                  "absolute",
-
-                left:
-                  "50%",
-
-                top:
-                  "50%",
-
-                transform:
-                  "translate(-50%, -50%)",
-
                 display:
                   "flex",
 
                 flexDirection:
                   "column",
 
-                alignItems:
-                  "center",
-
-                color:
-                  "rgba(255,255,255,0.18)",
+                marginLeft:
+                  "16px",
               }}
             >
+              <div
+                style={{
+                  display:
+                    "flex",
+
+                  fontSize:
+                    29,
+
+                  fontWeight:
+                    900,
+                }}
+              >
+                FootBattle
+              </div>
 
               <div
                 style={{
+                  display:
+                    "flex",
+
+                  marginTop:
+                    "2px",
+
                   fontSize:
-                    38,
+                    15,
+
+                  fontWeight:
+                    700,
+
+                  color:
+                    "#22c55e",
+
+                  letterSpacing:
+                    "1.4px",
+                }}
+              >
+                HALISAHA KADROM
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display:
+                "flex",
+
+              alignItems:
+                "center",
+
+              padding:
+                "10px 18px",
+
+              borderRadius:
+                "999px",
+
+              border:
+                "1px solid rgba(250,204,21,0.25)",
+
+              background:
+                "rgba(250,204,21,0.08)",
+
+              color:
+                "#facc15",
+
+              fontSize:
+                16,
+
+              fontWeight:
+                800,
+            }}
+          >
+            ⚽ {share.player_count} KİŞİLİK KADRO
+          </div>
+        </div>
+
+        {/* =================================================
+            MAIN
+        ================================================= */}
+
+        <div
+          style={{
+            flex:
+              1,
+
+            display:
+              "flex",
+
+            padding:
+              "26px 38px 30px 38px",
+          }}
+        >
+          {/* =================================================
+              LEFT INFO
+          ================================================= */}
+
+          <div
+            style={{
+              width:
+                "300px",
+
+              display:
+                "flex",
+
+              flexDirection:
+                "column",
+
+              justifyContent:
+                "space-between",
+
+              padding:
+                "30px 24px",
+
+              border:
+                "1px solid rgba(255,255,255,0.10)",
+
+              borderRadius:
+                "24px",
+
+              background:
+                "#0d1a2a",
+            }}
+          >
+            <div
+              style={{
+                display:
+                  "flex",
+
+                flexDirection:
+                  "column",
+              }}
+            >
+              <div
+                style={{
+                  display:
+                    "flex",
+
+                  fontSize:
+                    14,
+
+                  fontWeight:
+                    900,
+
+                  letterSpacing:
+                    "2px",
+
+                  color:
+                    "#facc15",
+                }}
+              >
+                PAYLAŞILAN KADRO
+              </div>
+
+              <div
+                style={{
+                  display:
+                    "flex",
+
+                  marginTop:
+                    "18px",
+
+                  maxWidth:
+                    "245px",
+
+                  fontSize:
+                    share.squad_name.length >
+                    20
+                      ? 35
+                      : 43,
+
+                  lineHeight:
+                    1.02,
+
+                  fontWeight:
+                    900,
+
+                  color:
+                    "#ffffff",
+                }}
+              >
+                {share.squad_name}
+              </div>
+
+              <div
+                style={{
+                  display:
+                    "flex",
+
+                  marginTop:
+                    "18px",
+
+                  fontSize:
+                    18,
+
+                  lineHeight:
+                    1.45,
+
+                  color:
+                    "#94a3b8",
+                }}
+              >
+                Arkadaşlarınla oluşturduğun kadroyu paylaş ve sahaya kimin çıkacağını göster.
+              </div>
+            </div>
+
+            <div
+              style={{
+                display:
+                  "flex",
+
+                flexDirection:
+                  "column",
+              }}
+            >
+              <div
+                style={{
+                  height:
+                    "1px",
+
+                  width:
+                    "100%",
+
+                  background:
+                    "rgba(255,255,255,0.09)",
+                }}
+              />
+
+              <div
+                style={{
+                  display:
+                    "flex",
+
+                  marginTop:
+                    "18px",
+
+                  color:
+                    "#22c55e",
+
+                  fontSize:
+                    17,
+
+                  fontWeight:
+                    900,
+                }}
+              >
+                foot-battle.vercel.app
+              </div>
+
+              <div
+                style={{
+                  display:
+                    "flex",
+
+                  marginTop:
+                    "7px",
+
+                  color:
+                    "#64748b",
+
+                  fontSize:
+                    14,
+                }}
+              >
+                Kadroyu açmak için bağlantıya dokun
+              </div>
+            </div>
+          </div>
+
+          {/* =================================================
+              PITCH CARD
+          ================================================= */}
+
+          <div
+            style={{
+              flex:
+                1,
+
+              marginLeft:
+                "26px",
+
+              display:
+                "flex",
+
+              alignItems:
+                "center",
+
+              justifyContent:
+                "center",
+
+              border:
+                "1px solid rgba(34,197,94,0.20)",
+
+              borderRadius:
+                "24px",
+
+              background:
+                "#0b1926",
+
+              overflow:
+                "hidden",
+            }}
+          >
+            {/* =================================================
+                PITCH
+
+                Preview yatay kart içine sığsın diye
+                normal sayfadaki dikey sahayı biraz geniş
+                gösteriyoruz.
+            ================================================= */}
+
+            <div
+              style={{
+                position:
+                  "relative",
+
+                width:
+                  "730px",
+
+                height:
+                  "470px",
+
+                display:
+                  "flex",
+
+                overflow:
+                  "hidden",
+
+                borderRadius:
+                  "18px",
+
+                border:
+                  "5px solid #14532d",
+
+                background:
+                  "#35a526",
+              }}
+            >
+              {/* STRIPES */}
+
+              {[0, 2, 4, 6].map(
+                (
+                  stripe,
+                ) => (
+                  <div
+                    key={
+                      stripe
+                    }
+                    style={{
+                      position:
+                        "absolute",
+
+                      left:
+                        `${stripe * 12.5}%`,
+
+                      top:
+                        "0",
+
+                      width:
+                        "12.5%",
+
+                      height:
+                        "100%",
+
+                      background:
+                        "rgba(255,255,255,0.045)",
+                    }}
+                  />
+                ),
+              )}
+
+              {/* OUTER BORDER */}
+
+              <div
+                style={{
+                  position:
+                    "absolute",
+
+                  left:
+                    "18px",
+
+                  right:
+                    "18px",
+
+                  top:
+                    "18px",
+
+                  bottom:
+                    "18px",
+
+                  border:
+                    "3px solid rgba(255,255,255,0.85)",
+                }}
+              />
+
+              {/* MIDDLE LINE */}
+
+              <div
+                style={{
+                  position:
+                    "absolute",
+
+                  left:
+                    "18px",
+
+                  right:
+                    "18px",
+
+                  top:
+                    "50%",
+
+                  height:
+                    "3px",
+
+                  background:
+                    "rgba(255,255,255,0.85)",
+                }}
+              />
+
+              {/* CENTER CIRCLE */}
+
+              <div
+                style={{
+                  position:
+                    "absolute",
+
+                  left:
+                    "50%",
+
+                  top:
+                    "50%",
+
+                  width:
+                    "126px",
+
+                  height:
+                    "126px",
+
+                  transform:
+                    "translate(-50%, -50%)",
+
+                  borderRadius:
+                    "999px",
+
+                  border:
+                    "3px solid rgba(255,255,255,0.85)",
+                }}
+              />
+
+              <div
+                style={{
+                  position:
+                    "absolute",
+
+                  left:
+                    "50%",
+
+                  top:
+                    "50%",
+
+                  width:
+                    "8px",
+
+                  height:
+                    "8px",
+
+                  transform:
+                    "translate(-50%, -50%)",
+
+                  borderRadius:
+                    "999px",
+
+                  background:
+                    "#ffffff",
+                }}
+              />
+
+              {/* TOP PENALTY AREA */}
+
+              <div
+                style={{
+                  position:
+                    "absolute",
+
+                  left:
+                    "50%",
+
+                  top:
+                    "18px",
+
+                  width:
+                    "265px",
+
+                  height:
+                    "79px",
+
+                  transform:
+                    "translateX(-50%)",
+
+                  borderLeft:
+                    "3px solid rgba(255,255,255,0.85)",
+
+                  borderRight:
+                    "3px solid rgba(255,255,255,0.85)",
+
+                  borderBottom:
+                    "3px solid rgba(255,255,255,0.85)",
+                }}
+              />
+
+              <div
+                style={{
+                  position:
+                    "absolute",
+
+                  left:
+                    "50%",
+
+                  top:
+                    "18px",
+
+                  width:
+                    "130px",
+
+                  height:
+                    "39px",
+
+                  transform:
+                    "translateX(-50%)",
+
+                  borderLeft:
+                    "3px solid rgba(255,255,255,0.85)",
+
+                  borderRight:
+                    "3px solid rgba(255,255,255,0.85)",
+
+                  borderBottom:
+                    "3px solid rgba(255,255,255,0.85)",
+                }}
+              />
+
+              {/* BOTTOM PENALTY AREA */}
+
+              <div
+                style={{
+                  position:
+                    "absolute",
+
+                  left:
+                    "50%",
+
+                  bottom:
+                    "18px",
+
+                  width:
+                    "265px",
+
+                  height:
+                    "79px",
+
+                  transform:
+                    "translateX(-50%)",
+
+                  borderLeft:
+                    "3px solid rgba(255,255,255,0.85)",
+
+                  borderRight:
+                    "3px solid rgba(255,255,255,0.85)",
+
+                  borderTop:
+                    "3px solid rgba(255,255,255,0.85)",
+                }}
+              />
+
+              <div
+                style={{
+                  position:
+                    "absolute",
+
+                  left:
+                    "50%",
+
+                  bottom:
+                    "18px",
+
+                  width:
+                    "130px",
+
+                  height:
+                    "39px",
+
+                  transform:
+                    "translateX(-50%)",
+
+                  borderLeft:
+                    "3px solid rgba(255,255,255,0.85)",
+
+                  borderRight:
+                    "3px solid rgba(255,255,255,0.85)",
+
+                  borderTop:
+                    "3px solid rgba(255,255,255,0.85)",
+                }}
+              />
+
+              {/* WATERMARK */}
+
+              <div
+                style={{
+                  position:
+                    "absolute",
+
+                  left:
+                    "50%",
+
+                  top:
+                    "50%",
+
+                  transform:
+                    "translate(-50%, -50%)",
+
+                  display:
+                    "flex",
+
+                  color:
+                    "rgba(255,255,255,0.14)",
+
+                  fontSize:
+                    46,
 
                   fontWeight:
                     900,
@@ -879,258 +972,289 @@ export default async function Image(
                 FootBattle
               </div>
 
-            </div>
+              {/* =================================================
+                  PLAYERS
+              ================================================= */}
 
-            {/* =================================================
-                PLAYERS
-            ================================================= */}
-
-            {players.map(
-              (
-                player,
-                index,
-              ) => {
-                const position =
-                  positions[
-                    index
-                  ] ?? {
-                    x:
-                      50,
-
-                    y:
-                      50,
-                  };
-
-                return (
-                  <div
-                    key={
+              {players.map(
+                (
+                  player,
+                  index,
+                ) => {
+                  const position =
+                    positions[
                       index
-                    }
-                    style={{
-                      position:
-                        "absolute",
+                    ] ?? {
+                      x:
+                        50,
+                      y:
+                        50,
+                    };
 
-                      left:
-                        `${position.x}%`,
+                  const playerName =
+                    cleanPlayerName(
+                      player,
+                      index,
+                    );
 
-                      top:
-                        `${position.y}%`,
-
-                      transform:
-                        "translate(-50%, -50%)",
-
-                      display:
-                        "flex",
-
-                      flexDirection:
-                        "column",
-
-                      alignItems:
-                        "center",
-
-                      zIndex:
-                        10,
-                    }}
-                  >
-
-                    {/* JERSEY */}
-
+                  return (
                     <div
+                      key={
+                        index
+                      }
                       style={{
                         position:
-                          "relative",
+                          "absolute",
 
-                        width:
-                          "48px",
+                        left:
+                          `${position.x}%`,
 
-                        height:
-                          "42px",
+                        top:
+                          `${position.y}%`,
+
+                        transform:
+                          "translate(-50%, -50%)",
 
                         display:
                           "flex",
+
+                        flexDirection:
+                          "column",
+
+                        alignItems:
+                          "center",
+
+                        zIndex:
+                          10,
                       }}
                     >
-
-                      {/* LEFT SLEEVE */}
-
-                      <div
-                        style={{
-                          position:
-                            "absolute",
-
-                          left:
-                            "0",
-
-                          top:
-                            "7px",
-
-                          width:
-                            "15px",
-
-                          height:
-                            "19px",
-
-                          borderRadius:
-                            "5px",
-
-                          transform:
-                            "rotate(-18deg)",
-
-                          background:
-                            share.sleeve_color,
-
-                          border:
-                            "1px solid rgba(0,0,0,0.30)",
-                        }}
-                      />
-
-                      {/* RIGHT SLEEVE */}
+                      {/* SHIRT */}
 
                       <div
                         style={{
                           position:
-                            "absolute",
-
-                          right:
-                            "0",
-
-                          top:
-                            "7px",
+                            "relative",
 
                           width:
-                            "15px",
+                            "62px",
 
                           height:
-                            "19px",
-
-                          borderRadius:
-                            "5px",
-
-                          transform:
-                            "rotate(18deg)",
-
-                          background:
-                            share.sleeve_color,
-
-                          border:
-                            "1px solid rgba(0,0,0,0.30)",
-                        }}
-                      />
-
-                      {/* BODY */}
-
-                      <div
-                        style={{
-                          position:
-                            "absolute",
-
-                          left:
-                            "50%",
-
-                          top:
-                            "2px",
-
-                          width:
-                            "30px",
-
-                          height:
-                            "36px",
-
-                          transform:
-                            "translateX(-50%)",
-
-                          borderRadius:
-                            "4px 4px 8px 8px",
-
-                          background:
-                            share.body_color,
-
-                          border:
-                            "1px solid rgba(0,0,0,0.35)",
+                            "50px",
 
                           display:
                             "flex",
+                        }}
+                      >
+                        {/* LEFT SLEEVE */}
 
-                          alignItems:
-                            "center",
+                        <div
+                          style={{
+                            position:
+                              "absolute",
 
-                          justifyContent:
-                            "center",
+                            left:
+                              "1px",
+
+                            top:
+                              "8px",
+
+                            width:
+                              "19px",
+
+                            height:
+                              "23px",
+
+                            transform:
+                              "rotate(-18deg)",
+
+                            borderRadius:
+                              "5px",
+
+                            background:
+                              share.sleeve_color,
+
+                            border:
+                              "1px solid rgba(0,0,0,0.30)",
+                          }}
+                        />
+
+                        {/* RIGHT SLEEVE */}
+
+                        <div
+                          style={{
+                            position:
+                              "absolute",
+
+                            right:
+                              "1px",
+
+                            top:
+                              "8px",
+
+                            width:
+                              "19px",
+
+                            height:
+                              "23px",
+
+                            transform:
+                              "rotate(18deg)",
+
+                            borderRadius:
+                              "5px",
+
+                            background:
+                              share.sleeve_color,
+
+                            border:
+                              "1px solid rgba(0,0,0,0.30)",
+                          }}
+                        />
+
+                        {/* BODY */}
+
+                        <div
+                          style={{
+                            position:
+                              "absolute",
+
+                            left:
+                              "50%",
+
+                            top:
+                              "2px",
+
+                            width:
+                              "38px",
+
+                            height:
+                              "44px",
+
+                            transform:
+                              "translateX(-50%)",
+
+                            borderRadius:
+                              "5px 5px 10px 10px",
+
+                            background:
+                              share.body_color,
+
+                            border:
+                              "1px solid rgba(0,0,0,0.38)",
+
+                            display:
+                              "flex",
+
+                            alignItems:
+                              "center",
+
+                            justifyContent:
+                              "center",
+
+                            color:
+                              "#ffffff",
+
+                            fontSize:
+                              19,
+
+                            fontWeight:
+                              900,
+                          }}
+                        >
+                          {index + 1}
+                        </div>
+
+                        {/* COLLAR */}
+
+                        <div
+                          style={{
+                            position:
+                              "absolute",
+
+                            left:
+                              "50%",
+
+                            top:
+                              "0",
+
+                            width:
+                              "15px",
+
+                            height:
+                              "7px",
+
+                            transform:
+                              "translate(-50%, -30%)",
+
+                            borderRadius:
+                              "0 0 999px 999px",
+
+                            background:
+                              "#07111f",
+                          }}
+                        />
+                      </div>
+
+                      {/* NAME */}
+
+                      <div
+                        style={{
+                          display:
+                            "flex",
+
+                          marginTop:
+                            "2px",
+
+                          maxWidth:
+                            "112px",
+
+                          padding:
+                            "4px 8px",
+
+                          borderRadius:
+                            "6px",
+
+                          border:
+                            "1px solid rgba(255,255,255,0.14)",
+
+                          background:
+                            "rgba(7,17,31,0.94)",
 
                           color:
-                            "white",
+                            "#ffffff",
 
                           fontSize:
-                            16,
+                            12,
 
                           fontWeight:
                             900,
+
+                          whiteSpace:
+                            "nowrap",
                         }}
                       >
-                        {index + 1}
+                        {playerName}
                       </div>
-
                     </div>
-
-                    {/* NAME */}
-
-                    <div
-                      style={{
-                        marginTop:
-                          "1px",
-
-                        padding:
-                          "4px 8px",
-
-                        maxWidth:
-                          "105px",
-
-                        borderRadius:
-                          "6px",
-
-                        background:
-                          "rgba(7,17,31,0.93)",
-
-                        border:
-                          "1px solid rgba(255,255,255,0.14)",
-
-                        color:
-                          "white",
-
-                        fontSize:
-                          12,
-
-                        fontWeight:
-                          800,
-
-                        whiteSpace:
-                          "nowrap",
-
-                        overflow:
-                          "hidden",
-
-                        textOverflow:
-                          "ellipsis",
-                      }}
-                    >
-                      {player?.trim() ||
-                        `Oyuncu ${
-                          index +
-                          1
-                        }`}
-                    </div>
-
-                  </div>
-                );
-              },
-            )}
-
+                  );
+                },
+              )}
+            </div>
           </div>
-
         </div>
-
       </div>
     ),
-    size,
+    {
+      ...size,
+
+      headers: {
+        /*
+         * Yeni paylaşım kartlarının eski WhatsApp cache'ine
+         * takılmasını biraz azaltır.
+         */
+        "Cache-Control":
+          "public, max-age=300, s-maxage=300",
+      },
+    },
   );
 }

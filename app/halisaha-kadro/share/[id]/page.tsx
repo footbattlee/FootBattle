@@ -50,6 +50,15 @@ type PageProps = {
 };
 
 /* =========================================================
+   SITE URL
+========================================================= */
+
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  "https://foot-battle.vercel.app"
+).replace(/\/$/, "");
+
+/* =========================================================
    GET SHARE
 ========================================================= */
 
@@ -122,10 +131,29 @@ export async function generateMetadata(
   const description =
     `${share.player_count} kişilik halısaha kadrosunu görüntüle.`;
 
+  /*
+   * WhatsApp / Discord / Telegram gibi platformların
+   * resmi sorunsuz bulabilmesi için absolute URL kullanıyoruz.
+   */
+
+  const shareUrl =
+    `${SITE_URL}/halisaha-kadro/share/${share.id}`;
+
+  const imageUrl =
+    `${shareUrl}/opengraph-image`;
+
   return {
+    metadataBase:
+      new URL(SITE_URL),
+
     title,
 
     description,
+
+    alternates: {
+      canonical:
+        shareUrl,
+    },
 
     openGraph: {
       title,
@@ -135,13 +163,16 @@ export async function generateMetadata(
       type:
         "website",
 
+      siteName:
+        "FootBattle",
+
       url:
-        `/halisaha-kadro/share/${share.id}`,
+        shareUrl,
 
       images: [
         {
           url:
-            `/halisaha-kadro/share/${share.id}/opengraph-image`,
+            imageUrl,
 
           width:
             1200,
@@ -151,6 +182,9 @@ export async function generateMetadata(
 
           alt:
             `${share.squad_name} halısaha kadrosu`,
+
+          type:
+            "image/png",
         },
       ],
     },
@@ -164,7 +198,7 @@ export async function generateMetadata(
       description,
 
       images: [
-        `/halisaha-kadro/share/${share.id}/opengraph-image`,
+        imageUrl,
       ],
     },
   };
@@ -417,7 +451,8 @@ export default async function SharedHalisahaPage(
           </h2>
 
           <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-400">
-            Arkadaşlarını sahaya yerleştir, taktiğini çiz ve kısa linkle paylaş.
+            Arkadaşlarını sahaya yerleştir,
+            taktiğini çiz ve kısa linkle paylaş.
           </p>
 
           <Link
