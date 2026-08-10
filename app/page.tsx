@@ -119,6 +119,29 @@ type DuelRespondResponse = {
 };
 
 /* =========================================================
+   GUEST CHALLENGE TYPES
+========================================================= */
+
+type GuestChallengeCreateResponse = {
+  ok?: boolean;
+  error?: string;
+
+  token?: string;
+  inviteToken?: string;
+  shareUrl?: string;
+  url?: string;
+
+  challenge?: {
+    id?: number;
+    token?: string;
+    inviteToken?: string;
+    invite_token?: string;
+    shareUrl?: string;
+    status?: string;
+  };
+};
+
+/* =========================================================
    ROTATING HERO GAME
 ========================================================= */
 
@@ -128,6 +151,14 @@ type HeroGame = {
   description: string;
   href: string;
   accent: string;
+
+  /*
+   * Bu alan varsa oyun Guest Challenge
+   * sisteminden düello oluşturabilir.
+   *
+   * Şimdilik yalnızca Player Quiz hazır.
+   */
+  challengeGameCode?: string;
 };
 
 const HERO_GAMES: HeroGame[] = [
@@ -158,6 +189,13 @@ const HERO_GAMES: HeroGame[] = [
       "Doğum yılı, uyruk ve kariyer kulüplerini tamamla.",
     href: "/player-quiz",
     accent: "🧠",
+
+    /*
+     * Guest / kayıtlı fark etmeden
+     * yeni Challenge sistemi.
+     */
+    challengeGameCode:
+      "player_quiz",
   },
 
   {
@@ -332,13 +370,15 @@ function getDuelInitials(
       .filter(Boolean);
 
   if (
-    parts.length === 0
+    parts.length ===
+    0
   ) {
     return "FB";
   }
 
   if (
-    parts.length === 1
+    parts.length ===
+    1
   ) {
     return parts[0]
       .slice(0, 2)
@@ -351,6 +391,30 @@ function getDuelInitials(
       parts.length - 1
     ].slice(0, 1)
   ).toUpperCase();
+}
+
+function extractChallengeToken(
+  result: GuestChallengeCreateResponse,
+) {
+  return (
+    result.token ??
+    result.inviteToken ??
+    result.challenge?.token ??
+    result.challenge?.inviteToken ??
+    result.challenge?.invite_token ??
+    null
+  );
+}
+
+function extractChallengeUrl(
+  result: GuestChallengeCreateResponse,
+) {
+  return (
+    result.shareUrl ??
+    result.url ??
+    result.challenge?.shareUrl ??
+    null
+  );
 }
 
 /* =========================================================
@@ -417,6 +481,22 @@ export default function HomePage() {
       );
     };
   }, []);
+
+  /* =======================================================
+     GUEST CHALLENGE
+  ======================================================= */
+
+  const [
+    guestChallengeLoading,
+    setGuestChallengeLoading,
+  ] =
+    useState(false);
+
+  const [
+    guestChallengeError,
+    setGuestChallengeError,
+  ] =
+    useState("");
 
   /* =======================================================
      FRIENDS
@@ -565,6 +645,181 @@ export default function HomePage() {
 
     void loadUser();
   }, []);
+
+  /* =======================================================
+     CREATE GUEST CHALLENGE
+  ======================================================= */
+
+  async function createGuestChallenge(
+    gameCode: string,
+  ) {
+    if (
+      guestChallengeLoading
+    ) {
+      return;
+    }
+
+    try {
+      setGuestChallengeLoading(
+        true,
+      );
+
+      setGuestChallengeError(
+        "",
+      );
+
+      /*
+       * Giriş yapmışsa profildeki adını kullan.
+       *
+       * Girişsizse kullanıcıdan sadece
+       * düelloda görünecek adını istiyoruz.
+       *
+       * Kayıt / login zorunluluğu YOK.
+       */
+      let challengerName =
+        profile?.display_name?.trim() ||
+        profile?.username?.trim() ||
+        "";
+
+      if (
+        !challengerName
+      ) {
+        const enteredName =
+          window.prompt(
+            "Düelloda görünecek ismini yaz:",
+          );
+
+        if (
+          enteredName ===
+          null
+        ) {
+          return;
+        }
+
+        challengerName =
+          enteredName
+            .trim()
+            .replace(
+              /\s+/g,
+              " ",
+            );
+      }
+
+      if (
+        !challengerName
+      ) {
+        throw new Error(
+          "Düello oluşturmak için bir isim yazmalısın.",
+        );
+      }
+
+      if (
+        challengerName.length >
+        30
+      ) {
+        challengerName =
+          challengerName.slice(
+            0,
+            30,
+          );
+      }
+
+      const response =
+        await fetch(
+          "/api/challenges/create",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                gameCode,
+                challengerName,
+              }),
+          },
+        );
+
+      const result =
+        (await response.json()) as GuestChallengeCreateResponse;
+
+      if (
+        !response.ok ||
+        !result.ok
+      ) {
+        throw new Error(
+          result.error ??
+            "Düello oluşturulamadı.",
+        );
+      }
+
+      /*
+       * Endpoint shareUrl döndürüyorsa
+       * direkt onu kullan.
+       */
+      const returnedUrl =
+        extractChallengeUrl(
+          result,
+        );
+
+      if (
+        returnedUrl
+      ) {
+        const targetUrl =
+          new URL(
+            returnedUrl,
+            window.location.origin,
+          );
+
+        window.location.href =
+          targetUrl.pathname +
+          targetUrl.search +
+          targetUrl.hash;
+
+        return;
+      }
+
+      /*
+       * shareUrl yoksa token ile oluştur.
+       */
+      const challengeToken =
+        extractChallengeToken(
+          result,
+        );
+
+      if (
+        !challengeToken
+      ) {
+        console.error(
+          "Challenge create response:",
+          result,
+        );
+
+        throw new Error(
+          "Düello oluşturuldu fakat davet bağlantısı alınamadı.",
+        );
+      }
+
+      window.location.href =
+        `/challenge/${encodeURIComponent(
+          challengeToken,
+        )}`;
+    } catch (error) {
+      setGuestChallengeError(
+        error instanceof Error
+          ? error.message
+          : "Düello oluşturulamadı.",
+      );
+    } finally {
+      setGuestChallengeLoading(
+        false,
+      );
+    }
+  }
 
   /* =======================================================
      LOAD FRIENDS
@@ -773,10 +1028,6 @@ export default function HomePage() {
 
     void loadDuels();
 
-    /*
-     * Yeni düello davetleri hızlı
-     * fark edilsin.
-     */
     const intervalId =
       window.setInterval(
         () => {
@@ -858,9 +1109,6 @@ export default function HomePage() {
         );
       }
 
-      /*
-       * Kartı anında kaldır.
-       */
       setIncomingDuels(
         (current) =>
           current.filter(
@@ -1108,8 +1356,6 @@ export default function HomePage() {
 
           <div className="flex flex-col justify-start pt-8">
 
-            {/* ROTATING GAME BADGE */}
-
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-green-500/30 bg-green-500/10 px-4 py-2 text-sm font-black text-green-400">
 
               <span>
@@ -1184,8 +1430,6 @@ export default function HomePage() {
 
               </div>
 
-              {/* ROTATION DOTS */}
-
               <div className="mt-3 flex gap-1.5">
 
                 {HERO_GAMES.map(
@@ -1201,11 +1445,15 @@ export default function HomePage() {
                       aria-label={
                         game.title
                       }
-                      onClick={() =>
+                      onClick={() => {
                         setActiveHeroGameIndex(
                           index,
-                        )
-                      }
+                        );
+
+                        setGuestChallengeError(
+                          "",
+                        );
+                      }}
                       className={`h-1.5 rounded-full transition-all ${
                         index ===
                         activeHeroGameIndex
@@ -1234,16 +1482,31 @@ export default function HomePage() {
                 }
               </Link>
 
-              <Link
-                href={
-                  user
-                    ? "/duels/challenge?game=club_clash"
-                    : "/login"
-                }
-                className="rounded-xl border border-purple-500/30 bg-purple-500/10 px-6 py-3.5 text-sm font-black text-purple-300 transition hover:-translate-y-0.5 hover:bg-purple-500/20"
-              >
-                ⚔️ Düello Yap
-              </Link>
+              {/* ===========================================
+                  GUEST CHALLENGE BUTTON
+
+                  LOGIN YOK.
+                  PLAYER QUIZ ACTIVE ISE GÖSTER.
+              =========================================== */}
+
+              {activeHeroGame.challengeGameCode && (
+                <button
+                  type="button"
+                  disabled={
+                    guestChallengeLoading
+                  }
+                  onClick={() =>
+                    void createGuestChallenge(
+                      activeHeroGame.challengeGameCode!,
+                    )
+                  }
+                  className="rounded-xl border border-purple-500/30 bg-purple-500/10 px-6 py-3.5 text-sm font-black text-purple-300 transition hover:-translate-y-0.5 hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {guestChallengeLoading
+                    ? "⚔️ Düello hazırlanıyor..."
+                    : "⚔️ Düello Yap"}
+                </button>
+              )}
 
               <button
                 type="button"
@@ -1258,6 +1521,18 @@ export default function HomePage() {
               </button>
 
             </div>
+
+            {guestChallengeError && (
+              <div className="mt-4 max-w-xl rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300">
+                {guestChallengeError}
+              </div>
+            )}
+
+            {activeHeroGame.challengeGameCode && (
+              <p className="mt-3 text-xs font-bold text-purple-300/70">
+                ⚔️ Arkadaşına link gönder · Üyelik gerekmez
+              </p>
+            )}
 
             {profile && (
               <div className="mt-7 grid max-w-md grid-cols-3 gap-3">
@@ -1290,8 +1565,6 @@ export default function HomePage() {
 
           <div className="space-y-5 self-start">
 
-            {/* FRIENDS */}
-
             {user && (
               <HomeFriendsCard
                 friends={
@@ -1308,10 +1581,6 @@ export default function HomePage() {
                 }
               />
             )}
-
-            {/* =================================================
-                INCOMING DUEL
-            ================================================= */}
 
             {user &&
               incomingDuels.length >
@@ -1348,8 +1617,6 @@ export default function HomePage() {
                 />
               )}
 
-            {/* DUEL MESSAGE */}
-
             {duelMessage && (
               <div className="rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-sm font-bold text-green-300">
                 {duelMessage}
@@ -1361,8 +1628,6 @@ export default function HomePage() {
                 {duelError}
               </div>
             )}
-
-            {/* LEADERBOARD */}
 
             <div
               id="liderlik"
@@ -1535,7 +1800,12 @@ export default function HomePage() {
 
           <div className="mt-7 grid gap-4 lg:grid-cols-[1fr_0.65fr]">
 
-            {/* CLUB CLASH */}
+            {/* =================================================
+                CLUB CLASH
+
+                BU KISIM HALA ESKI REGISTERED DUEL SISTEMI.
+                SONRA GUEST CLUB_CLASH'E ÇEVİRECEĞİZ.
+            ================================================= */}
 
             <article className="group relative overflow-hidden rounded-2xl border border-purple-500/25 bg-purple-500/[0.06] p-6 transition hover:-translate-y-1 hover:border-purple-400/40">
 
@@ -1729,8 +1999,6 @@ function IncomingDuelCard({
 
   return (
     <section className="relative overflow-hidden rounded-2xl border border-purple-400/40 bg-purple-500/[0.10] shadow-lg shadow-purple-950/20">
-
-      {/* GLOW */}
 
       <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-purple-500/10 blur-3xl" />
 
