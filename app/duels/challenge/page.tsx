@@ -14,6 +14,8 @@ import {
   useSearchParams,
 } from "next/navigation";
 
+import { createClient } from "@/lib/supabase/client";
+
 /* =========================================================
    TYPES
 ========================================================= */
@@ -165,16 +167,6 @@ async function readJsonSafely<T>(
       "content-type",
     ) ?? "";
 
-  /*
-   * API route yanlışsa Next/Vercel bazen
-   * HTML 404/500 sayfası döndürebilir.
-   *
-   * Direkt response.json() yaparsak:
-   *
-   * Unexpected token '<'
-   *
-   * hatası alırız.
-   */
   if (
     !contentType
       .toLowerCase()
@@ -266,10 +258,6 @@ function DuelChallengeContent() {
       "game",
     );
 
-  /* =======================================================
-     DEFAULT GAME
-  ======================================================= */
-
   const initialGameCode =
     useMemo(
       () => {
@@ -315,6 +303,24 @@ function DuelChallengeContent() {
     useState("");
 
   /* =======================================================
+     LOGGED USER
+  ======================================================= */
+
+  const [
+    loggedInName,
+    setLoggedInName,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const [
+    checkingUser,
+    setCheckingUser,
+  ] =
+    useState(true);
+
+  /* =======================================================
      ACTION
   ======================================================= */
 
@@ -343,6 +349,120 @@ function DuelChallengeContent() {
   ]);
 
   /* =======================================================
+     LOAD CURRENT USER
+
+     Giriş varsa profil adını otomatik kullanıyoruz.
+     Guest ise isim inputu gösteriyoruz.
+  ======================================================= */
+
+  useEffect(() => {
+    let cancelled =
+      false;
+
+    async function loadCurrentUser() {
+      try {
+        const supabase =
+          createClient();
+
+        const {
+          data: {
+            user,
+          },
+        } =
+          await supabase.auth.getUser();
+
+        if (
+          cancelled
+        ) {
+          return;
+        }
+
+        if (
+          !user
+        ) {
+          setLoggedInName(
+            null,
+          );
+
+          return;
+        }
+
+        const {
+          data:
+            profile,
+        } =
+          await supabase
+            .from(
+              "profiles",
+            )
+            .select(`
+              username,
+              display_name
+            `)
+            .eq(
+              "id",
+              user.id,
+            )
+            .maybeSingle();
+
+        if (
+          cancelled
+        ) {
+          return;
+        }
+
+        const name =
+          profile
+            ?.display_name
+            ?.trim() ||
+          profile
+            ?.username
+            ?.trim() ||
+          user.email
+            ?.split(
+              "@",
+            )[0]
+            ?.trim() ||
+          "Oyuncu";
+
+        setLoggedInName(
+          name,
+        );
+
+        setChallengerName(
+          name,
+        );
+      } catch (
+        loadError
+      ) {
+        console.error(
+          "Challenge kullanıcı bilgisi okunamadı:",
+          loadError,
+        );
+
+        setLoggedInName(
+          null,
+        );
+      } finally {
+        if (
+          !cancelled
+        ) {
+          setCheckingUser(
+            false,
+          );
+        }
+      }
+    }
+
+    void loadCurrentUser();
+
+    return () => {
+      cancelled =
+        true;
+    };
+  }, []);
+
+  /* =======================================================
      SELECTED GAME
   ======================================================= */
 
@@ -368,7 +488,8 @@ function DuelChallengeContent() {
 
   async function createChallenge() {
     if (
-      creating
+      creating ||
+      checkingUser
     ) {
       return;
     }
@@ -378,11 +499,9 @@ function DuelChallengeContent() {
         challengerName,
       );
 
-    /* -------------------------------------------------------
-       NAME VALIDATION
-    ------------------------------------------------------- */
-
-    if (!cleanName) {
+    if (
+      !cleanName
+    ) {
       setError(
         "Düelloda görünecek ismini yaz.",
       );
@@ -411,10 +530,6 @@ function DuelChallengeContent() {
 
       return;
     }
-
-    /* -------------------------------------------------------
-       GAME VALIDATION
-    ------------------------------------------------------- */
 
     if (
       !selectedGame
@@ -445,17 +560,6 @@ function DuelChallengeContent() {
         "",
       );
 
-      /* =====================================================
-         CREATE REQUEST
-
-         ÖNEMLİ:
-         Route:
-         app/api/challenges/create/route.ts
-
-         URL:
-         /api/challenges/create
-      ===================================================== */
-
       const response =
         await fetch(
           "/api/challenges/create",
@@ -482,18 +586,10 @@ function DuelChallengeContent() {
           },
         );
 
-      /* =====================================================
-         SAFE JSON
-      ===================================================== */
-
       const json =
         await readJsonSafely<CreateChallengeResponse>(
           response,
         );
-
-      /* =====================================================
-         API ERROR
-      ===================================================== */
 
       if (
         !response.ok ||
@@ -505,24 +601,6 @@ function DuelChallengeContent() {
         );
       }
 
-      /* =====================================================
-         TOKEN
-
-         API iki şekilde dönebilir:
-
-         {
-           token: "abc"
-         }
-
-         veya:
-
-         {
-           challenge: {
-             token: "abc"
-           }
-         }
-      ===================================================== */
-
       const challengeToken =
         json.challenge
           ?.token ??
@@ -531,34 +609,27 @@ function DuelChallengeContent() {
       if (
         !challengeToken
       ) {
-        console.error(
-          "Challenge oluşturuldu fakat token yok:",
-          json,
-        );
-
         throw new Error(
           "Challenge oluşturuldu fakat davet bağlantısı alınamadı.",
         );
       }
-
-      /* =====================================================
-         REDIRECT
-      ===================================================== */
 
       router.push(
         `/challenge/${encodeURIComponent(
           challengeToken,
         )}`,
       );
-    } catch (err) {
+    } catch (
+      createError
+    ) {
       console.error(
         "Challenge create frontend hatası:",
-        err,
+        createError,
       );
 
       setError(
-        err instanceof Error
-          ? err.message
+        createError instanceof Error
+          ? createError.message
           : "Meydan okuma oluşturulamadı.",
       );
     } finally {
@@ -593,7 +664,7 @@ function DuelChallengeContent() {
             </Link>
 
             <span className="rounded-full border border-purple-500/20 bg-purple-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-purple-300">
-              ⚔️ Guest Düello
+              ⚔️ Düello
             </span>
 
           </div>
@@ -607,7 +678,7 @@ function DuelChallengeContent() {
           </h1>
 
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-            Oyununu seç, ismini yaz ve meydan okumayı oluştur.
+            Oyununu seç ve meydan okumayı oluştur.
             Sana özel linki arkadaşına gönder.
             Arkadaşının hesap açmasına gerek yok.
           </p>
@@ -690,8 +761,6 @@ function DuelChallengeContent() {
 
                       <div className="flex items-start gap-4">
 
-                        {/* ICON */}
-
                         <div
                           className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl ${
                             selected
@@ -701,8 +770,6 @@ function DuelChallengeContent() {
                         >
                           {game.icon}
                         </div>
-
-                        {/* CONTENT */}
 
                         <div className="min-w-0 flex-1">
 
@@ -790,88 +857,131 @@ function DuelChallengeContent() {
               Düellodaki adın
             </h2>
 
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              Üyelik gerekmiyor. Sadece rakibinin seni tanıyacağı bir isim yaz.
-            </p>
+            {/* =============================================
+                USER CHECK
+            ============================================= */}
 
-            {/* NAME */}
+            {checkingUser ? (
+              <div className="mt-6 rounded-xl border border-white/10 bg-[#07111f] px-4 py-4 text-sm font-bold text-slate-500">
+                Oyuncu bilgisi hazırlanıyor...
+              </div>
+            ) : loggedInName ? (
+              /* ===========================================
+                 LOGGED USER
 
-            <label className="mt-6 block">
+                 Input göstermiyoruz.
+              =========================================== */
 
-              <span className="text-xs font-black uppercase tracking-wider text-slate-500">
-                Oyuncu Adı
-              </span>
+              <div className="mt-6 rounded-2xl border border-green-500/20 bg-green-500/[0.06] p-5">
 
-              <input
-                type="text"
-                value={
-                  challengerName
-                }
-                onChange={(
-                  event,
-                ) => {
-                  setChallengerName(
-                    event.target
-                      .value,
-                  );
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
+                  FootBattle Profili
+                </p>
 
-                  setError(
-                    "",
-                  );
-                }}
-                onKeyDown={(
-                  event,
-                ) => {
-                  if (
-                    event.key ===
-                    "Enter"
-                  ) {
-                    void createChallenge();
-                  }
-                }}
-                disabled={
-                  creating
-                }
-                maxLength={
-                  30
-                }
-                placeholder="Örn. Emre"
-                autoComplete="nickname"
-                className="mt-2 w-full rounded-xl border border-white/10 bg-[#07111f] px-4 py-4 text-base font-bold outline-none transition placeholder:text-slate-700 focus:border-green-400/40 disabled:opacity-50"
-              />
+                <p className="mt-2 text-2xl font-black text-green-300">
+                  {loggedInName}
+                </p>
 
-            </label>
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  Düelloda profilindeki isim kullanılacak.
+                  Tekrar isim yazmana gerek yok.
+                </p>
 
-            <div className="mt-2 flex items-center justify-between">
+              </div>
+            ) : (
+              /* ===========================================
+                 GUEST
+              =========================================== */
 
-              <p className="text-[11px] text-slate-600">
-                2–30 karakter
-              </p>
+              <>
 
-              <p className="text-[11px] font-bold text-slate-600">
-                {challengerName.length}
-                /30
-              </p>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Üyelik gerekmiyor. Rakibinin seni tanıyacağı bir isim yaz.
+                </p>
 
-            </div>
+                <label className="mt-6 block">
 
-            {/* NO ACCOUNT */}
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-500">
+                    Oyuncu Adı
+                  </span>
+
+                  <input
+                    type="text"
+                    value={
+                      challengerName
+                    }
+                    onChange={(
+                      event,
+                    ) => {
+                      setChallengerName(
+                        event.target
+                          .value,
+                      );
+
+                      setError(
+                        "",
+                      );
+                    }}
+                    onKeyDown={(
+                      event,
+                    ) => {
+                      if (
+                        event.key ===
+                        "Enter"
+                      ) {
+                        void createChallenge();
+                      }
+                    }}
+                    disabled={
+                      creating
+                    }
+                    maxLength={
+                      30
+                    }
+                    placeholder="Örn. Emre"
+                    autoComplete="nickname"
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-[#07111f] px-4 py-4 text-base font-bold outline-none transition placeholder:text-slate-700 focus:border-green-400/40 disabled:opacity-50"
+                  />
+
+                </label>
+
+                <div className="mt-2 flex items-center justify-between">
+
+                  <p className="text-[11px] text-slate-600">
+                    2–30 karakter
+                  </p>
+
+                  <p className="text-[11px] font-bold text-slate-600">
+                    {challengerName.length}
+                    /30
+                  </p>
+
+                </div>
+
+              </>
+            )}
+
+            {/* =============================================
+                INFO
+            ============================================= */}
 
             <div className="mt-6 rounded-2xl border border-green-500/15 bg-green-500/[0.05] p-4">
 
               <p className="text-sm font-black text-green-300">
-                ✓ Hesap gerekmiyor
+                ✓ Rakibin hesap açmak zorunda değil
               </p>
 
               <p className="mt-2 text-xs leading-5 text-slate-500">
-                Meydan okumayı oluşturduktan sonra sana özel bir
+                Meydan okumayı oluşturduktan sonra sana özel
                 davet linki gelecek. Arkadaşın linke girip sadece
-                ismini yazarak düelloya katılabilecek.
+                ismini yazarak katılabilecek.
               </p>
 
             </div>
 
-            {/* FLOW */}
+            {/* =============================================
+                FLOW
+            ============================================= */}
 
             <div className="mt-5 rounded-2xl border border-white/10 bg-[#07111f] p-4">
 
@@ -910,14 +1020,12 @@ function DuelChallengeContent() {
         </div>
 
         {/* =================================================
-            SUMMARY / CREATE
+            CREATE
         ================================================= */}
 
         <section className="mt-6 rounded-3xl border border-purple-500/20 bg-purple-500/[0.05] p-6">
 
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-
-            {/* INFO */}
 
             <div className="min-w-0">
 
@@ -956,12 +1064,11 @@ function DuelChallengeContent() {
 
             </div>
 
-            {/* CREATE BUTTON */}
-
             <button
               type="button"
               disabled={
                 creating ||
+                checkingUser ||
                 !selectedGame
                   ?.enabled ||
                 cleanPlayerName(
@@ -984,21 +1091,21 @@ function DuelChallengeContent() {
         </section>
 
         {/* =================================================
-            BOTTOM INFO
+            INFO CARDS
         ================================================= */}
 
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
 
           <InfoCard
             icon="👤"
-            title="Üyeliksiz"
-            description="İki oyuncu da hesap açmadan oynayabilir."
+            title="Üyeliksiz Rakip"
+            description="Challenge linkini alan oyuncu hesap açmadan katılabilir."
           />
 
           <InfoCard
             icon="🔗"
             title="Tek Link"
-            description="Challenge linkini gönder, arkadaşın direkt katılsın."
+            description="Linki gönder, arkadaşın direkt düello ekranına gelsin."
           />
 
           <InfoCard
@@ -1016,7 +1123,7 @@ function DuelChallengeContent() {
 }
 
 /* =========================================================
-   GAME RULE BADGE
+   COMPONENTS
 ========================================================= */
 
 function GameRuleBadge({
@@ -1031,10 +1138,6 @@ function GameRuleBadge({
     </span>
   );
 }
-
-/* =========================================================
-   FLOW ITEM
-========================================================= */
 
 function FlowItem({
   number,
@@ -1057,10 +1160,6 @@ function FlowItem({
     </div>
   );
 }
-
-/* =========================================================
-   INFO CARD
-========================================================= */
 
 function InfoCard({
   icon,

@@ -16,15 +16,28 @@ type RouteContext = {
 
 type ChallengeRow = {
   id: number;
+
   invite_token: string;
+
   game_code: string;
+
   status: string;
 
-  challenger_user_id: string | null;
-  challenger_guest_id: string | null;
+  challenger_user_id:
+    | string
+    | null;
 
-  opponent_user_id: string | null;
-  opponent_guest_id: string | null;
+  challenger_guest_id:
+    | string
+    | null;
+
+  opponent_user_id:
+    | string
+    | null;
+
+  opponent_guest_id:
+    | string
+    | null;
 };
 
 type ClubRow = {
@@ -39,7 +52,9 @@ type TeamTier =
 
 type TeamRow = {
   name: string;
+
   duel_tier: TeamTier;
+
   duel_score: number;
 };
 
@@ -79,41 +94,107 @@ const ROUND_COUNT =
 const CLUB_ROWS_PAGE_SIZE =
   1000;
 
-const ROUND_TIER_RULES: RoundRule[] =
-  [
+/* =========================================================
+   ROUND DIFFICULTY
+
+   R1:
+   Büyük × Büyük
+
+   R2:
+   Büyük × Orta
+
+   R3:
+   Büyük × Orta
+
+   R4:
+   Orta × Orta
+
+   R5:
+   Daha zor kombinasyon
+========================================================= */
+
+const ROUND_TIER_RULES:
+  RoundRule[] = [
     {
-      roundNo: 1,
-      leftTiers: ["S"],
-      rightTiers: ["A", "B"],
-      preferredMinSharedPlayers: 5,
+      roundNo:
+        1,
+
+      leftTiers: [
+        "S",
+      ],
+
+      rightTiers: [
+        "S",
+      ],
+
+      preferredMinSharedPlayers:
+        8,
     },
 
     {
-      roundNo: 2,
-      leftTiers: ["S", "A"],
-      rightTiers: ["A", "B"],
-      preferredMinSharedPlayers: 4,
+      roundNo:
+        2,
+
+      leftTiers: [
+        "S",
+      ],
+
+      rightTiers: [
+        "A",
+      ],
+
+      preferredMinSharedPlayers:
+        6,
     },
 
     {
-      roundNo: 3,
-      leftTiers: ["S", "A"],
-      rightTiers: ["A", "B"],
-      preferredMinSharedPlayers: 3,
+      roundNo:
+        3,
+
+      leftTiers: [
+        "S",
+      ],
+
+      rightTiers: [
+        "A",
+      ],
+
+      preferredMinSharedPlayers:
+        4,
     },
 
     {
-      roundNo: 4,
-      leftTiers: ["S"],
-      rightTiers: ["A"],
-      preferredMinSharedPlayers: 2,
+      roundNo:
+        4,
+
+      leftTiers: [
+        "A",
+      ],
+
+      rightTiers: [
+        "A",
+      ],
+
+      preferredMinSharedPlayers:
+        3,
     },
 
     {
-      roundNo: 5,
-      leftTiers: ["S", "A"],
-      rightTiers: ["A", "B"],
-      preferredMinSharedPlayers: 3,
+      roundNo:
+        5,
+
+      leftTiers: [
+        "S",
+        "A",
+      ],
+
+      rightTiers: [
+        "A",
+        "B",
+      ],
+
+      preferredMinSharedPlayers:
+        2,
     },
   ];
 
@@ -150,7 +231,8 @@ function shuffleArray<T>(
       1;
     i >
     0;
-    i -= 1
+    i -=
+      1
   ) {
     const j =
       Math.floor(
@@ -219,15 +301,47 @@ function pairMatchesRule(
   );
 }
 
+/* =========================================================
+   PAIR QUALITY
+
+   Aynı minimum shared count içindeki seçeneklerde
+   daha tanınmış takımları öne alıyoruz.
+
+   duel_score yüksekse daha bilinen takım varsayıyoruz.
+========================================================= */
+
+function pairQualityScore(
+  pair: PairCandidate,
+) {
+  return (
+    pair.sharedCount *
+      1000 +
+    pair.scoreA +
+    pair.scoreB
+  );
+}
+
+/* =========================================================
+   BUILD ROUND POOL
+========================================================= */
+
 function buildRoundPool(
   allPairs: PairCandidate[],
   rule: RoundRule,
+
   usedPairKeys: Set<string>,
+
   usedClubs: Set<string>,
 ) {
-  const baseMatches =
+  /* -------------------------------------------------------
+     TIER + DUPLICATE PAIR
+  ------------------------------------------------------- */
+
+  const ruleMatches =
     allPairs.filter(
-      (pair) =>
+      (
+        pair,
+      ) =>
         pairMatchesRule(
           pair,
           rule,
@@ -240,9 +354,16 @@ function buildRoundPool(
         ),
     );
 
-  const unusedClubMatches =
-    baseMatches.filter(
-      (pair) =>
+  /* -------------------------------------------------------
+     ÖNCELİK:
+     Daha önce hiç kullanılmamış iki takım.
+  ------------------------------------------------------- */
+
+  const totallyFresh =
+    ruleMatches.filter(
+      (
+        pair,
+      ) =>
         !usedClubs.has(
           pair.clubA,
         ) &&
@@ -252,10 +373,17 @@ function buildRoundPool(
     );
 
   const basePool =
-    unusedClubMatches.length >
+    totallyFresh.length >
     0
-      ? unusedClubMatches
-      : baseMatches;
+      ? totallyFresh
+      : ruleMatches;
+
+  /* -------------------------------------------------------
+     SHARED PLAYER THRESHOLD
+
+     İstenen minimumdan başlıyoruz.
+     Yeterli eşleşme yoksa kontrollü şekilde düşürüyoruz.
+  ------------------------------------------------------- */
 
   for (
     let minShared =
@@ -265,19 +393,58 @@ function buildRoundPool(
     minShared -=
       1
   ) {
-    const pool =
+    const eligible =
       basePool.filter(
-        (pair) =>
+        (
+          pair,
+        ) =>
           pair.sharedCount >=
           minShared,
       );
 
     if (
-      pool.length >
+      eligible.length >
       0
     ) {
+      /*
+       * Kaliteli eşleşmeleri öne çıkar.
+       *
+       * En iyi havuzun tamamından random yerine
+       * üst segment içinden random seçiyoruz.
+       */
+      const sorted =
+        [...eligible].sort(
+          (
+            first,
+            second,
+          ) =>
+            pairQualityScore(
+              second,
+            ) -
+            pairQualityScore(
+              first,
+            ),
+        );
+
+      /*
+       * İlk maksimum 15 kaliteli aday.
+       * Böylece her maç aynı takımlar gelmez ama
+       * Cagliari/Elche gibi çok zayıf eşleşmeler de
+       * erken roundlara düşmez.
+       */
+      const qualityPool =
+        sorted.slice(
+          0,
+          Math.min(
+            15,
+            sorted.length,
+          ),
+        );
+
       return {
-        pool,
+        pool:
+          qualityPool,
+
         actualMinShared:
           minShared,
       };
@@ -286,7 +453,9 @@ function buildRoundPool(
 
   return {
     pool: [],
-    actualMinShared: 0,
+
+    actualMinShared:
+      0,
   };
 }
 
@@ -302,7 +471,9 @@ async function loadAllClubRows() {
     ClubRow[] =
     [];
 
-  while (true) {
+  while (
+    true
+  ) {
     const to =
       from +
       CLUB_ROWS_PAGE_SIZE -
@@ -344,7 +515,9 @@ async function loadAllClubRows() {
           to,
         );
 
-    if (error) {
+    if (
+      error
+    ) {
       throw error;
     }
 
@@ -366,6 +539,9 @@ async function loadAllClubRows() {
     from +=
       CLUB_ROWS_PAGE_SIZE;
 
+    /*
+     * Sonsuz loop güvenliği.
+     */
     if (
       from >
       500_000
@@ -393,7 +569,8 @@ export async function POST(
     ===================================================== */
 
     const {
-      token: rawToken,
+      token:
+        rawToken,
     } =
       await context.params;
 
@@ -402,15 +579,19 @@ export async function POST(
         rawToken,
       );
 
-    if (!token) {
+    if (
+      !token
+    ) {
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Geçerli challenge bulunamadı.",
         },
         {
-          status: 400,
+          status:
+            400,
         },
       );
     }
@@ -472,8 +653,7 @@ export async function POST(
         .maybeSingle();
 
     if (
-      challengeError ||
-      !challengeData
+      challengeError
     ) {
       console.error(
         "Club Clash challenge sorgu hatası:",
@@ -483,14 +663,30 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
+
+          error:
+            "Challenge okunamadı.",
+        },
+        {
+          status:
+            500,
+        },
+      );
+    }
+
+    if (
+      !challengeData
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+
           error:
             "Challenge bulunamadı.",
         },
         {
           status:
-            challengeError
-              ? 500
-              : 404,
+            404,
         },
       );
     }
@@ -533,11 +729,13 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Bu challenge'a erişim yetkin yok.",
         },
         {
-          status: 403,
+          status:
+            403,
         },
       );
     }
@@ -550,7 +748,7 @@ export async function POST(
         : "opponent";
 
     /* =====================================================
-       GAME CODE
+       GAME CONTROL
     ===================================================== */
 
     if (
@@ -560,11 +758,13 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Bu challenge 2 Takım 1 Oyuncu değil.",
         },
         {
-          status: 409,
+          status:
+            409,
         },
       );
     }
@@ -582,17 +782,22 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "2 Takım 1 Oyuncu şu anda hazırlanamaz.",
         },
         {
-          status: 409,
+          status:
+            409,
         },
       );
     }
 
     /* =====================================================
        EXISTING ROUNDS
+
+       İkinci oyuncu da prepare çağırabilir.
+       Aynı challenge için yeniden round üretmeyelim.
     ===================================================== */
 
     const {
@@ -659,11 +864,13 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Round bilgileri kontrol edilemedi.",
         },
         {
-          status: 500,
+          status:
+            500,
         },
       );
     }
@@ -671,7 +878,7 @@ export async function POST(
     if (
       existingRounds &&
       existingRounds.length >
-      0
+        0
     ) {
       return NextResponse.json({
         ok: true,
@@ -686,14 +893,18 @@ export async function POST(
 
         rounds:
           existingRounds.map(
-            (round) => ({
+            (
+              round,
+            ) => ({
               id:
                 Number(
                   round.id,
                 ),
 
               roundNo:
-                round.round_no,
+                Number(
+                  round.round_no,
+                ),
 
               left: {
                 type:
@@ -765,11 +976,13 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Düello takım havuzu okunamadı.",
         },
         {
-          status: 500,
+          status:
+            500,
         },
       );
     }
@@ -802,11 +1015,13 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Düello için aktif takım bulunamadı.",
         },
         {
-          status: 500,
+          status:
+            500,
         },
       );
     }
@@ -837,20 +1052,24 @@ export async function POST(
     try {
       rawClubRows =
         await loadAllClubRows();
-    } catch (error) {
+    } catch (
+      loadError
+    ) {
       console.error(
         "Club Clash kariyer verisi okunamadı:",
-        error,
+        loadError,
       );
 
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Kulüp kariyer verileri okunamadı.",
         },
         {
-          status: 500,
+          status:
+            500,
         },
       );
     }
@@ -858,7 +1077,9 @@ export async function POST(
     const clubRows =
       rawClubRows
         .map(
-          (row) => ({
+          (
+            row,
+          ) => ({
             player_id:
               Number(
                 row.player_id,
@@ -886,14 +1107,16 @@ export async function POST(
             ),
         )
         .filter(
-          (row) =>
+          (
+            row,
+          ) =>
             teamMap.has(
               row.club_name,
             ),
         );
 
     /* =====================================================
-       PLAYER -> CLUBS
+       PLAYER -> CLUB SET
     ===================================================== */
 
     const playerClubs =
@@ -911,7 +1134,9 @@ export async function POST(
           row.player_id,
         );
 
-      if (!clubs) {
+      if (
+        !clubs
+      ) {
         clubs =
           new Set<string>();
 
@@ -927,7 +1152,7 @@ export async function POST(
     }
 
     /* =====================================================
-       BUILD PAIRS
+       BUILD PAIR COUNTS
     ===================================================== */
 
     const pairCounts =
@@ -966,8 +1191,8 @@ export async function POST(
             i + 1;
           j <
           clubs.length;
-          j +=
-            1
+        j +=
+          1
         ) {
           const first =
             clubs[i];
@@ -1027,11 +1252,11 @@ export async function POST(
               teamB,
             ].sort(
               (
-                a,
-                b,
+                firstTeam,
+                secondTeam,
               ) =>
-                a.name.localeCompare(
-                  b.name,
+                firstTeam.name.localeCompare(
+                  secondTeam.name,
                   "tr",
                 ),
             );
@@ -1056,12 +1281,18 @@ export async function POST(
                   .duel_tier,
 
               scoreA:
-                sorted[0]
-                  .duel_score,
+                Number(
+                  sorted[0]
+                    .duel_score ??
+                    0,
+                ),
 
               scoreB:
-                sorted[1]
-                  .duel_score,
+                Number(
+                  sorted[1]
+                    .duel_score ??
+                    0,
+                ),
 
               sharedCount:
                 1,
@@ -1075,7 +1306,9 @@ export async function POST(
       Array.from(
         pairCounts.values(),
       ).filter(
-        (pair) =>
+        (
+          pair,
+        ) =>
           pair.sharedCount >=
           1,
       );
@@ -1087,17 +1320,19 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Ortak oyuncusu bulunan takım eşleşmesi bulunamadı.",
         },
         {
-          status: 500,
+          status:
+            500,
         },
       );
     }
 
     /* =====================================================
-       SELECT 5 ROUNDS
+       SELECT ROUNDS
     ===================================================== */
 
     const selectedPairs:
@@ -1131,15 +1366,20 @@ export async function POST(
         return NextResponse.json(
           {
             ok: false,
+
             error:
               `Round ${rule.roundNo} için uygun takım eşleşmesi bulunamadı.`,
           },
           {
-            status: 500,
+            status:
+              500,
           },
         );
       }
 
+      /*
+       * Kaliteli ilk 15 havuzun içinden random.
+       */
       const selected =
         shuffleArray(
           pool,
@@ -1151,11 +1391,13 @@ export async function POST(
         return NextResponse.json(
           {
             ok: false,
+
             error:
               `Round ${rule.roundNo} için takım seçilemedi.`,
           },
           {
-            status: 500,
+            status:
+              500,
           },
         );
       }
@@ -1187,17 +1429,19 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "5 round hazırlanamadı.",
         },
         {
-          status: 500,
+          status:
+            500,
         },
       );
     }
 
     /* =====================================================
-       INSERT CHALLENGE ROUNDS
+       INSERT ROUNDS
     ===================================================== */
 
     const rowsToInsert =
@@ -1280,6 +1524,8 @@ export async function POST(
 
     /* =====================================================
        RACE CONDITION
+
+       İki taraf prepare'a aynı anda basarsa.
     ===================================================== */
 
     if (
@@ -1344,11 +1590,13 @@ export async function POST(
           return NextResponse.json(
             {
               ok: false,
+
               error:
                 "Roundlar hazırlanamadı.",
             },
             {
-              status: 500,
+              status:
+                500,
             },
           );
         }
@@ -1371,14 +1619,18 @@ export async function POST(
               roundsAfterConflict ??
               []
             ).map(
-              (round) => ({
+              (
+                round,
+              ) => ({
                 id:
                   Number(
                     round.id,
                   ),
 
                 roundNo:
-                  round.round_no,
+                  Number(
+                    round.round_no,
+                  ),
 
                 left: {
                   type:
@@ -1414,11 +1666,13 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "2 Takım 1 Oyuncu roundları oluşturulamadı.",
         },
         {
-          status: 500,
+          status:
+            500,
         },
       );
     }
@@ -1459,14 +1713,18 @@ export async function POST(
           insertedRounds ??
           []
         ).map(
-          (round) => ({
+          (
+            round,
+          ) => ({
             id:
               Number(
                 round.id,
               ),
 
             roundNo:
-              round.round_no,
+              Number(
+                round.round_no,
+              ),
 
             left: {
               type:
@@ -1492,7 +1750,9 @@ export async function POST(
           }),
         ),
     });
-  } catch (error) {
+  } catch (
+    error
+  ) {
     console.error(
       "Guest Club Clash prepare endpoint hatası:",
       error,
@@ -1508,7 +1768,8 @@ export async function POST(
             : "2 Takım 1 Oyuncu hazırlanamadı.",
       },
       {
-        status: 500,
+        status:
+          500,
       },
     );
   }
