@@ -5,7 +5,9 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 const MINIMUM_SEARCH_LENGTH = 3;
 const MAXIMUM_RESULTS = 15;
 
-function normalizeSearchText(value: string) {
+function normalizeSearchText(
+  value: string,
+) {
   return value
     .trim()
     .toLocaleLowerCase("tr-TR")
@@ -19,25 +21,39 @@ function normalizeSearchText(value: string) {
     .replace(/\s+/g, " ");
 }
 
-export async function GET(request: Request) {
+export async function GET(
+  request: Request,
+) {
   try {
-    const requestUrl = new URL(request.url);
+    const requestUrl =
+      new URL(request.url);
 
     const rawQuery =
-      requestUrl.searchParams.get("q") ?? "";
+      requestUrl.searchParams.get(
+        "q",
+      ) ?? "";
 
-    const query = normalizeSearchText(
-      rawQuery,
-    );
+    const query =
+      normalizeSearchText(
+        rawQuery,
+      );
 
     const teamIdValue =
-      requestUrl.searchParams.get("teamId");
+      requestUrl.searchParams.get(
+        "teamId",
+      );
 
-    const teamId = teamIdValue
-      ? Number(teamIdValue)
-      : null;
+    const teamId =
+      teamIdValue
+        ? Number(
+            teamIdValue,
+          )
+        : null;
 
-    if (query.length < MINIMUM_SEARCH_LENGTH) {
+    if (
+      query.length <
+      MINIMUM_SEARCH_LENGTH
+    ) {
       return NextResponse.json({
         ok: true,
         players: [],
@@ -46,11 +62,33 @@ export async function GET(request: Request) {
       });
     }
 
-    const safeQuery = query
-      .replace(/%/g, "")
-      .replace(/_/g, "");
+    /*
+     * Kullanıcının % veya _ ile
+     * PostgreSQL pattern yazmasını engelle.
+     */
+    const safeQuery =
+      query
+        .replace(/%/g, "")
+        .replace(/_/g, "");
 
-    const { data, error } = await supabaseAdmin
+    /*
+     * KRİTİK:
+     *
+     * Eskiden:
+     * `${safeQuery}%`
+     *
+     * idi ve yalnızca ismin başından arıyordu.
+     *
+     * Artık:
+     * `%${safeQuery}%`
+     *
+     * ile adın/soyadın herhangi bir yerinde
+     * geçen ifadeyi buluyoruz.
+     */
+    const {
+      data,
+      error,
+    } = await supabaseAdmin
       .from("guess_players")
       .select(`
         player_id,
@@ -65,16 +103,24 @@ export async function GET(request: Request) {
         image_url,
         popularity_score
       `)
-      .eq("is_playable", 1)
+      .eq(
+        "is_playable",
+        1,
+      )
       .ilike(
         "name_normalized",
-        `${safeQuery}%`,
+        `%${safeQuery}%`,
       )
-      .order("popularity_score", {
-        ascending: false,
-        nullsFirst: false,
-      })
-      .limit(MAXIMUM_RESULTS);
+      .order(
+        "popularity_score",
+        {
+          ascending: false,
+          nullsFirst: false,
+        },
+      )
+      .limit(
+        MAXIMUM_RESULTS,
+      );
 
     if (error) {
       console.error(
@@ -88,7 +134,9 @@ export async function GET(request: Request) {
           error:
             "Oyuncular aranırken hata oluştu.",
         },
-        { status: 500 },
+        {
+          status: 500,
+        },
       );
     }
 
@@ -97,74 +145,124 @@ export async function GET(request: Request) {
 
     if (
       teamId &&
-      Number.isInteger(teamId) &&
+      Number.isInteger(
+        teamId,
+      ) &&
       teamId > 0
     ) {
-      const { data: squadPlayers } =
+      const {
+        data: squadPlayers,
+      } =
         await supabaseAdmin
-          .from("team_squads")
-          .select("player_id")
-          .eq("team_id", teamId)
-          .eq("is_active", true);
+          .from(
+            "team_squads",
+          )
+          .select(
+            "player_id",
+          )
+          .eq(
+            "team_id",
+            teamId,
+          )
+          .eq(
+            "is_active",
+            true,
+          );
 
-      currentTeamPlayerIds = new Set(
-        (squadPlayers ?? []).map((row) =>
-          Number(row.player_id),
-        ),
-      );
+      currentTeamPlayerIds =
+        new Set(
+          (
+            squadPlayers ??
+            []
+          ).map(
+            (
+              row,
+            ) =>
+              Number(
+                row.player_id,
+              ),
+          ),
+        );
     }
 
-    const players = (data ?? []).map(
-      (player) => {
-        const playerId = Number(
-          player.player_id,
-        );
+    const players =
+      (
+        data ??
+        []
+      ).map(
+        (
+          player,
+        ) => {
+          const playerId =
+            Number(
+              player.player_id,
+            );
 
-        return {
-          id: playerId,
-          fullName: player.name,
-          nationality:
-            player.nationality ?? null,
-          age:
-            player.age === null
-              ? null
-              : Number(player.age),
-          position:
-            player.position ?? null,
-          subPosition:
-            player.sub_position ?? null,
-          club:
-            player.current_club_name ??
-            null,
-          competitionId:
-            player.current_competition_id ??
-            null,
-          preferredFoot:
-            player.preferred_foot ?? null,
-          imageUrl:
-            player.image_url ?? null,
-          popularityScore:
-            player.popularity_score ===
-            null
-              ? null
-              : Number(
-                  player.popularity_score,
-                ),
-
-          isCurrentTeamPlayer:
-            currentTeamPlayerIds.has(
+          return {
+            id:
               playerId,
-            ),
 
-          isPotentialTransfer:
-            teamId
-              ? !currentTeamPlayerIds.has(
-                  playerId,
-                )
-              : false,
-        };
-      },
-    );
+            fullName:
+              player.name,
+
+            nationality:
+              player.nationality ??
+              null,
+
+            age:
+              player.age ===
+              null
+                ? null
+                : Number(
+                    player.age,
+                  ),
+
+            position:
+              player.position ??
+              null,
+
+            subPosition:
+              player.sub_position ??
+              null,
+
+            club:
+              player.current_club_name ??
+              null,
+
+            competitionId:
+              player.current_competition_id ??
+              null,
+
+            preferredFoot:
+              player.preferred_foot ??
+              null,
+
+            imageUrl:
+              player.image_url ??
+              null,
+
+            popularityScore:
+              player.popularity_score ===
+              null
+                ? null
+                : Number(
+                    player.popularity_score,
+                  ),
+
+            isCurrentTeamPlayer:
+              currentTeamPlayerIds.has(
+                playerId,
+              ),
+
+            isPotentialTransfer:
+              teamId
+                ? !currentTeamPlayerIds.has(
+                    playerId,
+                  )
+                : false,
+          };
+        },
+      );
 
     return NextResponse.json({
       ok: true,
@@ -184,7 +282,9 @@ export async function GET(request: Request) {
         error:
           "Beklenmeyen bir hata oluştu.",
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }
