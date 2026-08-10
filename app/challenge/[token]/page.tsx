@@ -1,14 +1,21 @@
 "use client";
 
 import Link from "next/link";
+
 import {
   use,
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
+
+/* =========================================================
+   CONSTANTS
+========================================================= */
+
+const PLAYER_QUIZ_VS_DURATION_SECONDS =
+  250;
 
 /* =========================================================
    TYPES
@@ -86,6 +93,33 @@ type ChallengeResponse = {
   error?: string;
 };
 
+type PrepareProgress = {
+  birthYearCorrect: boolean;
+
+  nationalityCorrect: boolean;
+
+  solvedClubIds: number[];
+
+  solvedClubs: {
+    id: number;
+    name: string;
+    careerOrder: number;
+  }[];
+
+  correctCount: number;
+  totalCount: number;
+
+  attemptCount: number;
+  wrongAttemptCount: number;
+
+  finalized: boolean;
+  forfeited: boolean;
+
+  durationSeconds:
+    | number
+    | null;
+};
+
 type PrepareResponse = {
   ok?: boolean;
 
@@ -102,6 +136,11 @@ type PrepareResponse = {
 
   player?: {
     id: number;
+
+    /*
+     * Backend gönderiyor fakat oyun sırasında
+     * spoiler olmaması için göstermiyoruz.
+     */
     fullName: string;
     imageUrl: string | null;
   };
@@ -113,10 +152,27 @@ type PrepareResponse = {
     totalSlots: number;
   };
 
+  progress?: PrepareProgress;
+
   minimumSearchLength?: number;
+
   guessTimeSeconds?: number;
 
   error?: string;
+};
+
+type AnswerProgress = {
+  birthYearCorrect: boolean;
+
+  nationalityCorrect: boolean;
+
+  solvedClubIds: number[];
+
+  correctCount: number;
+
+  totalCount: number;
+
+  attemptCount: number;
 };
 
 type AnswerResponse = {
@@ -132,7 +188,10 @@ type AnswerResponse = {
     | "club";
 
   correct?: boolean;
+
   duplicate?: boolean;
+
+  alreadySolved?: boolean;
 
   matchedClub?: {
     id: number;
@@ -140,23 +199,39 @@ type AnswerResponse = {
     careerOrder: number;
   } | null;
 
+  progress?: AnswerProgress;
+
   error?: string;
 };
 
 type ResultResponse = {
   ok?: boolean;
 
-  completed?: boolean;
-  alreadyCompleted?: boolean;
+  finalized?: boolean;
+  alreadyFinalized?: boolean;
 
   role?:
     | "challenger"
     | "opponent";
 
+  reason?:
+    | "completed"
+    | "timeout"
+    | "forfeit";
+
   score?: number;
+
+  correctCount?: number;
+  totalCount?: number;
+
   durationSeconds?: number;
 
+  attemptCount?: number;
+
+  wrongAttemptCount?: number;
+
   challengeCompleted?: boolean;
+
   waitingForOpponent?: boolean;
 
   winnerSide?:
@@ -176,17 +251,52 @@ type ResultResponse = {
     opponent: number;
   };
 
-  attempts?: {
+  durations?: {
     challenger: number;
     opponent: number;
   };
+
+  wrongAttempts?: {
+    challenger: number;
+    opponent: number;
+  };
+
+  remainingSeconds?: number;
+
+  error?: string;
+};
+
+type ForfeitResponse = {
+  ok?: boolean;
+
+  alreadyCompleted?: boolean;
+  alreadyForfeited?: boolean;
+
+  role?:
+    | "challenger"
+    | "opponent";
+
+  forfeited?: boolean;
+
+  winnerSide?:
+    | "challenger"
+    | "opponent"
+    | null;
+
+  result?:
+    | "loss"
+    | null;
+
+  message?: string;
 
   error?: string;
 };
 
 type CountrySearchResponse = {
   ok?: boolean;
+
   countries?: string[];
+
   error?: string;
 };
 
@@ -196,7 +306,9 @@ type ClubSuggestion = {
 
 type ClubSearchResponse = {
   ok?: boolean;
+
   clubs?: unknown[];
+
   error?: string;
 };
 
@@ -287,13 +399,75 @@ function normalizeClubSuggestions(
 }
 
 function formatScore(
-  value: number | null | undefined,
+  value:
+    | number
+    | null
+    | undefined,
 ) {
   return Number(
     value ?? 0,
   ).toLocaleString(
     "tr-TR",
   );
+}
+
+function getRemainingSeconds(
+  startedAt:
+    | string
+    | null
+    | undefined,
+) {
+  if (!startedAt) {
+    return PLAYER_QUIZ_VS_DURATION_SECONDS;
+  }
+
+  const start =
+    new Date(
+      startedAt,
+    ).getTime();
+
+  if (
+    Number.isNaN(start)
+  ) {
+    return PLAYER_QUIZ_VS_DURATION_SECONDS;
+  }
+
+  const elapsed =
+    Math.floor(
+      (
+        Date.now() -
+        start
+      ) /
+        1000,
+    );
+
+  return Math.max(
+    0,
+
+    PLAYER_QUIZ_VS_DURATION_SECONDS -
+      elapsed,
+  );
+}
+
+function formatTimer(
+  totalSeconds: number,
+) {
+  const minutes =
+    Math.floor(
+      totalSeconds /
+        60,
+    );
+
+  const seconds =
+    totalSeconds %
+    60;
+
+  return `${minutes}:${String(
+    seconds,
+  ).padStart(
+    2,
+    "0",
+  )}`;
 }
 
 /* =========================================================
@@ -309,10 +483,11 @@ export default function ChallengePage({
 }) {
   const {
     token,
-  } = use(params);
+  } =
+    use(params);
 
   /* =======================================================
-     CHALLENGE STATE
+     CHALLENGE
   ======================================================= */
 
   const [
@@ -385,6 +560,10 @@ export default function ChallengePage({
   ] =
     useState("");
 
+  /* =======================================================
+     ANSWERS
+  ======================================================= */
+
   const [
     birthYear,
     setBirthYear,
@@ -413,7 +592,9 @@ export default function ChallengePage({
     countrySuggestions,
     setCountrySuggestions,
   ] =
-    useState<string[]>([]);
+    useState<
+      string[]
+    >([]);
 
   const [
     clubQuery,
@@ -459,14 +640,11 @@ export default function ChallengePage({
   ======================================================= */
 
   const [
-    elapsedSeconds,
-    setElapsedSeconds,
+    remainingSeconds,
+    setRemainingSeconds,
   ] =
-    useState(0);
-
-  const gameStartedRef =
-    useRef<number | null>(
-      null,
+    useState(
+      PLAYER_QUIZ_VS_DURATION_SECONDS,
     );
 
   /* =======================================================
@@ -490,8 +668,21 @@ export default function ChallengePage({
   const resultSentRef =
     useRef(false);
 
+  const timeoutSentRef =
+    useRef(false);
+
   /* =======================================================
-     CHALLENGE LOAD
+     FORFEIT
+  ======================================================= */
+
+  const [
+    forfeitLoading,
+    setForfeitLoading,
+  ] =
+    useState(false);
+
+  /* =======================================================
+     LOAD CHALLENGE
   ======================================================= */
 
   const loadChallenge =
@@ -632,6 +823,7 @@ export default function ChallengePage({
             body:
               JSON.stringify({
                 token,
+
                 opponentName:
                   cleanName,
               }),
@@ -669,7 +861,7 @@ export default function ChallengePage({
   }
 
   /* =======================================================
-     START CHALLENGE
+     START
   ======================================================= */
 
   async function startChallenge() {
@@ -717,6 +909,12 @@ export default function ChallengePage({
         );
       }
 
+      resultSentRef.current =
+        false;
+
+      timeoutSentRef.current =
+        false;
+
       await loadChallenge();
     } catch (error) {
       setPageError(
@@ -732,7 +930,7 @@ export default function ChallengePage({
   }
 
   /* =======================================================
-     PREPARE PLAYER QUIZ
+     PREPARE
   ======================================================= */
 
   const prepareGame =
@@ -787,15 +985,45 @@ export default function ChallengePage({
             json,
           );
 
+          /*
+           * Refresh sonrası DB progress'ini UI'a geri yükle.
+           */
           if (
-            !gameStartedRef.current
+            json.progress
           ) {
-            gameStartedRef.current =
-              Date.now();
-
-            setElapsedSeconds(
-              0,
+            setBirthYearSolved(
+              json.progress
+                .birthYearCorrect,
             );
+
+            setNationalitySolved(
+              json.progress
+                .nationalityCorrect,
+            );
+
+            setSolvedClubs(
+              json.progress
+                .solvedClubs ??
+                [],
+            );
+
+            setAttemptCount(
+              json.progress
+                .attemptCount ??
+                0,
+            );
+
+            /*
+             * Oyuncu daha önce finalize olduysa
+             * tekrar timeout/completed göndermeyelim.
+             */
+            if (
+              json.progress
+                .finalized
+            ) {
+              resultSentRef.current =
+                true;
+            }
           }
         } catch (error) {
           setGameError(
@@ -822,64 +1050,75 @@ export default function ChallengePage({
         ?.challenge
         ?.status ===
         "playing" &&
-      challengeData.challenge
+      challengeData
+        .challenge
         .gameCode ===
         "player_quiz"
     ) {
       void prepareGame();
     }
   }, [
-    challengeData?.challenge
+    challengeData
+      ?.challenge
       ?.gameCode,
-    challengeData?.challenge
+    challengeData
+      ?.challenge
       ?.status,
     prepareGame,
   ]);
 
   /* =======================================================
-     TIMER
-
-     Şimdilik geçen süreyi gösteriyoruz.
-     Timeout-loss endpointini ayrıca bağlayacağız.
+     COUNTDOWN
   ======================================================= */
 
-  useEffect(() => {
-    if (
-      !game?.ok ||
-      resultSentRef.current
-    ) {
-      return;
-    }
+useEffect(() => {
+  const challenge =
+    challengeData?.challenge;
 
-    const interval =
-      window.setInterval(
-        () => {
-          if (
-            !gameStartedRef.current
-          ) {
-            return;
-          }
+  const startedAt =
+    challenge?.startedAt;
 
-          setElapsedSeconds(
-            Math.floor(
-              (
-                Date.now() -
-                gameStartedRef.current
-              ) /
-                1000,
-            ),
-          );
-        },
-        500,
+  if (
+    challenge?.status !==
+      "playing" ||
+    !startedAt ||
+    resultSentRef.current
+  ) {
+    return;
+  }
+
+  function updateTimer() {
+    const remaining =
+      getRemainingSeconds(
+        startedAt,
       );
 
-    return () =>
-      window.clearInterval(
-        interval,
-      );
-  }, [
-    game?.ok,
-  ]);
+    setRemainingSeconds(
+      remaining,
+    );
+  }
+
+  updateTimer();
+
+  const interval =
+    window.setInterval(
+      updateTimer,
+      500,
+    );
+
+  return () => {
+    window.clearInterval(
+      interval,
+    );
+  };
+}, [
+  challengeData
+    ?.challenge
+    ?.startedAt,
+  challengeData
+    ?.challenge
+    ?.status,
+]);
 
   /* =======================================================
      COUNTRY SEARCH
@@ -887,7 +1126,9 @@ export default function ChallengePage({
 
   useEffect(() => {
     if (
-      nationalitySolved
+      nationalitySolved ||
+      remainingSeconds <=
+        0
     ) {
       setCountrySuggestions(
         [],
@@ -900,7 +1141,8 @@ export default function ChallengePage({
       nationality.trim();
 
     if (
-      query.length < 3
+      query.length <
+      3
     ) {
       setCountrySuggestions(
         [],
@@ -937,7 +1179,7 @@ export default function ChallengePage({
               );
             }
           } catch {
-            // autocomplete yardımcı özellik
+            // autocomplete
           }
         },
         250,
@@ -950,6 +1192,7 @@ export default function ChallengePage({
   }, [
     nationality,
     nationalitySolved,
+    remainingSeconds,
   ]);
 
   /* =======================================================
@@ -957,11 +1200,23 @@ export default function ChallengePage({
   ======================================================= */
 
   useEffect(() => {
+    if (
+      remainingSeconds <=
+      0
+    ) {
+      setClubSuggestions(
+        [],
+      );
+
+      return;
+    }
+
     const query =
       clubQuery.trim();
 
     if (
-      query.length < 3
+      query.length <
+      3
     ) {
       setClubSuggestions(
         [],
@@ -1000,7 +1255,7 @@ export default function ChallengePage({
               );
             }
           } catch {
-            // autocomplete yardımcı özellik
+            // autocomplete
           }
         },
         250,
@@ -1012,7 +1267,34 @@ export default function ChallengePage({
       );
   }, [
     clubQuery,
+    remainingSeconds,
   ]);
+
+  /* =======================================================
+     APPLY SERVER PROGRESS
+  ======================================================= */
+
+  function applyProgress(
+    progress:
+      | AnswerProgress
+      | undefined,
+  ) {
+    if (!progress) {
+      return;
+    }
+
+    setBirthYearSolved(
+      progress.birthYearCorrect,
+    );
+
+    setNationalitySolved(
+      progress.nationalityCorrect,
+    );
+
+    setAttemptCount(
+      progress.attemptCount,
+    );
+  }
 
   /* =======================================================
      SUBMIT ANSWER
@@ -1028,6 +1310,14 @@ export default function ChallengePage({
       | string
       | number,
   ) {
+    if (
+      remainingSeconds <=
+        0 ||
+      resultSentRef.current
+    ) {
+      return;
+    }
+
     try {
       setAnswerLoading(
         field,
@@ -1035,14 +1325,6 @@ export default function ChallengePage({
 
       setGameError(
         "",
-      );
-
-      setAttemptCount(
-        (
-          current,
-        ) =>
-          current +
-          1,
       );
 
       const response =
@@ -1063,14 +1345,6 @@ export default function ChallengePage({
               JSON.stringify({
                 field,
                 value,
-
-                solvedClubIds:
-                  solvedClubs.map(
-                    (
-                      club,
-                    ) =>
-                      club.id,
-                  ),
               }),
           },
         );
@@ -1087,6 +1361,14 @@ export default function ChallengePage({
             "Cevap kontrol edilemedi.",
         );
       }
+
+      applyProgress(
+        json.progress,
+      );
+
+      /* ===================================================
+         BIRTH YEAR
+      =================================================== */
 
       if (
         field ===
@@ -1106,6 +1388,10 @@ export default function ChallengePage({
 
         return;
       }
+
+      /* ===================================================
+         NATIONALITY
+      =================================================== */
 
       if (
         field ===
@@ -1129,6 +1415,10 @@ export default function ChallengePage({
 
         return;
       }
+
+      /* ===================================================
+         CLUB
+      =================================================== */
 
       if (
         json.duplicate
@@ -1171,6 +1461,7 @@ export default function ChallengePage({
 
           return [
             ...current,
+
             json.matchedClub!,
           ].sort(
             (
@@ -1204,7 +1495,7 @@ export default function ChallengePage({
   }
 
   /* =======================================================
-     COMPLETION CHECK
+     COUNTS
   ======================================================= */
 
   const requiredClubCount =
@@ -1215,24 +1506,46 @@ export default function ChallengePage({
   const allClubsSolved =
     requiredClubCount >
       0 &&
-    solvedClubs.length ===
+    solvedClubs.length >=
       requiredClubCount;
 
+  const correctCount =
+    (
+      birthYearSolved
+        ? 1
+        : 0
+    ) +
+    (
+      nationalitySolved
+        ? 1
+        : 0
+    ) +
+    solvedClubs.length;
+
+  const totalCount =
+    game?.board
+      ?.totalSlots ??
+    0;
+
   const puzzleCompleted =
-    birthYearSolved &&
-    nationalitySolved &&
-    allClubsSolved;
+    totalCount >
+      0 &&
+    correctCount >=
+      totalCount;
 
   /* =======================================================
-     SEND RESULT
+     FINALIZE
   ======================================================= */
 
-  const sendResult =
+  const finalizeResult =
     useCallback(
-      async () => {
+      async (
+        reason:
+          | "completed"
+          | "timeout",
+      ) => {
         if (
-          resultSentRef.current ||
-          !puzzleCompleted
+          resultSentRef.current
         ) {
           return;
         }
@@ -1265,22 +1578,7 @@ export default function ChallengePage({
 
                 body:
                   JSON.stringify({
-                    birthYear:
-                      Number(
-                        birthYear,
-                      ),
-
-                    nationality,
-
-                    solvedClubIds:
-                      solvedClubs.map(
-                        (
-                          club,
-                        ) =>
-                          club.id,
-                      ),
-
-                    attemptCount,
+                    reason,
                   }),
               },
             );
@@ -1321,48 +1619,166 @@ export default function ChallengePage({
         }
       },
       [
-        attemptCount,
-        birthYear,
         loadChallenge,
-        nationality,
-        puzzleCompleted,
-        solvedClubs,
         token,
       ],
     );
 
-  useEffect(() => {
-    if (
-      puzzleCompleted
-    ) {
-      void sendResult();
-    }
-  }, [
-    puzzleCompleted,
-    sendResult,
-  ]);
-
   /* =======================================================
-     RESULT POLLING
-
-     İlk bitiren oyuncu rakibi bekler.
+     EARLY COMPLETION
   ======================================================= */
 
   useEffect(() => {
     if (
-      !result?.waitingForOpponent
+      puzzleCompleted &&
+      challengeData
+        ?.challenge
+        ?.status ===
+        "playing" &&
+      !resultSentRef.current
+    ) {
+      void finalizeResult(
+        "completed",
+      );
+    }
+  }, [
+    challengeData
+      ?.challenge
+      ?.status,
+    finalizeResult,
+    puzzleCompleted,
+  ]);
+
+  /* =======================================================
+     TIMEOUT
+  ======================================================= */
+
+  useEffect(() => {
+    if (
+      remainingSeconds >
+        0 ||
+      challengeData
+        ?.challenge
+        ?.status !==
+        "playing" ||
+      resultSentRef.current ||
+      timeoutSentRef.current ||
+      !game?.ok
+    ) {
+      return;
+    }
+
+    timeoutSentRef.current =
+      true;
+
+    void finalizeResult(
+      "timeout",
+    );
+  }, [
+    challengeData
+      ?.challenge
+      ?.status,
+    finalizeResult,
+    game?.ok,
+    remainingSeconds,
+  ]);
+
+  /* =======================================================
+     FORFEIT
+  ======================================================= */
+
+  async function forfeitChallenge() {
+    if (
+      forfeitLoading ||
+      resultSentRef.current
+    ) {
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        "Düellodan pes etmek istediğine emin misin? Rakibin maçı kazanacak.",
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setForfeitLoading(
+        true,
+      );
+
+      setGameError(
+        "",
+      );
+
+      const response =
+        await fetch(
+          `/api/challenges/${encodeURIComponent(
+            token,
+          )}/player-quiz/forfeit`,
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+          },
+        );
+
+      const json =
+        (await response.json()) as ForfeitResponse;
+
+      if (
+        !response.ok ||
+        !json.ok
+      ) {
+        throw new Error(
+          json.error ??
+            "Pes etme işlemi başarısız oldu.",
+        );
+      }
+
+      resultSentRef.current =
+        true;
+
+      await loadChallenge();
+    } catch (error) {
+      setGameError(
+        error instanceof Error
+          ? error.message
+          : "Pes etme işlemi başarısız oldu.",
+      );
+    } finally {
+      setForfeitLoading(
+        false,
+      );
+    }
+  }
+
+  /* =======================================================
+     FINISHED PLAYER POLLING
+  ======================================================= */
+
+  useEffect(() => {
+    if (
+      !result
+        ?.waitingForOpponent
     ) {
       return;
     }
 
     const interval =
       window.setInterval(
-        async () => {
-          await loadChallenge(
+        () => {
+          void loadChallenge(
             true,
           );
         },
-        2000,
+        1800,
       );
 
     return () =>
@@ -1371,11 +1787,12 @@ export default function ChallengePage({
       );
   }, [
     loadChallenge,
-    result?.waitingForOpponent,
+    result
+      ?.waitingForOpponent,
   ]);
 
   /* =======================================================
-     MEMOS
+     DERIVED
   ======================================================= */
 
   const challenge =
@@ -1397,17 +1814,21 @@ export default function ChallengePage({
   const currentPlayerName =
     currentRole ===
     "challenger"
-      ? challenge?.challenger
+      ? challenge
+          ?.challenger
           .name
-      : challenge?.opponent
+      : challenge
+          ?.opponent
           ?.name;
 
   const opponentPlayerName =
     currentRole ===
     "challenger"
-      ? challenge?.opponent
+      ? challenge
+          ?.opponent
           ?.name
-      : challenge?.challenger
+      : challenge
+          ?.challenger
           .name;
 
   /* =======================================================
@@ -1420,7 +1841,11 @@ export default function ChallengePage({
   ) {
     return (
       <ChallengeShell>
-        <LoadingState text="Meydan okuma hazırlanıyor..." />
+
+        <LoadingState
+          text="Meydan okuma hazırlanıyor..."
+        />
+
       </ChallengeShell>
     );
   }
@@ -1436,6 +1861,7 @@ export default function ChallengePage({
   ) {
     return (
       <ChallengeShell>
+
         <CenteredState
           emoji="⚠️"
           title="Meydan okuma açılamadı"
@@ -1448,13 +1874,16 @@ export default function ChallengePage({
         />
 
         <div className="mt-6 text-center">
+
           <Link
             href="/"
             className="inline-flex rounded-xl bg-green-500 px-5 py-3 text-sm font-black text-[#07111f]"
           >
             Ana Sayfaya Dön
           </Link>
+
         </div>
+
       </ChallengeShell>
     );
   }
@@ -1468,11 +1897,13 @@ export default function ChallengePage({
   ) {
     return (
       <ChallengeShell>
+
         <CenteredState
           emoji="⏰"
           title="Meydan okumanın süresi dolmuş"
           description="Yeni bir challenge oluşturup tekrar kapışabilirsiniz."
         />
+
       </ChallengeShell>
     );
   }
@@ -1488,6 +1919,7 @@ export default function ChallengePage({
   ) {
     return (
       <ChallengeShell>
+
         <div className="mx-auto max-w-xl">
 
           <div className="text-center">
@@ -1517,7 +1949,9 @@ export default function ChallengePage({
             </p>
 
             <p className="mt-2 text-2xl font-black">
-              {challenge.challenger.name}
+              {challenge
+                .challenger
+                .name}
             </p>
 
             <div className="my-5 h-px bg-white/10" />
@@ -1528,6 +1962,10 @@ export default function ChallengePage({
 
             <p className="mt-2 font-black text-purple-300">
               {gameLabel}
+            </p>
+
+            <p className="mt-2 text-xs text-slate-500">
+              ⏱ 250 saniye · En çok doğru bilgiyi bulan kazanır.
             </p>
 
           </div>
@@ -1546,7 +1984,8 @@ export default function ChallengePage({
                 event,
               ) =>
                 setOpponentName(
-                  event.target.value,
+                  event.target
+                    .value,
                 )
               }
               maxLength={
@@ -1591,17 +2030,18 @@ export default function ChallengePage({
               : "⚔️ Meydan Okumayı Kabul Et"}
           </button>
 
-          <p className="mt-4 text-center text-xs leading-5 text-slate-600">
+          <p className="mt-4 text-center text-xs text-slate-600">
             Üyelik gerektirmez.
           </p>
 
         </div>
+
       </ChallengeShell>
     );
   }
 
   /* =======================================================
-     WAITING FOR OPPONENT
+     WAITING
   ======================================================= */
 
   if (
@@ -1610,6 +2050,7 @@ export default function ChallengePage({
   ) {
     return (
       <ChallengeShell>
+
         <CenteredState
           emoji="⚔️"
           eyebrow="MEYDAN OKUMA HAZIR"
@@ -1623,6 +2064,10 @@ export default function ChallengePage({
               {gameLabel}
             </p>
 
+            <p className="mt-2 text-xs text-slate-500">
+              ⏱ 250 saniye
+            </p>
+
             <div className="mt-5 flex items-center justify-center gap-2 text-sm font-bold text-green-400">
 
               <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-green-400" />
@@ -1634,6 +2079,7 @@ export default function ChallengePage({
           </div>
 
         </CenteredState>
+
       </ChallengeShell>
     );
   }
@@ -1651,12 +2097,14 @@ export default function ChallengePage({
 
         <VersusHeader
           leftName={
-            challenge.challenger
+            challenge
+              .challenger
               .name ??
             "Oyuncu 1"
           }
           rightName={
-            challenge.opponent
+            challenge
+              .opponent
               ?.name ??
             "Oyuncu 2"
           }
@@ -1676,8 +2124,24 @@ export default function ChallengePage({
           </p>
 
           <p className="mt-3 text-sm text-slate-400">
-            İkinize de aynı futbolcu gelecek.
+            İkinize de aynı Player Quiz gelecek.
           </p>
+
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+
+            <RuleBadge>
+              ⏱ 250 sn
+            </RuleBadge>
+
+            <RuleBadge>
+              +1 her doğru
+            </RuleBadge>
+
+            <RuleBadge>
+              Can yok
+            </RuleBadge>
+
+          </div>
 
         </div>
 
@@ -1724,7 +2188,11 @@ export default function ChallengePage({
   ) {
     return (
       <ChallengeShell>
-        <LoadingState text="Aynı futbolcu iki tarafa hazırlanıyor..." />
+
+        <LoadingState
+          text="Aynı Player Quiz iki tarafa hazırlanıyor..."
+        />
+
       </ChallengeShell>
     );
   }
@@ -1765,11 +2233,12 @@ export default function ChallengePage({
   }
 
   /* =======================================================
-     FINISHED / WAITING FOR OTHER PLAYER
+     WAITING AFTER FINALIZE
   ======================================================= */
 
   if (
-    result?.waitingForOpponent &&
+    result
+      ?.waitingForOpponent &&
     !challengeData.completed
   ) {
     return (
@@ -1777,26 +2246,50 @@ export default function ChallengePage({
 
         <CenteredState
           emoji="✅"
-          eyebrow="SEN BİTİRDİN"
+          eyebrow="SENİN OYUNUN BİTTİ"
           title="Rakibini bekliyoruz"
-          description="Skorun kaydedildi. Rakibin Player Quiz'i tamamladığında sonuç otomatik görünecek."
+          description="Sonucun kaydedildi. Rakibin Player Quiz'i bitirdiğinde kazanan otomatik belli olacak."
         >
 
           <div className="mt-7 rounded-2xl border border-green-500/20 bg-green-500/[0.06] p-6">
 
             <p className="text-xs font-black uppercase text-slate-500">
-              Senin Skorun
+              Doğru Bilgi
             </p>
 
             <p className="mt-2 text-4xl font-black text-green-400">
-              {formatScore(
-                result.score,
-              )}
+              {result.correctCount ??
+                result.score ??
+                correctCount}
+              /
+              {result.totalCount ??
+                totalCount}
             </p>
 
-            <p className="mt-2 text-xs text-slate-500">
-              {result.durationSeconds ?? 0} saniye
-            </p>
+            <div className="mt-4 flex justify-center gap-5 text-xs text-slate-400">
+
+              <span>
+                ⏱{" "}
+                {result.durationSeconds ??
+                  (
+                    PLAYER_QUIZ_VS_DURATION_SECONDS -
+                    remainingSeconds
+                  )}
+                sn
+              </span>
+
+              <span>
+                ❌{" "}
+                {result.wrongAttemptCount ??
+                  Math.max(
+                    0,
+
+                    attemptCount -
+                      correctCount,
+                  )}
+              </span>
+
+            </div>
 
           </div>
 
@@ -1816,7 +2309,7 @@ export default function ChallengePage({
   }
 
   /* =======================================================
-     CHALLENGE COMPLETED
+     COMPLETED
   ======================================================= */
 
   if (
@@ -1843,10 +2336,11 @@ export default function ChallengePage({
           </div>
 
           <p className="mt-5 text-xs font-black uppercase tracking-[0.2em] text-purple-400">
-            Düello Tamamlandı
+            Player Quiz VS
           </p>
 
           <h1 className="mt-3 text-3xl font-black">
+
             {myResult ===
             "win"
               ? "Kazandın!"
@@ -1854,6 +2348,7 @@ export default function ChallengePage({
                   "loss"
                 ? "Rakibin kazandı"
                 : "Berabere!"}
+
           </h1>
 
         </div>
@@ -1862,16 +2357,19 @@ export default function ChallengePage({
 
           <ScoreCard
             name={
-              challenge.challenger
+              challenge
+                .challenger
                 .name ??
               "Oyuncu 1"
             }
             score={
-              challenge.challenger
+              challenge
+                .challenger
                 .score
             }
             winner={
-              challenge.winnerSide ===
+              challenge
+                .winnerSide ===
               "challenger"
             }
           />
@@ -1882,31 +2380,49 @@ export default function ChallengePage({
 
           <ScoreCard
             name={
-              challenge.opponent
+              challenge
+                .opponent
                 ?.name ??
               "Oyuncu 2"
             }
             score={
-              challenge.opponent
+              challenge
+                .opponent
                 ?.score ??
               0
             }
             winner={
-              challenge.winnerSide ===
+              challenge
+                .winnerSide ===
               "opponent"
             }
           />
 
         </div>
 
-        <div className="mt-7 rounded-2xl border border-yellow-400/20 bg-yellow-400/[0.05] p-5 text-center">
+        {game?.player && (
+          <div className="mt-7 rounded-2xl border border-white/10 bg-[#07111f] p-5 text-center">
+
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+              Gizli Oyuncu
+            </p>
+
+            <p className="mt-2 text-xl font-black">
+              {game.player
+                .fullName}
+            </p>
+
+          </div>
+        )}
+
+        <div className="mt-6 rounded-2xl border border-yellow-400/20 bg-yellow-400/[0.05] p-5 text-center">
 
           <p className="font-black">
-            Bu düelloyu kaybetme 👀
+            ⚔️ Rövanş?
           </p>
 
           <p className="mt-2 text-sm text-slate-400">
-            Bir sonraki adımda guest sonucunu hesaba bağlama + rövanş özelliğini ekleyeceğiz.
+            Rövanş ve sonucu hesaba bağlama sıradaki aşama.
           </p>
 
         </div>
@@ -1933,10 +2449,18 @@ export default function ChallengePage({
     game.player &&
     game.board
   ) {
-    return (
-      <ChallengeShell wide>
+    const timerCritical =
+      remainingSeconds <=
+      30;
 
-        {/* DUEL TOP */}
+    return (
+      <ChallengeShell
+        wide
+      >
+
+        {/* =================================================
+            HEADER
+        ================================================= */}
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-5">
 
@@ -1956,62 +2480,122 @@ export default function ChallengePage({
 
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-[#07111f] px-4 py-2 text-right">
+          <div className="flex items-center gap-2">
 
-            <p className="text-[10px] font-black uppercase text-slate-500">
-              Süre
-            </p>
+            <div
+              className={`rounded-xl border px-4 py-2 text-right ${
+                timerCritical
+                  ? "border-red-500/30 bg-red-500/10"
+                  : "border-white/10 bg-[#07111f]"
+              }`}
+            >
 
-            <p className="font-mono text-xl font-black text-yellow-300">
-              {elapsedSeconds}s
-            </p>
+              <p className="text-[10px] font-black uppercase text-slate-500">
+                Kalan Süre
+              </p>
+
+              <p
+                className={`font-mono text-xl font-black ${
+                  timerCritical
+                    ? "text-red-300"
+                    : "text-yellow-300"
+                }`}
+              >
+                {formatTimer(
+                  remainingSeconds,
+                )}
+              </p>
+
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                void forfeitChallenge()
+              }
+              disabled={
+                forfeitLoading ||
+                resultLoading
+              }
+              className="rounded-xl border border-red-500/20 bg-red-500/[0.06] px-3 py-3 text-xs font-black text-red-300 transition hover:bg-red-500/10 disabled:opacity-40"
+            >
+              {forfeitLoading
+                ? "..."
+                : "🏳 Pes Et"}
+            </button>
 
           </div>
 
         </div>
 
-        {/* PLAYER */}
+        {/* =================================================
+            PLAYER HIDDEN
+        ================================================= */}
 
         <div className="mt-6 text-center">
 
-          <div className="mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-[#07111f] sm:h-36 sm:w-36">
+          <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-3xl border border-purple-500/20 bg-purple-500/[0.06] sm:h-32 sm:w-32">
 
-            {game.player
-              .imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={
-                  game.player
-                    .imageUrl
-                }
-                alt={
-                  game.player
-                    .fullName
-                }
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span className="text-5xl">
-                👤
-              </span>
-            )}
+            <span className="text-5xl">
+              ❓
+            </span>
 
           </div>
 
           <h1 className="mt-4 text-2xl font-black sm:text-3xl">
-            {game.player
-              .fullName}
+            Gizli Futbolcu
           </h1>
 
-          <p className="mt-2 text-sm text-slate-500">
-            Doğum yılı, milliyet ve kariyer kulüplerini tamamla.
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">
+            250 saniye içinde doğum yılı, milliyet ve mümkün olduğunca fazla kariyer kulübünü bul.
           </p>
 
         </div>
 
-        {/* PROGRESS */}
+        {/* =================================================
+            LIVE SCORE
+        ================================================= */}
 
-        <div className="mt-6 grid grid-cols-3 gap-2">
+        <div className="mt-6 grid grid-cols-2 gap-3">
+
+          <div className="rounded-2xl border border-green-500/20 bg-green-500/[0.06] p-4 text-center">
+
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+              Doğru
+            </p>
+
+            <p className="mt-1 text-3xl font-black text-green-400">
+              {correctCount}
+              /
+              {totalCount}
+            </p>
+
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-[#07111f] p-4 text-center">
+
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+              Yanlış Deneme
+            </p>
+
+            <p className="mt-1 text-3xl font-black">
+              {Math.max(
+                0,
+
+                attemptCount -
+                  correctCount,
+              )}
+            </p>
+
+          </div>
+
+        </div>
+
+        {/* =================================================
+            PROGRESS
+        ================================================= */}
+
+        <div className="mt-4 grid grid-cols-3 gap-2">
 
           <ProgressBox
             label="Doğum"
@@ -2058,8 +2642,6 @@ export default function ChallengePage({
 
         </div>
 
-        {/* ERROR */}
-
         {gameError && (
           <ErrorBox
             text={
@@ -2068,7 +2650,9 @@ export default function ChallengePage({
           />
         )}
 
-        {/* BIRTH YEAR */}
+        {/* =================================================
+            BIRTH YEAR
+        ================================================= */}
 
         <QuizSection
           title="🎂 Doğum Yılı"
@@ -2088,13 +2672,17 @@ export default function ChallengePage({
                 event,
               ) =>
                 setBirthYear(
-                  event.target.value,
+                  event.target
+                    .value,
                 )
               }
               disabled={
-                birthYearSolved
+                birthYearSolved ||
+                remainingSeconds <=
+                  0 ||
+                resultLoading
               }
-              placeholder="1994"
+              placeholder="Örn. 1994"
               className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#07111f] px-4 py-3 font-bold outline-none focus:border-purple-400/50 disabled:opacity-50"
             />
 
@@ -2104,11 +2692,15 @@ export default function ChallengePage({
                 birthYearSolved ||
                 answerLoading !==
                   null ||
-                !birthYear
+                !birthYear ||
+                remainingSeconds <=
+                  0 ||
+                resultLoading
               }
               onClick={() =>
                 void submitAnswer(
                   "birthYear",
+
                   Number(
                     birthYear,
                   ),
@@ -2125,7 +2717,9 @@ export default function ChallengePage({
 
         </QuizSection>
 
-        {/* NATIONALITY */}
+        {/* =================================================
+            NATIONALITY
+        ================================================= */}
 
         <QuizSection
           title="🌍 Milliyet"
@@ -2146,11 +2740,15 @@ export default function ChallengePage({
                   event,
                 ) =>
                   setNationality(
-                    event.target.value,
+                    event.target
+                      .value,
                   )
                 }
                 disabled={
-                  nationalitySolved
+                  nationalitySolved ||
+                  remainingSeconds <=
+                    0 ||
+                  resultLoading
                 }
                 placeholder="Ülke ara..."
                 className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#07111f] px-4 py-3 font-bold outline-none focus:border-purple-400/50 disabled:opacity-50"
@@ -2162,11 +2760,15 @@ export default function ChallengePage({
                   nationalitySolved ||
                   answerLoading !==
                     null ||
-                  !nationality.trim()
+                  !nationality.trim() ||
+                  remainingSeconds <=
+                    0 ||
+                  resultLoading
                 }
                 onClick={() =>
                   void submitAnswer(
                     "nationality",
+
                     nationality,
                   )
                 }
@@ -2181,6 +2783,8 @@ export default function ChallengePage({
 
             {!nationalitySolved &&
               countrySuggestions.length >
+                0 &&
+              remainingSeconds >
                 0 && (
                 <div className="absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-xl border border-white/10 bg-[#07111f] shadow-2xl">
 
@@ -2216,7 +2820,9 @@ export default function ChallengePage({
 
         </QuizSection>
 
-        {/* CLUBS */}
+        {/* =================================================
+            CLUBS
+        ================================================= */}
 
         <QuizSection
           title={`🏟️ Kariyer Kulüpleri (${solvedClubs.length}/${requiredClubCount})`}
@@ -2225,59 +2831,64 @@ export default function ChallengePage({
           }
         >
 
-          {!allClubsSolved && (
-            <div className="relative">
+          {!allClubsSolved &&
+            remainingSeconds >
+              0 &&
+            !resultLoading && (
+              <div className="relative">
 
-              <input
-                value={
-                  clubQuery
-                }
-                onChange={(
-                  event,
-                ) =>
-                  setClubQuery(
-                    event.target.value,
-                  )
-                }
-                placeholder="Kulüp ara..."
-                className="w-full rounded-xl border border-white/10 bg-[#07111f] px-4 py-3 font-bold outline-none focus:border-purple-400/50"
-              />
+                <input
+                  value={
+                    clubQuery
+                  }
+                  onChange={(
+                    event,
+                  ) =>
+                    setClubQuery(
+                      event.target
+                        .value,
+                    )
+                  }
+                  placeholder="Kulüp ara..."
+                  className="w-full rounded-xl border border-white/10 bg-[#07111f] px-4 py-3 font-bold outline-none focus:border-purple-400/50"
+                />
 
-              {clubSuggestions.length >
-                0 && (
-                <div className="absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-xl border border-white/10 bg-[#07111f] shadow-2xl">
+                {clubSuggestions.length >
+                  0 && (
+                  <div className="absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-xl border border-white/10 bg-[#07111f] shadow-2xl">
 
-                  {clubSuggestions.map(
-                    (
-                      club,
-                    ) => (
-                      <button
-                        key={
-                          club.name
-                        }
-                        type="button"
-                        disabled={
-                          answerLoading !==
-                          null
-                        }
-                        onClick={() =>
-                          void submitAnswer(
-                            "club",
-                            club.name,
-                          )
-                        }
-                        className="block w-full border-b border-white/[0.06] px-4 py-3 text-left text-sm font-bold transition last:border-0 hover:bg-white/[0.06]"
-                      >
-                        {club.name}
-                      </button>
-                    ),
-                  )}
+                    {clubSuggestions.map(
+                      (
+                        club,
+                      ) => (
+                        <button
+                          key={
+                            club.name
+                          }
+                          type="button"
+                          disabled={
+                            answerLoading !==
+                            null
+                          }
+                          onClick={() =>
+                            void submitAnswer(
+                              "club",
 
-                </div>
-              )}
+                              club.name,
+                            )
+                          }
+                          className="block w-full border-b border-white/[0.06] px-4 py-3 text-left text-sm font-bold transition last:border-0 hover:bg-white/[0.06]"
+                        >
+                          {club.name}
+                        </button>
+                      ),
+                    )}
 
-            </div>
-          )}
+                  </div>
+                )}
+
+              </div>
+            )}
 
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
 
@@ -2306,6 +2917,7 @@ export default function ChallengePage({
                         : "border-white/10 bg-black/10"
                     }`}
                   >
+
                     <p className="text-[10px] font-black uppercase tracking-wider text-slate-600">
                       Kulüp{" "}
                       {index +
@@ -2323,6 +2935,7 @@ export default function ChallengePage({
                         ? club.name
                         : "???"}
                     </p>
+
                   </div>
                 );
               },
@@ -2332,14 +2945,16 @@ export default function ChallengePage({
 
         </QuizSection>
 
-        {/* FOOTER STATUS */}
+        {/* =================================================
+            FOOTER
+        ================================================= */}
 
-        <div className="mt-6 flex items-center justify-between rounded-2xl border border-white/10 bg-[#07111f] px-4 py-3">
+        <div className="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-[#07111f] px-4 py-3">
 
           <div>
 
             <p className="text-[10px] font-black uppercase text-slate-600">
-              Deneme
+              Toplam Deneme
             </p>
 
             <p className="font-black">
@@ -2351,20 +2966,13 @@ export default function ChallengePage({
           <div className="text-right">
 
             <p className="text-[10px] font-black uppercase text-slate-600">
-              Tamamlanan
+              Bulunan Bilgi
             </p>
 
             <p className="font-black text-green-400">
-              {(birthYearSolved
-                ? 1
-                : 0) +
-                (nationalitySolved
-                  ? 1
-                  : 0) +
-                solvedClubs.length}
+              {correctCount}
               /
-              {game.board
-                .totalSlots}
+              {totalCount}
             </p>
 
           </div>
@@ -2372,8 +2980,8 @@ export default function ChallengePage({
         </div>
 
         {resultLoading && (
-          <div className="mt-5 text-center text-sm font-bold text-green-400">
-            ✓ Tamamladın, skorun hesaplanıyor...
+          <div className="mt-5 rounded-xl border border-green-500/20 bg-green-500/[0.06] px-4 py-4 text-center text-sm font-bold text-green-400">
+            ✓ Sonucun hesaplanıyor...
           </div>
         )}
 
@@ -2440,7 +3048,7 @@ function ChallengeShell({
               </p>
 
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
-                Guest Challenge
+                Challenge
               </p>
 
             </div>
@@ -2492,6 +3100,7 @@ function CenteredState({
   eyebrow?: string;
   title: string;
   description: string;
+
   children?:
     React.ReactNode;
 }) {
@@ -2541,6 +3150,7 @@ function VersusHeader({
 }: {
   leftName: string;
   rightName: string;
+
   currentRole:
     | ChallengeRole
     | undefined;
@@ -2628,6 +3238,7 @@ function QuizSection({
 }: {
   title: string;
   solved: boolean;
+
   children:
     React.ReactNode;
 }) {
@@ -2738,6 +3349,23 @@ function ScoreCard({
         )}
       </p>
 
+      <p className="mt-1 text-[10px] font-bold uppercase text-slate-600">
+        doğru bilgi
+      </p>
+
     </div>
+  );
+}
+
+function RuleBadge({
+  children,
+}: {
+  children:
+    React.ReactNode;
+}) {
+  return (
+    <span className="rounded-full border border-white/10 bg-[#07111f] px-3 py-1.5 text-xs font-black text-slate-300">
+      {children}
+    </span>
   );
 }

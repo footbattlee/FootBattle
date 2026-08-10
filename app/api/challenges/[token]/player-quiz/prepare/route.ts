@@ -13,7 +13,10 @@ const GUEST_COOKIE_NAME =
   "footbattle_guest";
 
 const MIN_POPULARITY_SCORE =
-  75;
+  72;
+
+const PLAYER_QUIZ_VS_DURATION_SECONDS =
+  250;
 
 type ChallengeRow = {
   id: number | string;
@@ -46,6 +49,49 @@ type PlayerCandidate = {
   popularity_score: number | null;
 };
 
+type GameRow = {
+  challenge_id:
+    | number
+    | string;
+
+  player_id:
+    | number
+    | string;
+
+  challenger_birth_year_correct: boolean;
+  opponent_birth_year_correct: boolean;
+
+  challenger_nationality_correct: boolean;
+  opponent_nationality_correct: boolean;
+
+  challenger_solved_club_ids:
+    | number[]
+    | string[]
+    | null;
+
+  opponent_solved_club_ids:
+    | number[]
+    | string[]
+    | null;
+
+  challenger_attempt_count: number;
+  opponent_attempt_count: number;
+
+  challenger_finalized: boolean;
+  opponent_finalized: boolean;
+
+  challenger_duration_seconds:
+    | number
+    | null;
+
+  opponent_duration_seconds:
+    | number
+    | null;
+
+  challenger_forfeited: boolean;
+  opponent_forfeited: boolean;
+};
+
 function sanitizeToken(
   value: unknown,
 ) {
@@ -58,6 +104,46 @@ function sanitizeToken(
     .slice(0, 64);
 }
 
+function parseStoredClubIds(
+  value:
+    | number[]
+    | string[]
+    | null
+    | undefined,
+) {
+  if (!Array.isArray(value)) {
+    return [] as number[];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .map(Number)
+        .filter(
+          (id) =>
+            Number.isInteger(id) &&
+            id > 0,
+        ),
+    ),
+  );
+}
+
+function calculateCorrectCount({
+  birthYearCorrect,
+  nationalityCorrect,
+  solvedClubIds,
+}: {
+  birthYearCorrect: boolean;
+  nationalityCorrect: boolean;
+  solvedClubIds: number[];
+}) {
+  return (
+    (birthYearCorrect ? 1 : 0) +
+    (nationalityCorrect ? 1 : 0) +
+    solvedClubIds.length
+  );
+}
+
 export async function POST(
   request: Request,
   context: {
@@ -67,6 +153,10 @@ export async function POST(
   },
 ) {
   try {
+    /* =====================================================
+       TOKEN
+    ===================================================== */
+
     const {
       token: rawToken,
     } =
@@ -148,6 +238,11 @@ export async function POST(
       challengeError ||
       !challengeData
     ) {
+      console.error(
+        "Player Quiz VS challenge okunamadı:",
+        challengeError,
+      );
+
       return NextResponse.json(
         {
           ok: false,
@@ -222,6 +317,13 @@ export async function POST(
       );
     }
 
+    const role:
+      | "challenger"
+      | "opponent" =
+      isChallenger
+        ? "challenger"
+        : "opponent";
+
     if (
       challenge.status !==
         "ready" &&
@@ -246,7 +348,7 @@ export async function POST(
 
     const {
       data:
-        existingGame,
+        existingGameData,
 
       error:
         existingError,
@@ -257,7 +359,28 @@ export async function POST(
         )
         .select(`
           challenge_id,
-          player_id
+          player_id,
+
+          challenger_birth_year_correct,
+          opponent_birth_year_correct,
+
+          challenger_nationality_correct,
+          opponent_nationality_correct,
+
+          challenger_solved_club_ids,
+          opponent_solved_club_ids,
+
+          challenger_attempt_count,
+          opponent_attempt_count,
+
+          challenger_finalized,
+          opponent_finalized,
+
+          challenger_duration_seconds,
+          opponent_duration_seconds,
+
+          challenger_forfeited,
+          opponent_forfeited
         `)
         .eq(
           "challenge_id",
@@ -285,12 +408,19 @@ export async function POST(
       );
     }
 
+    let game =
+      existingGameData
+        ? (
+            existingGameData as GameRow
+          )
+        : null;
+
     let playerId:
       | number
       | null =
-      existingGame
+      game
         ? Number(
-            existingGame.player_id,
+            game.player_id,
           )
         : null;
 
@@ -485,7 +615,7 @@ export async function POST(
 
       const {
         data:
-          insertedGame,
+          insertedGameData,
 
         error:
           insertError,
@@ -505,17 +635,45 @@ export async function POST(
           })
           .select(`
             challenge_id,
-            player_id
+            player_id,
+
+            challenger_birth_year_correct,
+            opponent_birth_year_correct,
+
+            challenger_nationality_correct,
+            opponent_nationality_correct,
+
+            challenger_solved_club_ids,
+            opponent_solved_club_ids,
+
+            challenger_attempt_count,
+            opponent_attempt_count,
+
+            challenger_finalized,
+            opponent_finalized,
+
+            challenger_duration_seconds,
+            opponent_duration_seconds,
+
+            challenger_forfeited,
+            opponent_forfeited
           `)
           .maybeSingle();
 
+      /*
+       * İki taraf aynı anda prepare çağırırsa
+       * unique challenge_id yüzünden biri insert
+       * hatası alabilir.
+       *
+       * O zaman mevcut kaydı tekrar okuyoruz.
+       */
       if (
         insertError ||
-        !insertedGame
+        !insertedGameData
       ) {
         const {
           data:
-            raceGame,
+            raceGameData,
 
           error:
             raceError,
@@ -526,7 +684,28 @@ export async function POST(
             )
             .select(`
               challenge_id,
-              player_id
+              player_id,
+
+              challenger_birth_year_correct,
+              opponent_birth_year_correct,
+
+              challenger_nationality_correct,
+              opponent_nationality_correct,
+
+              challenger_solved_club_ids,
+              opponent_solved_club_ids,
+
+              challenger_attempt_count,
+              opponent_attempt_count,
+
+              challenger_finalized,
+              opponent_finalized,
+
+              challenger_duration_seconds,
+              opponent_duration_seconds,
+
+              challenger_forfeited,
+              opponent_forfeited
             `)
             .eq(
               "challenge_id",
@@ -536,7 +715,7 @@ export async function POST(
 
         if (
           raceError ||
-          !raceGame
+          !raceGameData
         ) {
           console.error(
             "Player Quiz VS oluşturma hatası:",
@@ -556,11 +735,38 @@ export async function POST(
           );
         }
 
+        game =
+          raceGameData as GameRow;
+
         playerId =
           Number(
-            raceGame.player_id,
+            game.player_id,
+          );
+      } else {
+        game =
+          insertedGameData as GameRow;
+
+        playerId =
+          Number(
+            game.player_id,
           );
       }
+    }
+
+    if (
+      !game ||
+      !playerId
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Player Quiz oyun durumu hazırlanamadı.",
+        },
+        {
+          status: 500,
+        },
+      );
     }
 
     /* =====================================================
@@ -606,7 +812,7 @@ export async function POST(
     }
 
     /* =====================================================
-       CLEAN CAREER
+       CLEAN SENIOR CAREER
     ===================================================== */
 
     const {
@@ -676,13 +882,149 @@ export async function POST(
       );
     }
 
+    /* =====================================================
+       CURRENT SIDE PROGRESS
+    ===================================================== */
+
+    const birthYearCorrect =
+      role ===
+      "challenger"
+        ? Boolean(
+            game
+              .challenger_birth_year_correct,
+          )
+        : Boolean(
+            game
+              .opponent_birth_year_correct,
+          );
+
+    const nationalityCorrect =
+      role ===
+      "challenger"
+        ? Boolean(
+            game
+              .challenger_nationality_correct,
+          )
+        : Boolean(
+            game
+              .opponent_nationality_correct,
+          );
+
+    const solvedClubIds =
+      role ===
+      "challenger"
+        ? parseStoredClubIds(
+            game
+              .challenger_solved_club_ids,
+          )
+        : parseStoredClubIds(
+            game
+              .opponent_solved_club_ids,
+          );
+
+    const attemptCount =
+      role ===
+      "challenger"
+        ? Number(
+            game
+              .challenger_attempt_count ??
+              0,
+          )
+        : Number(
+            game
+              .opponent_attempt_count ??
+              0,
+          );
+
+    const finalized =
+      role ===
+      "challenger"
+        ? Boolean(
+            game
+              .challenger_finalized,
+          )
+        : Boolean(
+            game
+              .opponent_finalized,
+          );
+
+    const forfeited =
+      role ===
+      "challenger"
+        ? Boolean(
+            game
+              .challenger_forfeited,
+          )
+        : Boolean(
+            game
+              .opponent_forfeited,
+          );
+
+    const durationSeconds =
+      role ===
+      "challenger"
+        ? game
+            .challenger_duration_seconds
+        : game
+            .opponent_duration_seconds;
+
+    const solvedClubSet =
+      new Set(
+        solvedClubIds,
+      );
+
+    /*
+     * UI refresh sonrası isimleri tekrar gösterebilmek
+     * için sadece gerçekten çözülmüş kulüpleri dönüyoruz.
+     */
+    const solvedClubs =
+      seniorCareer
+        .filter(
+          (club) =>
+            solvedClubSet.has(
+              Number(
+                club.id,
+              ),
+            ),
+        )
+        .map(
+          (club) => ({
+            id:
+              Number(
+                club.id,
+              ),
+
+            name:
+              club.name,
+
+            careerOrder:
+              club.careerOrder,
+          }),
+        );
+
+    const correctCount =
+      calculateCorrectCount({
+        birthYearCorrect,
+        nationalityCorrect,
+        solvedClubIds:
+          solvedClubs.map(
+            (club) =>
+              club.id,
+          ),
+      });
+
+    const totalCount =
+      seniorCareer.length +
+      2;
+
+    /* =====================================================
+       RESPONSE
+    ===================================================== */
+
     return NextResponse.json({
       ok: true,
 
-      role:
-        isChallenger
-          ? "challenger"
-          : "opponent",
+      role,
 
       challenge: {
         id:
@@ -700,6 +1042,11 @@ export async function POST(
           challenge.status,
       },
 
+      /*
+       * İsim/foto backend'de kalabilir.
+       * page.tsx oyun sırasında göstermiyor,
+       * sonuç ekranında kullanabiliyoruz.
+       */
       player: {
         id:
           Number(
@@ -725,15 +1072,49 @@ export async function POST(
           seniorCareer.length,
 
         totalSlots:
-          seniorCareer.length +
-          2,
+          totalCount,
+      },
+
+      progress: {
+        birthYearCorrect,
+
+        nationalityCorrect,
+
+        solvedClubIds:
+          solvedClubs.map(
+            (club) =>
+              club.id,
+          ),
+
+        solvedClubs,
+
+        correctCount,
+
+        totalCount,
+
+        attemptCount,
+
+        wrongAttemptCount:
+          Math.max(
+            0,
+            attemptCount -
+              correctCount,
+          ),
+
+        finalized,
+
+        forfeited,
+
+        durationSeconds:
+          durationSeconds ??
+          null,
       },
 
       minimumSearchLength:
         3,
 
       guessTimeSeconds:
-        30,
+        PLAYER_QUIZ_VS_DURATION_SECONDS,
     });
   } catch (error) {
     console.error(

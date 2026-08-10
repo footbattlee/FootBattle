@@ -12,11 +12,14 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 const GUEST_COOKIE_NAME =
   "footbattle_guest";
 
-type ResultBody = {
-  birthYear?: string | number;
-  nationality?: string;
-  solvedClubIds?: number[];
-  attemptCount?: number;
+type FieldType =
+  | "birthYear"
+  | "nationality"
+  | "club";
+
+type AnswerBody = {
+  field?: FieldType;
+  value?: string | number;
 };
 
 type ChallengeRow = {
@@ -25,59 +28,46 @@ type ChallengeRow = {
   game_code: string;
   status: string;
 
-  challenger_user_id:
-    | string
-    | null;
+  challenger_user_id: string | null;
+  challenger_guest_id: string | null;
 
-  challenger_guest_id:
-    | string
-    | null;
-
-  opponent_user_id:
-    | string
-    | null;
-
-  opponent_guest_id:
-    | string
-    | null;
-
-  winner_side:
-    | "challenger"
-    | "opponent"
-    | "draw"
-    | null;
-
-  started_at:
-    | string
-    | null;
+  opponent_user_id: string | null;
+  opponent_guest_id: string | null;
 };
 
 type GameRow = {
-  challenge_id:
-    | number
-    | string;
+  challenge_id: number | string;
+  player_id: number | string;
 
-  player_id:
-    | number
-    | string;
+  challenger_birth_year_correct: boolean;
+  opponent_birth_year_correct: boolean;
 
-  challenger_completed: boolean;
-  opponent_completed: boolean;
+  challenger_nationality_correct: boolean;
+  opponent_nationality_correct: boolean;
 
-  challenger_score: number;
-  opponent_score: number;
+  challenger_solved_club_ids:
+    | number[]
+    | string[]
+    | null;
+
+  opponent_solved_club_ids:
+    | number[]
+    | string[]
+    | null;
 
   challenger_attempt_count: number;
   opponent_attempt_count: number;
 
-  challenger_completed_at:
-    | string
-    | null;
+  challenger_finalized: boolean;
+  opponent_finalized: boolean;
 
-  opponent_completed_at:
-    | string
-    | null;
+  challenger_forfeited: boolean;
+  opponent_forfeited: boolean;
 };
+
+/* =========================================================
+   HELPERS
+========================================================= */
 
 function sanitizeToken(
   value: unknown,
@@ -115,99 +105,59 @@ function normalizeText(
     );
 }
 
-function parseAttemptCount(
+function isAllowedField(
   value: unknown,
+): value is FieldType {
+  return (
+    value === "birthYear" ||
+    value === "nationality" ||
+    value === "club"
+  );
+}
+
+function parseStoredClubIds(
+  value:
+    | number[]
+    | string[]
+    | null
+    | undefined,
 ) {
-  const parsed =
-    Number(
-      value,
-    );
-
-  if (
-    !Number.isInteger(
-      parsed,
-    ) ||
-    parsed < 0 ||
-    parsed > 500
-  ) {
-    return 0;
+  if (!Array.isArray(value)) {
+    return [] as number[];
   }
 
-  return parsed;
+  return Array.from(
+    new Set(
+      value
+        .map(Number)
+        .filter(
+          (id) =>
+            Number.isInteger(id) &&
+            id > 0,
+        ),
+    ),
+  );
 }
 
-function calculateScore({
-  attemptCount,
-  completedAt,
-  startedAt,
+function calculateCorrectCount({
+  birthYearCorrect,
+  nationalityCorrect,
+  solvedClubIds,
 }: {
-  attemptCount: number;
-  completedAt: string;
-  startedAt:
-    | string
-    | null;
+  birthYearCorrect: boolean;
+  nationalityCorrect: boolean;
+  solvedClubIds: number[];
 }) {
-  let durationSeconds =
-    0;
-
-  if (
-    startedAt
-  ) {
-    const startTime =
-      new Date(
-        startedAt,
-      ).getTime();
-
-    const finishTime =
-      new Date(
-        completedAt,
-      ).getTime();
-
-    if (
-      !Number.isNaN(
-        startTime,
-      ) &&
-      !Number.isNaN(
-        finishTime,
-      ) &&
-      finishTime >=
-        startTime
-    ) {
-      durationSeconds =
-        Math.floor(
-          (
-            finishTime -
-            startTime
-          ) /
-            1000,
-        );
-    }
-  }
-
-  /*
-   * Şimdilik:
-   *
-   * 1000 temel puan
-   * her deneme -20
-   * her saniye -2
-   * minimum 100
-   */
-  const score =
-    Math.max(
-      100,
-
-      1000 -
-        attemptCount *
-          20 -
-        durationSeconds *
-          2,
-    );
-
-  return {
-    score,
-    durationSeconds,
-  };
+  return (
+    (birthYearCorrect ? 1 : 0) +
+    (nationalityCorrect ? 1 : 0) +
+    solvedClubIds.length
+  );
 }
+
+/* =========================================================
+   POST
+========================================================= */
 
 export async function POST(
   request: Request,
@@ -250,38 +200,50 @@ export async function POST(
     ===================================================== */
 
     const body =
-      (await request.json()) as ResultBody;
+      (await request.json()) as AnswerBody;
 
-    const attemptCount =
-      parseAttemptCount(
-        body.attemptCount,
-      );
+    const field =
+      body.field;
 
-    const solvedClubIds =
-      Array.isArray(
-        body.solvedClubIds,
+    const rawValue =
+      body.value;
+
+    if (
+      !isAllowedField(
+        field,
       )
-        ? Array.from(
-            new Set(
-              body.solvedClubIds
-                .map(
-                  Number,
-                )
-                .filter(
-                  (
-                    id,
-                  ) =>
-                    Number.isInteger(
-                      id,
-                    ) &&
-                    id > 0,
-                ),
-            ),
-          )
-        : [];
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Kontrol edilecek alan geçersiz.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    if (
+      rawValue === undefined ||
+      rawValue === null ||
+      String(rawValue).trim() === ""
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Cevap boş olamaz.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
 
     /* =====================================================
-       AUTH
+       AUTH / GUEST
     ===================================================== */
 
     const authClient =
@@ -300,19 +262,15 @@ export async function POST(
     const guestId =
       cookieStore.get(
         GUEST_COOKIE_NAME,
-      )?.value ??
-      null;
+      )?.value ?? null;
 
     /* =====================================================
        CHALLENGE
     ===================================================== */
 
     const {
-      data:
-        challengeData,
-
-      error:
-        challengeError,
+      data: challengeData,
+      error: challengeError,
     } =
       await supabaseAdmin
         .from(
@@ -323,15 +281,10 @@ export async function POST(
           invite_token,
           game_code,
           status,
-
           challenger_user_id,
           challenger_guest_id,
-
           opponent_user_id,
-          opponent_guest_id,
-
-          winner_side,
-          started_at
+          opponent_guest_id
         `)
         .eq(
           "invite_token",
@@ -344,7 +297,7 @@ export async function POST(
       !challengeData
     ) {
       console.error(
-        "Player Quiz VS result challenge okunamadı:",
+        "Player Quiz VS challenge okunamadı:",
         challengeError,
       );
 
@@ -384,15 +337,13 @@ export async function POST(
 
     if (
       challenge.status !==
-        "playing" &&
-      challenge.status !==
-        "completed"
+      "playing"
     ) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            "Düello sonuç gönderilebilir durumda değil.",
+            "Düello şu anda oynanabilir durumda değil.",
         },
         {
           status: 409,
@@ -436,7 +387,7 @@ export async function POST(
         {
           ok: false,
           error:
-            "Bu challenge için sonuç gönderemezsin.",
+            "Bu challenge'a cevap veremezsin.",
         },
         {
           status: 403,
@@ -444,21 +395,20 @@ export async function POST(
       );
     }
 
-    const role =
+    const role:
+      | "challenger"
+      | "opponent" =
       isChallenger
         ? "challenger"
         : "opponent";
 
     /* =====================================================
-       GAME
+       GAME STATE
     ===================================================== */
 
     const {
-      data:
-        gameData,
-
-      error:
-        gameError,
+      data: gameData,
+      error: gameError,
     } =
       await supabaseAdmin
         .from(
@@ -468,17 +418,23 @@ export async function POST(
           challenge_id,
           player_id,
 
-          challenger_completed,
-          opponent_completed,
+          challenger_birth_year_correct,
+          opponent_birth_year_correct,
 
-          challenger_score,
-          opponent_score,
+          challenger_nationality_correct,
+          opponent_nationality_correct,
+
+          challenger_solved_club_ids,
+          opponent_solved_club_ids,
 
           challenger_attempt_count,
           opponent_attempt_count,
 
-          challenger_completed_at,
-          opponent_completed_at
+          challenger_finalized,
+          opponent_finalized,
+
+          challenger_forfeited,
+          opponent_forfeited
         `)
         .eq(
           "challenge_id",
@@ -491,7 +447,7 @@ export async function POST(
       !gameData
     ) {
       console.error(
-        "Player Quiz VS result game okunamadı:",
+        "Player Quiz VS game state okunamadı:",
         gameError,
       );
 
@@ -499,7 +455,7 @@ export async function POST(
         {
           ok: false,
           error:
-            "Challenge oyunu bulunamadı.",
+            "Challenge oyunu hazırlanmadı.",
         },
         {
           status: 409,
@@ -516,171 +472,163 @@ export async function POST(
       );
 
     /* =====================================================
-       ALREADY COMPLETED
+       CURRENT PLAYER STATE
     ===================================================== */
 
-    const alreadyCompleted =
-      role ===
-      "challenger"
-        ? game
-            .challenger_completed
-        : game
-            .opponent_completed;
-
-    if (
-      alreadyCompleted
-    ) {
-      return NextResponse.json({
-        ok: true,
-
-        completed:
-          true,
-
-        alreadyCompleted:
-          true,
-
-        role,
-
-        score:
-          role ===
-          "challenger"
-            ? Number(
-                game.challenger_score,
-              )
-            : Number(
-                game.opponent_score,
-              ),
-
-        challengeCompleted:
-          challenge.status ===
-          "completed",
-
-        winnerSide:
-          challenge.winner_side,
-      });
-    }
-
-    /* =====================================================
-       REAL ANSWERS
-    ===================================================== */
-
-    const [
-      detailsResult,
-      playerResult,
-      clubsResult,
-    ] =
-      await Promise.all([
-        supabaseAdmin
-          .from(
-            "player_quiz_details",
+    const birthYearCorrect =
+      role === "challenger"
+        ? Boolean(
+            game
+              .challenger_birth_year_correct,
           )
-          .select(
-            "birth_year",
-          )
-          .eq(
-            "player_id",
-            playerId,
-          )
-          .maybeSingle(),
+        : Boolean(
+            game
+              .opponent_birth_year_correct,
+          );
 
-        supabaseAdmin
-          .from(
-            "guess_players",
+    const nationalityCorrect =
+      role === "challenger"
+        ? Boolean(
+            game
+              .challenger_nationality_correct,
           )
-          .select(
-            "nationality",
-          )
-          .eq(
-            "player_id",
-            playerId,
-          )
-          .maybeSingle(),
+        : Boolean(
+            game
+              .opponent_nationality_correct,
+          );
 
-        supabaseAdmin
-          .from(
-            "player_quiz_clubs",
+    const solvedClubIds =
+      role === "challenger"
+        ? parseStoredClubIds(
+            game
+              .challenger_solved_club_ids,
           )
-          .select(`
-            id,
-            club_name,
-            career_order
-          `)
-          .eq(
-            "player_id",
-            playerId,
-          )
-          .order(
-            "career_order",
-            {
-              ascending:
-                true,
-            },
-          ),
-      ]);
+        : parseStoredClubIds(
+            game
+              .opponent_solved_club_ids,
+          );
 
-    if (
-      detailsResult.error ||
-      !detailsResult.data
-    ) {
+    const attemptCount =
+      role === "challenger"
+        ? Number(
+            game
+              .challenger_attempt_count ??
+              0,
+          )
+        : Number(
+            game
+              .opponent_attempt_count ??
+              0,
+          );
+
+    const finalized =
+      role === "challenger"
+        ? Boolean(
+            game
+              .challenger_finalized,
+          )
+        : Boolean(
+            game
+              .opponent_finalized,
+          );
+
+    const forfeited =
+      role === "challenger"
+        ? Boolean(
+            game
+              .challenger_forfeited,
+          )
+        : Boolean(
+            game
+              .opponent_forfeited,
+          );
+
+    if (forfeited) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            "Doğum yılı doğrulanamadı.",
+            "Bu düellodan pes ettin.",
         },
         {
-          status: 500,
+          status: 409,
         },
       );
     }
 
-    if (
-      playerResult.error ||
-      !playerResult.data
-        ?.nationality
-    ) {
+    if (finalized) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            "Milliyet doğrulanamadı.",
+            "Bu Player Quiz senin için tamamlandı.",
         },
         {
-          status: 500,
-        },
-      );
-    }
-
-    if (
-      clubsResult.error
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Kulüp bilgileri doğrulanamadı.",
-        },
-        {
-          status: 500,
+          status: 409,
         },
       );
     }
 
     /* =====================================================
        SENIOR CAREER
+
+       Total puan sayısını ve geçerli kulüpleri
+       tek kaynaktan hesaplıyoruz.
     ===================================================== */
+
+    const {
+      data: rawClubs,
+      error: clubsError,
+    } =
+      await supabaseAdmin
+        .from(
+          "player_quiz_clubs",
+        )
+        .select(`
+          id,
+          club_name,
+          career_order
+        `)
+        .eq(
+          "player_id",
+          playerId,
+        )
+        .order(
+          "career_order",
+          {
+            ascending: true,
+          },
+        );
+
+    if (clubsError) {
+      console.error(
+        "Player Quiz VS kulüpler okunamadı:",
+        clubsError,
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Kariyer bilgileri okunamadı.",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
 
     const seniorCareer =
       buildPlayerQuizSeniorCareer(
         (
-          clubsResult.data ??
+          rawClubs ??
           []
         ) as RawPlayerQuizClub[],
       );
 
     if (
-      seniorCareer.length <
-      1
+      seniorCareer.length ===
+      0
     ) {
       return NextResponse.json(
         {
@@ -694,189 +642,668 @@ export async function POST(
       );
     }
 
+    const totalCount =
+      seniorCareer.length +
+      2;
+
     /* =====================================================
-       VERIFY ANSWERS
+       BIRTH YEAR
     ===================================================== */
 
-    const birthYearCorrect =
-      Number(
-        body.birthYear,
-      ) ===
-      Number(
-        detailsResult.data
-          .birth_year,
-      );
+    if (
+      field ===
+      "birthYear"
+    ) {
+      /*
+       * Zaten çözüldüyse network retry yüzünden
+       * yeni deneme yazmıyoruz.
+       */
+      if (
+        birthYearCorrect
+      ) {
+        const correctCount =
+          calculateCorrectCount({
+            birthYearCorrect:
+              true,
 
-    const nationalityCorrect =
-      normalizeText(
-        body.nationality,
-      ) ===
-      normalizeText(
-        playerResult.data
-          .nationality,
-      );
+            nationalityCorrect,
 
-    const targetClubIds =
-      new Set(
-        seniorCareer.map(
-          (
-            club,
-          ) =>
-            Number(
-              club.id,
-            ),
-        ),
-      );
+            solvedClubIds,
+          });
 
-    const submittedClubsValid =
-      solvedClubIds.every(
-        (
-          clubId,
-        ) =>
-          targetClubIds.has(
-            clubId,
-          ),
-      );
+        return NextResponse.json({
+          ok: true,
 
-    const allClubsSolved =
-      targetClubIds.size >
-        0 &&
-      submittedClubsValid &&
-      solvedClubIds.length ===
-        targetClubIds.size;
+          role,
+          field,
 
-    const completed =
-      birthYearCorrect &&
-      nationalityCorrect &&
-      allClubsSolved;
+          correct: true,
+          alreadySolved: true,
 
-    if (!completed) {
-      return NextResponse.json(
-        {
-          ok: false,
+          progress: {
+            birthYearCorrect:
+              true,
 
-          completed:
-            false,
+            nationalityCorrect,
 
-          error:
-            "Player Quiz henüz tamamlanmış görünmüyor.",
+            solvedClubIds,
+
+            correctCount,
+
+            totalCount,
+
+            attemptCount,
+          },
+        });
+      }
+
+      const guessedBirthYear =
+        Number(
+          rawValue,
+        );
+
+      if (
+        !Number.isInteger(
+          guessedBirthYear,
+        ) ||
+        guessedBirthYear <
+          1900 ||
+        guessedBirthYear >
+          2100
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Geçerli bir doğum yılı gir.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      const {
+        data: details,
+        error: detailsError,
+      } =
+        await supabaseAdmin
+          .from(
+            "player_quiz_details",
+          )
+          .select(
+            "birth_year",
+          )
+          .eq(
+            "player_id",
+            playerId,
+          )
+          .maybeSingle();
+
+      if (
+        detailsError ||
+        !details
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Doğum yılı kontrol edilemedi.",
+          },
+          {
+            status: 500,
+          },
+        );
+      }
+
+      const correct =
+        Number(
+          details.birth_year,
+        ) ===
+        guessedBirthYear;
+
+      const newAttemptCount =
+        attemptCount +
+        1;
+
+      const updatePayload =
+        role === "challenger"
+          ? {
+              challenger_birth_year_correct:
+                correct
+                  ? true
+                  : game
+                      .challenger_birth_year_correct,
+
+              challenger_attempt_count:
+                newAttemptCount,
+
+              updated_at:
+                new Date().toISOString(),
+            }
+          : {
+              opponent_birth_year_correct:
+                correct
+                  ? true
+                  : game
+                      .opponent_birth_year_correct,
+
+              opponent_attempt_count:
+                newAttemptCount,
+
+              updated_at:
+                new Date().toISOString(),
+            };
+
+      const {
+        error: updateError,
+      } =
+        await supabaseAdmin
+          .from(
+            "guest_challenge_player_quiz",
+          )
+          .update(
+            updatePayload,
+          )
+          .eq(
+            "challenge_id",
+            challenge.id,
+          );
+
+      if (updateError) {
+        console.error(
+          "Birth year progress kaydedilemedi:",
+          updateError,
+        );
+
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Cevap kaydedilemedi.",
+          },
+          {
+            status: 500,
+          },
+        );
+      }
+
+      const updatedBirthYearCorrect =
+        correct
+          ? true
+          : birthYearCorrect;
+
+      const correctCount =
+        calculateCorrectCount({
+          birthYearCorrect:
+            updatedBirthYearCorrect,
+
+          nationalityCorrect,
+
+          solvedClubIds,
+        });
+
+      return NextResponse.json({
+        ok: true,
+
+        role,
+        field,
+
+        correct,
+
+        alreadySolved:
+          false,
+
+        progress: {
+          birthYearCorrect:
+            updatedBirthYearCorrect,
+
+          nationalityCorrect,
+
+          solvedClubIds,
+
+          correctCount,
+
+          totalCount,
+
+          attemptCount:
+            newAttemptCount,
         },
-        {
-          status: 400,
-        },
-      );
+      });
     }
 
     /* =====================================================
-       SCORE
+       NATIONALITY
     ===================================================== */
 
-    const completedAt =
-      new Date().toISOString();
+    if (
+      field ===
+      "nationality"
+    ) {
+      if (
+        nationalityCorrect
+      ) {
+        const correctCount =
+          calculateCorrectCount({
+            birthYearCorrect,
 
-    const {
-      score,
-      durationSeconds,
-    } =
-      calculateScore({
-        attemptCount,
+            nationalityCorrect:
+              true,
 
-        completedAt,
+            solvedClubIds,
+          });
 
-        startedAt:
-          challenge.started_at,
+        return NextResponse.json({
+          ok: true,
+
+          role,
+          field,
+
+          correct: true,
+          alreadySolved: true,
+
+          progress: {
+            birthYearCorrect,
+
+            nationalityCorrect:
+              true,
+
+            solvedClubIds,
+
+            correctCount,
+
+            totalCount,
+
+            attemptCount,
+          },
+        });
+      }
+
+      const {
+        data: player,
+        error: playerError,
+      } =
+        await supabaseAdmin
+          .from(
+            "guess_players",
+          )
+          .select(
+            "nationality",
+          )
+          .eq(
+            "player_id",
+            playerId,
+          )
+          .maybeSingle();
+
+      if (
+        playerError ||
+        !player
+          ?.nationality
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Milliyet kontrol edilemedi.",
+          },
+          {
+            status: 500,
+          },
+        );
+      }
+
+      const correct =
+        normalizeText(
+          rawValue,
+        ) ===
+        normalizeText(
+          player.nationality,
+        );
+
+      const newAttemptCount =
+        attemptCount +
+        1;
+
+      const updatePayload =
+        role === "challenger"
+          ? {
+              challenger_nationality_correct:
+                correct
+                  ? true
+                  : game
+                      .challenger_nationality_correct,
+
+              challenger_attempt_count:
+                newAttemptCount,
+
+              updated_at:
+                new Date().toISOString(),
+            }
+          : {
+              opponent_nationality_correct:
+                correct
+                  ? true
+                  : game
+                      .opponent_nationality_correct,
+
+              opponent_attempt_count:
+                newAttemptCount,
+
+              updated_at:
+                new Date().toISOString(),
+            };
+
+      const {
+        error: updateError,
+      } =
+        await supabaseAdmin
+          .from(
+            "guest_challenge_player_quiz",
+          )
+          .update(
+            updatePayload,
+          )
+          .eq(
+            "challenge_id",
+            challenge.id,
+          );
+
+      if (updateError) {
+        console.error(
+          "Nationality progress kaydedilemedi:",
+          updateError,
+        );
+
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Cevap kaydedilemedi.",
+          },
+          {
+            status: 500,
+          },
+        );
+      }
+
+      const updatedNationalityCorrect =
+        correct
+          ? true
+          : nationalityCorrect;
+
+      const correctCount =
+        calculateCorrectCount({
+          birthYearCorrect,
+
+          nationalityCorrect:
+            updatedNationalityCorrect,
+
+          solvedClubIds,
+        });
+
+      return NextResponse.json({
+        ok: true,
+
+        role,
+        field,
+
+        correct,
+
+        alreadySolved:
+          false,
+
+        progress: {
+          birthYearCorrect,
+
+          nationalityCorrect:
+            updatedNationalityCorrect,
+
+          solvedClubIds,
+
+          correctCount,
+
+          totalCount,
+
+          attemptCount:
+            newAttemptCount,
+        },
       });
+    }
 
     /* =====================================================
-       SAVE OWN RESULT
+       CLUB
     ===================================================== */
 
-    const ownUpdate =
-      role ===
-      "challenger"
-        ? {
-            challenger_completed:
-              true,
+    const normalizedGuess =
+      normalizeText(
+        rawValue,
+      );
 
-            challenger_score:
-              score,
+    const matchedClub =
+      seniorCareer.find(
+        (club) =>
+          normalizeText(
+            club.name,
+          ) ===
+          normalizedGuess,
+      );
+
+    /*
+     * Yanlış kulüp:
+     * attempt +1
+     */
+    if (!matchedClub) {
+      const newAttemptCount =
+        attemptCount +
+        1;
+
+      const updatePayload =
+        role === "challenger"
+          ? {
+              challenger_attempt_count:
+                newAttemptCount,
+
+              updated_at:
+                new Date().toISOString(),
+            }
+          : {
+              opponent_attempt_count:
+                newAttemptCount,
+
+              updated_at:
+                new Date().toISOString(),
+            };
+
+      const {
+        error: updateError,
+      } =
+        await supabaseAdmin
+          .from(
+            "guest_challenge_player_quiz",
+          )
+          .update(
+            updatePayload,
+          )
+          .eq(
+            "challenge_id",
+            challenge.id,
+          );
+
+      if (updateError) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Deneme kaydedilemedi.",
+          },
+          {
+            status: 500,
+          },
+        );
+      }
+
+      const correctCount =
+        calculateCorrectCount({
+          birthYearCorrect,
+          nationalityCorrect,
+          solvedClubIds,
+        });
+
+      return NextResponse.json({
+        ok: true,
+
+        role,
+        field,
+
+        correct: false,
+        duplicate: false,
+
+        matchedClub:
+          null,
+
+        progress: {
+          birthYearCorrect,
+
+          nationalityCorrect,
+
+          solvedClubIds,
+
+          correctCount,
+
+          totalCount,
+
+          attemptCount:
+            newAttemptCount,
+        },
+      });
+    }
+
+    const matchedId =
+      Number(
+        matchedClub.id,
+      );
+
+    /*
+     * Daha önce çözülen kulüp.
+     * Network retry / tekrar tıklama:
+     * attempt artırmıyoruz.
+     */
+    if (
+      solvedClubIds.includes(
+        matchedId,
+      )
+    ) {
+      const correctCount =
+        calculateCorrectCount({
+          birthYearCorrect,
+          nationalityCorrect,
+          solvedClubIds,
+        });
+
+      return NextResponse.json({
+        ok: true,
+
+        role,
+        field,
+
+        correct: true,
+
+        duplicate: true,
+        alreadySolved: true,
+
+        matchedClub: {
+          id:
+            matchedId,
+
+          name:
+            matchedClub.name,
+
+          careerOrder:
+            matchedClub.careerOrder,
+        },
+
+        progress: {
+          birthYearCorrect,
+
+          nationalityCorrect,
+
+          solvedClubIds,
+
+          correctCount,
+
+          totalCount,
+
+          attemptCount,
+        },
+      });
+    }
+
+    /*
+     * Yeni doğru kulüp.
+     */
+    const updatedSolvedClubIds =
+      Array.from(
+        new Set([
+          ...solvedClubIds,
+          matchedId,
+        ]),
+      );
+
+    const newAttemptCount =
+      attemptCount +
+      1;
+
+    const updatePayload =
+      role === "challenger"
+        ? {
+            challenger_solved_club_ids:
+              updatedSolvedClubIds,
 
             challenger_attempt_count:
-              attemptCount,
-
-            challenger_completed_at:
-              completedAt,
+              newAttemptCount,
 
             updated_at:
-              completedAt,
+              new Date().toISOString(),
           }
         : {
-            opponent_completed:
-              true,
-
-            opponent_score:
-              score,
+            opponent_solved_club_ids:
+              updatedSolvedClubIds,
 
             opponent_attempt_count:
-              attemptCount,
-
-            opponent_completed_at:
-              completedAt,
+              newAttemptCount,
 
             updated_at:
-              completedAt,
+              new Date().toISOString(),
           };
 
     const {
-      data:
-        updatedGameData,
-
       error:
-        updateGameError,
+        updateError,
     } =
       await supabaseAdmin
         .from(
           "guest_challenge_player_quiz",
         )
         .update(
-          ownUpdate,
+          updatePayload,
         )
         .eq(
           "challenge_id",
           challenge.id,
-        )
-        .select(`
-          challenge_id,
-          player_id,
+        );
 
-          challenger_completed,
-          opponent_completed,
-
-          challenger_score,
-          opponent_score,
-
-          challenger_attempt_count,
-          opponent_attempt_count,
-
-          challenger_completed_at,
-          opponent_completed_at
-        `)
-        .maybeSingle();
-
-    if (
-      updateGameError ||
-      !updatedGameData
-    ) {
+    if (updateError) {
       console.error(
-        "Player Quiz VS result kaydedilemedi:",
-        updateGameError,
+        "Club progress kaydedilemedi:",
+        updateError,
       );
 
       return NextResponse.json(
         {
           ok: false,
           error:
-            "Düello sonucu kaydedilemedi.",
+            "Kulüp cevabı kaydedilemedi.",
         },
         {
           status: 500,
@@ -884,307 +1311,55 @@ export async function POST(
       );
     }
 
-    const updatedGame =
-      updatedGameData as GameRow;
+    const correctCount =
+      calculateCorrectCount({
+        birthYearCorrect,
+        nationalityCorrect,
 
-    /* =====================================================
-       UPDATE MAIN SCORE
-    ===================================================== */
-
-    const challengeScoreUpdate =
-      role ===
-      "challenger"
-        ? {
-            challenger_score:
-              score,
-
-            updated_at:
-              completedAt,
-          }
-        : {
-            opponent_score:
-              score,
-
-            updated_at:
-              completedAt,
-          };
-
-    const {
-      error:
-        scoreUpdateError,
-    } =
-      await supabaseAdmin
-        .from(
-          "guest_challenges",
-        )
-        .update(
-          challengeScoreUpdate,
-        )
-        .eq(
-          "id",
-          challenge.id,
-        );
-
-    if (
-      scoreUpdateError
-    ) {
-      console.error(
-        "Challenge ana skor update hatası:",
-        scoreUpdateError,
-      );
-    }
-
-    /* =====================================================
-       BOTH COMPLETED?
-    ===================================================== */
-
-    const bothCompleted =
-      updatedGame
-        .challenger_completed &&
-      updatedGame
-        .opponent_completed;
-
-    let winnerSide:
-      | "challenger"
-      | "opponent"
-      | "draw"
-      | null =
-      null;
-
-    let challengeCompleted =
-      false;
-
-    if (
-      bothCompleted
-    ) {
-      const challengerScore =
-        Number(
-          updatedGame
-            .challenger_score,
-        );
-
-      const opponentScore =
-        Number(
-          updatedGame
-            .opponent_score,
-        );
-
-      if (
-        challengerScore >
-        opponentScore
-      ) {
-        winnerSide =
-          "challenger";
-      } else if (
-        opponentScore >
-        challengerScore
-      ) {
-        winnerSide =
-          "opponent";
-      } else {
-        /*
-         * Puan aynıysa önce bitiren kazanır.
-         */
-        const challengerFinishedAt =
-          updatedGame
-            .challenger_completed_at
-            ? new Date(
-                updatedGame
-                  .challenger_completed_at,
-              ).getTime()
-            : null;
-
-        const opponentFinishedAt =
-          updatedGame
-            .opponent_completed_at
-            ? new Date(
-                updatedGame
-                  .opponent_completed_at,
-              ).getTime()
-            : null;
-
-        if (
-          challengerFinishedAt !==
-            null &&
-          opponentFinishedAt !==
-            null
-        ) {
-          if (
-            challengerFinishedAt <
-            opponentFinishedAt
-          ) {
-            winnerSide =
-              "challenger";
-          } else if (
-            opponentFinishedAt <
-            challengerFinishedAt
-          ) {
-            winnerSide =
-              "opponent";
-          } else {
-            winnerSide =
-              "draw";
-          }
-        } else {
-          winnerSide =
-            "draw";
-        }
-      }
-
-      const now =
-        new Date().toISOString();
-
-      const {
-        error:
-          completeError,
-      } =
-        await supabaseAdmin
-          .from(
-            "guest_challenges",
-          )
-          .update({
-            status:
-              "completed",
-
-            challenger_score:
-              Number(
-                updatedGame
-                  .challenger_score,
-              ),
-
-            opponent_score:
-              Number(
-                updatedGame
-                  .opponent_score,
-              ),
-
-            winner_side:
-              winnerSide,
-
-            completed_at:
-              now,
-
-            updated_at:
-              now,
-          })
-          .eq(
-            "id",
-            challenge.id,
-          )
-          .in(
-            "status",
-            [
-              "playing",
-              "completed",
-            ],
-          );
-
-      if (
-        completeError
-      ) {
-        console.error(
-          "Challenge tamamlanamadı:",
-          completeError,
-        );
-      } else {
-        challengeCompleted =
-          true;
-      }
-    }
-
-    /* =====================================================
-       RESULT FOR CURRENT PLAYER
-    ===================================================== */
-
-    let currentResult:
-      | "win"
-      | "loss"
-      | "draw"
-      | "waiting" =
-      "waiting";
-
-    if (
-      challengeCompleted &&
-      winnerSide
-    ) {
-      if (
-        winnerSide ===
-        "draw"
-      ) {
-        currentResult =
-          "draw";
-      } else if (
-        winnerSide ===
-        role
-      ) {
-        currentResult =
-          "win";
-      } else {
-        currentResult =
-          "loss";
-      }
-    }
-
-    /* =====================================================
-       RESPONSE
-    ===================================================== */
+        solvedClubIds:
+          updatedSolvedClubIds,
+      });
 
     return NextResponse.json({
       ok: true,
 
-      completed:
-        true,
-
-      alreadyCompleted:
-        false,
-
       role,
+      field,
 
-      score,
+      correct: true,
+      duplicate: false,
+      alreadySolved: false,
 
-      durationSeconds,
+      matchedClub: {
+        id:
+          matchedId,
 
-      challengeCompleted,
+        name:
+          matchedClub.name,
 
-      waitingForOpponent:
-        !challengeCompleted,
-
-      winnerSide,
-
-      result:
-        currentResult,
-
-      scores: {
-        challenger:
-          Number(
-            updatedGame
-              .challenger_score,
-          ),
-
-        opponent:
-          Number(
-            updatedGame
-              .opponent_score,
-          ),
+        careerOrder:
+          matchedClub.careerOrder,
       },
 
-      attempts: {
-        challenger:
-          Number(
-            updatedGame
-              .challenger_attempt_count,
-          ),
+      progress: {
+        birthYearCorrect,
 
-        opponent:
-          Number(
-            updatedGame
-              .opponent_attempt_count,
-          ),
+        nationalityCorrect,
+
+        solvedClubIds:
+          updatedSolvedClubIds,
+
+        correctCount,
+
+        totalCount,
+
+        attemptCount:
+          newAttemptCount,
       },
     });
   } catch (error) {
     console.error(
-      "Player Quiz VS result endpoint hatası:",
+      "Player Quiz VS answer endpoint hatası:",
       error,
     );
 
@@ -1195,7 +1370,7 @@ export async function POST(
         error:
           error instanceof Error
             ? error.message
-            : "Düello sonucu gönderilirken beklenmeyen bir hata oluştu.",
+            : "Cevap kontrol edilirken hata oluştu.",
       },
       {
         status: 500,
