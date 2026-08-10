@@ -17,14 +17,30 @@ import {
 const PLAYER_QUIZ_VS_DURATION_SECONDS =
   250;
 
+const CLUB_CLASH_WIN_SCORE =
+  3;
+
+const CLUB_CLASH_ROUND_COUNT =
+  5;
+
 /* =========================================================
-   TYPES
+   COMMON TYPES
 ========================================================= */
 
 type ChallengeRole =
   | "challenger"
   | "opponent"
   | "visitor";
+
+type ChallengeSide =
+  | "challenger"
+  | "opponent";
+
+type WinnerSide =
+  | "challenger"
+  | "opponent"
+  | "draw"
+  | null;
 
 type ChallengePlayer = {
   name: string | null;
@@ -45,10 +61,7 @@ type ChallengeData = {
     | null;
 
   winnerSide:
-    | "challenger"
-    | "opponent"
-    | "draw"
-    | null;
+    WinnerSide;
 
   createdAt: string;
 
@@ -92,6 +105,10 @@ type ChallengeResponse = {
 
   error?: string;
 };
+
+/* =========================================================
+   PLAYER QUIZ TYPES
+========================================================= */
 
 type PrepareProgress = {
   birthYearCorrect: boolean;
@@ -230,10 +247,7 @@ type ResultResponse = {
   waitingForOpponent?: boolean;
 
   winnerSide?:
-    | "challenger"
-    | "opponent"
-    | "draw"
-    | null;
+    WinnerSide;
 
   result?:
     | "win"
@@ -274,12 +288,12 @@ type ForfeitResponse = {
   forfeited?: boolean;
 
   winnerSide?:
-    | "challenger"
-    | "opponent"
-    | null;
+    WinnerSide;
 
   result?:
+    | "win"
     | "loss"
+    | "draw"
     | null;
 
   message?: string;
@@ -314,6 +328,275 @@ type SolvedClub = {
 };
 
 /* =========================================================
+   CLUB CLASH TYPES
+========================================================= */
+
+type ClubClashConstraint = {
+  type: string;
+  value: string;
+};
+
+type ClubClashRound = {
+  id: number;
+  roundNo: number;
+
+  left: ClubClashConstraint;
+  right: ClubClashConstraint;
+
+  winnerSide:
+    WinnerSide;
+
+  challengerAnswer?:
+    | string
+    | null;
+
+  opponentAnswer?:
+    | string
+    | null;
+
+  challengerAnswerPlayerId?:
+    | number
+    | null;
+
+  opponentAnswerPlayerId?:
+    | number
+    | null;
+
+  challengerAnsweredAt?:
+    | string
+    | null;
+
+  opponentAnsweredAt?:
+    | string
+    | null;
+
+  completedAt:
+    | string
+    | null;
+
+  createdAt?:
+    string;
+};
+
+type ClubClashStateResponse = {
+  ok?: boolean;
+
+  role?:
+    ChallengeSide;
+
+  game?: {
+    code: string;
+    label: string;
+    roundCount: number;
+    winScore: number;
+  };
+
+  challenge?: {
+    id: number;
+    token: string;
+    status: string;
+
+    startedAt:
+      | string
+      | null;
+
+    completedAt:
+      | string
+      | null;
+
+    createdAt: string;
+    updatedAt: string;
+  };
+
+  players?: {
+    challenger: {
+      name:
+        | string
+        | null;
+
+      score: number;
+    };
+
+    opponent: {
+      name:
+        | string
+        | null;
+
+      score: number;
+    };
+  };
+
+  me?: {
+    side:
+      ChallengeSide;
+
+    name:
+      | string
+      | null;
+
+    score: number;
+  };
+
+  opponent?: {
+    side:
+      ChallengeSide;
+
+    name:
+      | string
+      | null;
+
+    score: number;
+  };
+
+  score?: {
+    challenger: number;
+    opponent: number;
+  };
+
+  roundCount?: number;
+
+  completedRoundCount?: number;
+
+  currentRound?:
+    | ClubClashRound
+    | null;
+
+  rounds?:
+    ClubClashRound[];
+
+  winnerSide?:
+    WinnerSide;
+
+  completed?: boolean;
+
+  result?:
+    | "win"
+    | "loss"
+    | "draw"
+    | null;
+
+  error?: string;
+};
+
+type ClubClashPrepareResponse = {
+  ok?: boolean;
+
+  role?:
+    ChallengeSide;
+
+  alreadyPrepared?: boolean;
+
+  roundCount?: number;
+
+  game?: {
+    code: string;
+    label: string;
+    roundCount: number;
+    winScore: number;
+  };
+
+  rounds?: ClubClashRound[];
+
+  error?: string;
+};
+
+type ClubClashPlayerSuggestion = {
+  playerId: number;
+
+  name: string;
+
+  nationality:
+    | string
+    | null;
+
+  currentClubName:
+    | string
+    | null;
+
+  imageUrl:
+    | string
+    | null;
+
+  popularityScore:
+    | number
+    | null;
+};
+
+type ClubClashSearchResponse = {
+  ok?: boolean;
+
+  role?:
+    ChallengeSide;
+
+  query?: string;
+
+  normalizedQuery?: string;
+
+  minimumSearchLength?: number;
+
+  players?:
+    ClubClashPlayerSuggestion[];
+
+  error?: string;
+};
+
+type ClubClashAnswerResponse = {
+  ok?: boolean;
+
+  correct?: boolean;
+
+  won?: boolean;
+
+  roundCompleted?: boolean;
+
+  gameFinished?: boolean;
+
+  role?:
+    ChallengeSide;
+
+  winScore?: number;
+
+  message?: string;
+
+  player?: {
+    playerId: number;
+    name: string;
+  };
+
+  score?: {
+    challenger: number;
+    opponent: number;
+  };
+
+  round?: {
+    id: number;
+    roundNo: number;
+
+    winnerSide:
+      WinnerSide;
+
+    completedAt:
+      | string
+      | null;
+  };
+
+  nextRound?:
+    | {
+        id: number;
+        roundNo: number;
+
+        left: ClubClashConstraint;
+        right: ClubClashConstraint;
+      }
+    | null;
+
+  winnerSide?:
+    WinnerSide;
+
+  error?: string;
+};
+
+/* =========================================================
    GAME LABELS
 ========================================================= */
 
@@ -332,6 +615,9 @@ const GAME_LABELS: Record<
 
   guess_the_player:
     "Guess The Player",
+
+  club_country:
+    "1 Takım 1 Millet",
 };
 
 /* =========================================================
@@ -566,7 +852,7 @@ export default function ChallengePage({
     useState("");
 
   /* =======================================================
-     ANSWERS
+     PLAYER QUIZ ANSWERS
   ======================================================= */
 
   const [
@@ -597,9 +883,7 @@ export default function ChallengePage({
     countrySuggestions,
     setCountrySuggestions,
   ] =
-    useState<
-      string[]
-    >([]);
+    useState<string[]>([]);
 
   const [
     clubQuery,
@@ -611,17 +895,13 @@ export default function ChallengePage({
     clubSuggestions,
     setClubSuggestions,
   ] =
-    useState<
-      ClubSuggestion[]
-    >([]);
+    useState<ClubSuggestion[]>([]);
 
   const [
     solvedClubs,
     setSolvedClubs,
   ] =
-    useState<
-      SolvedClub[]
-    >([]);
+    useState<SolvedClub[]>([]);
 
   const [
     answerLoading,
@@ -641,7 +921,7 @@ export default function ChallengePage({
     useState(0);
 
   /* =======================================================
-     TIMER
+     PLAYER QUIZ TIMER
   ======================================================= */
 
   const [
@@ -653,7 +933,7 @@ export default function ChallengePage({
     );
 
   /* =======================================================
-     RESULT
+     PLAYER QUIZ RESULT
   ======================================================= */
 
   const [
@@ -677,7 +957,7 @@ export default function ChallengePage({
     useRef(false);
 
   /* =======================================================
-     FORFEIT
+     COMMON FORFEIT
   ======================================================= */
 
   const [
@@ -685,6 +965,75 @@ export default function ChallengePage({
     setForfeitLoading,
   ] =
     useState(false);
+
+  /* =======================================================
+     CLUB CLASH
+  ======================================================= */
+
+  const [
+    clubClash,
+    setClubClash,
+  ] =
+    useState<ClubClashStateResponse | null>(
+      null,
+    );
+
+  const [
+    clubClashPreparing,
+    setClubClashPreparing,
+  ] =
+    useState(false);
+
+  const [
+    clubClashPrepared,
+    setClubClashPrepared,
+  ] =
+    useState(false);
+
+  const [
+    clubClashError,
+    setClubClashError,
+  ] =
+    useState("");
+
+  const clubClashPrepareRef =
+    useRef(false);
+
+  /* =======================================================
+     CLUB CLASH SEARCH
+  ======================================================= */
+
+  const [
+    clashQuery,
+    setClashQuery,
+  ] =
+    useState("");
+
+  const [
+    clashSuggestions,
+    setClashSuggestions,
+  ] =
+    useState<
+      ClubClashPlayerSuggestion[]
+    >([]);
+
+  const [
+    clashSearchLoading,
+    setClashSearchLoading,
+  ] =
+    useState(false);
+
+  const [
+    clashAnswerLoading,
+    setClashAnswerLoading,
+  ] =
+    useState(false);
+
+  const [
+    clashMessage,
+    setClashMessage,
+  ] =
+    useState("");
 
   /* =======================================================
      LOAD CHALLENGE
@@ -850,10 +1199,16 @@ export default function ChallengePage({
           gameCode
         : "FootBattle";
 
+    const ruleText =
+      gameCode ===
+      "club_clash"
+        ? "🎯 5 round · İlk 3 roundu alan kazanır"
+        : "⏱ 250 saniye · En çok doğru bilgiyi bulan kazanır";
+
     const message =
       `⚔️ ${challengerName} sana FootBattle'da meydan okuyor!\n\n` +
       `🎮 ${label}\n` +
-      `⏱ 250 saniye\n\n` +
+      `${ruleText}\n\n` +
       `Hesap açmana gerek yok. Linke gir ve kapışmaya başla 👇\n` +
       `${url}`;
 
@@ -1003,6 +1358,13 @@ export default function ChallengePage({
       timeoutSentRef.current =
         false;
 
+      clubClashPrepareRef.current =
+        false;
+
+      setClubClashPrepared(
+        false,
+      );
+
       await loadChallenge();
     } catch (error) {
       setPageError(
@@ -1018,7 +1380,7 @@ export default function ChallengePage({
   }
 
   /* =======================================================
-     PREPARE
+     PLAYER QUIZ PREPARE
   ======================================================= */
 
   const prepareGame =
@@ -1149,7 +1511,221 @@ export default function ChallengePage({
   ]);
 
   /* =======================================================
-     COUNTDOWN
+     CLUB CLASH GET
+  ======================================================= */
+
+  const loadClubClash =
+    useCallback(
+      async (
+        silent = false,
+      ) => {
+        try {
+          if (!silent) {
+            setClubClashError(
+              "",
+            );
+          }
+
+          const response =
+            await fetch(
+              `/api/challenges/${encodeURIComponent(
+                token,
+              )}/club-clash`,
+              {
+                cache:
+                  "no-store",
+              },
+            );
+
+          const json =
+            (await response.json()) as ClubClashStateResponse;
+
+          if (
+            !response.ok ||
+            !json.ok
+          ) {
+            if (!silent) {
+              throw new Error(
+                json.error ??
+                  "2 Takım 1 Oyuncu bilgileri okunamadı.",
+              );
+            }
+
+            return;
+          }
+
+          setClubClash(
+            json,
+          );
+
+          setClubClashError(
+            "",
+          );
+        } catch (error) {
+          if (!silent) {
+            setClubClashError(
+              error instanceof Error
+                ? error.message
+                : "2 Takım 1 Oyuncu bilgileri okunamadı.",
+            );
+          }
+        }
+      },
+      [
+        token,
+      ],
+    );
+
+  /* =======================================================
+     CLUB CLASH PREPARE
+  ======================================================= */
+
+  const prepareClubClash =
+    useCallback(
+      async () => {
+        if (
+          clubClashPrepareRef.current
+        ) {
+          return;
+        }
+
+        clubClashPrepareRef.current =
+          true;
+
+        try {
+          setClubClashPreparing(
+            true,
+          );
+
+          setClubClashError(
+            "",
+          );
+
+          const response =
+            await fetch(
+              `/api/challenges/${encodeURIComponent(
+                token,
+              )}/club-clash/prepare`,
+              {
+                method:
+                  "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+              },
+            );
+
+          const json =
+            (await response.json()) as ClubClashPrepareResponse;
+
+          if (
+            !response.ok ||
+            !json.ok
+          ) {
+            throw new Error(
+              json.error ??
+                "2 Takım 1 Oyuncu hazırlanamadı.",
+            );
+          }
+
+          setClubClashPrepared(
+            true,
+          );
+
+          await loadClubClash();
+        } catch (error) {
+          clubClashPrepareRef.current =
+            false;
+
+          setClubClashError(
+            error instanceof Error
+              ? error.message
+              : "2 Takım 1 Oyuncu hazırlanamadı.",
+          );
+        } finally {
+          setClubClashPreparing(
+            false,
+          );
+        }
+      },
+      [
+        loadClubClash,
+        token,
+      ],
+    );
+
+  useEffect(() => {
+    if (
+      challengeData
+        ?.challenge
+        ?.status ===
+        "playing" &&
+      challengeData
+        .challenge
+        .gameCode ===
+        "club_clash"
+    ) {
+      void prepareClubClash();
+    }
+  }, [
+    challengeData
+      ?.challenge
+      ?.gameCode,
+    challengeData
+      ?.challenge
+      ?.status,
+    prepareClubClash,
+  ]);
+
+  /* =======================================================
+     CLUB CLASH LIVE POLLING
+  ======================================================= */
+
+  useEffect(() => {
+    if (
+      challengeData
+        ?.challenge
+        ?.gameCode !==
+        "club_clash" ||
+      challengeData
+        ?.challenge
+        ?.status !==
+        "playing" ||
+      !clubClashPrepared
+    ) {
+      return;
+    }
+
+    const interval =
+      window.setInterval(
+        () => {
+          void loadClubClash(
+            true,
+          );
+        },
+        1200,
+      );
+
+    return () => {
+      window.clearInterval(
+        interval,
+      );
+    };
+  }, [
+    challengeData
+      ?.challenge
+      ?.gameCode,
+    challengeData
+      ?.challenge
+      ?.status,
+    clubClashPrepared,
+    loadClubClash,
+  ]);
+
+  /* =======================================================
+     PLAYER QUIZ COUNTDOWN
   ======================================================= */
 
   useEffect(() => {
@@ -1160,7 +1736,9 @@ export default function ChallengePage({
       challenge?.startedAt;
 
     if (
-      challenge?.status !==
+      challenge?.gameCode !==
+        "player_quiz" ||
+      challenge.status !==
         "playing" ||
       !startedAt ||
       resultSentRef.current
@@ -1195,6 +1773,9 @@ export default function ChallengePage({
   }, [
     challengeData
       ?.challenge
+      ?.gameCode,
+    challengeData
+      ?.challenge
       ?.startedAt,
     challengeData
       ?.challenge
@@ -1202,11 +1783,15 @@ export default function ChallengePage({
   ]);
 
   /* =======================================================
-     COUNTRY SEARCH
+     PLAYER QUIZ COUNTRY SEARCH
   ======================================================= */
 
   useEffect(() => {
     if (
+      challengeData
+        ?.challenge
+        ?.gameCode !==
+        "player_quiz" ||
       nationalitySolved ||
       remainingSeconds <=
         0
@@ -1271,19 +1856,26 @@ export default function ChallengePage({
         timeout,
       );
   }, [
+    challengeData
+      ?.challenge
+      ?.gameCode,
     nationality,
     nationalitySolved,
     remainingSeconds,
   ]);
 
   /* =======================================================
-     CLUB SEARCH
+     PLAYER QUIZ CLUB SEARCH
   ======================================================= */
 
   useEffect(() => {
     if (
+      challengeData
+        ?.challenge
+        ?.gameCode !==
+        "player_quiz" ||
       remainingSeconds <=
-      0
+        0
     ) {
       setClubSuggestions(
         [],
@@ -1347,12 +1939,144 @@ export default function ChallengePage({
         timeout,
       );
   }, [
+    challengeData
+      ?.challenge
+      ?.gameCode,
     clubQuery,
     remainingSeconds,
   ]);
 
   /* =======================================================
-     APPLY SERVER PROGRESS
+     CLUB CLASH PLAYER SEARCH
+  ======================================================= */
+
+  useEffect(() => {
+    if (
+      challengeData
+        ?.challenge
+        ?.gameCode !==
+        "club_clash" ||
+      challengeData
+        ?.challenge
+        ?.status !==
+        "playing" ||
+      !clubClash
+        ?.currentRound
+    ) {
+      setClashSuggestions(
+        [],
+      );
+
+      return;
+    }
+
+    const query =
+      clashQuery.trim();
+
+    if (
+      query.length <
+      3
+    ) {
+      setClashSuggestions(
+        [],
+      );
+
+      return;
+    }
+
+    let cancelled =
+      false;
+
+    const timeout =
+      window.setTimeout(
+        async () => {
+          try {
+            setClashSearchLoading(
+              true,
+            );
+
+            const response =
+              await fetch(
+                `/api/challenges/${encodeURIComponent(
+                  token,
+                )}/club-clash/search-player?q=${encodeURIComponent(
+                  query,
+                )}`,
+                {
+                  cache:
+                    "no-store",
+                },
+              );
+
+            const json =
+              (await response.json()) as ClubClashSearchResponse;
+
+            if (
+              cancelled
+            ) {
+              return;
+            }
+
+            if (
+              !response.ok ||
+              !json.ok
+            ) {
+              setClashSuggestions(
+                [],
+              );
+
+              return;
+            }
+
+            setClashSuggestions(
+              json.players ??
+                [],
+            );
+          } catch {
+            if (
+              !cancelled
+            ) {
+              setClashSuggestions(
+                [],
+              );
+            }
+          } finally {
+            if (
+              !cancelled
+            ) {
+              setClashSearchLoading(
+                false,
+              );
+            }
+          }
+        },
+        220,
+      );
+
+    return () => {
+      cancelled =
+        true;
+
+      window.clearTimeout(
+        timeout,
+      );
+    };
+  }, [
+    challengeData
+      ?.challenge
+      ?.gameCode,
+    challengeData
+      ?.challenge
+      ?.status,
+    clashQuery,
+    clubClash
+      ?.currentRound
+      ?.id,
+    token,
+  ]);
+
+  /* =======================================================
+     PLAYER QUIZ APPLY PROGRESS
   ======================================================= */
 
   function applyProgress(
@@ -1378,7 +2102,7 @@ export default function ChallengePage({
   }
 
   /* =======================================================
-     SUBMIT ANSWER
+     PLAYER QUIZ SUBMIT ANSWER
   ======================================================= */
 
   async function submitAnswer(
@@ -1564,7 +2288,125 @@ export default function ChallengePage({
   }
 
   /* =======================================================
-     COUNTS
+     CLUB CLASH SUBMIT ANSWER
+  ======================================================= */
+
+  async function submitClubClashAnswer(
+    player:
+      ClubClashPlayerSuggestion,
+  ) {
+    if (
+      clashAnswerLoading ||
+      !clubClash
+        ?.currentRound
+    ) {
+      return;
+    }
+
+    try {
+      setClashAnswerLoading(
+        true,
+      );
+
+      setClubClashError(
+        "",
+      );
+
+      setClashMessage(
+        "",
+      );
+
+      setClashSuggestions(
+        [],
+      );
+
+      const response =
+        await fetch(
+          `/api/challenges/${encodeURIComponent(
+            token,
+          )}/club-clash/answer`,
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                playerId:
+                  player.playerId,
+
+                answer:
+                  player.name,
+              }),
+          },
+        );
+
+      const json =
+        (await response.json()) as ClubClashAnswerResponse;
+
+      if (
+        !response.ok ||
+        !json.ok
+      ) {
+        throw new Error(
+          json.error ??
+            "Cevap kontrol edilemedi.",
+        );
+      }
+
+      if (
+        !json.correct
+      ) {
+        setClashMessage(
+          `❌ ${player.name} bu iki takımda da oynamadı.`,
+        );
+
+        return;
+      }
+
+      if (
+        json.won
+      ) {
+        setClashMessage(
+          json.gameFinished
+            ? "🏆 Doğru! Düelloyu kazandın!"
+            : `⚡ Doğru! ${json.round?.roundNo ?? ""}. round senin!`,
+        );
+      } else {
+        setClashMessage(
+          "✅ Cevap doğruydu fakat rakibin senden önce davrandı.",
+        );
+      }
+
+      setClashQuery(
+        "",
+      );
+
+      await Promise.all([
+        loadClubClash(),
+        loadChallenge(
+          true,
+        ),
+      ]);
+    } catch (error) {
+      setClubClashError(
+        error instanceof Error
+          ? error.message
+          : "Cevap kontrol edilemedi.",
+      );
+    } finally {
+      setClashAnswerLoading(
+        false,
+      );
+    }
+  }
+
+  /* =======================================================
+     PLAYER QUIZ COUNTS
   ======================================================= */
 
   const requiredClubCount =
@@ -1603,7 +2445,7 @@ export default function ChallengePage({
       totalCount;
 
   /* =======================================================
-     FINALIZE
+     PLAYER QUIZ FINALIZE
   ======================================================= */
 
   const finalizeResult =
@@ -1694,15 +2536,19 @@ export default function ChallengePage({
     );
 
   /* =======================================================
-     EARLY COMPLETION
+     PLAYER QUIZ EARLY COMPLETION
   ======================================================= */
 
   useEffect(() => {
     if (
-      puzzleCompleted &&
       challengeData
         ?.challenge
-        ?.status ===
+        ?.gameCode ===
+        "player_quiz" &&
+      puzzleCompleted &&
+      challengeData
+        .challenge
+        .status ===
         "playing" &&
       !resultSentRef.current
     ) {
@@ -1713,17 +2559,24 @@ export default function ChallengePage({
   }, [
     challengeData
       ?.challenge
+      ?.gameCode,
+    challengeData
+      ?.challenge
       ?.status,
     finalizeResult,
     puzzleCompleted,
   ]);
 
   /* =======================================================
-     TIMEOUT
+     PLAYER QUIZ TIMEOUT
   ======================================================= */
 
   useEffect(() => {
     if (
+      challengeData
+        ?.challenge
+        ?.gameCode !==
+        "player_quiz" ||
       remainingSeconds >
         0 ||
       challengeData
@@ -1746,6 +2599,9 @@ export default function ChallengePage({
   }, [
     challengeData
       ?.challenge
+      ?.gameCode,
+    challengeData
+      ?.challenge
       ?.status,
     finalizeResult,
     game?.ok,
@@ -1753,13 +2609,26 @@ export default function ChallengePage({
   ]);
 
   /* =======================================================
-     FORFEIT
+     COMMON FORFEIT
   ======================================================= */
 
   async function forfeitChallenge() {
     if (
-      forfeitLoading ||
-      resultSentRef.current
+      forfeitLoading
+    ) {
+      return;
+    }
+
+    const currentGameCode =
+      challengeData
+        ?.challenge
+        ?.gameCode;
+
+    if (
+      currentGameCode !==
+        "player_quiz" &&
+      currentGameCode !==
+        "club_clash"
     ) {
       return;
     }
@@ -1782,11 +2651,23 @@ export default function ChallengePage({
         "",
       );
 
+      setClubClashError(
+        "",
+      );
+
+      const endpoint =
+        currentGameCode ===
+        "club_clash"
+          ? `/api/challenges/${encodeURIComponent(
+              token,
+            )}/club-clash/forfeit`
+          : `/api/challenges/${encodeURIComponent(
+              token,
+            )}/player-quiz/forfeit`;
+
       const response =
         await fetch(
-          `/api/challenges/${encodeURIComponent(
-            token,
-          )}/player-quiz/forfeit`,
+          endpoint,
           {
             method:
               "POST",
@@ -1811,16 +2692,42 @@ export default function ChallengePage({
         );
       }
 
-      resultSentRef.current =
-        true;
+      if (
+        currentGameCode ===
+        "player_quiz"
+      ) {
+        resultSentRef.current =
+          true;
+      }
+
+      if (
+        currentGameCode ===
+        "club_clash"
+      ) {
+        await loadClubClash(
+          true,
+        );
+      }
 
       await loadChallenge();
     } catch (error) {
-      setGameError(
+      const message =
         error instanceof Error
           ? error.message
-          : "Pes etme işlemi başarısız oldu.",
-      );
+          : "Pes etme işlemi başarısız oldu.";
+
+      if (
+        currentGameCode ===
+        "club_clash"
+      ) {
+        setClubClashError(
+          message,
+        );
+      } else {
+        setGameError(
+          message,
+        );
+      }
     } finally {
       setForfeitLoading(
         false,
@@ -1829,7 +2736,7 @@ export default function ChallengePage({
   }
 
   /* =======================================================
-     FINISHED PLAYER POLLING
+     PLAYER QUIZ FINISHED POLLING
   ======================================================= */
 
   useEffect(() => {
@@ -1899,6 +2806,16 @@ export default function ChallengePage({
       : challenge
           ?.challenger
           .name;
+
+  const isPlayerQuiz =
+    challenge
+      ?.gameCode ===
+    "player_quiz";
+
+  const isClubClash =
+    challenge
+      ?.gameCode ===
+    "club_clash";
 
   /* =======================================================
      LOADING
@@ -2033,9 +2950,15 @@ export default function ChallengePage({
               {gameLabel}
             </p>
 
-            <p className="mt-2 text-xs text-slate-500">
-              ⏱ 250 saniye · En çok doğru bilgiyi bulan kazanır.
-            </p>
+            {isClubClash ? (
+              <p className="mt-2 text-xs text-slate-500">
+                ⚡ 5 round · İlk 3 roundu alan düelloyu kazanır.
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-slate-500">
+                ⏱ 250 saniye · En çok doğru bilgiyi bulan kazanır.
+              </p>
+            )}
 
           </div>
 
@@ -2133,9 +3056,15 @@ export default function ChallengePage({
               {gameLabel}
             </p>
 
-            <p className="mt-2 text-xs text-slate-500">
-              ⏱ 250 saniye
-            </p>
+            {isClubClash ? (
+              <p className="mt-2 text-xs text-slate-500">
+                ⚡ 5 round · İlk 3 alan kazanır
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-slate-500">
+                ⏱ 250 saniye
+              </p>
+            )}
 
             <div className="mt-5 flex items-center justify-center gap-2 text-sm font-bold text-green-400">
 
@@ -2148,7 +3077,7 @@ export default function ChallengePage({
           </div>
 
           {/* ===============================================
-              SHARE
+              LINK / WHATSAPP
           =============================================== */}
 
           <div className="mt-5">
@@ -2255,25 +3184,51 @@ export default function ChallengePage({
             {gameLabel}
           </p>
 
-          <p className="mt-3 text-sm text-slate-400">
-            İkinize de aynı Player Quiz gelecek.
-          </p>
+          {isClubClash ? (
+            <>
+              <p className="mt-3 text-sm text-slate-400">
+                Her roundda iki takımda da forma giymiş futbolcuyu rakibinden önce bul.
+              </p>
 
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
 
-            <RuleBadge>
-              ⏱ 250 sn
-            </RuleBadge>
+                <RuleBadge>
+                  ⚡ 5 Round
+                </RuleBadge>
 
-            <RuleBadge>
-              +1 her doğru
-            </RuleBadge>
+                <RuleBadge>
+                  🏆 İlk 3
+                </RuleBadge>
 
-            <RuleBadge>
-              Can yok
-            </RuleBadge>
+                <RuleBadge>
+                  🚀 En hızlı cevap
+                </RuleBadge>
 
-          </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="mt-3 text-sm text-slate-400">
+                İkinize de aynı Player Quiz gelecek.
+              </p>
+
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+
+                <RuleBadge>
+                  ⏱ 250 sn
+                </RuleBadge>
+
+                <RuleBadge>
+                  +1 her doğru
+                </RuleBadge>
+
+                <RuleBadge>
+                  Can yok
+                </RuleBadge>
+
+              </div>
+            </>
+          )}
 
         </div>
 
@@ -2309,10 +3264,77 @@ export default function ChallengePage({
   }
 
   /* =======================================================
-     GAME LOADING
+     CLUB CLASH LOADING
   ======================================================= */
 
   if (
+    isClubClash &&
+    challenge.status ===
+      "playing" &&
+    (
+      clubClashPreparing ||
+      (
+        !clubClash &&
+        !clubClashError
+      )
+    )
+  ) {
+    return (
+      <ChallengeShell>
+
+        <LoadingState
+          text="5 roundluk 2 Takım 1 Oyuncu düellosu hazırlanıyor..."
+        />
+
+      </ChallengeShell>
+    );
+  }
+
+  /* =======================================================
+     CLUB CLASH ERROR
+  ======================================================= */
+
+  if (
+    isClubClash &&
+    challenge.status ===
+      "playing" &&
+    clubClashError &&
+    !clubClash
+  ) {
+    return (
+      <ChallengeShell>
+
+        <CenteredState
+          emoji="⚠️"
+          title="2 Takım 1 Oyuncu hazırlanamadı"
+          description={
+            clubClashError
+          }
+        />
+
+        <button
+          type="button"
+          onClick={() => {
+            clubClashPrepareRef.current =
+              false;
+
+            void prepareClubClash();
+          }}
+          className="mt-6 w-full rounded-xl bg-purple-500 px-5 py-4 font-black"
+        >
+          Tekrar Dene
+        </button>
+
+      </ChallengeShell>
+    );
+  }
+
+  /* =======================================================
+     PLAYER QUIZ LOADING
+  ======================================================= */
+
+  if (
+    isPlayerQuiz &&
     challenge.status ===
       "playing" &&
     gameLoading &&
@@ -2330,10 +3352,11 @@ export default function ChallengePage({
   }
 
   /* =======================================================
-     GAME ERROR
+     PLAYER QUIZ ERROR
   ======================================================= */
 
   if (
+    isPlayerQuiz &&
     challenge.status ===
       "playing" &&
     gameError &&
@@ -2365,10 +3388,11 @@ export default function ChallengePage({
   }
 
   /* =======================================================
-     WAITING AFTER FINALIZE
+     PLAYER QUIZ WAITING AFTER FINALIZE
   ======================================================= */
 
   if (
+    isPlayerQuiz &&
     result
       ?.waitingForOpponent &&
     !challengeData.completed
@@ -2450,7 +3474,12 @@ export default function ChallengePage({
       "completed"
   ) {
     const myResult =
-      challengeData.result;
+      challengeData.result ??
+      (
+        clubClash
+          ?.result ??
+        null
+      );
 
     return (
       <ChallengeShell>
@@ -2468,7 +3497,7 @@ export default function ChallengePage({
           </div>
 
           <p className="mt-5 text-xs font-black uppercase tracking-[0.2em] text-purple-400">
-            Player Quiz VS
+            {gameLabel}
           </p>
 
           <h1 className="mt-3 text-3xl font-black">
@@ -2504,6 +3533,11 @@ export default function ChallengePage({
                 .winnerSide ===
               "challenger"
             }
+            label={
+              isClubClash
+                ? "round"
+                : "doğru bilgi"
+            }
           />
 
           <div className="text-lg font-black text-purple-400">
@@ -2528,24 +3562,74 @@ export default function ChallengePage({
                 .winnerSide ===
               "opponent"
             }
+            label={
+              isClubClash
+                ? "round"
+                : "doğru bilgi"
+            }
           />
 
         </div>
 
-        {game?.player && (
-          <div className="mt-7 rounded-2xl border border-white/10 bg-[#07111f] p-5 text-center">
+        {isPlayerQuiz &&
+          game?.player && (
+            <div className="mt-7 rounded-2xl border border-white/10 bg-[#07111f] p-5 text-center">
 
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-              Gizli Oyuncu
-            </p>
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                Futbolcu
+              </p>
 
-            <p className="mt-2 text-xl font-black">
-              {game.player
-                .fullName}
-            </p>
+              <p className="mt-2 text-xl font-black">
+                {game.player
+                  .fullName}
+              </p>
 
-          </div>
-        )}
+            </div>
+          )}
+
+        {isClubClash &&
+          clubClash
+            ?.rounds &&
+          clubClash.rounds
+            .length >
+            0 && (
+            <div className="mt-7 rounded-2xl border border-white/10 bg-[#07111f] p-5">
+
+              <p className="text-xs font-black uppercase tracking-[0.15em] text-slate-500">
+                Round Sonuçları
+              </p>
+
+              <div className="mt-4 space-y-2">
+
+                {clubClash.rounds.map(
+                  (
+                    round,
+                  ) => (
+                    <ClubClashRoundHistory
+                      key={
+                        round.id
+                      }
+                      round={
+                        round
+                      }
+                      challengerName={
+                        challenge
+                          .challenger
+                          .name
+                      }
+                      opponentName={
+  challenge
+    .opponent
+    ?.name ?? null
+}
+                    />
+                  ),
+                )}
+
+              </div>
+
+            </div>
+          )}
 
         <div className="mt-6 rounded-2xl border border-yellow-400/20 bg-yellow-400/[0.05] p-5 text-center">
 
@@ -2554,7 +3638,7 @@ export default function ChallengePage({
           </p>
 
           <p className="mt-2 text-sm text-slate-400">
-            Rövanş ve sonucu hesaba bağlama sıradaki aşama.
+            Rövanş akışını bir sonraki aşamada aynı challenge sistemi üzerinden bağlayacağız.
           </p>
 
         </div>
@@ -2571,10 +3655,536 @@ export default function ChallengePage({
   }
 
   /* =======================================================
-     PLAYER QUIZ
+     CLUB CLASH GAME
   ======================================================= */
 
   if (
+    isClubClash &&
+    challenge.status ===
+      "playing" &&
+    clubClash?.ok
+  ) {
+    const currentRound =
+      clubClash.currentRound ??
+      null;
+
+    const challengerScore =
+      clubClash.score
+        ?.challenger ??
+      challenge.challenger
+        .score ??
+      0;
+
+    const opponentScore =
+      clubClash.score
+        ?.opponent ??
+      challenge.opponent
+        ?.score ??
+      0;
+
+    return (
+      <ChallengeShell
+        wide
+      >
+
+        {/* ===============================================
+            HEADER
+        =============================================== */}
+
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-5">
+
+          <div>
+
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-purple-400">
+              ⚔️ 2 TAKIM 1 OYUNCU
+            </p>
+
+            <p className="mt-1 text-sm font-bold text-slate-400">
+              İlk 3 roundu alan kazanır
+            </p>
+
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              void forfeitChallenge()
+            }
+            disabled={
+              forfeitLoading
+            }
+            className="rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3 text-xs font-black text-red-300 transition hover:bg-red-500/10 disabled:opacity-40"
+          >
+            {forfeitLoading
+              ? "Pes ediliyor..."
+              : "🏳 Pes Et"}
+          </button>
+
+        </div>
+
+        {/* ===============================================
+            SCORE
+        =============================================== */}
+
+        <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+
+          <ClubClashScorePlayer
+            name={
+              challenge
+                .challenger
+                .name ??
+              "Oyuncu 1"
+            }
+            score={
+              challengerScore
+            }
+            active={
+              currentRole ===
+              "challenger"
+            }
+          />
+
+          <div className="text-center">
+
+            <p className="text-xs font-black uppercase text-slate-600">
+              SKOR
+            </p>
+
+            <p className="mt-1 text-xl font-black text-purple-400">
+              VS
+            </p>
+
+          </div>
+
+          <ClubClashScorePlayer
+            name={
+              challenge
+                .opponent
+                ?.name ??
+              "Oyuncu 2"
+            }
+            score={
+              opponentScore
+            }
+            active={
+              currentRole ===
+              "opponent"
+            }
+          />
+
+        </div>
+
+        {/* ===============================================
+            ROUND PROGRESS
+        =============================================== */}
+
+        <div className="mt-5">
+
+          <div className="mb-2 flex items-center justify-between">
+
+            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
+              Roundlar
+            </p>
+
+            <p className="text-xs font-black text-slate-400">
+              {clubClash.completedRoundCount ??
+                0}
+              /
+              {CLUB_CLASH_ROUND_COUNT}
+            </p>
+
+          </div>
+
+          <div className="grid grid-cols-5 gap-2">
+
+            {Array.from(
+              {
+                length:
+                  CLUB_CLASH_ROUND_COUNT,
+              },
+              (
+                _,
+                index,
+              ) => {
+                const round =
+                  clubClash.rounds?.find(
+                    (
+                      item,
+                    ) =>
+                      item.roundNo ===
+                      index +
+                        1,
+                  );
+
+                const isCurrent =
+                  currentRound
+                    ?.roundNo ===
+                  index +
+                    1;
+
+                return (
+                  <RoundProgressBox
+                    key={
+                      index
+                    }
+                    roundNo={
+                      index +
+                      1
+                    }
+                    winnerSide={
+                      round
+                        ?.winnerSide ??
+                      null
+                    }
+                    currentRole={
+                      currentRole
+                    }
+                    isCurrent={
+                      isCurrent
+                    }
+                  />
+                );
+              },
+            )}
+
+          </div>
+
+        </div>
+
+        {clubClashError && (
+          <ErrorBox
+            text={
+              clubClashError
+            }
+          />
+        )}
+
+        {clashMessage && (
+          <div className="mt-4 rounded-xl border border-purple-500/20 bg-purple-500/[0.08] px-4 py-3 text-center text-sm font-black text-purple-200">
+            {clashMessage}
+          </div>
+        )}
+
+        {/* ===============================================
+            CURRENT ROUND
+        =============================================== */}
+
+        {currentRound ? (
+          <>
+
+            <div className="mt-7 text-center">
+
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-green-400">
+                ROUND{" "}
+                {currentRound.roundNo}
+              </p>
+
+              <h1 className="mt-2 text-2xl font-black sm:text-3xl">
+                İki takımda da oynayan futbolcuyu bul
+              </h1>
+
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+                Rakibinden önce doğru futbolcuyu seç ve roundu kap.
+              </p>
+
+            </div>
+
+            {/* =============================================
+                CLUB VS CLUB
+            ============================================= */}
+
+            <div className="mt-7 grid grid-cols-[1fr_auto_1fr] items-stretch gap-3">
+
+              <ConstraintCard
+                type={
+                  currentRound
+                    .left
+                    .type
+                }
+                value={
+                  currentRound
+                    .left
+                    .value
+                }
+              />
+
+              <div className="flex items-center justify-center">
+
+                <div className="flex h-12 w-12 items-center justify-center rounded-full border border-purple-500/30 bg-purple-500/10 text-sm font-black text-purple-300">
+                  ×
+                </div>
+
+              </div>
+
+              <ConstraintCard
+                type={
+                  currentRound
+                    .right
+                    .type
+                }
+                value={
+                  currentRound
+                    .right
+                    .value
+                }
+              />
+
+            </div>
+
+            {/* =============================================
+                SEARCH
+            ============================================= */}
+
+            <div className="relative mt-7">
+
+              <label className="block">
+
+                <span className="text-sm font-black text-slate-300">
+                  Futbolcu Ara
+                </span>
+
+                <div className="relative mt-2">
+
+                  <input
+                    value={
+                      clashQuery
+                    }
+                    onChange={(
+                      event,
+                    ) => {
+                      setClashQuery(
+                        event.target
+                          .value,
+                      );
+
+                      setClashMessage(
+                        "",
+                      );
+                    }}
+                    disabled={
+                      clashAnswerLoading
+                    }
+                    placeholder="En az 3 harf yaz... Örn. Sneijder"
+                    autoComplete="off"
+                    className="w-full rounded-xl border border-white/10 bg-[#07111f] px-4 py-4 pr-12 font-bold outline-none transition focus:border-purple-400/50 disabled:opacity-50"
+                  />
+
+                  {clashSearchLoading && (
+                    <div className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin rounded-full border-2 border-white/10 border-t-purple-400" />
+                  )}
+
+                </div>
+
+              </label>
+
+              {clashQuery
+                .trim()
+                .length >
+                0 &&
+                clashQuery
+                  .trim()
+                  .length <
+                  3 && (
+                  <p className="mt-2 text-xs font-bold text-slate-600">
+                    Oyuncu aramak için en az 3 harf yaz.
+                  </p>
+                )}
+
+              {clashSuggestions.length >
+                0 && (
+                <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[330px] overflow-y-auto rounded-2xl border border-white/10 bg-[#07111f] p-1.5 shadow-2xl shadow-black/50">
+
+                  {clashSuggestions.map(
+                    (
+                      player,
+                    ) => (
+                      <button
+                        key={
+                          player.playerId
+                        }
+                        type="button"
+                        disabled={
+                          clashAnswerLoading
+                        }
+                        onClick={() =>
+                          void submitClubClashAnswer(
+                            player,
+                          )
+                        }
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-white/[0.06] disabled:opacity-50"
+                      >
+
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
+
+                          {player.imageUrl ? (
+                            <img
+                              src={
+                                player.imageUrl
+                              }
+                              alt={
+                                player.name
+                              }
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span>
+                              ⚽
+                            </span>
+                          )}
+
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+
+                          <p className="truncate text-sm font-black text-white">
+                            {player.name}
+                          </p>
+
+                          <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[10px] font-bold text-slate-500">
+
+                            {player.nationality && (
+                              <span>
+                                🌍{" "}
+                                {player.nationality}
+                              </span>
+                            )}
+
+                            {player.currentClubName && (
+                              <span>
+                                ⚽{" "}
+                                {player.currentClubName}
+                              </span>
+                            )}
+
+                          </div>
+
+                        </div>
+
+                        <span className="shrink-0 text-purple-400">
+                          →
+                        </span>
+
+                      </button>
+                    ),
+                  )}
+
+                </div>
+              )}
+
+            </div>
+
+            {clashAnswerLoading && (
+              <div className="mt-4 rounded-xl border border-purple-500/20 bg-purple-500/[0.06] px-4 py-3 text-center text-sm font-bold text-purple-300">
+                ⚡ Cevabın kontrol ediliyor...
+              </div>
+            )}
+
+            {/* =============================================
+                INFO
+            ============================================= */}
+
+            <div className="mt-6 rounded-2xl border border-yellow-400/15 bg-yellow-400/[0.04] p-4">
+
+              <p className="text-sm font-black text-yellow-300">
+                ⚡ Hız önemli
+              </p>
+
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                İkiniz de aynı roundu görüyorsunuz. Doğru futbolcuyu ilk seçen kişi roundu kazanır.
+              </p>
+
+            </div>
+
+          </>
+        ) : (
+          <div className="mt-8 rounded-2xl border border-green-500/20 bg-green-500/[0.06] p-8 text-center">
+
+            <div className="text-4xl">
+              🏁
+            </div>
+
+            <p className="mt-4 text-xl font-black">
+              Roundlar tamamlandı
+            </p>
+
+            <p className="mt-2 text-sm text-slate-500">
+              Sonuç hesaplanıyor...
+            </p>
+
+          </div>
+        )}
+
+        {/* ===============================================
+            HISTORY
+        =============================================== */}
+
+        {clubClash.rounds &&
+          clubClash.rounds.some(
+            (
+              round,
+            ) =>
+              Boolean(
+                round.completedAt,
+              ),
+          ) && (
+            <div className="mt-7 border-t border-white/10 pt-6">
+
+              <p className="text-xs font-black uppercase tracking-[0.15em] text-slate-600">
+                Tamamlanan Roundlar
+              </p>
+
+              <div className="mt-3 space-y-2">
+
+                {clubClash.rounds
+                  .filter(
+                    (
+                      round,
+                    ) =>
+                      Boolean(
+                        round.completedAt,
+                      ),
+                  )
+                  .map(
+                    (
+                      round,
+                    ) => (
+                      <ClubClashRoundHistory
+                        key={
+                          round.id
+                        }
+                        round={
+                          round
+                        }
+                        challengerName={
+                          challenge
+                            .challenger
+                            .name
+                        }
+                        opponentName={
+  challenge
+    .opponent
+    ?.name ?? null
+
+                        }
+                      />
+                    ),
+                  )}
+
+              </div>
+
+            </div>
+          )}
+
+      </ChallengeShell>
+    );
+  }
+
+  /* =======================================================
+     PLAYER QUIZ GAME
+  ======================================================= */
+
+  if (
+    isPlayerQuiz &&
     challenge.status ===
       "playing" &&
     game?.ok &&
@@ -2656,25 +4266,50 @@ export default function ChallengePage({
 
         </div>
 
+        {/* =================================================
+            FUTBOLCU
+        ================================================= */}
+
         <div className="mt-6 text-center">
 
-          <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-3xl border border-purple-500/20 bg-purple-500/[0.06] sm:h-32 sm:w-32">
+          <div className="mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-3xl border border-purple-500/20 bg-purple-500/[0.06] sm:h-32 sm:w-32">
 
-            <span className="text-5xl">
-              ❓
-            </span>
+            {game.player.imageUrl ? (
+              <img
+                src={
+                  game.player.imageUrl
+                }
+                alt={
+                  game.player.fullName
+                }
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="text-4xl">
+                ⚽
+              </span>
+            )}
 
           </div>
 
-          <h1 className="mt-4 text-2xl font-black sm:text-3xl">
-            Gizli Futbolcu
+          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-purple-400">
+            PLAYER QUIZ
+          </p>
+
+          <h1 className="mt-2 text-2xl font-black sm:text-3xl">
+            {game.player.fullName}
           </h1>
 
           <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">
-            250 saniye içinde doğum yılı, milliyet ve mümkün olduğunca fazla kariyer kulübünü bul.
+            250 saniye içinde bu futbolcunun doğum yılını,
+            milliyetini ve mümkün olduğunca fazla kariyer kulübünü bul.
           </p>
 
         </div>
+
+        {/* =================================================
+            LIVE SCORE
+        ================================================= */}
 
         <div className="mt-6 grid grid-cols-2 gap-3">
 
@@ -2710,6 +4345,10 @@ export default function ChallengePage({
           </div>
 
         </div>
+
+        {/* =================================================
+            PROGRESS
+        ================================================= */}
 
         <div className="mt-4 grid grid-cols-3 gap-2">
 
@@ -2765,6 +4404,10 @@ export default function ChallengePage({
             }
           />
         )}
+
+        {/* =================================================
+            BIRTH YEAR
+        ================================================= */}
 
         <QuizSection
           title="🎂 Doğum Yılı"
@@ -2828,6 +4471,10 @@ export default function ChallengePage({
           </div>
 
         </QuizSection>
+
+        {/* =================================================
+            NATIONALITY
+        ================================================= */}
 
         <QuizSection
           title="🌍 Milliyet"
@@ -2927,6 +4574,10 @@ export default function ChallengePage({
           </div>
 
         </QuizSection>
+
+        {/* =================================================
+            CLUBS
+        ================================================= */}
 
         <QuizSection
           title={`🏟️ Kariyer Kulüpleri (${solvedClubs.length}/${requiredClubCount})`}
@@ -3331,6 +4982,251 @@ function MiniPlayer({
   );
 }
 
+/* =========================================================
+   CLUB CLASH COMPONENTS
+========================================================= */
+
+function ClubClashScorePlayer({
+  name,
+  score,
+  active,
+}: {
+  name: string;
+  score: number;
+  active: boolean;
+}) {
+  return (
+    <div
+      className={`min-w-0 rounded-2xl border p-4 text-center ${
+        active
+          ? "border-green-500/30 bg-green-500/[0.07]"
+          : "border-white/10 bg-white/[0.03]"
+      }`}
+    >
+
+      <p className="truncate text-sm font-black">
+        {name}
+      </p>
+
+      {active && (
+        <p className="mt-1 text-[9px] font-black uppercase text-green-400">
+          SEN
+        </p>
+      )}
+
+      <p className="mt-3 text-4xl font-black text-white">
+        {score}
+      </p>
+
+      <div className="mt-3 flex justify-center gap-1.5">
+
+        {Array.from(
+          {
+            length:
+              CLUB_CLASH_WIN_SCORE,
+          },
+          (
+            _,
+            index,
+          ) => (
+            <span
+              key={
+                index
+              }
+              className={`h-2.5 w-6 rounded-full ${
+                index <
+                score
+                  ? "bg-green-400"
+                  : "bg-white/10"
+              }`}
+            />
+          ),
+        )}
+
+      </div>
+
+    </div>
+  );
+}
+
+function ConstraintCard({
+  type,
+  value,
+}: {
+  type: string;
+  value: string;
+}) {
+  const isCountry =
+    type ===
+    "country";
+
+  return (
+    <div className="flex min-h-[150px] min-w-0 flex-col items-center justify-center rounded-2xl border border-white/10 bg-[#07111f] p-4 text-center">
+
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-3xl">
+        {isCountry
+          ? "🌍"
+          : "⚽"}
+      </div>
+
+      <p className="mt-3 text-[9px] font-black uppercase tracking-[0.15em] text-slate-600">
+        {isCountry
+          ? "MİLLET"
+          : "TAKIM"}
+      </p>
+
+      <p className="mt-1 break-words text-base font-black text-white sm:text-lg">
+        {value}
+      </p>
+
+    </div>
+  );
+}
+
+function RoundProgressBox({
+  roundNo,
+  winnerSide,
+  currentRole,
+  isCurrent,
+}: {
+  roundNo: number;
+
+  winnerSide:
+    WinnerSide;
+
+  currentRole:
+    ChallengeRole
+    | undefined;
+
+  isCurrent: boolean;
+}) {
+  const mine =
+    winnerSide &&
+    winnerSide ===
+      currentRole;
+
+  const lost =
+    winnerSide &&
+    winnerSide !==
+      "draw" &&
+    winnerSide !==
+      currentRole;
+
+  return (
+    <div
+      className={`rounded-xl border py-3 text-center transition ${
+        mine
+          ? "border-green-500/25 bg-green-500/[0.08]"
+          : lost
+            ? "border-red-500/20 bg-red-500/[0.06]"
+            : isCurrent
+              ? "border-purple-500/40 bg-purple-500/[0.10]"
+              : "border-white/10 bg-black/10"
+      }`}
+    >
+
+      <p className="text-[9px] font-black uppercase text-slate-600">
+        R{roundNo}
+      </p>
+
+      <p className="mt-1 text-lg font-black">
+        {mine
+          ? "✓"
+          : lost
+            ? "×"
+            : isCurrent
+              ? "⚡"
+              : "·"}
+      </p>
+
+    </div>
+  );
+}
+
+function ClubClashRoundHistory({
+  round,
+  challengerName,
+  opponentName,
+}: {
+  round:
+    ClubClashRound;
+
+  challengerName:
+    | string
+    | null;
+
+  opponentName:
+    | string
+    | null;
+}) {
+  const winnerName =
+    round.winnerSide ===
+    "challenger"
+      ? challengerName ??
+        "Oyuncu 1"
+      : round.winnerSide ===
+          "opponent"
+        ? opponentName ??
+          "Oyuncu 2"
+        : "Berabere";
+
+  const answer =
+    round.winnerSide ===
+    "challenger"
+      ? round
+          .challengerAnswer
+      : round.winnerSide ===
+          "opponent"
+        ? round
+            .opponentAnswer
+        : null;
+
+  return (
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+
+      <div className="flex items-center justify-between gap-3">
+
+        <p className="text-xs font-black text-slate-400">
+          Round{" "}
+          {round.roundNo}
+        </p>
+
+        <p className="text-xs font-black text-green-400">
+          {winnerName}
+        </p>
+
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-bold text-slate-500">
+
+        <span>
+          {round.left.value}
+        </span>
+
+        <span className="text-purple-400">
+          ×
+        </span>
+
+        <span>
+          {round.right.value}
+        </span>
+
+      </div>
+
+      {answer && (
+        <p className="mt-2 text-sm font-black text-white">
+          ⚽ {answer}
+        </p>
+      )}
+
+    </div>
+  );
+}
+
+/* =========================================================
+   PLAYER QUIZ COMPONENTS
+========================================================= */
+
 function QuizSection({
   title,
   solved,
@@ -3413,10 +5309,12 @@ function ScoreCard({
   name,
   score,
   winner,
+  label = "puan",
 }: {
   name: string;
   score: number;
   winner: boolean;
+  label?: string;
 }) {
   return (
     <div
@@ -3450,7 +5348,7 @@ function ScoreCard({
       </p>
 
       <p className="mt-1 text-[10px] font-bold uppercase text-slate-600">
-        doğru bilgi
+        {label}
       </p>
 
     </div>
