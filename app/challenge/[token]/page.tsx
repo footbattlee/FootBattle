@@ -136,11 +136,6 @@ type PrepareResponse = {
 
   player?: {
     id: number;
-
-    /*
-     * Backend gönderiyor fakat oyun sırasında
-     * spoiler olmaması için göstermiyoruz.
-     */
     fullName: string;
     imageUrl: string | null;
   };
@@ -511,6 +506,16 @@ export default function ChallengePage({
     useState("");
 
   /* =======================================================
+     SHARE
+  ======================================================= */
+
+  const [
+    linkCopied,
+    setLinkCopied,
+  ] =
+    useState(false);
+
+  /* =======================================================
      JOIN
   ======================================================= */
 
@@ -779,6 +784,89 @@ export default function ChallengePage({
   ]);
 
   /* =======================================================
+     SHARE CHALLENGE
+  ======================================================= */
+
+  function getChallengeUrl() {
+    if (
+      typeof window ===
+      "undefined"
+    ) {
+      return "";
+    }
+
+    return `${window.location.origin}/challenge/${token}`;
+  }
+
+  async function copyChallengeLink() {
+    try {
+      const url =
+        getChallengeUrl();
+
+      await navigator.clipboard.writeText(
+        url,
+      );
+
+      setLinkCopied(
+        true,
+      );
+
+      window.setTimeout(
+        () => {
+          setLinkCopied(
+            false,
+          );
+        },
+        2000,
+      );
+    } catch {
+      setPageError(
+        "Davet linki kopyalanamadı.",
+      );
+    }
+  }
+
+  function shareChallengeWhatsApp() {
+    const url =
+      getChallengeUrl();
+
+    const challengerName =
+      challengeData
+        ?.challenge
+        ?.challenger
+        ?.name ??
+      "Bir arkadaşın";
+
+    const gameCode =
+      challengeData
+        ?.challenge
+        ?.gameCode;
+
+    const label =
+      gameCode
+        ? GAME_LABELS[
+            gameCode
+          ] ??
+          gameCode
+        : "FootBattle";
+
+    const message =
+      `⚔️ ${challengerName} sana FootBattle'da meydan okuyor!\n\n` +
+      `🎮 ${label}\n` +
+      `⏱ 250 saniye\n\n` +
+      `Hesap açmana gerek yok. Linke gir ve kapışmaya başla 👇\n` +
+      `${url}`;
+
+    window.open(
+      `https://wa.me/?text=${encodeURIComponent(
+        message,
+      )}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  }
+
+  /* =======================================================
      JOIN
   ======================================================= */
 
@@ -985,9 +1073,6 @@ export default function ChallengePage({
             json,
           );
 
-          /*
-           * Refresh sonrası DB progress'ini UI'a geri yükle.
-           */
           if (
             json.progress
           ) {
@@ -1013,10 +1098,6 @@ export default function ChallengePage({
                 0,
             );
 
-            /*
-             * Oyuncu daha önce finalize olduysa
-             * tekrar timeout/completed göndermeyelim.
-             */
             if (
               json.progress
                 .finalized
@@ -1071,54 +1152,54 @@ export default function ChallengePage({
      COUNTDOWN
   ======================================================= */
 
-useEffect(() => {
-  const challenge =
-    challengeData?.challenge;
+  useEffect(() => {
+    const challenge =
+      challengeData?.challenge;
 
-  const startedAt =
-    challenge?.startedAt;
+    const startedAt =
+      challenge?.startedAt;
 
-  if (
-    challenge?.status !==
-      "playing" ||
-    !startedAt ||
-    resultSentRef.current
-  ) {
-    return;
-  }
+    if (
+      challenge?.status !==
+        "playing" ||
+      !startedAt ||
+      resultSentRef.current
+    ) {
+      return;
+    }
 
-  function updateTimer() {
-    const remaining =
-      getRemainingSeconds(
-        startedAt,
+    function updateTimer() {
+      const remaining =
+        getRemainingSeconds(
+          startedAt,
+        );
+
+      setRemainingSeconds(
+        remaining,
+      );
+    }
+
+    updateTimer();
+
+    const interval =
+      window.setInterval(
+        updateTimer,
+        500,
       );
 
-    setRemainingSeconds(
-      remaining,
-    );
-  }
-
-  updateTimer();
-
-  const interval =
-    window.setInterval(
-      updateTimer,
-      500,
-    );
-
-  return () => {
-    window.clearInterval(
-      interval,
-    );
-  };
-}, [
-  challengeData
-    ?.challenge
-    ?.startedAt,
-  challengeData
-    ?.challenge
-    ?.status,
-]);
+    return () => {
+      window.clearInterval(
+        interval,
+      );
+    };
+  }, [
+    challengeData
+      ?.challenge
+      ?.startedAt,
+    challengeData
+      ?.challenge
+      ?.status,
+  ]);
 
   /* =======================================================
      COUNTRY SEARCH
@@ -1366,10 +1447,6 @@ useEffect(() => {
         json.progress,
       );
 
-      /* ===================================================
-         BIRTH YEAR
-      =================================================== */
-
       if (
         field ===
         "birthYear"
@@ -1388,10 +1465,6 @@ useEffect(() => {
 
         return;
       }
-
-      /* ===================================================
-         NATIONALITY
-      =================================================== */
 
       if (
         field ===
@@ -1415,10 +1488,6 @@ useEffect(() => {
 
         return;
       }
-
-      /* ===================================================
-         CLUB
-      =================================================== */
 
       if (
         json.duplicate
@@ -2055,7 +2124,7 @@ useEffect(() => {
           emoji="⚔️"
           eyebrow="MEYDAN OKUMA HAZIR"
           title="Rakibini bekliyoruz"
-          description="Davet linkini gönderdiğin kişi katıldığında bu ekran otomatik güncellenecek."
+          description="Davet linkini arkadaşına gönder. Katıldığı anda bu ekran otomatik güncellenecek."
         >
 
           <div className="mt-7 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
@@ -2077,6 +2146,69 @@ useEffect(() => {
             </div>
 
           </div>
+
+          {/* ===============================================
+              SHARE
+          =============================================== */}
+
+          <div className="mt-5">
+
+            <p className="text-xs font-black uppercase tracking-[0.15em] text-slate-500">
+              Rakibini davet et
+            </p>
+
+            <button
+              type="button"
+              onClick={
+                shareChallengeWhatsApp
+              }
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-5 py-4 font-black text-[#07111f] transition hover:brightness-110"
+            >
+              <span className="text-lg">
+                💬
+              </span>
+
+              WhatsApp&apos;tan Davet Et
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                void copyChallengeLink()
+              }
+              className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl border px-5 py-4 font-black transition ${
+                linkCopied
+                  ? "border-green-500/30 bg-green-500/10 text-green-400"
+                  : "border-white/10 bg-[#07111f] text-white hover:bg-white/[0.05]"
+              }`}
+            >
+
+              <span>
+                {linkCopied
+                  ? "✓"
+                  : "🔗"}
+              </span>
+
+              {linkCopied
+                ? "Link Kopyalandı"
+                : "Davet Linkini Kopyala"}
+
+            </button>
+
+          </div>
+
+          <p className="mt-4 text-xs leading-5 text-slate-600">
+            Arkadaşının FootBattle hesabı olmasına gerek yok.
+            Linke tıklayıp ismini yazması yeterli.
+          </p>
+
+          {pageError && (
+            <ErrorBox
+              text={
+                pageError
+              }
+            />
+          )}
 
         </CenteredState>
 
@@ -2458,10 +2590,6 @@ useEffect(() => {
         wide
       >
 
-        {/* =================================================
-            HEADER
-        ================================================= */}
-
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-5">
 
           <div>
@@ -2528,10 +2656,6 @@ useEffect(() => {
 
         </div>
 
-        {/* =================================================
-            PLAYER HIDDEN
-        ================================================= */}
-
         <div className="mt-6 text-center">
 
           <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-3xl border border-purple-500/20 bg-purple-500/[0.06] sm:h-32 sm:w-32">
@@ -2551,10 +2675,6 @@ useEffect(() => {
           </p>
 
         </div>
-
-        {/* =================================================
-            LIVE SCORE
-        ================================================= */}
 
         <div className="mt-6 grid grid-cols-2 gap-3">
 
@@ -2590,10 +2710,6 @@ useEffect(() => {
           </div>
 
         </div>
-
-        {/* =================================================
-            PROGRESS
-        ================================================= */}
 
         <div className="mt-4 grid grid-cols-3 gap-2">
 
@@ -2649,10 +2765,6 @@ useEffect(() => {
             }
           />
         )}
-
-        {/* =================================================
-            BIRTH YEAR
-        ================================================= */}
 
         <QuizSection
           title="🎂 Doğum Yılı"
@@ -2716,10 +2828,6 @@ useEffect(() => {
           </div>
 
         </QuizSection>
-
-        {/* =================================================
-            NATIONALITY
-        ================================================= */}
 
         <QuizSection
           title="🌍 Milliyet"
@@ -2819,10 +2927,6 @@ useEffect(() => {
           </div>
 
         </QuizSection>
-
-        {/* =================================================
-            CLUBS
-        ================================================= */}
 
         <QuizSection
           title={`🏟️ Kariyer Kulüpleri (${solvedClubs.length}/${requiredClubCount})`}
@@ -2944,10 +3048,6 @@ useEffect(() => {
           </div>
 
         </QuizSection>
-
-        {/* =================================================
-            FOOTER
-        ================================================= */}
 
         <div className="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-[#07111f] px-4 py-3">
 
