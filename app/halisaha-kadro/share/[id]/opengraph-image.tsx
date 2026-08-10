@@ -86,14 +86,28 @@ function cleanPlayerName(
   }
 
   /*
-   * WhatsApp preview içinde çok uzun isimler
-   * formaların birbirine girmesine sebep olmasın.
+   * Preview'da aşırı uzun isimler
+   * formaların üzerine taşmasın.
    */
-  if (name.length > 14) {
-    return `${name.slice(0, 12)}…`;
+  if (name.length > 16) {
+    return `${name.slice(0, 14)}…`;
   }
 
   return name;
+}
+
+function getSquadTitleSize(
+  title: string,
+) {
+  if (title.length > 24) {
+    return 26;
+  }
+
+  if (title.length > 17) {
+    return 30;
+  }
+
+  return 35;
 }
 
 /* =========================================================
@@ -132,14 +146,14 @@ export default async function Image({
             display:
               "flex",
 
+            flexDirection:
+              "column",
+
             alignItems:
               "center",
 
             justifyContent:
               "center",
-
-            flexDirection:
-              "column",
 
             background:
               "#07111f",
@@ -155,9 +169,6 @@ export default async function Image({
             style={{
               display:
                 "flex",
-
-              alignItems:
-                "center",
 
               fontSize:
                 72,
@@ -183,10 +194,10 @@ export default async function Image({
                 "flex",
 
               marginTop:
-                20,
+                18,
 
               fontSize:
-                30,
+                28,
 
               color:
                 "#94a3b8",
@@ -219,6 +230,43 @@ export default async function Image({
       ? share.positions
       : [];
 
+  /*
+   * 5–8 kişilik halısahada oyuncuları
+   * daha büyük gösteriyoruz.
+   *
+   * 9–11 kişide çakışmayı azaltmak için
+   * bir miktar küçültüyoruz.
+   */
+  const compact =
+    share.player_count >= 9;
+
+  const jerseyWidth =
+    compact ? 63 : 76;
+
+  const jerseyHeight =
+    compact ? 52 : 62;
+
+  const bodyWidth =
+    compact ? 38 : 46;
+
+  const bodyHeight =
+    compact ? 45 : 54;
+
+  const sleeveWidth =
+    compact ? 19 : 23;
+
+  const sleeveHeight =
+    compact ? 23 : 28;
+
+  const numberSize =
+    compact ? 18 : 22;
+
+  const playerNameSize =
+    compact ? 13 : 16;
+
+  const playerNameMaxWidth =
+    compact ? 118 : 142;
+
   /* =======================================================
      RESPONSE
   ======================================================= */
@@ -250,13 +298,13 @@ export default async function Image({
         }}
       >
         {/* =================================================
-            TOP BRAND BAR
+            TOP BAR
         ================================================= */}
 
         <div
           style={{
             height:
-              "92px",
+              "78px",
 
             display:
               "flex",
@@ -268,7 +316,7 @@ export default async function Image({
               "space-between",
 
             padding:
-              "0 42px",
+              "0 26px",
 
             borderBottom:
               "1px solid rgba(255,255,255,0.10)",
@@ -277,6 +325,8 @@ export default async function Image({
               "#091625",
           }}
         >
+          {/* BRAND */}
+
           <div
             style={{
               display:
@@ -289,10 +339,10 @@ export default async function Image({
             <div
               style={{
                 width:
-                  "54px",
+                  "46px",
 
                 height:
-                  "54px",
+                  "46px",
 
                 display:
                   "flex",
@@ -304,7 +354,7 @@ export default async function Image({
                   "center",
 
                 borderRadius:
-                  "14px",
+                  "12px",
 
                 background:
                   "#22c55e",
@@ -313,7 +363,7 @@ export default async function Image({
                   "#07111f",
 
                 fontSize:
-                  21,
+                  18,
 
                 fontWeight:
                   900,
@@ -331,7 +381,7 @@ export default async function Image({
                   "column",
 
                 marginLeft:
-                  "16px",
+                  "13px",
               }}
             >
               <div
@@ -340,7 +390,7 @@ export default async function Image({
                     "flex",
 
                   fontSize:
-                    29,
+                    25,
 
                   fontWeight:
                     900,
@@ -355,25 +405,27 @@ export default async function Image({
                     "flex",
 
                   marginTop:
-                    "2px",
+                    "1px",
 
                   fontSize:
-                    15,
+                    12,
 
                   fontWeight:
-                    700,
+                    800,
 
                   color:
                     "#22c55e",
 
                   letterSpacing:
-                    "1.4px",
+                    "1.3px",
                 }}
               >
                 HALISAHA KADROM
               </div>
             </div>
           </div>
+
+          {/* COUNT */}
 
           <div
             style={{
@@ -384,13 +436,13 @@ export default async function Image({
                 "center",
 
               padding:
-                "10px 18px",
+                "9px 16px",
 
               borderRadius:
                 "999px",
 
               border:
-                "1px solid rgba(250,204,21,0.25)",
+                "1px solid rgba(250,204,21,0.28)",
 
               background:
                 "rgba(250,204,21,0.08)",
@@ -399,13 +451,13 @@ export default async function Image({
                 "#facc15",
 
               fontSize:
-                16,
+                15,
 
               fontWeight:
-                800,
+                900,
             }}
           >
-            ⚽ {share.player_count} KİŞİLİK KADRO
+            ⚽ {share.player_count} KİŞİ
           </div>
         </div>
 
@@ -422,17 +474,17 @@ export default async function Image({
               "flex",
 
             padding:
-              "26px 38px 30px 38px",
+              "18px 24px 24px 24px",
           }}
         >
           {/* =================================================
-              LEFT INFO
+              SMALL INFO PANEL
           ================================================= */}
 
           <div
             style={{
               width:
-                "300px",
+                "215px",
 
               display:
                 "flex",
@@ -443,14 +495,17 @@ export default async function Image({
               justifyContent:
                 "space-between",
 
+              flexShrink:
+                0,
+
               padding:
-                "30px 24px",
+                "25px 19px",
 
               border:
                 "1px solid rgba(255,255,255,0.10)",
 
               borderRadius:
-                "24px",
+                "22px",
 
               background:
                 "#0d1a2a",
@@ -470,20 +525,20 @@ export default async function Image({
                   display:
                     "flex",
 
+                  color:
+                    "#22c55e",
+
                   fontSize:
-                    14,
+                    12,
 
                   fontWeight:
                     900,
 
                   letterSpacing:
-                    "2px",
-
-                  color:
-                    "#facc15",
+                    "1.7px",
                 }}
               >
-                PAYLAŞILAN KADRO
+                ⚽ MAÇ KADROSU
               </div>
 
               <div
@@ -495,16 +550,15 @@ export default async function Image({
                     "18px",
 
                   maxWidth:
-                    "245px",
+                    "175px",
 
                   fontSize:
-                    share.squad_name.length >
-                    20
-                      ? 35
-                      : 43,
+                    getSquadTitleSize(
+                      share.squad_name,
+                    ),
 
                   lineHeight:
-                    1.02,
+                    1.04,
 
                   fontWeight:
                     900,
@@ -524,17 +578,32 @@ export default async function Image({
                   marginTop:
                     "18px",
 
-                  fontSize:
-                    18,
+                  padding:
+                    "8px 11px",
 
-                  lineHeight:
-                    1.45,
+                  width:
+                    "fit-content",
+
+                  borderRadius:
+                    "9px",
+
+                  background:
+                    "rgba(250,204,21,0.10)",
+
+                  border:
+                    "1px solid rgba(250,204,21,0.18)",
 
                   color:
-                    "#94a3b8",
+                    "#facc15",
+
+                  fontSize:
+                    15,
+
+                  fontWeight:
+                    900,
                 }}
               >
-                Arkadaşlarınla oluşturduğun kadroyu paylaş ve sahaya kimin çıkacağını göster.
+                {share.player_count} KİŞİLİK KADRO
               </div>
             </div>
 
@@ -549,11 +618,11 @@ export default async function Image({
             >
               <div
                 style={{
-                  height:
-                    "1px",
-
                   width:
                     "100%",
+
+                  height:
+                    "1px",
 
                   background:
                     "rgba(255,255,255,0.09)",
@@ -566,43 +635,25 @@ export default async function Image({
                     "flex",
 
                   marginTop:
-                    "18px",
+                    "15px",
 
                   color:
-                    "#22c55e",
+                    "#94a3b8",
 
                   fontSize:
-                    17,
+                    12,
 
-                  fontWeight:
-                    900,
+                  lineHeight:
+                    1.4,
                 }}
               >
-                foot-battle.vercel.app
-              </div>
-
-              <div
-                style={{
-                  display:
-                    "flex",
-
-                  marginTop:
-                    "7px",
-
-                  color:
-                    "#64748b",
-
-                  fontSize:
-                    14,
-                }}
-              >
-                Kadroyu açmak için bağlantıya dokun
+                Kadroyu açmak için bağlantıya dokun.
               </div>
             </div>
           </div>
 
           {/* =================================================
-              PITCH CARD
+              PITCH WRAPPER
           ================================================= */}
 
           <div
@@ -611,7 +662,7 @@ export default async function Image({
                 1,
 
               marginLeft:
-                "26px",
+                "16px",
 
               display:
                 "flex",
@@ -622,25 +673,24 @@ export default async function Image({
               justifyContent:
                 "center",
 
+              overflow:
+                "hidden",
+
               border:
-                "1px solid rgba(34,197,94,0.20)",
+                "1px solid rgba(34,197,94,0.18)",
 
               borderRadius:
-                "24px",
+                "22px",
 
               background:
                 "#0b1926",
 
-              overflow:
-                "hidden",
+              padding:
+                "10px",
             }}
           >
             {/* =================================================
-                PITCH
-
-                Preview yatay kart içine sığsın diye
-                normal sayfadaki dikey sahayı biraz geniş
-                gösteriyoruz.
+                BIG PITCH
             ================================================= */}
 
             <div
@@ -649,10 +699,10 @@ export default async function Image({
                   "relative",
 
                 width:
-                  "730px",
+                  "900px",
 
                 height:
-                  "470px",
+                  "494px",
 
                 display:
                   "flex",
@@ -703,7 +753,7 @@ export default async function Image({
                 ),
               )}
 
-              {/* OUTER BORDER */}
+              {/* OUTER LINE */}
 
               <div
                 style={{
@@ -727,7 +777,7 @@ export default async function Image({
                 }}
               />
 
-              {/* MIDDLE LINE */}
+              {/* CENTER LINE */}
 
               <div
                 style={{
@@ -765,10 +815,10 @@ export default async function Image({
                     "50%",
 
                   width:
-                    "126px",
+                    "128px",
 
                   height:
-                    "126px",
+                    "128px",
 
                   transform:
                     "translate(-50%, -50%)",
@@ -780,6 +830,8 @@ export default async function Image({
                     "3px solid rgba(255,255,255,0.85)",
                 }}
               />
+
+              {/* CENTER DOT */}
 
               <div
                 style={{
@@ -809,7 +861,7 @@ export default async function Image({
                 }}
               />
 
-              {/* TOP PENALTY AREA */}
+              {/* TOP PENALTY */}
 
               <div
                 style={{
@@ -823,10 +875,10 @@ export default async function Image({
                     "18px",
 
                   width:
-                    "265px",
+                    "300px",
 
                   height:
-                    "79px",
+                    "82px",
 
                   transform:
                     "translateX(-50%)",
@@ -842,6 +894,8 @@ export default async function Image({
                 }}
               />
 
+              {/* TOP SMALL BOX */}
+
               <div
                 style={{
                   position:
@@ -854,10 +908,10 @@ export default async function Image({
                     "18px",
 
                   width:
-                    "130px",
+                    "145px",
 
                   height:
-                    "39px",
+                    "41px",
 
                   transform:
                     "translateX(-50%)",
@@ -873,7 +927,7 @@ export default async function Image({
                 }}
               />
 
-              {/* BOTTOM PENALTY AREA */}
+              {/* BOTTOM PENALTY */}
 
               <div
                 style={{
@@ -887,10 +941,10 @@ export default async function Image({
                     "18px",
 
                   width:
-                    "265px",
+                    "300px",
 
                   height:
-                    "79px",
+                    "82px",
 
                   transform:
                     "translateX(-50%)",
@@ -906,6 +960,8 @@ export default async function Image({
                 }}
               />
 
+              {/* BOTTOM SMALL BOX */}
+
               <div
                 style={{
                   position:
@@ -918,10 +974,10 @@ export default async function Image({
                     "18px",
 
                   width:
-                    "130px",
+                    "145px",
 
                   height:
-                    "39px",
+                    "41px",
 
                   transform:
                     "translateX(-50%)",
@@ -957,10 +1013,10 @@ export default async function Image({
                     "flex",
 
                   color:
-                    "rgba(255,255,255,0.14)",
+                    "rgba(255,255,255,0.13)",
 
                   fontSize:
-                    46,
+                    48,
 
                   fontWeight:
                     900,
@@ -987,6 +1043,7 @@ export default async function Image({
                     ] ?? {
                       x:
                         50,
+
                       y:
                         50,
                     };
@@ -1028,7 +1085,7 @@ export default async function Image({
                           10,
                       }}
                     >
-                      {/* SHIRT */}
+                      {/* JERSEY */}
 
                       <div
                         style={{
@@ -1036,10 +1093,10 @@ export default async function Image({
                             "relative",
 
                           width:
-                            "62px",
+                            `${jerseyWidth}px`,
 
                           height:
-                            "50px",
+                            `${jerseyHeight}px`,
 
                           display:
                             "flex",
@@ -1056,13 +1113,15 @@ export default async function Image({
                               "1px",
 
                             top:
-                              "8px",
+                              compact
+                                ? "8px"
+                                : "10px",
 
                             width:
-                              "19px",
+                              `${sleeveWidth}px`,
 
                             height:
-                              "23px",
+                              `${sleeveHeight}px`,
 
                             transform:
                               "rotate(-18deg)",
@@ -1089,13 +1148,15 @@ export default async function Image({
                               "1px",
 
                             top:
-                              "8px",
+                              compact
+                                ? "8px"
+                                : "10px",
 
                             width:
-                              "19px",
+                              `${sleeveWidth}px`,
 
                             height:
-                              "23px",
+                              `${sleeveHeight}px`,
 
                             transform:
                               "rotate(18deg)",
@@ -1125,10 +1186,10 @@ export default async function Image({
                               "2px",
 
                             width:
-                              "38px",
+                              `${bodyWidth}px`,
 
                             height:
-                              "44px",
+                              `${bodyHeight}px`,
 
                             transform:
                               "translateX(-50%)",
@@ -1155,7 +1216,7 @@ export default async function Image({
                               "#ffffff",
 
                             fontSize:
-                              19,
+                              `${numberSize}px`,
 
                             fontWeight:
                               900,
@@ -1178,10 +1239,14 @@ export default async function Image({
                               "0",
 
                             width:
-                              "15px",
+                              compact
+                                ? "15px"
+                                : "18px",
 
                             height:
-                              "7px",
+                              compact
+                                ? "7px"
+                                : "8px",
 
                             transform:
                               "translate(-50%, -30%)",
@@ -1195,36 +1260,46 @@ export default async function Image({
                         />
                       </div>
 
-                      {/* NAME */}
+                      {/* PLAYER NAME */}
 
                       <div
                         style={{
                           display:
                             "flex",
 
+                          alignItems:
+                            "center",
+
+                          justifyContent:
+                            "center",
+
                           marginTop:
-                            "2px",
+                            compact
+                              ? "1px"
+                              : "3px",
 
                           maxWidth:
-                            "112px",
+                            `${playerNameMaxWidth}px`,
 
                           padding:
-                            "4px 8px",
+                            compact
+                              ? "4px 7px"
+                              : "5px 10px",
 
                           borderRadius:
-                            "6px",
+                            "7px",
 
                           border:
-                            "1px solid rgba(255,255,255,0.14)",
+                            "1px solid rgba(255,255,255,0.18)",
 
                           background:
-                            "rgba(7,17,31,0.94)",
+                            "rgba(7,17,31,0.96)",
 
                           color:
                             "#ffffff",
 
                           fontSize:
-                            12,
+                            `${playerNameSize}px`,
 
                           fontWeight:
                             900,
@@ -1249,8 +1324,8 @@ export default async function Image({
 
       headers: {
         /*
-         * Yeni paylaşım kartlarının eski WhatsApp cache'ine
-         * takılmasını biraz azaltır.
+         * WhatsApp / sosyal platform preview cache'i
+         * çok uzun süre tutulmasın.
          */
         "Cache-Control":
           "public, max-age=300, s-maxage=300",
