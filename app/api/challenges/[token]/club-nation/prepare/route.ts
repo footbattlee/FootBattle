@@ -133,12 +133,7 @@ async function buildQuestionPool() {
         duel_tier,
         duel_score
       `)
-      .eq("duel_enabled", true)
-      .in("duel_tier", [
-        "S",
-        "A",
-        "B",
-      ]);
+      .eq("duel_enabled", true);
 
   if (teamError) {
     throw teamError;
@@ -320,13 +315,6 @@ async function buildQuestionPool() {
           allowedTeams.get(clubName);
 
         if (!team?.country) {
-          continue;
-        }
-
-        if (
-          normalizeCountry(team.country) ===
-          normalizeCountry(nationality)
-        ) {
           continue;
         }
 
@@ -536,16 +524,12 @@ export async function POST(
     /*
      * DÜELLO ROUND KURALI
      *
-     * - Aynı kulüp aynı düelloda ikinci kez gelemez.
-     * - Aynı milliyet tekrar gelebilir.
-     * - Kulübün kendi ülkesi milliyet olarak zaten
-     *   buildQuestionPool içinde eleniyor.
+     * TEK KISIT:
+     * Aynı kulüp aynı düelloda ikinci kez gelemez.
      *
-     * Örnek:
-     * R1 Fenerbahçe + Iran
-     * R2 Barcelona + Argentina
-     * R3 Inter + Argentina      -> GEÇERLİ
-     * R4 Fenerbahçe + Poland    -> GEÇERSİZ
+     * Milliyet tekrar edebilir.
+     * Kulübün kendi ülkesi de gelebilir.
+     * Tier kısıtı yoktur.
      */
     const usedClubs =
       new Set<string>();
