@@ -106,22 +106,28 @@ const GAME_OPTIONS: GameOption[] = [
   },
 
   {
-    code: "club_country",
+    code: "club_nation",
 
     title:
       "1 Takım 1 Millet",
 
     description:
-      "Verilen takım ve ülke kombinasyonuna uyan futbolcuyu rakibinden önce bul.",
+      "Verilen takım ve millet kombinasyonuna uyan futbolcuyu rakibinden önce bul. 5 round oynanır, ilk 3 roundu alan kazanır.",
 
     icon:
       "🌍",
 
     enabled:
-      false,
+      true,
 
     badge:
-      "YAKINDA",
+      "HAZIR",
+
+    rules: [
+      "⚡ 5 Round",
+      "🏆 İlk 3",
+      "🌍 Takım + Millet",
+    ],
   },
 
   {
@@ -612,6 +618,19 @@ function DuelChallengeContent() {
         throw new Error(
           "Challenge oluşturuldu fakat davet bağlantısı alınamadı.",
         );
+      }
+
+      if (
+        selectedGame.code ===
+        "club_nation"
+      ) {
+        router.push(
+          `/challenges/${encodeURIComponent(
+            challengeToken,
+          )}/club-nation`,
+        );
+
+        return;
       }
 
       router.push(

@@ -132,33 +132,23 @@ function getScore(
   wrongCount: number,
   scoring: ScoringConfig,
 ) {
-  if (
-    wrongCount <= 0
-  ) {
+  if (wrongCount <= 0) {
     return scoring.zeroWrong;
   }
 
-  if (
-    wrongCount === 1
-  ) {
+  if (wrongCount === 1) {
     return scoring.oneWrong;
   }
 
-  if (
-    wrongCount === 2
-  ) {
+  if (wrongCount === 2) {
     return scoring.twoWrong;
   }
 
-  if (
-    wrongCount === 3
-  ) {
+  if (wrongCount === 3) {
     return scoring.threeWrong;
   }
 
-  if (
-    wrongCount === 4
-  ) {
+  if (wrongCount === 4) {
     return scoring.fourWrong;
   }
 
@@ -802,9 +792,6 @@ export default function CareerPathPage() {
         true,
       );
 
-      /*
-       * Kaybedince bütün kariyer burada geliyor.
-       */
       if (
         result.allClubs &&
         result.allClubs.length >
@@ -1050,7 +1037,7 @@ export default function CareerPathPage() {
           );
 
           setMessage(
-            "😂 Footy: Beş yanlış yaptın. Eksik kariyer kulüplerini aşağıda açıyorum.",
+            "😂 Footy: Beş yanlış yaptın. Eksik kariyer kulüplerini açıyorum.",
           );
 
           void saveGameResult(
@@ -1075,10 +1062,6 @@ export default function CareerPathPage() {
 
       /* =================================================
          CORRECT
-
-         Burada kritik nokta:
-         matchedClub.careerOrder hangi slot ise
-         o slot açılıyor.
       ================================================= */
 
       const nextSolvedClubs =
@@ -1200,7 +1183,7 @@ export default function CareerPathPage() {
     !gameSession
   ) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#07111f] text-white">
+      <main className="flex min-h-[100dvh] items-center justify-center bg-[#07111f] text-white">
 
         <div className="text-center">
 
@@ -1225,7 +1208,7 @@ export default function CareerPathPage() {
     !gameSession
   ) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#07111f] px-4 text-white">
+      <main className="flex min-h-[100dvh] items-center justify-center bg-[#07111f] px-4 text-white">
 
         <div className="w-full max-w-md rounded-3xl border border-red-500/20 bg-red-500/10 p-7 text-center">
 
@@ -1261,7 +1244,7 @@ export default function CareerPathPage() {
   ======================================================= */
 
   return (
-    <main className="min-h-screen bg-[#07111f] px-4 py-6 text-white sm:px-6">
+    <main className="min-h-[100dvh] bg-[#07111f] px-3 pb-[calc(24px+env(safe-area-inset-bottom))] pt-4 text-white sm:px-6 sm:py-6">
 
       <div className="mx-auto max-w-5xl">
 
@@ -1269,36 +1252,44 @@ export default function CareerPathPage() {
             HEADER
         ================================================= */}
 
-        <header className="flex items-center justify-between border-b border-white/10 pb-5">
+        <header className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 pb-3 sm:pb-5">
 
-          <Link
-            href="/"
-            className="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-400 transition hover:border-amber-400/40 hover:text-amber-300"
-          >
-            ← Ana Sayfa
-          </Link>
+          <div className="flex justify-start">
+
+            <Link
+              href="/"
+              className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-400 transition hover:border-amber-400/40 hover:text-amber-300 sm:px-4 sm:text-sm"
+            >
+              ← Ana Sayfa
+            </Link>
+
+          </div>
 
           <div className="text-center">
 
-            <p className="font-black">
+            <p className="text-sm font-black sm:text-base">
               FootBattle
             </p>
 
-            <p className="text-xs text-slate-500">
+            <p className="text-[10px] text-slate-500 sm:text-xs">
               Career Path
             </p>
 
           </div>
 
-          <div className="text-right">
+          <div className="flex justify-end">
 
-            <p className="text-sm font-black text-amber-300">
-              {currentScore} puan
-            </p>
+            <div className="text-right">
 
-            <p className="mt-1 text-xs text-slate-500">
-              {attemptCount} tahmin
-            </p>
+              <p className="text-xs font-black text-amber-300 sm:text-sm">
+                {currentScore} P
+              </p>
+
+              <p className="mt-1 text-[9px] text-slate-600 sm:text-xs">
+                {attemptCount} tahmin
+              </p>
+
+            </div>
 
           </div>
 
@@ -1308,13 +1299,61 @@ export default function CareerPathPage() {
             MAIN CARD
         ================================================= */}
 
-        <section className="mt-7 overflow-hidden rounded-3xl border border-amber-400/20 bg-[#111b2a] shadow-2xl shadow-black/40">
+        <section className="mt-4 overflow-hidden rounded-2xl border border-amber-400/20 bg-[#111b2a] shadow-2xl shadow-black/40 sm:mt-7 sm:rounded-3xl">
 
           {/* ===============================================
-              TOP BAR
+              MOBILE PLAYER HERO
           =============================================== */}
 
-          <div className="border-b border-white/10 bg-gradient-to-r from-amber-500 to-yellow-400 px-5 py-5 text-center text-[#111827]">
+          <div className="border-b border-white/10 bg-gradient-to-b from-amber-400/[0.10] to-transparent p-4 sm:hidden">
+
+            <div className="flex items-center gap-4">
+
+              <div className="flex h-24 w-24 shrink-0 items-end justify-center overflow-hidden rounded-2xl border border-white/10 bg-[#07111f]">
+
+                {gameSession.player.imageUrl ? (
+                  <img
+                    src={
+                      gameSession.player.imageUrl
+                    }
+                    alt={
+                      gameSession.player.fullName
+                    }
+                    className="h-full w-full object-contain"
+                  />
+                ) : (
+                  <div className="text-4xl">
+                    ⚽
+                  </div>
+                )}
+
+              </div>
+
+              <div className="min-w-0 flex-1">
+
+                <span className="inline-flex rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.14em] text-amber-300">
+                  CAREER PATH
+                </span>
+
+                <h1 className="mt-2 truncate text-xl font-black">
+                  {gameSession.player.fullName}
+                </h1>
+
+                <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                  Kulüpleri bul, doğru takım kendi kariyer sırasına yerleşsin.
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* ===============================================
+              DESKTOP TOP BAR
+          =============================================== */}
+
+          <div className="hidden border-b border-white/10 bg-gradient-to-r from-amber-500 to-yellow-400 px-5 py-5 text-center text-[#111827] sm:block">
 
             <p className="text-xs font-black uppercase tracking-[0.25em]">
               SINIRSIZ CAREER PATH
@@ -1326,19 +1365,17 @@ export default function CareerPathPage() {
 
           </div>
 
-          <div className="p-5 sm:p-8">
+          <div className="p-3 sm:p-8">
 
             <div className="grid gap-7 lg:grid-cols-[0.7fr_1.3fr]">
 
               {/* =============================================
-                  LEFT
+                  LEFT / DESKTOP PLAYER
               ============================================= */}
 
               <div>
 
-                {/* PLAYER */}
-
-                <div className="rounded-3xl border border-amber-400/20 bg-amber-400/5 p-5 text-center">
+                <div className="hidden rounded-3xl border border-amber-400/20 bg-amber-400/5 p-5 text-center sm:block">
 
                   <span className="inline-block rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-xs font-black text-amber-300">
                     YENİ OYUN
@@ -1375,71 +1412,54 @@ export default function CareerPathPage() {
 
                 </div>
 
-                {/* STATS */}
+                {/* =========================================
+                    MOBILE COMPACT STATS
+                ========================================= */}
 
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5">
+                <div className="grid grid-cols-3 gap-2 sm:mt-4">
 
-                  <div className="grid grid-cols-3 gap-3 text-center">
+                  <CompactStat
+                    label="Bulunan"
+                    value={`${completedCount}/${clubSlotCount}`}
+                    tone="success"
+                  />
 
-                    <div>
+                  <CompactStat
+                    label="Yanlış"
+                    value={`${wrongCount}/${maxWrongGuesses}`}
+                    tone={
+                      wrongCount >=
+                      4
+                        ? "danger"
+                        : "default"
+                    }
+                  />
 
-                      <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                        Tamamlanan
-                      </p>
-
-                      <p className="mt-2 text-3xl font-black text-green-400">
-                        {completedCount}
-                        /
-                        {clubSlotCount}
-                      </p>
-
-                    </div>
-
-                    <div>
-
-                      <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                        Yanlış
-                      </p>
-
-                      <p className="mt-2 text-3xl font-black text-red-400">
-                        {wrongCount}
-                        /
-                        {maxWrongGuesses}
-                      </p>
-
-                    </div>
-
-                    <div>
-
-                      <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                        Kalan
-                      </p>
-
-                      <p className="mt-2 text-3xl font-black text-amber-300">
-                        {remainingWrongGuesses}
-                      </p>
-
-                    </div>
-
-                  </div>
-
-                  <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/5">
-
-                    <div
-                      className="h-full rounded-full bg-green-500 transition-all duration-500"
-                      style={{
-                        width:
-                          `${progressPercentage}%`,
-                      }}
-                    />
-
-                  </div>
+                  <CompactStat
+                    label="Kalan Hak"
+                    value={`${remainingWrongGuesses}`}
+                    tone="warning"
+                  />
 
                 </div>
 
-                {/* SCORE TABLE */}
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/5">
 
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <div
+                    className="h-full rounded-full bg-green-500 transition-all duration-500"
+                    style={{
+                      width:
+                        `${progressPercentage}%`,
+                    }}
+                  />
+
+                </div>
+
+                {/* =========================================
+                    DESKTOP SCORE TABLE
+                ========================================= */}
+
+                <div className="mt-4 hidden rounded-2xl border border-white/10 bg-black/20 p-4 sm:block">
 
                   <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
                     Güncel puan
@@ -1454,32 +1474,32 @@ export default function CareerPathPage() {
                     {[
                       [
                         "0 yanlış",
-                        250,
+                        scoring.zeroWrong,
                         "text-green-300",
                       ],
                       [
                         "1 yanlış",
-                        200,
+                        scoring.oneWrong,
                         "text-green-300",
                       ],
                       [
                         "2 yanlış",
-                        150,
+                        scoring.twoWrong,
                         "text-yellow-300",
                       ],
                       [
                         "3 yanlış",
-                        100,
+                        scoring.threeWrong,
                         "text-yellow-300",
                       ],
                       [
                         "4 yanlış",
-                        50,
+                        scoring.fourWrong,
                         "text-orange-300",
                       ],
                       [
                         "5 yanlış",
-                        0,
+                        scoring.fiveWrong,
                         "text-red-300",
                       ],
                     ].map(
@@ -1521,11 +1541,13 @@ export default function CareerPathPage() {
 
               <div>
 
-                {/* FOOTY */}
+                {/* ===========================================
+                    FOOTY
+                =========================================== */}
 
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-center">
+                <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-center sm:rounded-2xl sm:p-4">
 
-                  <p className="text-sm leading-6 text-slate-300">
+                  <p className="text-xs leading-5 text-slate-300 sm:text-sm sm:leading-6">
                     {message}
                   </p>
 
@@ -1537,7 +1559,7 @@ export default function CareerPathPage() {
 
                 {gameStatus ===
                   "playing" && (
-                  <div className="relative mt-5">
+                  <div className="relative mt-3 sm:mt-5">
 
                     <div className="flex gap-2">
 
@@ -1579,7 +1601,7 @@ export default function CareerPathPage() {
                         }}
                         placeholder={`Kulüp ara... En az ${minimumSearchLength} harf`}
                         autoComplete="off"
-                        className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-[#07111f] px-5 py-4 outline-none placeholder:text-slate-600 focus:border-amber-400/50 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#07111f] px-3 py-3 text-sm font-bold outline-none placeholder:text-slate-600 focus:border-amber-400/50 disabled:cursor-not-allowed disabled:opacity-50 sm:rounded-2xl sm:px-5 sm:py-4 sm:text-base"
                       />
 
                       <button
@@ -1596,7 +1618,7 @@ export default function CareerPathPage() {
                         onClick={() =>
                           void submitClub()
                         }
-                        className="shrink-0 rounded-2xl bg-amber-400 px-5 py-4 font-black text-[#111827] transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="shrink-0 rounded-xl bg-amber-400 px-3 py-3 text-xs font-black text-[#111827] transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-40 sm:rounded-2xl sm:px-5 sm:py-4 sm:text-base"
                       >
                         {submitting
                           ? "..."
@@ -1626,7 +1648,7 @@ export default function CareerPathPage() {
                         />
                       )}
 
-                    <p className="mt-3 text-center text-xs text-slate-600">
+                    <p className="mt-2 text-center text-[10px] text-slate-600 sm:mt-3 sm:text-xs">
                       Takım adının herhangi bir yerinden 3 harf yazabilirsin.
                     </p>
 
@@ -1634,16 +1656,56 @@ export default function CareerPathPage() {
                 )}
 
                 {/* ===========================================
+                    MOBILE SCORE
+                =========================================== */}
+
+                <div className="mt-3 flex items-center justify-between rounded-xl border border-amber-400/15 bg-amber-400/[0.04] px-3 py-2 sm:hidden">
+
+                  <div>
+
+                    <p className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-600">
+                      Güncel Puan
+                    </p>
+
+                    <p className="mt-0.5 text-sm font-black text-amber-300">
+                      {currentScore}
+                    </p>
+
+                  </div>
+
+                  <div className="text-right">
+
+                    <p className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-600">
+                      Hatasız Tamamlarsan
+                    </p>
+
+                    <p className="mt-0.5 text-sm font-black text-green-300">
+                      {scoring.zeroWrong}
+                    </p>
+
+                  </div>
+
+                </div>
+
+                {/* ===========================================
                     CAREER PATH
                 =========================================== */}
 
-                <div className="mt-6">
+                <div className="mt-4 sm:mt-6">
 
-                  <p className="mb-3 text-sm font-black uppercase tracking-widest text-amber-200">
-                    Kariyer Yolu
-                  </p>
+                  <div className="mb-2 flex items-center justify-between sm:mb-3">
 
-                  <div className="space-y-3">
+                    <p className="text-xs font-black uppercase tracking-widest text-amber-200 sm:text-sm">
+                      Kariyer Yolu
+                    </p>
+
+                    <p className="text-[9px] font-black text-slate-600 sm:text-xs">
+                      {completedCount}/{clubSlotCount}
+                    </p>
+
+                  </div>
+
+                  <div className="space-y-2 sm:space-y-3">
 
                     {Array.from({
                       length:
@@ -1686,7 +1748,7 @@ export default function CareerPathPage() {
                             key={
                               index
                             }
-                            className={`flex min-h-20 items-center gap-4 rounded-2xl border px-5 transition ${
+                            className={`flex min-h-[56px] items-center gap-3 rounded-xl border px-3 transition sm:min-h-20 sm:gap-4 sm:rounded-2xl sm:px-5 ${
                               club
                                 ? revealedAfterLoss
                                   ? "border-amber-400/30 bg-amber-400/10"
@@ -1696,7 +1758,7 @@ export default function CareerPathPage() {
                           >
 
                             <div
-                              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl font-black ${
+                              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-black sm:h-11 sm:w-11 sm:rounded-xl sm:text-base ${
                                 club
                                   ? revealedAfterLoss
                                     ? "bg-amber-400 text-[#07111f]"
@@ -1707,13 +1769,13 @@ export default function CareerPathPage() {
                               {slotNumber}
                             </div>
 
-                            <div className="flex-1">
+                            <div className="min-w-0 flex-1">
 
                               {club ? (
                                 <>
 
                                   <p
-                                    className={`text-lg font-black ${
+                                    className={`truncate text-sm font-black sm:text-lg ${
                                       revealedAfterLoss
                                         ? "text-amber-200"
                                         : "text-green-200"
@@ -1723,7 +1785,7 @@ export default function CareerPathPage() {
                                   </p>
 
                                   <p
-                                    className={`mt-1 text-xs ${
+                                    className={`mt-0.5 text-[9px] sm:mt-1 sm:text-xs ${
                                       revealedAfterLoss
                                         ? "text-amber-400/70"
                                         : "text-green-400/70"
@@ -1738,12 +1800,12 @@ export default function CareerPathPage() {
                               ) : (
                                 <>
 
-                                  <p className="text-lg font-black text-slate-600">
+                                  <p className="text-sm font-black text-slate-600 sm:text-lg">
                                     ?
                                   </p>
 
-                                  <p className="mt-1 text-xs text-slate-600">
-                                    Bu kariyer kulübü henüz bulunamadı.
+                                  <p className="mt-0.5 text-[9px] text-slate-600 sm:mt-1 sm:text-xs">
+                                    Henüz bulunamadı
                                   </p>
 
                                 </>
@@ -1753,7 +1815,7 @@ export default function CareerPathPage() {
 
                             {club && (
                               <span
-                                className={`flex h-8 w-8 items-center justify-center rounded-full font-black text-[#07111f] ${
+                                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black text-[#07111f] sm:h-8 sm:w-8 ${
                                   revealedAfterLoss
                                     ? "bg-amber-400"
                                     : "bg-green-500"
@@ -1781,7 +1843,7 @@ export default function CareerPathPage() {
                 {gameStatus !==
                   "playing" && (
                   <div
-                    className={`mt-6 rounded-2xl border p-6 text-center ${
+                    className={`mt-5 rounded-2xl border p-4 text-center sm:mt-6 sm:p-6 ${
                       gameStatus ===
                       "won"
                         ? "border-green-500/30 bg-green-500/10"
@@ -1789,26 +1851,26 @@ export default function CareerPathPage() {
                     }`}
                   >
 
-                    <p className="text-4xl">
+                    <p className="text-3xl sm:text-4xl">
                       {gameStatus ===
                       "won"
                         ? "🏆"
                         : "😤"}
                     </p>
 
-                    <p className="mt-3 text-2xl font-black">
+                    <p className="mt-2 text-xl font-black sm:mt-3 sm:text-2xl">
                       {gameStatus ===
                       "won"
                         ? "Career Path tamamlandı!"
                         : "Career Path sona erdi"}
                     </p>
 
-                    <p className="mt-2 text-sm text-slate-300">
+                    <p className="mt-1.5 text-xs text-slate-300 sm:mt-2 sm:text-sm">
                       {gameSession.player.fullName}
                     </p>
 
                     <p
-                      className={`mt-4 text-5xl font-black ${
+                      className={`mt-4 text-3xl font-black sm:text-5xl ${
                         gameStatus ===
                         "won"
                           ? "text-green-400"
@@ -1823,7 +1885,7 @@ export default function CareerPathPage() {
 
                     {gameStatus ===
                       "won" && (
-                      <p className="mt-3 text-sm text-amber-200">
+                      <p className="mt-2 text-xs text-amber-200 sm:mt-3 sm:text-sm">
 
                         {wrongCount ===
                         0
@@ -1836,7 +1898,7 @@ export default function CareerPathPage() {
                     {gameStatus ===
                       "lost" &&
                       resultSaving && (
-                        <p className="mt-3 text-sm text-slate-400">
+                        <p className="mt-2 text-xs text-slate-400 sm:mt-3 sm:text-sm">
                           Eksik kariyer kulüpleri yükleniyor...
                         </p>
                       )}
@@ -1845,14 +1907,14 @@ export default function CareerPathPage() {
                       "lost" &&
                       revealedClubs.length >
                         0 && (
-                        <p className="mt-3 text-sm text-amber-200">
+                        <p className="mt-2 text-xs text-amber-200 sm:mt-3 sm:text-sm">
                           Bulamadığın kulüpler yukarıda sarı olarak gösterildi.
                         </p>
                       )}
 
                     {resultSaveMessage && (
                       <p
-                        className={`mt-4 text-sm font-semibold ${
+                        className={`mt-3 text-xs font-semibold sm:mt-4 sm:text-sm ${
                           resultSaveMessage.includes(
                             "giriş",
                           ) ||
@@ -1870,7 +1932,7 @@ export default function CareerPathPage() {
                       </p>
                     )}
 
-                    <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
+                    <div className="mt-4 flex flex-col justify-center gap-2 sm:mt-6 sm:flex-row">
 
                       <button
                         type="button"
@@ -1881,7 +1943,7 @@ export default function CareerPathPage() {
                         onClick={() =>
                           void handleNewGame()
                         }
-                        className="rounded-xl bg-amber-400 px-6 py-3 text-sm font-black text-[#111827] transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded-xl bg-amber-400 px-5 py-3 text-xs font-black text-[#111827] transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6 sm:text-sm"
                       >
                         {newGameLoading
                           ? "Yeni oyuncu seçiliyor..."
@@ -1890,7 +1952,7 @@ export default function CareerPathPage() {
 
                       <Link
                         href="/"
-                        className="rounded-xl border border-white/15 px-6 py-3 text-sm font-black transition hover:bg-white/5"
+                        className="rounded-xl border border-white/15 px-5 py-3 text-xs font-black transition hover:bg-white/5 sm:px-6 sm:text-sm"
                       >
                         Ana Sayfa
                       </Link>
@@ -1911,6 +1973,53 @@ export default function CareerPathPage() {
       </div>
 
     </main>
+  );
+}
+
+/* =========================================================
+   COMPACT STAT
+========================================================= */
+
+function CompactStat({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+
+  tone?:
+    | "default"
+    | "success"
+    | "warning"
+    | "danger";
+}) {
+  const toneClasses =
+    tone ===
+    "success"
+      ? "border-green-500/20 bg-green-500/[0.06] text-green-300"
+      : tone ===
+          "warning"
+        ? "border-amber-400/20 bg-amber-400/[0.06] text-amber-300"
+        : tone ===
+            "danger"
+          ? "border-red-500/20 bg-red-500/[0.06] text-red-300"
+          : "border-white/10 bg-black/10 text-white";
+
+  return (
+    <div
+      className={`rounded-xl border px-2 py-2.5 text-center ${toneClasses}`}
+    >
+
+      <p className="text-[8px] font-black uppercase tracking-[0.12em] opacity-60 sm:text-[10px]">
+        {label}
+      </p>
+
+      <p className="mt-1 text-sm font-black sm:text-lg">
+        {value}
+      </p>
+
+    </div>
   );
 }
 
@@ -1941,7 +2050,7 @@ function SearchDropdown({
   onSelect,
 }: SearchDropdownProps) {
   return (
-    <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 max-h-72 overflow-y-auto rounded-2xl border border-white/10 bg-[#0c1929] shadow-2xl shadow-black/60">
+    <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 max-h-[45dvh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0c1929] shadow-2xl shadow-black/60">
 
       {loading ? (
         <p className="px-4 py-3 text-sm text-slate-500">

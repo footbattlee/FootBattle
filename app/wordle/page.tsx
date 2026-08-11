@@ -545,7 +545,9 @@ export default function WordlePage() {
     void startNewGame(
       true,
     );
-  }, [startNewGame]);
+  }, [
+    startNewGame,
+  ]);
 
   /* =======================================================
      KEYBOARD STATUSES
@@ -671,10 +673,6 @@ export default function WordlePage() {
           const result =
             (await response.json()) as SaveResultResponse;
 
-          /* =================================================
-             LOGIN YOK
-          ================================================= */
-
           if (
             response.status ===
             401
@@ -686,10 +684,6 @@ export default function WordlePage() {
             return;
           }
 
-          /* =================================================
-             ERROR
-          ================================================= */
-
           if (
             !response.ok ||
             !result.ok
@@ -699,10 +693,6 @@ export default function WordlePage() {
                 "Oyun sonucu kaydedilemedi.",
             );
           }
-
-          /* =================================================
-             ANSWER PLAYER
-          ================================================= */
 
           setAnswerPlayerName(
             result.answerPlayerName ??
@@ -860,10 +850,6 @@ export default function WordlePage() {
             "",
           );
 
-          /* =================================================
-             WON
-          ================================================= */
-
           if (
             result.won
           ) {
@@ -899,10 +885,6 @@ export default function WordlePage() {
             return;
           }
 
-          /* =================================================
-             LOST
-          ================================================= */
-
           if (
             nextEvaluatedGuesses.length >=
             game.maxAttempts
@@ -922,10 +904,6 @@ export default function WordlePage() {
 
             return;
           }
-
-          /* =================================================
-             CONTINUE
-          ================================================= */
 
           const remainingAttempts =
             game.maxAttempts -
@@ -1206,7 +1184,7 @@ export default function WordlePage() {
     !game
   ) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#07111f] text-white">
+      <main className="flex min-h-[100dvh] items-center justify-center bg-[#07111f] text-white">
 
         <div className="text-center">
 
@@ -1231,7 +1209,7 @@ export default function WordlePage() {
     !game
   ) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#07111f] px-4 text-white">
+      <main className="flex min-h-[100dvh] items-center justify-center bg-[#07111f] px-4 text-white">
 
         <div className="w-full max-w-sm rounded-[22px] border border-red-500/20 bg-red-500/10 p-6 text-center">
 
@@ -1267,21 +1245,21 @@ export default function WordlePage() {
   ======================================================= */
 
   return (
-    <main className="min-h-screen bg-[#07111f] text-white">
+    <main className="min-h-[100dvh] bg-[#07111f] pb-[calc(20px+env(safe-area-inset-bottom))] text-white">
 
-      <div className="mx-auto w-full max-w-[1120px] px-4 sm:px-6">
+      <div className="mx-auto w-full max-w-[1120px] px-3 sm:px-6">
 
         {/* =================================================
             HEADER
         ================================================= */}
 
-        <header className="grid min-h-[68px] grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-white/10">
+        <header className="grid min-h-[58px] grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-white/10 sm:min-h-[68px] sm:gap-4">
 
           <div className="flex justify-start">
 
             <Link
               href="/"
-              className="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-400 transition hover:border-green-400/40 hover:text-green-400"
+              className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-400 transition hover:border-green-400/40 hover:text-green-400 sm:px-4 sm:text-sm"
             >
               ← Ana Sayfa
             </Link>
@@ -1290,11 +1268,11 @@ export default function WordlePage() {
 
           <div className="text-center">
 
-            <p className="text-base font-black">
+            <p className="text-sm font-black sm:text-base">
               FootBattle
             </p>
 
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[10px] text-slate-500 sm:text-[11px]">
               Wordle
             </p>
 
@@ -1302,7 +1280,7 @@ export default function WordlePage() {
 
           <div className="flex justify-end">
 
-            <div className="rounded-xl border border-white/10 px-4 py-2 text-sm font-black">
+            <div className="rounded-xl border border-white/10 px-3 py-2 text-xs font-black sm:px-4 sm:text-sm">
               {evaluatedGuesses.length}
               /
               {game.maxAttempts}
@@ -1316,9 +1294,9 @@ export default function WordlePage() {
             GAME AREA
         ================================================= */}
 
-        <div className="py-7 sm:py-8">
+        <div className="py-3 sm:py-8">
 
-          <section className="mx-auto w-full max-w-[760px] rounded-[22px] border border-white/10 bg-white/[0.04] px-4 py-5 shadow-2xl shadow-black/20 sm:px-6 sm:py-6">
+          <section className="mx-auto w-full max-w-[760px] rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-4 shadow-2xl shadow-black/20 sm:rounded-[22px] sm:px-6 sm:py-6">
 
             {/* ===============================================
                 TITLE
@@ -1326,28 +1304,30 @@ export default function WordlePage() {
 
             <div className="text-center">
 
-              <span className="inline-block rounded-full border border-green-500/30 bg-green-500/10 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-green-400">
+              <span className="inline-block rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-[9px] font-black uppercase tracking-[0.15em] text-green-400 sm:px-4 sm:py-1.5 sm:text-[11px]">
                 SINIRSIZ MOD
               </span>
 
-              <h1 className="mt-4 text-[30px] font-black leading-tight sm:text-[34px]">
+              <h1 className="mt-2.5 text-2xl font-black leading-tight sm:mt-4 sm:text-[34px]">
                 Oyuncuyu Bul
               </h1>
 
-              <p className="mt-1.5 text-sm text-slate-400">
+              <p className="mt-1 text-xs text-slate-400 sm:mt-1.5 sm:text-sm">
                 Oyuncunun soyadını{" "}
                 {game.maxAttempts} tahminde bul.
               </p>
 
-              <p className="mt-1.5 text-[11px] text-slate-600">
-                Soyadı{" "}
-                {game.letterCount}{" "}
-                harften oluşuyor.
-              </p>
+              <div className="mt-2 flex items-center justify-center gap-2 text-[10px] sm:mt-2 sm:text-[11px]">
 
-              <p className="mt-2 text-[11px] font-bold text-green-400/70">
-                İstediğin kadar yeni oyuncuyla oynayabilirsin.
-              </p>
+                <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 font-bold text-slate-400">
+                  {game.letterCount} harf
+                </span>
+
+                <span className="rounded-full border border-green-500/20 bg-green-500/[0.07] px-2.5 py-1 font-bold text-green-400/80">
+                  Sınırsız oyun
+                </span>
+
+              </div>
 
             </div>
 
@@ -1355,7 +1335,7 @@ export default function WordlePage() {
                 BOARD
             =============================================== */}
 
-            <div className="mt-6 space-y-2">
+            <div className="mt-4 space-y-1.5 sm:mt-6 sm:space-y-2">
 
               {Array.from({
                 length:
@@ -1381,7 +1361,7 @@ export default function WordlePage() {
                       key={
                         rowIndex
                       }
-                      className="flex justify-center gap-1.5"
+                      className="flex justify-center gap-1 sm:gap-1.5"
                     >
 
                       {Array.from({
@@ -1422,7 +1402,7 @@ export default function WordlePage() {
                               key={
                                 letterIndex
                               }
-                              className={`flex h-[50px] w-[44px] items-center justify-center rounded-[10px] border text-lg font-black transition-all duration-300 sm:h-[52px] sm:w-[46px] sm:text-xl ${getTileClasses(
+                              className={`flex h-[44px] w-[39px] items-center justify-center rounded-lg border text-base font-black transition-all duration-300 sm:h-[52px] sm:w-[46px] sm:rounded-[10px] sm:text-xl ${getTileClasses(
                                 status,
                               )} ${
                                 activeLetter
@@ -1447,9 +1427,9 @@ export default function WordlePage() {
                 FOOTY MESSAGE
             =============================================== */}
 
-            <div className="mt-5 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-center">
+            <div className="mt-3 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-center sm:mt-5 sm:px-4 sm:py-3">
 
-              <p className="text-sm leading-5 text-slate-300">
+              <p className="text-xs leading-5 text-slate-300 sm:text-sm">
                 {message}
               </p>
 
@@ -1459,7 +1439,7 @@ export default function WordlePage() {
                 KEYBOARD
             =============================================== */}
 
-            <div className="mt-5 space-y-1.5">
+            <div className="mt-3 space-y-1 sm:mt-5 sm:space-y-1.5">
 
               {KEYBOARD_ROWS.map(
                 (
@@ -1470,7 +1450,7 @@ export default function WordlePage() {
                     key={
                       rowIndex
                     }
-                    className="flex justify-center gap-1"
+                    className="flex justify-center gap-[3px] sm:gap-1"
                   >
 
                     {row.map(
@@ -1499,10 +1479,10 @@ export default function WordlePage() {
                                 "playing" ||
                               submitting
                             }
-                            className={`flex h-10 items-center justify-center rounded-lg border text-[11px] font-black transition sm:h-11 sm:text-xs ${
+                            className={`flex h-9 items-center justify-center rounded-md border text-[9px] font-black transition sm:h-11 sm:rounded-lg sm:text-xs ${
                               isSpecialKey
-                                ? "min-w-[56px] px-2 sm:min-w-[70px]"
-                                : "w-[30px] sm:w-9"
+                                ? "min-w-[48px] px-1.5 sm:min-w-[70px] sm:px-2"
+                                : "w-[27px] sm:w-9"
                             } ${getKeyboardClasses(
                               keyboardStatuses[
                                 key
@@ -1512,7 +1492,10 @@ export default function WordlePage() {
                             {key ===
                             "DELETE"
                               ? "⌫"
-                              : key}
+                              : key ===
+                                  "ENTER"
+                                ? "↵"
+                                : key}
                           </button>
                         );
                       },
@@ -1525,13 +1508,39 @@ export default function WordlePage() {
             </div>
 
             {/* ===============================================
+                MOBILE COLOR LEGEND
+            =============================================== */}
+
+            {gameStatus ===
+              "playing" && (
+              <div className="mt-3 grid grid-cols-3 gap-1.5 text-center text-[9px] sm:hidden">
+
+                <MiniLegend
+                  tone="green"
+                  label="Doğru"
+                />
+
+                <MiniLegend
+                  tone="amber"
+                  label="Yanlış yer"
+                />
+
+                <MiniLegend
+                  tone="slate"
+                  label="Yok"
+                />
+
+              </div>
+            )}
+
+            {/* ===============================================
                 RESULT
             =============================================== */}
 
             {gameStatus !==
               "playing" && (
               <div
-                className={`mt-5 rounded-2xl border p-5 text-center ${
+                className={`mt-4 rounded-2xl border p-4 text-center sm:mt-5 sm:p-5 ${
                   gameStatus ===
                   "won"
                     ? "border-green-500/20 bg-green-500/10"
@@ -1553,13 +1562,9 @@ export default function WordlePage() {
                     : "Oyuncuyu bulamadın!"}
                 </p>
 
-                {/* ===========================================
-                    WIN TEXT
-                =========================================== */}
-
                 {gameStatus ===
                   "won" && (
-                  <p className="mt-1.5 text-sm text-slate-400">
+                  <p className="mt-1 text-xs text-slate-400 sm:text-sm">
                     {
                       evaluatedGuesses.length
                     }{" "}
@@ -1567,32 +1572,28 @@ export default function WordlePage() {
                   </p>
                 )}
 
-                {/* ===========================================
-                    LOST ANSWER
-                =========================================== */}
-
                 {gameStatus ===
                   "lost" && (
                   <div className="mt-3">
 
                     {resultLoading ? (
-                      <p className="text-sm text-slate-500">
+                      <p className="text-xs text-slate-500 sm:text-sm">
                         Doğru oyuncu yükleniyor...
                       </p>
                     ) : answerPlayerName ? (
                       <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
 
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:text-xs">
                           Doğru Oyuncu
                         </p>
 
-                        <p className="mt-1 text-xl font-black text-white">
+                        <p className="mt-1 text-lg font-black text-white sm:text-xl">
                           {answerPlayerName}
                         </p>
 
                       </div>
                     ) : (
-                      <p className="text-sm text-slate-500">
+                      <p className="text-xs text-slate-500 sm:text-sm">
                         Doğru oyuncu bilgisi alınamadı.
                       </p>
                     )}
@@ -1600,21 +1601,13 @@ export default function WordlePage() {
                   </div>
                 )}
 
-                {/* ===========================================
-                    SCORE
-                =========================================== */}
-
                 <p className="mt-3 text-2xl font-black text-green-400">
                   {score} puan
                 </p>
 
-                {/* ===========================================
-                    RESULT SAVE MESSAGE
-                =========================================== */}
-
                 {resultSaveMessage && (
                   <p
-                    className={`mt-2 text-sm font-semibold ${
+                    className={`mt-2 text-xs font-semibold sm:text-sm ${
                       resultSaveMessage.includes(
                         "hata",
                       ) ||
@@ -1629,11 +1622,7 @@ export default function WordlePage() {
                   </p>
                 )}
 
-                {/* ===========================================
-                    ACTIONS
-                =========================================== */}
-
-                <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
+                <div className="mt-4 flex flex-col justify-center gap-2 sm:mt-5 sm:flex-row">
 
                   <button
                     type="button"
@@ -1644,7 +1633,7 @@ export default function WordlePage() {
                     onClick={() =>
                       void handleNewGame()
                     }
-                    className="rounded-xl bg-green-500 px-5 py-3 text-sm font-black text-[#07111f] transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-xl bg-green-500 px-5 py-3 text-xs font-black text-[#07111f] transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
                   >
                     {loadingGame
                       ? "Yeni oyuncu seçiliyor..."
@@ -1656,14 +1645,14 @@ export default function WordlePage() {
                     onClick={
                       shareResult
                     }
-                    className="rounded-xl border border-white/15 px-5 py-3 text-sm font-black transition hover:border-white/30 hover:bg-white/5"
+                    className="rounded-xl border border-white/15 px-5 py-3 text-xs font-black transition hover:border-white/30 hover:bg-white/5 sm:text-sm"
                   >
                     Sonucu Paylaş
                   </button>
 
                   <Link
                     href="/"
-                    className="rounded-xl border border-white/15 px-5 py-3 text-sm font-semibold transition hover:border-white/30 hover:bg-white/5"
+                    className="rounded-xl border border-white/15 px-5 py-3 text-xs font-semibold transition hover:border-white/30 hover:bg-white/5 sm:text-sm"
                   >
                     Ana Sayfa
                   </Link>
@@ -1671,7 +1660,7 @@ export default function WordlePage() {
                 </div>
 
                 {shareMessage && (
-                  <p className="mt-3 text-sm font-semibold text-green-400">
+                  <p className="mt-3 text-xs font-semibold text-green-400 sm:text-sm">
                     {shareMessage}
                   </p>
                 )}
@@ -1680,10 +1669,10 @@ export default function WordlePage() {
             )}
 
             {/* ===============================================
-                COLOR INFO
+                DESKTOP COLOR INFO
             =============================================== */}
 
-            <div className="mt-5 grid grid-cols-3 gap-2 text-center text-[11px]">
+            <div className="mt-5 hidden grid-cols-3 gap-2 text-center text-[11px] sm:grid">
 
               <div className="rounded-xl border border-green-500/20 bg-green-500/10 px-2 py-2.5">
 
@@ -1724,5 +1713,55 @@ export default function WordlePage() {
       </div>
 
     </main>
+  );
+}
+
+/* =========================================================
+   MINI LEGEND
+========================================================= */
+
+function MiniLegend({
+  tone,
+  label,
+}: {
+  tone:
+    | "green"
+    | "amber"
+    | "slate";
+
+  label: string;
+}) {
+  const classes =
+    tone ===
+    "green"
+      ? "border-green-500/20 bg-green-500/[0.06] text-green-300"
+      : tone ===
+          "amber"
+        ? "border-amber-400/20 bg-amber-400/[0.06] text-amber-300"
+        : "border-slate-600/30 bg-slate-700/10 text-slate-400";
+
+  const square =
+    tone ===
+    "green"
+      ? "bg-green-500"
+      : tone ===
+          "amber"
+        ? "bg-amber-400"
+        : "bg-slate-700";
+
+  return (
+    <div
+      className={`rounded-lg border px-1.5 py-2 ${classes}`}
+    >
+
+      <div
+        className={`mx-auto mb-1 h-2.5 w-2.5 rounded ${square}`}
+      />
+
+      <p>
+        {label}
+      </p>
+
+    </div>
   );
 }

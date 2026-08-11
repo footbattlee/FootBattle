@@ -16,6 +16,7 @@ const CHALLENGE_LIFETIME_HOURS =
 
 const ALLOWED_GAME_CODES = [
   "club_clash",
+  "club_nation",
   "player_quiz",
   "career_path",
   "guess_the_player",
@@ -170,9 +171,6 @@ export async function POST(
 
     /* =====================================================
        AUTH
-
-       Kullanıcı giriş yapmış olabilir.
-       Giriş zorunlu değil.
     ===================================================== */
 
     const authClient =
@@ -188,9 +186,8 @@ export async function POST(
       await authClient.auth.getUser();
 
     /*
-     * Auth cookie yoksa Supabase burada hata
-     * döndürebilir. Guest challenge için bu
-     * fatal bir hata değildir.
+     * Auth cookie yoksa Supabase hata döndürebilir.
+     * Guest challenge için fatal değil.
      */
     if (
       userError &&
@@ -217,9 +214,8 @@ export async function POST(
       null;
 
     /*
-     * Kayıtlı kullanıcı değilse browser'ı
-     * challenge sahibi olarak tanımak için
-     * kalıcı guest id gerekiyor.
+     * Login olmayan browser'ın challenge sahibi olduğunu
+     * takip edebilmek için guest id oluşturuyoruz.
      */
     if (
       !user &&
@@ -274,14 +270,14 @@ export async function POST(
             "waiting",
 
           /*
-           * Giriş yaptıysa UUID burada tutulur.
+           * Login olmuş kullanıcı UUID.
            */
           challenger_user_id:
             user?.id ??
             null,
 
           /*
-           * Guest ise cookie kimliği burada tutulur.
+           * Guest ise browser kimliği.
            */
           challenger_guest_id:
             user
@@ -289,8 +285,7 @@ export async function POST(
               : guestId,
 
           /*
-           * Girişli/girişsiz fark etmeksizin
-           * challenge ekranında gösterilecek isim.
+           * Challenge ekranında gösterilecek isim.
            */
           challenger_name:
             challengerName,
@@ -370,6 +365,13 @@ export async function POST(
 
     /* =====================================================
        SHARE URL
+
+       ÖNEMLİ:
+       club_nation dahil tüm davetler önce generic
+       /challenge/[token] ekranına gider.
+
+       Çünkü rakibin JOIN olması ve challenge'ın START
+       edilmesi mevcut ortak challenge ekranında yapılıyor.
     ===================================================== */
 
     const requestOrigin =
@@ -430,8 +432,6 @@ export async function POST(
 
     /* =====================================================
        SET GUEST COOKIE
-
-       Sadece login olmayan challenge sahibi için.
     ===================================================== */
 
     if (
@@ -466,7 +466,9 @@ export async function POST(
     }
 
     return response;
-  } catch (error) {
+  } catch (
+    error
+  ) {
     console.error(
       "Challenge create endpoint hatası:",
       error,

@@ -323,25 +323,30 @@ const GAMES: GameItem[] = [
 
   {
     code:
-      "club_country",
+      "club_nation",
 
     title:
       "1 Takım 1 Millet",
 
     description:
-      "Verilen takım ve ülke kombinasyonuna uygun futbolcuyu rakibinden önce bul.",
+      "Verilen takım ve millet kombinasyonuna uygun futbolcuyu 120 saniye içinde bul. Her doğru +20 puan.",
 
     heroDescription:
-      "Takım ve millet kesişimine uyan futbolcuyu bul.",
+      "120 saniyede takım ve millet kesişimine uyan mümkün olduğunca çok futbolcuyu bul.",
 
     icon:
       "🌍",
 
     mode:
-      "duel",
+      "both",
 
     ready:
-      false,
+      true,
+
+    playHref:
+      "/club-nation",
+    duelHref:
+      "/duels/challenge?game=club_nation",
 
     accent:
       "blue",
@@ -1467,19 +1472,15 @@ export default function HomePage() {
                 </h2>
 
                 <p className="mt-2 max-w-[700px] text-sm leading-6 text-slate-400">
-                  1 Takım 1 Millet ve
-                  Futbol Tic Tac Toe,
+                  Futbol Tic Tac Toe ve
+                  yeni düello modları,
                   mevcut challenge altyapısına
-                  ekleyeceğimiz sonraki oyunlar.
+                  ekleyeceğimiz sonraki özellikler.
                 </p>
 
               </div>
 
               <div className="flex gap-2">
-
-                <SoonPill>
-                  🌍 1 Takım 1 Millet
-                </SoonPill>
 
                 <SoonPill>
                   ❌ Tic Tac Toe

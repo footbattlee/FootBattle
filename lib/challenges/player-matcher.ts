@@ -488,3 +488,294 @@ export function matchesBothConstraintsFromData(
     )
   );
 }
+
+/* =========================================================
+   FIND PLAYERS BY CLUB + COUNTRY
+
+   1 Takım 1 Millet oyunu için kullanılır.
+
+   Örnek:
+   Galatasaray + Uruguay
+
+   Dönen oyuncular:
+   - geçmişinde Galatasaray bulunan
+   - milliyeti Uruguay olan
+   oyuncular
+========================================================= */
+
+export type ChallengePlayerSearchResult = {
+  playerId: number;
+  name: string;
+  nationality: string | null;
+  clubs: string[];
+};
+
+export async function findPlayersByClubAndCountry(
+  clubName: string,
+  countryName: string,
+): Promise<ChallengePlayerSearchResult[]> {
+  const normalizedClub =
+    normalizeChallengeText(
+      clubName,
+    );
+
+  const normalizedCountry =
+    normalizeChallengeText(
+      countryName,
+    );
+
+  if (
+    !normalizedClub ||
+    !normalizedCountry
+  ) {
+    return [];
+  }
+
+  /* =====================================================
+     1. İLGİLİ KULÜPTE OYNAMIŞ OYUNCULAR
+
+     Önce player_quiz_clubs üzerinden oyuncu ID'lerini
+     buluyoruz.
+
+     Böylece bütün guess_players tablosunu belleğe
+     çekmek zorunda kalmıyoruz.
+  ===================================================== */
+
+  const {
+    data: clubRows,
+    error: clubError,
+  } =
+    await supabaseAdmin
+      .from(
+        "player_quiz_clubs",
+      )
+      .select(`
+        player_id,
+        club_name
+      `);
+
+  if (clubError) {
+    throw clubError;
+  }
+
+  const matchingPlayerIds =
+    Array.from(
+      new Set(
+        (
+          clubRows ??
+          []
+        )
+          .filter(
+            (
+              row,
+            ) =>
+              normalizeChallengeText(
+                row.club_name ??
+                  "",
+              ) ===
+              normalizedClub,
+          )
+          .map(
+            (
+              row,
+            ) =>
+              Number(
+                row.player_id,
+              ),
+          )
+          .filter(
+            (
+              playerId,
+            ) =>
+              Number.isInteger(
+                playerId,
+              ) &&
+              playerId >
+                0,
+          ),
+      ),
+    );
+
+  if (
+    matchingPlayerIds.length ===
+    0
+  ) {
+    return [];
+  }
+
+  /* =====================================================
+     2. OYUNCULARIN MİLLİYETLERİNİ OKU
+  ===================================================== */
+
+  const {
+    data: players,
+    error: playersError,
+  } =
+    await supabaseAdmin
+      .from(
+        "guess_players",
+      )
+      .select(`
+        player_id,
+        name,
+        nationality
+      `)
+      .in(
+        "player_id",
+        matchingPlayerIds,
+      );
+
+  if (playersError) {
+    throw playersError;
+  }
+
+  const countryMatches =
+    (
+      players ??
+      []
+    ).filter(
+      (
+        player,
+      ) =>
+        normalizeChallengeText(
+          player.nationality ??
+            "",
+        ) ===
+        normalizedCountry,
+    );
+
+  if (
+    countryMatches.length ===
+    0
+  ) {
+    return [];
+  }
+
+  /* =====================================================
+     3. BULUNAN OYUNCULARIN TÜM KULÜPLERİNİ GETİR
+
+     Şimdilik sadece sonuç objesini daha kullanışlı
+     hale getirmek için yapıyoruz.
+
+     Guess kontrolü için aslında playerId yeterli.
+  ===================================================== */
+
+  const resultPlayerIds =
+    countryMatches.map(
+      (
+        player,
+      ) =>
+        Number(
+          player.player_id,
+        ),
+    );
+
+  const {
+    data: allClubRows,
+    error:
+      allClubsError,
+  } =
+    await supabaseAdmin
+      .from(
+        "player_quiz_clubs",
+      )
+      .select(`
+        player_id,
+        club_name
+      `)
+      .in(
+        "player_id",
+        resultPlayerIds,
+      );
+
+  if (allClubsError) {
+    throw allClubsError;
+  }
+
+  /* =====================================================
+     4. RESPONSE
+  ===================================================== */
+
+  return countryMatches.map(
+    (
+      player,
+    ) => {
+      const playerId =
+        Number(
+          player.player_id,
+        );
+
+      const clubs =
+        Array.from(
+          new Set(
+            (
+              allClubRows ??
+              []
+            )
+              .filter(
+                (
+                  row,
+                ) =>
+                  Number(
+                    row.player_id,
+                  ) ===
+                  playerId,
+              )
+              .map(
+                (
+                  row,
+                ) =>
+                  row.club_name
+                    ?.trim(),
+              )
+              .filter(
+                (
+                  club,
+                ): club is string =>
+                  Boolean(
+                    club,
+                  ),
+              ),
+          ),
+        );
+
+      return {
+        playerId,
+
+        name:
+          player.name,
+
+        nationality:
+          player.nationality ??
+          null,
+
+        clubs,
+      };
+    },
+  );
+}
+
+
+/* =========================================================
+   HAS CLUB + COUNTRY MATCH
+
+   Oyun hazırlanırken sadece:
+   "Bu kombinasyonun en az bir cevabı var mı?"
+   diye bakmak istediğimiz durumlar için kısa yol.
+========================================================= */
+
+export async function hasClubCountryMatch(
+  clubName: string,
+  countryName: string,
+) {
+  const players =
+    await findPlayersByClubAndCountry(
+      clubName,
+      countryName,
+    );
+
+  return (
+    players.length >
+    0
+  );
+}
