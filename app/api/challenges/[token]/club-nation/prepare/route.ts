@@ -534,22 +534,20 @@ export async function POST(
     const selected: Question[] = [];
 
     /*
-     * Bir düelloda:
+     * DÜELLO ROUND KURALI
      *
-     * - aynı kulüp ikinci kez gelemez
-     * - aynı milliyet ikinci kez gelemez
-     *
-     * Böylece 5 round = 5 farklı kulüp + 5 farklı milliyet.
+     * - Aynı kulüp aynı düelloda ikinci kez gelemez.
+     * - Aynı milliyet tekrar gelebilir.
+     * - Kulübün kendi ülkesi milliyet olarak zaten
+     *   buildQuestionPool içinde eleniyor.
      *
      * Örnek:
      * R1 Fenerbahçe + Iran
-     * R2 Fenerbahçe + Poland    -> YOK
-     * R3 Milan + Iran           -> YOK
+     * R2 Barcelona + Argentina
+     * R3 Inter + Argentina      -> GEÇERLİ
+     * R4 Fenerbahçe + Poland    -> GEÇERSİZ
      */
     const usedClubs =
-      new Set<string>();
-
-    const usedNationalities =
       new Set<string>();
 
     for (
@@ -562,17 +560,9 @@ export async function POST(
             "tr-TR",
           );
 
-      const nationalityKey =
-        normalizeCountry(
-          item.nationality,
-        );
-
       if (
         usedClubs.has(
           clubKey,
-        ) ||
-        usedNationalities.has(
-          nationalityKey,
         )
       ) {
         continue;
@@ -584,10 +574,6 @@ export async function POST(
 
       usedClubs.add(
         clubKey,
-      );
-
-      usedNationalities.add(
-        nationalityKey,
       );
 
       if (
