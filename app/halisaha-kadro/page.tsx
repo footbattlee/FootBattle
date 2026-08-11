@@ -1332,7 +1332,7 @@ export default function HalisahaKadroPage() {
             <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
               HALISAHA{" "}
               <span className="text-yellow-400">
-                KADRO KURMA
+                KADRO OLUŞTUR
               </span>
             </h1>
 
@@ -2076,6 +2076,63 @@ export default function HalisahaKadroPage() {
           </section>
 
         </div>
+
+        {/* =====================================================
+            SEO CONTENT
+        ===================================================== */}
+        <section className="mx-auto mt-12 w-full max-w-4xl border-t border-white/10 px-4 pb-12 pt-10">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+            <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
+              Halısaha Kadro Oluşturucu
+            </h2>
+
+            <p className="mt-4 leading-7 text-slate-400">
+              Halısaha maçın için kadro hazırlamak artık çok daha kolay.
+              FootBattle Halısaha Kadro Oluşturucu ile maça katılacak oyuncuları
+              ekleyebilir, takımları oluşturabilir ve hazırladığın kadroyu
+              arkadaşlarınla paylaşabilirsin.
+            </p>
+
+            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-5">
+                <h3 className="font-bold text-white">Halısaha Takımlarını Oluştur</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  Maça gelecek oyuncuları ekle ve halısaha kadronu kolayca hazırla.
+                  Takımları maçtan önce düzenleyerek kimin hangi takımda oynayacağını belirle.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-5">
+                <h3 className="font-bold text-white">Kadronu Arkadaşlarınla Paylaş</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  Hazırladığın halısaha kadrosunu arkadaşlarınla paylaş. Böylece maç
+                  öncesi kadro ve takım dağılımı herkes tarafından kolayca görülebilir.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-8">
+              <h2 className="text-xl font-bold text-white">
+                Halısaha Kadrosu Nasıl Oluşturulur?
+              </h2>
+              <ol className="mt-4 space-y-3 text-sm leading-6 text-slate-400">
+                <li><strong className="text-slate-200">1.</strong>{" "}Halısaha maçına katılacak oyuncuları ekle.</li>
+                <li><strong className="text-slate-200">2.</strong>{" "}Oyuncuları takımlara dağıt ve kadronu oluştur.</li>
+                <li><strong className="text-slate-200">3.</strong>{" "}Hazırladığın kadroyu kontrol et.</li>
+                <li><strong className="text-slate-200">4.</strong>{" "}Kadroyu arkadaşlarınla paylaş ve maça hazır ol.</li>
+              </ol>
+            </div>
+
+            <div className="mt-8 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.05] p-5">
+              <h2 className="font-bold text-white">Ücretsiz Halısaha Kadro Kurma</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                FootBattle&apos;ın halısaha takım oluşturucusunu ücretsiz kullanabilir,
+                maç kadronu birkaç dakika içinde hazırlayabilirsin. Oyuncuları ekle,
+                takımları oluştur ve halısaha maçını organize et.
+              </p>
+            </div>
+          </div>
+        </section>
 
       </div>
 
