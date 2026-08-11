@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import {
   FormEvent,
   useCallback,
@@ -1404,9 +1406,11 @@ export default function ClubNationPage() {
     !gameFinished
   ) {
     return (
-      <main className="min-h-screen bg-zinc-950 px-4 py-10 text-white">
-        <div className="mx-auto flex min-h-[75vh] max-w-3xl items-center justify-center">
-          <div className="w-full rounded-3xl border border-white/10 bg-white/[0.04] p-6 text-center shadow-2xl sm:p-10">
+      <main className="min-h-screen bg-[#07111f] px-4 py-6 text-white sm:py-10">
+        <div className="mx-auto max-w-3xl">
+          <Link href="/" className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-slate-400 transition hover:text-white">← Ana Sayfa</Link>
+          <div className="flex min-h-[68vh] items-center justify-center">
+          <div className="w-full rounded-3xl border border-white/10 bg-[#101c2c] p-6 text-center shadow-2xl sm:p-10">
             <div className="mb-3 text-5xl">
               🌍
             </div>
@@ -1415,7 +1419,7 @@ export default function ClubNationPage() {
               1 Takım 1 Millet
             </h1>
 
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-zinc-400 sm:text-base">
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-slate-400 sm:text-base">
               Verilen takım ve
               milliyete uyan
               futbolcuyu bul.
@@ -1425,32 +1429,32 @@ export default function ClubNationPage() {
             </p>
 
             <div className="mt-8 grid grid-cols-3 gap-3">
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="rounded-2xl border border-white/10 bg-[#0c1828] p-4">
                 <div className="text-2xl font-black">
                   120
                 </div>
 
-                <div className="mt-1 text-xs text-zinc-500">
+                <div className="mt-1 text-xs text-slate-500">
                   saniye
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="rounded-2xl border border-white/10 bg-[#0c1828] p-4">
                 <div className="text-2xl font-black">
                   +20
                 </div>
 
-                <div className="mt-1 text-xs text-zinc-500">
+                <div className="mt-1 text-xs text-slate-500">
                   doğru başına
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="rounded-2xl border border-white/10 bg-[#0c1828] p-4">
                 <div className="text-2xl font-black">
                   3
                 </div>
 
-                <div className="mt-1 text-xs text-zinc-500">
+                <div className="mt-1 text-xs text-slate-500">
                   pas hakkı
                 </div>
               </div>
@@ -1462,16 +1466,17 @@ export default function ClubNationPage() {
               onClick={() =>
                 void startGame()
               }
-              className="mt-8 w-full rounded-2xl bg-white px-6 py-4 text-base font-black text-black transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-8 w-full rounded-2xl bg-green-500 px-6 py-4 text-base font-black text-[#07111f] transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading
                 ? "Hazırlanıyor..."
                 : "Oyuna Başla"}
             </button>
 
-            <p className="mt-4 text-sm text-zinc-500">
+            <p className="mt-4 text-sm text-slate-500">
               {message}
             </p>
+          </div>
           </div>
         </div>
       </main>
@@ -1486,9 +1491,11 @@ export default function ClubNationPage() {
     gameFinished
   ) {
     return (
-      <main className="min-h-screen bg-zinc-950 px-4 py-10 text-white">
-        <div className="mx-auto flex min-h-[75vh] max-w-3xl items-center justify-center">
-          <div className="w-full rounded-3xl border border-white/10 bg-white/[0.04] p-6 text-center shadow-2xl sm:p-10">
+      <main className="min-h-screen bg-[#07111f] px-4 py-6 text-white sm:py-10">
+        <div className="mx-auto max-w-3xl">
+          <Link href="/" className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-slate-400 transition hover:text-white">← Ana Sayfa</Link>
+          <div className="flex min-h-[68vh] items-center justify-center">
+          <div className="w-full rounded-3xl border border-white/10 bg-[#101c2c] p-6 text-center shadow-2xl sm:p-10">
             <div className="text-5xl">
               🏁
             </div>
@@ -1501,44 +1508,44 @@ export default function ClubNationPage() {
               {score}
             </div>
 
-            <div className="mt-1 text-sm text-zinc-500">
+            <div className="mt-1 text-sm text-slate-500">
               PUAN
             </div>
 
             <div className="mt-8 grid grid-cols-3 gap-3">
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="rounded-2xl border border-white/10 bg-[#0c1828] p-4">
                 <div className="text-2xl font-black text-emerald-400">
                   {correctCount}
                 </div>
 
-                <div className="mt-1 text-xs text-zinc-500">
+                <div className="mt-1 text-xs text-slate-500">
                   Doğru
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="rounded-2xl border border-white/10 bg-[#0c1828] p-4">
                 <div className="text-2xl font-black text-red-400">
                   {wrongCount}
                 </div>
 
-                <div className="mt-1 text-xs text-zinc-500">
+                <div className="mt-1 text-xs text-slate-500">
                   Yanlış
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="rounded-2xl border border-white/10 bg-[#0c1828] p-4">
                 <div className="text-2xl font-black">
                   {3 -
                     passesLeft}
                 </div>
 
-                <div className="mt-1 text-xs text-zinc-500">
+                <div className="mt-1 text-xs text-slate-500">
                   Pas
                 </div>
               </div>
             </div>
 
-            <p className="mt-6 text-sm text-zinc-400">
+            <p className="mt-6 text-sm text-slate-400">
               {message}
             </p>
 
@@ -1548,10 +1555,11 @@ export default function ClubNationPage() {
               onClick={() =>
                 void startGame()
               }
-              className="mt-8 w-full rounded-2xl bg-white px-6 py-4 font-black text-black transition hover:scale-[1.01] disabled:opacity-50"
+              className="mt-8 w-full rounded-2xl bg-green-500 px-6 py-4 font-black text-[#07111f] transition hover:bg-green-400 disabled:opacity-50"
             >
               Tekrar Oyna
             </button>
+          </div>
           </div>
         </div>
       </main>
@@ -1563,17 +1571,19 @@ export default function ClubNationPage() {
   ======================================================= */
 
   return (
-    <main className="min-h-screen bg-zinc-950 px-4 py-6 text-white sm:py-10">
+    <main className="min-h-screen bg-[#07111f] px-4 py-6 text-white sm:py-10">
       <div className="mx-auto max-w-3xl">
+        <Link href="/" className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-slate-400 transition hover:text-white">← Ana Sayfa</Link>
+
         {/* HEADER */}
 
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
-            <div className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">
+            <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
               1 Takım 1 Millet
             </div>
 
-            <div className="mt-1 text-sm text-zinc-400">
+            <div className="mt-1 text-sm text-slate-400">
               Soru {questionNo}
             </div>
           </div>
@@ -1594,7 +1604,7 @@ export default function ClubNationPage() {
 
         <div className="mb-5 grid grid-cols-3 gap-3">
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <div className="text-xs text-zinc-500">
+            <div className="text-xs text-slate-500">
               Puan
             </div>
 
@@ -1604,7 +1614,7 @@ export default function ClubNationPage() {
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <div className="text-xs text-zinc-500">
+            <div className="text-xs text-slate-500">
               Doğru
             </div>
 
@@ -1614,7 +1624,7 @@ export default function ClubNationPage() {
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <div className="text-xs text-zinc-500">
+            <div className="text-xs text-slate-500">
               Pas
             </div>
 
@@ -1626,15 +1636,15 @@ export default function ClubNationPage() {
 
         {/* QUESTION */}
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl sm:p-8">
-          <div className="text-center text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">
+        <div className="rounded-3xl border border-white/10 bg-[#101c2c] p-5 shadow-2xl sm:p-8">
+          <div className="text-center text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
             Bu iki koşulu sağlayan
             futbolcuyu bul
           </div>
 
           <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-            <div className="min-w-0 rounded-2xl border border-white/10 bg-black/30 px-3 py-6 text-center sm:px-5">
-              <div className="text-xs text-zinc-500">
+            <div className="min-w-0 rounded-2xl border border-white/10 bg-[#0b1726] px-3 py-6 text-center sm:px-5">
+              <div className="text-xs text-slate-500">
                 TAKIM
               </div>
 
@@ -1645,12 +1655,12 @@ export default function ClubNationPage() {
               </div>
             </div>
 
-            <div className="text-2xl font-black text-zinc-600">
+            <div className="text-2xl font-black text-slate-600">
               +
             </div>
 
-            <div className="min-w-0 rounded-2xl border border-white/10 bg-black/30 px-3 py-6 text-center sm:px-5">
-              <div className="text-xs text-zinc-500">
+            <div className="min-w-0 rounded-2xl border border-white/10 bg-[#0b1726] px-3 py-6 text-center sm:px-5">
+              <div className="text-xs text-slate-500">
                 MİLLET
               </div>
 
@@ -1703,11 +1713,11 @@ export default function ClubNationPage() {
                     );
                   }
                 }}
-                className="w-full rounded-2xl border border-white/10 bg-black/40 px-5 py-4 pr-14 text-base font-semibold outline-none transition placeholder:text-zinc-600 focus:border-white/30"
+                className="w-full rounded-2xl border border-white/10 bg-[#07111f] px-5 py-4 pr-14 text-base font-semibold outline-none transition placeholder:text-slate-600 focus:border-purple-400/50"
               />
 
               {searchLoading && (
-                <div className="absolute right-5 top-1/2 -translate-y-1/2 text-xs text-zinc-500">
+                <div className="absolute right-5 top-1/2 -translate-y-1/2 text-xs text-slate-500">
                   ...
                 </div>
               )}
@@ -1717,7 +1727,7 @@ export default function ClubNationPage() {
               {searchOpen &&
                 results.length >
                   0 && (
-                  <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 max-h-72 overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-2 shadow-2xl">
+                  <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 max-h-72 overflow-y-auto rounded-2xl border border-white/10 bg-[#0b1726] p-2 shadow-2xl">
                     {results.map(
                       (
                         player,
@@ -1764,7 +1774,7 @@ export default function ClubNationPage() {
                               }
                             </div>
 
-                            <div className="truncate text-xs text-zinc-500">
+                            <div className="truncate text-xs text-slate-500">
                               {player.nationality ??
                                 "Milliyet yok"}
 
@@ -1790,7 +1800,7 @@ export default function ClubNationPage() {
                     .length <
                     MINIMUM_SEARCH_LENGTH
                 }
-                className="rounded-2xl bg-white px-5 py-4 font-black text-black transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-2xl bg-green-500 px-5 py-4 font-black text-[#07111f] transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {submitting
                   ? "Kontrol..."
@@ -1827,14 +1837,14 @@ export default function ClubNationPage() {
                 : feedbackType ===
                     "wrong"
                   ? "border-red-500/30 bg-red-500/10 text-red-300"
-                  : "border-white/10 bg-white/[0.03] text-zinc-400"
+                  : "border-white/10 bg-white/[0.03] text-slate-400"
             }`}
           >
             {message}
           </div>
         </div>
 
-        <div className="mt-5 text-center text-xs text-zinc-600">
+        <div className="mt-5 text-center text-xs text-slate-600">
           Her doğru cevap +20 puan.
           Süre devam ederken 3 kez
           pas geçebilirsin.

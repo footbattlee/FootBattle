@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import ClubNationDuel from "./ClubNationDuel";
 
 import {
   use,
@@ -616,7 +617,7 @@ const GAME_LABELS: Record<
   guess_the_player:
     "Guess The Player",
 
-  club_country:
+  club_nation:
     "1 Takım 1 Millet",
 };
 
@@ -2817,6 +2818,11 @@ export default function ChallengePage({
       ?.gameCode ===
     "club_clash";
 
+  const isClubNation =
+    challenge
+      ?.gameCode ===
+    "club_nation";
+
   /* =======================================================
      LOADING
   ======================================================= */
@@ -3260,6 +3266,39 @@ export default function ChallengePage({
         </p>
 
       </ChallengeShell>
+    );
+  }
+
+  /* =======================================================
+     CLUB NATION DUEL
+  ======================================================= */
+
+  if (
+    isClubNation &&
+    challenge.status ===
+      "playing" &&
+    (
+      currentRole ===
+        "challenger" ||
+      currentRole ===
+        "opponent"
+    )
+  ) {
+    return (
+      <ClubNationDuel
+        token={token}
+        challengerName={
+          challenge
+            .challenger
+            .name
+        }
+        opponentName={
+  challenge
+    .opponent
+    ?.name ??
+  null
+}
+      />
     );
   }
 

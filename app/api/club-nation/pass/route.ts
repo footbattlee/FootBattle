@@ -37,6 +37,14 @@ type ClubRow = {
 
 type TeamRow = {
   name: string;
+
+  country:
+    | string
+    | null;
+
+  duel_tier:
+    | string
+    | null;
 };
 
 /* =========================================================
@@ -73,6 +81,85 @@ function shuffleArray<T>(
   return result;
 }
 
+function normalizeCountry(
+  value: string,
+) {
+  const normalized =
+    value
+      .trim()
+      .toLocaleLowerCase(
+        "en-US",
+      )
+      .normalize("NFD")
+      .replace(
+        /[\u0300-\u036f]/g,
+        "",
+      )
+      .replace(
+        /[^a-z0-9]/g,
+        "",
+      );
+
+  const aliases:
+    Record<
+      string,
+      string
+    > = {
+      turkiye:
+        "turkey",
+
+      turkey:
+        "turkey",
+
+      usa:
+        "unitedstates",
+
+      unitedstatesofamerica:
+        "unitedstates",
+
+      unitedstates:
+        "unitedstates",
+
+      uae:
+        "unitedarabemirates",
+
+      unitedarabemirates:
+        "unitedarabemirates",
+
+      southkorea:
+        "korearepublic",
+
+      korearepublic:
+        "korearepublic",
+
+      korea:
+        "korearepublic",
+
+      northmacedonia:
+        "macedonia",
+
+      macedonia:
+        "macedonia",
+
+      ivorycoast:
+        "cotedivoire",
+
+      cotedivoire:
+        "cotedivoire",
+
+      czechrepublic:
+        "czechia",
+
+      czechia:
+        "czechia",
+    };
+
+  return (
+    aliases[normalized] ??
+    normalized
+  );
+}
+
 /* =========================================================
    RANDOM NEXT QUESTION
 ========================================================= */
@@ -96,44 +183,62 @@ async function createQuestion(
         "football_teams",
       )
       .select(`
-        name
+        name,
+        country,
+        duel_tier
       `)
       .eq(
         "duel_enabled",
         true,
+      )
+      .in(
+        "duel_tier",
+        [
+          "S",
+          "A",
+          "B",
+        ],
       );
 
   if (teamError) {
     throw teamError;
   }
 
-  const allowedClubs =
-    new Set(
-      (
-        (
-          teamData ??
-          []
-        ) as TeamRow[]
-      )
-        .map(
-          (
-            team,
-          ) =>
-            team.name
-              ?.trim(),
-        )
-        .filter(
-          (
-            name,
-          ): name is string =>
-            Boolean(
-              name,
-            ),
-        ),
+  const allowedTeams =
+    new Map<
+      string,
+      TeamRow
+    >();
+
+  for (
+    const team of (
+      teamData ??
+      []
+    ) as TeamRow[]
+  ) {
+    const name =
+      team.name
+        ?.trim();
+
+    const country =
+      team.country
+        ?.trim();
+
+    if (
+      !name ||
+      !country
+    ) {
+      continue;
+    }
+
+    allowedTeams.set(
+      name,
+      team,
     );
+  }
 
   if (
-    allowedClubs.size ===
+    allowedTeams.size ===
     0
   ) {
     throw new Error(
@@ -347,7 +452,7 @@ async function createQuestion(
           playerId,
         ) ||
         !clubName ||
-        !allowedClubs.has(
+        !allowedTeams.has(
           clubName,
         )
       ) {
@@ -400,6 +505,46 @@ async function createQuestion(
         const club
         of clubs
       ) {
+        const team =
+          allowedTeams.get(
+            club,
+          );
+
+        if (
+          !team
+        ) {
+          continue;
+        }
+
+        const clubCountry =
+          team.country
+            ?.trim();
+
+        if (
+          !clubCountry
+        ) {
+          continue;
+        }
+
+        /*
+         * Kulübün ülkesi ile oyuncunun milliyeti aynıysa
+         * bu soruyu üretmiyoruz.
+         *
+         * Liverpool + England   -> YOK
+         * Barcelona + Spain     -> YOK
+         * Galatasaray + Turkey  -> YOK
+         */
+        if (
+          normalizeCountry(
+            clubCountry,
+          ) ===
+          normalizeCountry(
+            nationality,
+          )
+        ) {
+          continue;
+        }
+
         /*
          * Aynı soru tekrar gelmesin.
          */

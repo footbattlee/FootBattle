@@ -39,6 +39,14 @@ type ClubRow = {
 
 type TeamRow = {
   name: string;
+
+  country:
+    | string
+    | null;
+
+  duel_tier:
+    | string
+    | null;
 };
 
 /* =========================================================
@@ -74,6 +82,85 @@ function shuffleArray<T>(
   return result;
 }
 
+function normalizeCountry(
+  value: string,
+) {
+  const normalized =
+    value
+      .trim()
+      .toLocaleLowerCase(
+        "en-US",
+      )
+      .normalize("NFD")
+      .replace(
+        /[\u0300-\u036f]/g,
+        "",
+      )
+      .replace(
+        /[^a-z0-9]/g,
+        "",
+      );
+
+  const aliases:
+    Record<
+      string,
+      string
+    > = {
+      turkiye:
+        "turkey",
+
+      turkey:
+        "turkey",
+
+      usa:
+        "unitedstates",
+
+      unitedstatesofamerica:
+        "unitedstates",
+
+      unitedstates:
+        "unitedstates",
+
+      uae:
+        "unitedarabemirates",
+
+      unitedarabemirates:
+        "unitedarabemirates",
+
+      southkorea:
+        "korearepublic",
+
+      korearepublic:
+        "korearepublic",
+
+      korea:
+        "korearepublic",
+
+      northmacedonia:
+        "macedonia",
+
+      macedonia:
+        "macedonia",
+
+      ivorycoast:
+        "cotedivoire",
+
+      cotedivoire:
+        "cotedivoire",
+
+      czechrepublic:
+        "czechia",
+
+      czechia:
+        "czechia",
+    };
+
+  return (
+    aliases[normalized] ??
+    normalized
+  );
+}
+
 /* =========================================================
    RANDOM QUESTION
 ========================================================= */
@@ -95,38 +182,59 @@ async function createQuestion() {
         "football_teams",
       )
       .select(`
-        name
+        name,
+        country,
+        duel_tier
       `)
       .eq(
         "duel_enabled",
         true,
+      )
+      .in(
+        "duel_tier",
+        [
+          "S",
+          "A",
+          "B",
+        ],
       );
 
   if (teamError) {
     throw teamError;
   }
 
-  const allowedClubs =
-    new Set(
-      (
-        (teamData ??
-          []) as TeamRow[]
-      )
-        .map(
-          (team) =>
-            team.name
-              ?.trim(),
-        )
-        .filter(
-          (
-            name,
-          ): name is string =>
-            Boolean(name),
-        ),
+  const allowedTeams =
+    new Map<
+      string,
+      TeamRow
+    >();
+
+  for (
+    const team of (
+      teamData ??
+      []
+    ) as TeamRow[]
+  ) {
+    const name =
+      team.name
+        ?.trim();
+
+    if (
+      !name ||
+      !team.country
+        ?.trim()
+    ) {
+      continue;
+    }
+
+    allowedTeams.set(
+      name,
+      team,
     );
+  }
 
   if (
-    allowedClubs.size === 0
+    allowedTeams.size === 0
   ) {
     throw new Error(
       "1 Takım 1 Millet için aktif takım bulunamadı.",
@@ -329,7 +437,7 @@ async function createQuestion() {
           playerId,
         ) ||
         !clubName ||
-        !allowedClubs.has(
+        !allowedTeams.has(
           clubName,
         )
       ) {
@@ -378,18 +486,79 @@ async function createQuestion() {
         continue;
       }
 
-      const selectedClub =
-        shuffleArray(
-          clubs,
-        )[0];
-
       const nationality =
         player.nationality
           ?.trim();
 
       if (
-        !selectedClub ||
         !nationality
+      ) {
+        continue;
+      }
+
+      /*
+       * Kulübün bağlı olduğu ülke ile oyuncunun milliyeti
+       * aynıysa bu eşleşmeyi oyuna almıyoruz.
+       *
+       * Liverpool + England     -> YOK
+       * Barcelona + Spain       -> YOK
+       * Galatasaray + Turkey    -> YOK
+       *
+       * Liverpool + Egypt       -> VAR
+       * Barcelona + Argentina   -> VAR
+       * Galatasaray + Uruguay   -> VAR
+       */
+      const validClubs =
+        clubs.filter(
+          (
+            clubName,
+          ) => {
+            const team =
+              allowedTeams.get(
+                clubName,
+              );
+
+            if (
+              !team
+            ) {
+              return false;
+            }
+
+            const clubCountry =
+              team.country
+                ?.trim();
+
+            if (
+              !clubCountry
+            ) {
+              return false;
+            }
+
+            return (
+              normalizeCountry(
+                clubCountry,
+              ) !==
+              normalizeCountry(
+                nationality,
+              )
+            );
+          },
+        );
+
+      if (
+        validClubs.length ===
+        0
+      ) {
+        continue;
+      }
+
+      const selectedClub =
+        shuffleArray(
+          validClubs,
+        )[0];
+
+      if (
+        !selectedClub
       ) {
         continue;
       }
