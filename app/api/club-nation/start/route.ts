@@ -680,6 +680,10 @@ export async function POST() {
           question_no:
             1,
 
+          used_clubs: [
+            question.clubName,
+          ],
+
           started_at:
             startedAt.toISOString(),
 
@@ -700,6 +704,7 @@ export async function POST() {
           wrong_count,
           passes_left,
           question_no,
+          used_clubs,
 
           user_id,
 
@@ -785,6 +790,13 @@ export async function POST() {
             session.question_no ??
               1,
           ),
+
+        usedClubs:
+          Array.isArray(
+            session.used_clubs,
+          )
+            ? session.used_clubs
+            : [],
       },
 
       question: {

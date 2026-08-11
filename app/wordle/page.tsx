@@ -1494,7 +1494,7 @@ export default function WordlePage() {
                               ? "⌫"
                               : key ===
                                   "ENTER"
-                                ? "↵"
+                                ? "✓"
                                 : key}
                           </button>
                         );
@@ -1506,6 +1506,35 @@ export default function WordlePage() {
               )}
 
             </div>
+
+            {/* ===============================================
+                SUBMIT BUTTON
+            =============================================== */}
+
+            {gameStatus ===
+              "playing" && (
+              <button
+                type="button"
+                onClick={() =>
+                  handleKey(
+                    "ENTER",
+                  )
+                }
+                disabled={
+                  submitting ||
+                  currentGuess.length !==
+                    game.letterCount
+                }
+                className="mt-3 flex h-11 w-full items-center justify-center rounded-xl border border-green-400/30 bg-green-500 text-xs font-black text-[#07111f] transition hover:bg-green-400 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/10 disabled:text-slate-500 sm:mt-4 sm:h-12 sm:text-sm"
+              >
+                {submitting
+                  ? "Kontrol Ediliyor..."
+                  : currentGuess.length ===
+                      game.letterCount
+                    ? "✓ KONTROL ET"
+                    : `${currentGuess.length}/${game.letterCount} HARF`}
+              </button>
+            )}
 
             {/* ===============================================
                 MOBILE COLOR LEGEND

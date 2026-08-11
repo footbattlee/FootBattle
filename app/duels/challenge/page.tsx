@@ -625,10 +625,10 @@ function DuelChallengeContent() {
         "club_nation"
       ) {
         router.push(
-          `/challenges/${encodeURIComponent(
-            challengeToken,
-          )}/club-nation`,
-        );
+  `/challenge/${encodeURIComponent(
+    challengeToken,
+  )}`,
+);
 
         return;
       }

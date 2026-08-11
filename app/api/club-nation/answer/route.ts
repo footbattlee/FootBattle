@@ -483,6 +483,7 @@ async function resolvePlayer(
 async function createQuestion(
   previousClub?: string,
   previousNationality?: string,
+  usedClubs: string[] = [],
 ) {
   const {
     data:
@@ -557,6 +558,20 @@ async function createQuestion(
       "Aktif takım bulunamadı.",
     );
   }
+
+  const usedClubSet =
+    new Set(
+      usedClubs
+        .map(
+          (club) =>
+            club
+              ?.trim()
+              .toLocaleLowerCase(
+                "tr-TR",
+              ),
+        )
+        .filter(Boolean),
+    );
 
   const {
     count:
@@ -752,6 +767,12 @@ async function createQuestion(
         !club ||
         !allowedTeams.has(
           club,
+        ) ||
+        usedClubSet.has(
+          club
+            .toLocaleLowerCase(
+              "tr-TR",
+            ),
         )
       ) {
         continue;
@@ -963,6 +984,7 @@ export async function POST(
           wrong_count,
           passes_left,
           question_no,
+          used_clubs,
 
           user_id,
 
@@ -1405,10 +1427,20 @@ export async function POST(
        CORRECT -> NEXT QUESTION
     ===================================================== */
 
+    const currentUsedClubs =
+      Array.isArray(
+        session.used_clubs,
+      )
+        ? (
+            session.used_clubs as string[]
+          )
+        : [];
+
     const nextQuestion =
       await createQuestion(
         session.club_name,
         session.nationality,
+        currentUsedClubs,
       );
 
     const newScore =
@@ -1435,6 +1467,14 @@ export async function POST(
         session.question_no ??
           1,
       ) + 1;
+
+    const newUsedClubs =
+      Array.from(
+        new Set([
+          ...currentUsedClubs,
+          nextQuestion.clubName,
+        ]),
+      );
 
     const {
       data:
@@ -1467,6 +1507,9 @@ export async function POST(
 
           question_no:
             newQuestionNo,
+
+          used_clubs:
+            newUsedClubs,
         })
         .eq(
           "id",
@@ -1484,6 +1527,7 @@ export async function POST(
           wrong_count,
           passes_left,
           question_no,
+          used_clubs,
 
           expires_at
         `)
@@ -1565,6 +1609,15 @@ export async function POST(
             .question_no ??
             newQuestionNo,
         ),
+
+      usedClubs:
+        Array.isArray(
+          updatedSession
+            .used_clubs,
+        )
+          ? updatedSession
+              .used_clubs
+          : newUsedClubs,
 
       secondsLeft,
 
