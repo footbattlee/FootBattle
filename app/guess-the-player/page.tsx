@@ -801,13 +801,6 @@ export default function GuessThePlayerPage() {
       const result =
         (await response.json()) as ResultResponse;
 
-      /* =================================================
-         ESKİ BACKEND FALLBACK
-
-         Yeni result endpoint guest için 401 dönmüyor.
-         Yine de eski deploy olursa sayfayı bozmasın.
-      ================================================= */
-
       if (
         response.status ===
         401
@@ -818,10 +811,6 @@ export default function GuessThePlayerPage() {
 
         return;
       }
-
-      /* =================================================
-         ERROR
-      ================================================= */
 
       if (
         !response.ok ||
@@ -837,13 +826,6 @@ export default function GuessThePlayerPage() {
         true,
       );
 
-      /* =================================================
-         TARGET PLAYER
-
-         Kazansa da kaybetse de result endpoint
-         hedef oyuncuyu döndürüyor.
-      ================================================= */
-
       if (
         result.targetPlayer
       ) {
@@ -851,10 +833,6 @@ export default function GuessThePlayerPage() {
           result.targetPlayer,
         );
       }
-
-      /* =================================================
-         ALREADY RECORDED
-      ================================================= */
 
       if (
         result.alreadyRecorded
@@ -874,10 +852,6 @@ export default function GuessThePlayerPage() {
         return;
       }
 
-      /* =================================================
-         LOGIN USER
-      ================================================= */
-
       if (
         result.authenticated
       ) {
@@ -895,10 +869,6 @@ export default function GuessThePlayerPage() {
 
         return;
       }
-
-      /* =================================================
-         GUEST
-      ================================================= */
 
       setResultSaveMessage(
         result.won
@@ -1133,12 +1103,6 @@ export default function GuessThePlayerPage() {
           "lost",
         );
 
-        /*
-         * Guess endpoint son yanlış tahminde targetPlayer
-         * döndürürse hemen göster.
-         *
-         * Dönmezse result endpoint biraz sonra dolduracak.
-         */
         if (
           result.targetPlayer
         ) {
@@ -1214,7 +1178,7 @@ export default function GuessThePlayerPage() {
     !gameSession
   ) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#07111f] text-white">
+      <main className="flex min-h-[100dvh] items-center justify-center bg-[#07111f] text-white">
 
         <div className="text-center">
 
@@ -1239,7 +1203,7 @@ export default function GuessThePlayerPage() {
     !gameSession
   ) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#07111f] px-4 text-white">
+      <main className="flex min-h-[100dvh] items-center justify-center bg-[#07111f] px-4 text-white">
 
         <div className="w-full max-w-md rounded-3xl border border-red-500/20 bg-red-500/10 p-7 text-center">
 
@@ -1275,7 +1239,7 @@ export default function GuessThePlayerPage() {
   ======================================================= */
 
   return (
-    <main className="min-h-screen bg-[#07111f] px-4 py-6 text-white sm:px-6">
+    <main className="min-h-[100dvh] bg-[#07111f] px-3 pb-[calc(24px+env(safe-area-inset-bottom))] pt-4 text-white sm:px-6 sm:py-6">
 
       <div className="mx-auto max-w-6xl">
 
@@ -1283,32 +1247,40 @@ export default function GuessThePlayerPage() {
             HEADER
         ================================================= */}
 
-        <header className="flex items-center justify-between border-b border-white/10 pb-5">
+        <header className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 pb-3 sm:pb-5">
 
-          <Link
-            href="/"
-            className="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-400 transition hover:border-purple-400/40 hover:text-purple-300"
-          >
-            ← Ana Sayfa
-          </Link>
+          <div className="flex justify-start">
+
+            <Link
+              href="/"
+              className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-400 transition hover:border-purple-400/40 hover:text-purple-300 sm:px-4 sm:text-sm"
+            >
+              ← Ana Sayfa
+            </Link>
+
+          </div>
 
           <div className="text-center">
 
-            <p className="font-black">
+            <p className="text-sm font-black sm:text-base">
               FootBattle
             </p>
 
-            <p className="text-xs text-slate-500">
+            <p className="text-[10px] text-slate-500 sm:text-xs">
               Guess the Player
             </p>
 
           </div>
 
-          <div className="rounded-xl border border-white/10 px-4 py-2 text-sm font-black">
+          <div className="flex justify-end">
 
-            {guesses.length}
-            /
-            {maxAttempts}
+            <div className="rounded-xl border border-white/10 px-3 py-2 text-xs font-black sm:px-4 sm:text-sm">
+
+              {guesses.length}
+              /
+              {maxAttempts}
+
+            </div>
 
           </div>
 
@@ -1318,7 +1290,7 @@ export default function GuessThePlayerPage() {
             GAME CARD
         ================================================= */}
 
-        <section className="mt-7 rounded-3xl border border-white/10 bg-white/[0.04] p-4 shadow-2xl shadow-black/30 sm:p-7">
+        <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-3 shadow-2xl shadow-black/30 sm:mt-7 sm:rounded-3xl sm:p-7">
 
           {/* ===============================================
               TITLE
@@ -1326,20 +1298,23 @@ export default function GuessThePlayerPage() {
 
           <div className="text-center">
 
-            <span className="inline-block rounded-full border border-purple-500/30 bg-purple-500/10 px-4 py-2 text-xs font-black uppercase tracking-widest text-purple-300">
+            <span className="inline-block rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-purple-300 sm:px-4 sm:py-2 sm:text-xs">
               SINIRSIZ MOD
             </span>
 
-            <h1 className="mt-5 text-3xl font-black sm:text-4xl">
+            <h1 className="mt-3 text-2xl font-black sm:mt-5 sm:text-4xl">
               Gizli Oyuncuyu Bul
             </h1>
 
-            <p className="mt-2 text-sm text-slate-400 sm:text-base">
+            <p className="mt-1.5 text-xs leading-5 text-slate-400 sm:mt-2 sm:text-base">
               Oyuncuları karşılaştır ve gizli futbolcuyu{" "}
-              {maxAttempts} tahminde bul.
+              <strong className="text-white">
+                {maxAttempts} tahminde
+              </strong>{" "}
+              bul.
             </p>
 
-            <p className="mt-2 text-xs font-semibold text-purple-300/70">
+            <p className="mt-1 hidden text-xs font-semibold text-purple-300/70 sm:block">
               Her yeni oyunda otomatik olarak farklı bir oyuncu seçilir.
             </p>
 
@@ -1349,7 +1324,7 @@ export default function GuessThePlayerPage() {
               SEARCH
           =============================================== */}
 
-          <div className="mx-auto mt-8 max-w-2xl">
+          <div className="mx-auto mt-4 max-w-2xl sm:mt-8">
 
             <div className="relative">
 
@@ -1392,7 +1367,7 @@ export default function GuessThePlayerPage() {
                 }}
                 placeholder={`Oyuncu ara... En az ${minimumSearchLength} harf`}
                 autoComplete="off"
-                className="w-full rounded-2xl border border-white/10 bg-[#0c1929] px-5 py-4 pr-28 text-white outline-none transition placeholder:text-slate-600 focus:border-purple-400/60 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-xl border border-white/10 bg-[#0c1929] px-4 py-3.5 pr-[108px] text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-purple-400/60 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:pr-28 sm:text-base"
               />
 
               <button
@@ -1410,7 +1385,7 @@ export default function GuessThePlayerPage() {
                     "playing" ||
                   submitting
                 }
-                className="absolute bottom-2 right-2 top-2 rounded-xl bg-purple-500 px-5 text-sm font-black text-white transition hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-40"
+                className="absolute bottom-1.5 right-1.5 top-1.5 rounded-lg bg-purple-500 px-3 text-xs font-black text-white transition hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-40 sm:bottom-2 sm:right-2 sm:top-2 sm:rounded-xl sm:px-5 sm:text-sm"
               >
                 {submitting
                   ? "Kontrol..."
@@ -1427,14 +1402,14 @@ export default function GuessThePlayerPage() {
                 !selectedPlayer &&
                 gameStatus ===
                   "playing" && (
-                  <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 max-h-96 overflow-y-auto rounded-2xl border border-white/10 bg-[#0c1929] shadow-2xl shadow-black/50">
+                  <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 max-h-[55dvh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0c1929] shadow-2xl shadow-black/50">
 
                     {searchLoading ? (
-                      <p className="px-5 py-4 text-sm text-slate-500">
+                      <p className="px-4 py-4 text-sm text-slate-500 sm:px-5">
                         Oyuncular aranıyor...
                       </p>
                     ) : searchError ? (
-                      <p className="px-5 py-4 text-sm text-red-300">
+                      <p className="px-4 py-4 text-sm text-red-300 sm:px-5">
                         {searchError}
                       </p>
                     ) : visibleSearchResults.length >
@@ -1453,7 +1428,7 @@ export default function GuessThePlayerPage() {
                                 player,
                               )
                             }
-                            className="flex w-full items-center gap-4 border-b border-white/5 px-5 py-4 text-left transition last:border-b-0 hover:bg-white/5"
+                            className="flex w-full items-center gap-3 border-b border-white/5 px-4 py-3 text-left transition last:border-b-0 hover:bg-white/5 sm:gap-4 sm:px-5 sm:py-4"
                           >
 
                             {player.imageUrl ? (
@@ -1464,21 +1439,21 @@ export default function GuessThePlayerPage() {
                                 alt={
                                   player.fullName
                                 }
-                                className="h-10 w-10 rounded-full bg-white/5 object-cover"
+                                className="h-10 w-10 shrink-0 rounded-xl bg-white/5 object-cover"
                               />
                             ) : (
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-500/10 font-black text-purple-300">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 font-black text-purple-300">
                                 ?
                               </div>
                             )}
 
                             <div className="min-w-0 flex-1">
 
-                              <p className="truncate font-bold">
+                              <p className="truncate text-sm font-bold sm:text-base">
                                 {player.fullName}
                               </p>
 
-                              <p className="mt-1 truncate text-xs text-slate-500">
+                              <p className="mt-0.5 truncate text-[11px] text-slate-500 sm:mt-1 sm:text-xs">
                                 {player.club}
                                 {" · "}
                                 {player.nationality}
@@ -1486,7 +1461,7 @@ export default function GuessThePlayerPage() {
 
                             </div>
 
-                            <span className="text-sm font-semibold text-purple-300">
+                            <span className="shrink-0 text-xs font-semibold text-purple-300 sm:text-sm">
                               Seç
                             </span>
 
@@ -1494,7 +1469,7 @@ export default function GuessThePlayerPage() {
                         ),
                       )
                     ) : (
-                      <p className="px-5 py-4 text-sm text-slate-500">
+                      <p className="px-4 py-4 text-sm text-slate-500 sm:px-5">
                         Bu aramayla eşleşen oyuncu bulunamadı.
                       </p>
                     )}
@@ -1507,15 +1482,15 @@ export default function GuessThePlayerPage() {
             {/* SELECTED PLAYER */}
 
             {selectedPlayer && (
-              <div className="mt-3 flex items-center justify-between rounded-xl border border-purple-500/20 bg-purple-500/10 px-4 py-3">
+              <div className="mt-2.5 flex items-center justify-between rounded-xl border border-purple-500/20 bg-purple-500/10 px-3 py-2.5 sm:mt-3 sm:px-4 sm:py-3">
 
-                <div>
+                <div className="min-w-0">
 
-                  <p className="text-xs font-black uppercase tracking-wider text-purple-300">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-purple-300 sm:text-xs">
                     Seçilen Oyuncu
                   </p>
 
-                  <p className="mt-1 font-black">
+                  <p className="mt-0.5 truncate text-sm font-black sm:mt-1 sm:text-base">
                     {selectedPlayer.fullName}
                   </p>
 
@@ -1532,7 +1507,7 @@ export default function GuessThePlayerPage() {
                       "",
                     );
                   }}
-                  className="rounded-lg border border-white/10 px-3 py-2 text-xs font-black text-slate-400 transition hover:text-white"
+                  className="ml-3 shrink-0 rounded-lg border border-white/10 px-3 py-2 text-[10px] font-black text-slate-400 transition hover:text-white sm:text-xs"
                 >
                   Değiştir
                 </button>
@@ -1540,13 +1515,12 @@ export default function GuessThePlayerPage() {
               </div>
             )}
 
-            <p className="mt-3 text-center text-xs text-slate-600">
-              Adın veya soyadın herhangi bir yerinden 3 harf yazabilirsin.
-              Örneğin{" "}
-              <strong className="text-slate-500">
-                nei
-              </strong>{" "}
-              → Wesley Sneijder.
+            <p className="mt-2 text-center text-[10px] leading-4 text-slate-600 sm:mt-3 sm:text-xs">
+              İsmin herhangi bir yerinden 3 harf yazabilirsin.
+              <span className="hidden sm:inline">
+                {" "}
+                Örn. <strong className="text-slate-500">nei</strong> → Wesley Sneijder.
+              </span>
             </p>
 
           </div>
@@ -1555,19 +1529,248 @@ export default function GuessThePlayerPage() {
               FOOTY
           =============================================== */}
 
-          <div className="mt-7 rounded-2xl border border-white/10 bg-black/20 p-4 text-center">
+          <div className="mt-3 rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-center sm:mt-7 sm:rounded-2xl sm:p-4">
 
-            <p className="text-sm leading-6 text-slate-300">
+            <p className="text-xs leading-5 text-slate-300 sm:text-sm sm:leading-6">
               {message}
             </p>
 
           </div>
 
           {/* ===============================================
-              COMPARISON TABLE
+              MOBILE PROGRESS + CARDS
           =============================================== */}
 
-          <div className="mt-8 overflow-x-auto">
+          <div className="mt-4 md:hidden">
+
+            {/* PROGRESS */}
+
+            <div className="mb-3 flex items-center justify-between gap-3">
+
+              <div className="shrink-0">
+
+                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-600">
+                  Tahminler
+                </p>
+
+                <p className="mt-0.5 text-xs font-black text-slate-300">
+                  {guesses.length}/{maxAttempts} kullanıldı
+                </p>
+
+              </div>
+
+              <div className="flex min-w-0 flex-1 justify-end gap-1">
+
+                {Array.from({
+                  length:
+                    maxAttempts,
+                }).map(
+                  (
+                    _,
+                    index,
+                  ) => (
+                    <div
+                      key={
+                        index
+                      }
+                      className={`h-2 min-w-0 flex-1 rounded-full transition ${
+                        index <
+                        guesses.length
+                          ? "bg-purple-400"
+                          : "bg-white/10"
+                      }`}
+                    />
+                  ),
+                )}
+
+              </div>
+
+            </div>
+
+            {/* NO GUESS */}
+
+            {guesses.length ===
+              0 && (
+              <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-5 text-center">
+
+                <p className="text-xl">
+                  👀
+                </p>
+
+                <p className="mt-2 text-xs font-black text-slate-300">
+                  İlk tahminini bekliyoruz
+                </p>
+
+                <p className="mt-1 text-[10px] leading-4 text-slate-600">
+                  Tahmin yaptıktan sonra ipuçları burada görünecek.
+                </p>
+
+              </div>
+            )}
+
+            {/* GUESS CARDS */}
+
+            <div className="space-y-3">
+
+              {guesses.map(
+                (
+                  guess,
+                  index,
+                ) => {
+                  const playerIsCorrect =
+                    Object.values(
+                      guess.comparison,
+                    ).every(
+                      (
+                        status,
+                      ) =>
+                        status ===
+                        "correct",
+                    );
+
+                  return (
+                    <article
+                      key={`${guess.player.id}-${index}`}
+                      className={`overflow-hidden rounded-2xl border ${
+                        playerIsCorrect
+                          ? "border-green-400/30 bg-green-500/[0.07]"
+                          : "border-white/10 bg-white/[0.035]"
+                      }`}
+                    >
+
+                      {/* PLAYER HEADER */}
+
+                      <div className="flex items-center gap-3 border-b border-white/[0.07] p-3">
+
+                        {guess.player.imageUrl ? (
+                          <img
+                            src={
+                              guess.player.imageUrl
+                            }
+                            alt={
+                              guess.player.fullName
+                            }
+                            className="h-11 w-11 shrink-0 rounded-xl border border-white/10 bg-white/5 object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-lg">
+                            ⚽
+                          </div>
+                        )}
+
+                        <div className="min-w-0 flex-1">
+
+                          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-600">
+                            Tahmin {index + 1}
+                          </p>
+
+                          <p className="mt-0.5 truncate text-sm font-black text-white">
+                            {guess.player.fullName}
+                          </p>
+
+                        </div>
+
+                        {playerIsCorrect ? (
+                          <span className="shrink-0 rounded-full bg-green-500/15 px-2.5 py-1 text-[9px] font-black text-green-300">
+                            ✓ DOĞRU
+                          </span>
+                        ) : (
+                          <span className="shrink-0 rounded-full bg-red-500/10 px-2.5 py-1 text-[9px] font-black text-red-300">
+                            YANLIŞ
+                          </span>
+                        )}
+
+                      </div>
+
+                      {/* ATTRIBUTES */}
+
+                      <div className="grid grid-cols-2 gap-2 p-2.5">
+
+                        <MobileComparisonItem
+                          icon="🌍"
+                          label="Milliyet"
+                          value={
+                            guess.player.nationality
+                          }
+                          status={
+                            guess.comparison.nationality
+                          }
+                        />
+
+                        <MobileComparisonItem
+                          icon="🎯"
+                          label="Pozisyon"
+                          value={
+                            guess.player.position
+                          }
+                          status={
+                            guess.comparison.position
+                          }
+                        />
+
+                        <MobileComparisonItem
+                          icon="🏟️"
+                          label="Kulüp"
+                          value={
+                            guess.player.club
+                          }
+                          status={
+                            guess.comparison.club
+                          }
+                        />
+
+                        <MobileComparisonItem
+                          icon="🏆"
+                          label="Lig"
+                          value={
+                            guess.player.league
+                          }
+                          status={
+                            guess.comparison.league
+                          }
+                        />
+
+                        <MobileComparisonItem
+                          icon="🎂"
+                          label="Yaş"
+                          value={`${guess.player.age}`}
+                          status={
+                            guess.comparison.age
+                          }
+                          suffix={
+                            getAgeDirection(
+                              guess.comparison.age,
+                            )
+                          }
+                        />
+
+                        <MobileComparisonItem
+                          icon="🦶"
+                          label="Ayak"
+                          value={
+                            guess.player.preferredFoot
+                          }
+                          status={
+                            guess.comparison.preferredFoot
+                          }
+                        />
+
+                      </div>
+
+                    </article>
+                  );
+                },
+              )}
+
+            </div>
+
+          </div>
+
+          {/* ===============================================
+              DESKTOP COMPARISON TABLE
+          =============================================== */}
+
+          <div className="mt-8 hidden overflow-x-auto md:block">
 
             <div className="min-w-[900px]">
 
@@ -1761,7 +1964,7 @@ export default function GuessThePlayerPage() {
           {gameStatus !==
             "playing" && (
             <div
-              className={`mt-7 rounded-2xl border p-6 text-center ${
+              className={`mt-5 rounded-2xl border p-4 text-center sm:mt-7 sm:p-6 ${
                 gameStatus ===
                 "won"
                   ? "border-green-500/20 bg-green-500/10"
@@ -1769,14 +1972,14 @@ export default function GuessThePlayerPage() {
               }`}
             >
 
-              <p className="text-4xl">
+              <p className="text-3xl sm:text-4xl">
                 {gameStatus ===
                 "won"
                   ? "🏆"
                   : "😤"}
               </p>
 
-              <p className="mt-3 text-xl font-black">
+              <p className="mt-2 text-lg font-black sm:mt-3 sm:text-xl">
                 {gameStatus ===
                 "won"
                   ? "Tebrikler!"
@@ -1789,7 +1992,7 @@ export default function GuessThePlayerPage() {
                 "lost" &&
                 resultLoading &&
                 !revealedPlayer && (
-                  <p className="mt-4 text-sm text-slate-400">
+                  <p className="mt-3 text-xs text-slate-400 sm:mt-4 sm:text-sm">
                     Gizli oyuncu açıklanıyor...
                   </p>
                 )}
@@ -1797,13 +2000,13 @@ export default function GuessThePlayerPage() {
               {/* TARGET PLAYER */}
 
               {revealedPlayer && (
-                <div className="mx-auto mt-5 max-w-sm rounded-2xl border border-white/10 bg-black/20 p-5">
+                <div className="mx-auto mt-4 max-w-sm rounded-2xl border border-white/10 bg-black/20 p-4 sm:mt-5 sm:p-5">
 
-                  <p className="text-xs font-black uppercase tracking-wider text-slate-500">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 sm:text-xs">
                     Gizli Oyuncu
                   </p>
 
-                  <div className="mt-4 flex items-center justify-center gap-4">
+                  <div className="mt-3 flex items-center justify-center gap-3 sm:mt-4 sm:gap-4">
 
                     {revealedPlayer.imageUrl ? (
                       <img
@@ -1813,25 +2016,25 @@ export default function GuessThePlayerPage() {
                         alt={
                           revealedPlayer.fullName
                         }
-                        className="h-16 w-16 rounded-2xl border border-white/10 object-cover"
+                        className="h-14 w-14 rounded-xl border border-white/10 object-cover sm:h-16 sm:w-16 sm:rounded-2xl"
                       />
                     ) : (
-                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-2xl">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-xl sm:h-16 sm:w-16 sm:rounded-2xl sm:text-2xl">
                         ⚽
                       </div>
                     )}
 
-                    <div className="text-left">
+                    <div className="min-w-0 text-left">
 
-                      <p className="text-xl font-black text-white">
+                      <p className="truncate text-lg font-black text-white sm:text-xl">
                         {revealedPlayer.fullName}
                       </p>
 
-                      <p className="mt-1 text-sm font-semibold text-slate-400">
+                      <p className="mt-0.5 truncate text-xs font-semibold text-slate-400 sm:mt-1 sm:text-sm">
                         {revealedPlayer.club}
                       </p>
 
-                      <p className="mt-1 text-xs text-slate-600">
+                      <p className="mt-0.5 truncate text-[10px] text-slate-600 sm:mt-1 sm:text-xs">
                         {revealedPlayer.nationality}
                         {" · "}
                         {revealedPlayer.position}
@@ -1845,7 +2048,7 @@ export default function GuessThePlayerPage() {
               )}
 
               <p
-                className={`mt-5 text-3xl font-black ${
+                className={`mt-4 text-2xl font-black sm:mt-5 sm:text-3xl ${
                   gameStatus ===
                   "won"
                     ? "text-green-400"
@@ -1857,7 +2060,7 @@ export default function GuessThePlayerPage() {
 
               {resultSaveMessage && (
                 <p
-                  className={`mt-3 text-sm font-semibold ${
+                  className={`mt-2 text-xs font-semibold sm:mt-3 sm:text-sm ${
                     resultSaveMessage.includes(
                       "giriş",
                     ) ||
@@ -1877,7 +2080,7 @@ export default function GuessThePlayerPage() {
 
               {/* ACTIONS */}
 
-              <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
+              <div className="mt-4 flex flex-col justify-center gap-2 sm:mt-6 sm:flex-row">
 
                 <button
                   type="button"
@@ -1888,7 +2091,7 @@ export default function GuessThePlayerPage() {
                   onClick={() =>
                     void handleNewGame()
                   }
-                  className="rounded-xl bg-purple-500 px-6 py-3 text-sm font-black text-white transition hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-xl bg-purple-500 px-5 py-3 text-xs font-black text-white transition hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6 sm:text-sm"
                 >
                   {newGameLoading
                     ? "Yeni oyuncu seçiliyor..."
@@ -1897,7 +2100,7 @@ export default function GuessThePlayerPage() {
 
                 <Link
                   href="/"
-                  className="rounded-xl border border-white/15 px-6 py-3 text-sm font-black transition hover:bg-white/5"
+                  className="rounded-xl border border-white/15 px-5 py-3 text-xs font-black transition hover:bg-white/5 sm:px-6 sm:text-sm"
                 >
                   Ana Sayfa
                 </Link>
@@ -1911,11 +2114,11 @@ export default function GuessThePlayerPage() {
               LEGEND
           =============================================== */}
 
-          <div className="mt-7 grid grid-cols-3 gap-2 text-center text-xs">
+          <div className="mt-4 grid grid-cols-3 gap-1.5 text-center text-[10px] sm:mt-7 sm:gap-2 sm:text-xs">
 
-            <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-3">
+            <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-2.5 sm:p-3">
 
-              <div className="mx-auto mb-2 h-4 w-4 rounded bg-green-500" />
+              <div className="mx-auto mb-1.5 h-3 w-3 rounded bg-green-500 sm:mb-2 sm:h-4 sm:w-4" />
 
               <p className="text-slate-400">
                 Doğru
@@ -1923,9 +2126,9 @@ export default function GuessThePlayerPage() {
 
             </div>
 
-            <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3">
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-2.5 sm:p-3">
 
-              <div className="mx-auto mb-2 h-4 w-4 rounded bg-red-500" />
+              <div className="mx-auto mb-1.5 h-3 w-3 rounded bg-red-500 sm:mb-2 sm:h-4 sm:w-4" />
 
               <p className="text-slate-400">
                 Yanlış
@@ -1933,14 +2136,14 @@ export default function GuessThePlayerPage() {
 
             </div>
 
-            <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 p-3">
+            <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 p-2.5 sm:p-3">
 
-              <p className="mb-1 text-lg font-black text-amber-300">
+              <p className="mb-0.5 text-base font-black text-amber-300 sm:mb-1 sm:text-lg">
                 ↑ ↓
               </p>
 
               <p className="text-slate-400">
-                Hedef yaş yönü
+                Yaş yönü
               </p>
 
             </div>
@@ -1952,5 +2155,70 @@ export default function GuessThePlayerPage() {
       </div>
 
     </main>
+  );
+}
+
+/* =========================================================
+   MOBILE COMPARISON ITEM
+========================================================= */
+
+function MobileComparisonItem({
+  icon,
+  label,
+  value,
+  status,
+  suffix = "",
+}: {
+  icon: string;
+
+  label: string;
+
+  value: string;
+
+  status: ComparisonStatus;
+
+  suffix?: string;
+}) {
+  return (
+    <div
+      className={`min-w-0 rounded-xl border p-2.5 ${getComparisonClasses(
+        status,
+      )}`}
+    >
+
+      <div className="flex items-center gap-1.5">
+
+        <span className="shrink-0 text-[11px]">
+          {icon}
+        </span>
+
+        <span className="truncate text-[8px] font-black uppercase tracking-[0.1em] opacity-60">
+          {label}
+        </span>
+
+      </div>
+
+      <div className="mt-1.5 flex min-h-[22px] items-center gap-1">
+
+        <p className="min-w-0 flex-1 truncate text-[11px] font-black leading-4">
+          {value}
+        </p>
+
+        {suffix && (
+          <span className="shrink-0 text-base font-black">
+            {suffix}
+          </span>
+        )}
+
+        {status ===
+          "correct" && (
+          <span className="shrink-0 text-[10px] font-black">
+            ✓
+          </span>
+        )}
+
+      </div>
+
+    </div>
   );
 }
