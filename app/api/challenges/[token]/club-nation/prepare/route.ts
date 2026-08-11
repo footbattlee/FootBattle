@@ -532,28 +532,67 @@ export async function POST(
       await buildQuestionPool();
 
     const selected: Question[] = [];
-    const usedClubs = new Set<string>();
+
+    /*
+     * Bir düelloda:
+     *
+     * - aynı kulüp ikinci kez gelemez
+     * - aynı milliyet ikinci kez gelemez
+     *
+     * Böylece 5 round = 5 farklı kulüp + 5 farklı milliyet.
+     *
+     * Örnek:
+     * R1 Fenerbahçe + Iran
+     * R2 Fenerbahçe + Poland    -> YOK
+     * R3 Milan + Iran           -> YOK
+     */
+    const usedClubs =
+      new Set<string>();
+
     const usedNationalities =
       new Set<string>();
 
-    for (const item of pool) {
-      if (
-        usedClubs.has(item.clubName) &&
-        usedNationalities.has(
+    for (
+      const item of pool
+    ) {
+      const clubKey =
+        item.clubName
+          .trim()
+          .toLocaleLowerCase(
+            "tr-TR",
+          );
+
+      const nationalityKey =
+        normalizeCountry(
           item.nationality,
+        );
+
+      if (
+        usedClubs.has(
+          clubKey,
+        ) ||
+        usedNationalities.has(
+          nationalityKey,
         )
       ) {
         continue;
       }
 
-      selected.push(item);
-      usedClubs.add(item.clubName);
+      selected.push(
+        item,
+      );
+
+      usedClubs.add(
+        clubKey,
+      );
+
       usedNationalities.add(
-        item.nationality,
+        nationalityKey,
       );
 
       if (
-        selected.length === ROUND_COUNT
+        selected.length ===
+        ROUND_COUNT
       ) {
         break;
       }
