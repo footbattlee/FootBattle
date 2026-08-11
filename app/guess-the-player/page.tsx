@@ -131,6 +131,8 @@ type ResultResponse = {
 
   alreadyRecorded?: boolean;
 
+  authenticated?: boolean;
+
   targetPlayer?:
     | Player
     | null;
@@ -148,6 +150,10 @@ type ResultResponse = {
   gamesPlayed?: number;
 
   gamesWon?: number;
+
+  durationSeconds?:
+    | number
+    | null;
 };
 
 /* =========================================================
@@ -590,9 +596,6 @@ export default function GuessThePlayerPage() {
 
   /* =======================================================
      SEARCH PLAYER
-
-     3 HARFTEN SONRA
-     API ARTIK %QUERY% ARIYOR.
   ======================================================= */
 
   useEffect(() => {
@@ -764,7 +767,7 @@ export default function GuessThePlayerPage() {
       );
 
       setResultSaveMessage(
-        "Sonuç kaydediliyor...",
+        "Sonuç hazırlanıyor...",
       );
 
       const response =
@@ -799,7 +802,10 @@ export default function GuessThePlayerPage() {
         (await response.json()) as ResultResponse;
 
       /* =================================================
-         LOGIN YOK
+         ESKİ BACKEND FALLBACK
+
+         Yeni result endpoint guest için 401 dönmüyor.
+         Yine de eski deploy olursa sayfayı bozmasın.
       ================================================= */
 
       if (
@@ -823,7 +829,7 @@ export default function GuessThePlayerPage() {
       ) {
         throw new Error(
           result.error ??
-            "Oyun sonucu kaydedilemedi.",
+            "Oyun sonucu alınamadı.",
         );
       }
 
@@ -831,10 +837,13 @@ export default function GuessThePlayerPage() {
         true,
       );
 
-      /*
-       * Kaybedince gizli oyuncu result
-       * endpointinden geliyor.
-       */
+      /* =================================================
+         TARGET PLAYER
+
+         Kazansa da kaybetse de result endpoint
+         hedef oyuncuyu döndürüyor.
+      ================================================= */
+
       if (
         result.targetPlayer
       ) {
@@ -843,35 +852,59 @@ export default function GuessThePlayerPage() {
         );
       }
 
+      /* =================================================
+         ALREADY RECORDED
+      ================================================= */
+
       if (
         result.alreadyRecorded
       ) {
-        setResultSaveMessage(
-          "Bu oyunun sonucu daha önce kaydedilmiş.",
-        );
+        if (
+          result.authenticated
+        ) {
+          setResultSaveMessage(
+            "Bu oyunun sonucu daha önce kaydedilmiş.",
+          );
+        } else {
+          setResultSaveMessage(
+            "Gizli oyuncu açıklandı.",
+          );
+        }
 
         return;
       }
 
+      /* =================================================
+         LOGIN USER
+      ================================================= */
+
       if (
-  result.authenticated
-) {
-  if (
-    result.won
-  ) {
-    setResultSaveMessage(
-      `${result.score ?? 0} puan hesabına eklendi. 🔥`,
-    );
-  } else {
-    setResultSaveMessage(
-      "Oyun sonucun kaydedildi.",
-    );
-  }
-} else {
-  setResultSaveMessage(
-    "Puanını kaydetmek için giriş yapabilirsin.",
-  );
-}
+        result.authenticated
+      ) {
+        if (
+          result.won
+        ) {
+          setResultSaveMessage(
+            `${result.score ?? 0} puan hesabına eklendi. 🔥`,
+          );
+        } else {
+          setResultSaveMessage(
+            "Oyun sonucun kaydedildi.",
+          );
+        }
+
+        return;
+      }
+
+      /* =================================================
+         GUEST
+      ================================================= */
+
+      setResultSaveMessage(
+        result.won
+          ? "Kazandın! Puanını hesabına kaydetmek için giriş yapabilirsin."
+          : "Gizli oyuncu açıklandı. Skorunu kaydetmek için giriş yapabilirsin.",
+      );
     } catch (error) {
       console.error(
         "Guess the Player sonuç kayıt hatası:",
@@ -881,7 +914,7 @@ export default function GuessThePlayerPage() {
       setResultSaveMessage(
         error instanceof Error
           ? error.message
-          : "Sonuç kaydedilirken hata oluştu.",
+          : "Sonuç alınırken hata oluştu.",
       );
     } finally {
       setResultLoading(
@@ -907,11 +940,6 @@ export default function GuessThePlayerPage() {
     if (
       !selectedPlayer
     ) {
-      /*
-       * Enter'a basılmış ve listede
-       * tek sonuç varsa onu seçip
-       * tahmine gönderebiliriz.
-       */
       if (
         visibleSearchResults.length ===
         1
@@ -1097,30 +1125,38 @@ export default function GuessThePlayerPage() {
          LOST
       ================================================= */
 
-     if (
-  nextGuesses.length >=
-  maxAttempts
-) {
-  setGameStatus("lost");
+      if (
+        nextGuesses.length >=
+        maxAttempts
+      ) {
+        setGameStatus(
+          "lost",
+        );
 
-  if (
-    result.targetPlayer
-  ) {
-    setRevealedPlayer(
-      result.targetPlayer,
-    );
-  }
+        /*
+         * Guess endpoint son yanlış tahminde targetPlayer
+         * döndürürse hemen göster.
+         *
+         * Dönmezse result endpoint biraz sonra dolduracak.
+         */
+        if (
+          result.targetPlayer
+        ) {
+          setRevealedPlayer(
+            result.targetPlayer,
+          );
+        }
 
-  setMessage(
-    `😂 Footy: ${maxAttempts} hakkı da kullandın. Bugün olmadı.`,
-  );
+        setMessage(
+          `😂 Footy: ${maxAttempts} hakkı da kullandın. Bugün olmadı.`,
+        );
 
-  void saveGameResult(
-    nextGuesses,
-  );
+        void saveGameResult(
+          nextGuesses,
+        );
 
-  return;
-}
+        return;
+      }
 
       /* =================================================
          CONTINUE
@@ -1577,10 +1613,6 @@ export default function GuessThePlayerPage() {
                         rowIndex
                       ];
 
-                    /* =======================================
-                       EMPTY ROW
-                    ======================================= */
-
                     if (!guess) {
                       return (
                         <div
@@ -1630,8 +1662,6 @@ export default function GuessThePlayerPage() {
                         className="grid grid-cols-[1.4fr_repeat(6,1fr)] gap-2"
                       >
 
-                        {/* PLAYER */}
-
                         <div
                           className={`flex min-h-[70px] items-center rounded-xl border px-4 font-bold ${
                             playerIsCorrect
@@ -1646,8 +1676,6 @@ export default function GuessThePlayerPage() {
                           {guess.player.fullName}
                         </div>
 
-                        {/* NATIONALITY */}
-
                         <div
                           className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
                             guess.comparison
@@ -1656,8 +1684,6 @@ export default function GuessThePlayerPage() {
                         >
                           {guess.player.nationality}
                         </div>
-
-                        {/* POSITION */}
 
                         <div
                           className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
@@ -1668,8 +1694,6 @@ export default function GuessThePlayerPage() {
                           {guess.player.position}
                         </div>
 
-                        {/* CLUB */}
-
                         <div
                           className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
                             guess.comparison
@@ -1679,8 +1703,6 @@ export default function GuessThePlayerPage() {
                           {guess.player.club}
                         </div>
 
-                        {/* LEAGUE */}
-
                         <div
                           className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
                             guess.comparison
@@ -1689,8 +1711,6 @@ export default function GuessThePlayerPage() {
                         >
                           {guess.player.league}
                         </div>
-
-                        {/* AGE */}
 
                         <div
                           className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
@@ -1710,8 +1730,6 @@ export default function GuessThePlayerPage() {
                             </strong>
                           </span>
                         </div>
-
-                        {/* FOOT */}
 
                         <div
                           className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
@@ -1765,26 +1783,29 @@ export default function GuessThePlayerPage() {
                   : "Oyuncuyu bulamadın!"}
               </p>
 
-              {/* TARGET PLAYER */}
+              {/* TARGET PLAYER LOADING */}
 
               {gameStatus ===
                 "lost" &&
-                resultLoading && (
+                resultLoading &&
+                !revealedPlayer && (
                   <p className="mt-4 text-sm text-slate-400">
-                    Gizli oyuncu yükleniyor...
+                    Gizli oyuncu açıklanıyor...
                   </p>
                 )}
 
+              {/* TARGET PLAYER */}
+
               {revealedPlayer && (
-                <div className="mx-auto mt-4 max-w-sm rounded-xl border border-white/10 bg-black/20 p-4">
+                <div className="mx-auto mt-5 max-w-sm rounded-2xl border border-white/10 bg-black/20 p-5">
 
                   <p className="text-xs font-black uppercase tracking-wider text-slate-500">
                     Gizli Oyuncu
                   </p>
 
-                  <div className="mt-3 flex items-center justify-center gap-3">
+                  <div className="mt-4 flex items-center justify-center gap-4">
 
-                    {revealedPlayer.imageUrl && (
+                    {revealedPlayer.imageUrl ? (
                       <img
                         src={
                           revealedPlayer.imageUrl
@@ -1792,18 +1813,28 @@ export default function GuessThePlayerPage() {
                         alt={
                           revealedPlayer.fullName
                         }
-                        className="h-12 w-12 rounded-full object-cover"
+                        className="h-16 w-16 rounded-2xl border border-white/10 object-cover"
                       />
+                    ) : (
+                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-2xl">
+                        ⚽
+                      </div>
                     )}
 
                     <div className="text-left">
 
-                      <p className="text-lg font-black text-white">
+                      <p className="text-xl font-black text-white">
                         {revealedPlayer.fullName}
                       </p>
 
-                      <p className="text-xs text-slate-500">
+                      <p className="mt-1 text-sm font-semibold text-slate-400">
                         {revealedPlayer.club}
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-600">
+                        {revealedPlayer.nationality}
+                        {" · "}
+                        {revealedPlayer.position}
                       </p>
 
                     </div>
@@ -1814,7 +1845,7 @@ export default function GuessThePlayerPage() {
               )}
 
               <p
-                className={`mt-4 text-3xl font-black ${
+                className={`mt-5 text-3xl font-black ${
                   gameStatus ===
                   "won"
                     ? "text-green-400"
