@@ -11,28 +11,36 @@ type ComparisonStatus =
 type PlayerRecord = {
   player_id: number;
   name: string;
+
   nationality:
     | string
     | null;
+
   position:
     | string
     | null;
+
   sub_position:
     | string
     | null;
+
   age:
     | number
     | string
     | null;
+
   current_club_name:
     | string
     | null;
+
   current_competition_id:
     | string
     | null;
+
   preferred_foot:
     | string
     | null;
+
   image_url:
     | string
     | null;
@@ -56,12 +64,30 @@ function normalizeValue(
     .toLocaleUpperCase(
       "tr-TR",
     )
-    .replace(/İ/g, "I")
-    .replace(/Ç/g, "C")
-    .replace(/Ğ/g, "G")
-    .replace(/Ö/g, "O")
-    .replace(/Ş/g, "S")
-    .replace(/Ü/g, "U");
+    .replace(
+      /İ/g,
+      "I",
+    )
+    .replace(
+      /Ç/g,
+      "C",
+    )
+    .replace(
+      /Ğ/g,
+      "G",
+    )
+    .replace(
+      /Ö/g,
+      "O",
+    )
+    .replace(
+      /Ş/g,
+      "S",
+    )
+    .replace(
+      /Ü/g,
+      "U",
+    );
 }
 
 function compareText(
@@ -73,14 +99,16 @@ function compareText(
     | string
     | null,
 ): ComparisonStatus {
-  return normalizeValue(
-    guessedValue,
-  ) ===
+  return (
+    normalizeValue(
+      guessedValue,
+    ) ===
     normalizeValue(
       targetValue,
     )
-    ? "correct"
-    : "wrong";
+      ? "correct"
+      : "wrong"
+  );
 }
 
 function compareAge(
@@ -181,6 +209,10 @@ export async function POST(
   request: Request,
 ) {
   try {
+    /* =====================================================
+       BODY
+    ===================================================== */
+
     const body =
       (await request.json()) as GuessRequest;
 
@@ -192,15 +224,19 @@ export async function POST(
         body.playerId,
       );
 
-    if (!sessionId) {
+    if (
+      !sessionId
+    ) {
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Oyun oturumu bulunamadı.",
         },
         {
-          status: 400,
+          status:
+            400,
         },
       );
     }
@@ -209,7 +245,8 @@ export async function POST(
       !Number.isInteger(
         playerId,
       ) ||
-      playerId <= 0
+      playerId <=
+        0
     ) {
       return NextResponse.json(
         {
@@ -219,7 +256,8 @@ export async function POST(
             "Geçerli bir oyuncu seçmelisin.",
         },
         {
-          status: 400,
+          status:
+            400,
         },
       );
     }
@@ -229,37 +267,46 @@ export async function POST(
     ===================================================== */
 
     const {
-      data: session,
-      error: sessionError,
-    } = await supabaseAdmin
-      .from(
-        "guess_player_sessions",
-      )
-      .select(`
-        id,
-        player_id,
-        max_attempts,
-        completed
-      `)
-      .eq(
-        "id",
-        sessionId,
-      )
-      .maybeSingle();
+      data:
+        session,
+      error:
+        sessionError,
+    } =
+      await supabaseAdmin
+        .from(
+          "guess_player_sessions",
+        )
+        .select(`
+          id,
+          player_id,
+          max_attempts,
+          completed
+        `)
+        .eq(
+          "id",
+          sessionId,
+        )
+        .maybeSingle();
 
-    if (sessionError) {
+    if (
+      sessionError
+    ) {
       throw sessionError;
     }
 
-    if (!session) {
+    if (
+      !session
+    ) {
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Oyun bulunamadı.",
         },
         {
-          status: 404,
+          status:
+            404,
         },
       );
     }
@@ -270,48 +317,100 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Bu oyun zaten tamamlandı.",
         },
         {
-          status: 409,
+          status:
+            409,
         },
       );
     }
+
+    /* =====================================================
+       ATTEMPT COUNT
+
+       Bu yeni tahmin kaçıncı tahmin olacak?
+    ===================================================== */
+
+    const {
+      count:
+        previousAttemptCount,
+      error:
+        attemptCountError,
+    } =
+      await supabaseAdmin
+        .from(
+          "guess_player_attempts",
+        )
+        .select(
+          "id",
+          {
+            count:
+              "exact",
+            head:
+              true,
+          },
+        )
+        .eq(
+          "session_id",
+          sessionId,
+        );
+
+    if (
+      attemptCountError
+    ) {
+      throw attemptCountError;
+    }
+
+    const currentAttemptNumber =
+      Number(
+        previousAttemptCount ??
+          0,
+      ) + 1;
+
+    const maxAttempts =
+      Number(
+        session.max_attempts ??
+          7,
+      );
 
     /* =====================================================
        GUESSED PLAYER
     ===================================================== */
 
     const {
-      data: guessedPlayer,
+      data:
+        guessedPlayer,
       error:
         guessedPlayerError,
-    } = await supabaseAdmin
-      .from(
-        "guess_players",
-      )
-      .select(`
-        player_id,
-        name,
-        nationality,
-        position,
-        sub_position,
-        age,
-        current_club_name,
-        current_competition_id,
-        preferred_foot,
-        image_url
-      `)
-      .eq(
-        "player_id",
-        playerId,
-      )
-      .eq(
-        "is_playable",
-        1,
-      )
-      .maybeSingle();
+    } =
+      await supabaseAdmin
+        .from(
+          "guess_players",
+        )
+        .select(`
+          player_id,
+          name,
+          nationality,
+          position,
+          sub_position,
+          age,
+          current_club_name,
+          current_competition_id,
+          preferred_foot,
+          image_url
+        `)
+        .eq(
+          "player_id",
+          playerId,
+        )
+        .eq(
+          "is_playable",
+          1,
+        )
+        .maybeSingle();
 
     if (
       guessedPlayerError
@@ -319,15 +418,19 @@ export async function POST(
       throw guessedPlayerError;
     }
 
-    if (!guessedPlayer) {
+    if (
+      !guessedPlayer
+    ) {
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Seçilen oyuncu bulunamadı.",
         },
         {
-          status: 404,
+          status:
+            404,
         },
       );
     }
@@ -337,30 +440,32 @@ export async function POST(
     ===================================================== */
 
     const {
-      data: targetPlayer,
+      data:
+        targetPlayer,
       error:
         targetPlayerError,
-    } = await supabaseAdmin
-      .from(
-        "guess_players",
-      )
-      .select(`
-        player_id,
-        name,
-        nationality,
-        position,
-        sub_position,
-        age,
-        current_club_name,
-        current_competition_id,
-        preferred_foot,
-        image_url
-      `)
-      .eq(
-        "player_id",
-        session.player_id,
-      )
-      .maybeSingle();
+    } =
+      await supabaseAdmin
+        .from(
+          "guess_players",
+        )
+        .select(`
+          player_id,
+          name,
+          nationality,
+          position,
+          sub_position,
+          age,
+          current_club_name,
+          current_competition_id,
+          preferred_foot,
+          image_url
+        `)
+        .eq(
+          "player_id",
+          session.player_id,
+        )
+        .maybeSingle();
 
     if (
       targetPlayerError ||
@@ -379,10 +484,15 @@ export async function POST(
             "Hedef oyuncu bilgileri okunamadı.",
         },
         {
-          status: 500,
+          status:
+            500,
         },
       );
     }
+
+    /* =====================================================
+       COMPARISON
+    ===================================================== */
 
     const guessedPosition =
       guessedPlayer.sub_position ??
@@ -396,10 +506,32 @@ export async function POST(
       guessedPlayer.player_id ===
       targetPlayer.player_id;
 
+    const exhaustedAttempts =
+      !won &&
+      currentAttemptNumber >=
+        maxAttempts;
+
+    /* =====================================================
+       RESPONSE
+
+       Hedef oyuncuyu:
+       - doğru tahminde
+       - son yanlış tahminde
+
+       gösteriyoruz.
+    ===================================================== */
+
     return NextResponse.json({
       ok: true,
 
       won,
+
+      exhaustedAttempts,
+
+      attemptNumber:
+        currentAttemptNumber,
+
+      maxAttempts,
 
       player:
         mapPlayer(
@@ -445,17 +577,20 @@ export async function POST(
       },
 
       /*
-       * Doğru tahminde cevap gösterilir.
-       * Kaybedince result route gösterecek.
+       * Kazanırsa veya son hakkını da kullanmışsa
+       * gizli oyuncuyu frontend'e aç.
        */
       targetPlayer:
-        won
+        won ||
+        exhaustedAttempts
           ? mapPlayer(
               targetPlayer,
             )
           : null,
     });
-  } catch (error) {
+  } catch (
+    error
+  ) {
     console.error(
       "Guess the Player guess endpoint hatası:",
       error,
@@ -471,7 +606,8 @@ export async function POST(
             : "Tahmin kontrol edilirken hata oluştu.",
       },
       {
-        status: 500,
+        status:
+          500,
       },
     );
   }

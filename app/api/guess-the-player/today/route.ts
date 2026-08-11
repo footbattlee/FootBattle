@@ -2,20 +2,36 @@ import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-const MAX_ATTEMPTS = 5;
+const MAX_ATTEMPTS = 7;
 const MINIMUM_SEARCH_LENGTH = 3;
 const MINIMUM_POPULARITY_SCORE = 72;
 
 type CandidatePlayer = {
   player_id: number;
+
   nationality: string | null;
+
   position: string | null;
+
   sub_position: string | null;
+
   age: number | string | null;
-  current_club_name: string | null;
-  current_competition_id: string | null;
-  preferred_foot: string | null;
-  popularity_score: number | null;
+
+  current_club_name:
+    | string
+    | null;
+
+  current_competition_id:
+    | string
+    | null;
+
+  preferred_foot:
+    | string
+    | null;
+
+  popularity_score:
+    | number
+    | null;
 };
 
 function isCompletePlayer(
@@ -39,24 +55,31 @@ export async function GET() {
 
     const {
       count,
-      error: countError,
-    } = await supabaseAdmin
-      .from("guess_players")
-      .select(
-        "player_id",
-        {
-          count: "exact",
-          head: true,
-        },
-      )
-      .eq(
-        "is_playable",
-        1,
-      )
-      .gte(
-        "popularity_score",
-        MINIMUM_POPULARITY_SCORE,
-      );
+      error:
+        countError,
+    } =
+      await supabaseAdmin
+        .from(
+          "guess_players",
+        )
+        .select(
+          "player_id",
+          {
+            count:
+              "exact",
+
+            head:
+              true,
+          },
+        )
+        .eq(
+          "is_playable",
+          1,
+        )
+        .gte(
+          "popularity_score",
+          MINIMUM_POPULARITY_SCORE,
+        );
 
     if (
       countError ||
@@ -70,11 +93,13 @@ export async function GET() {
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Oyuncu havuzu okunamadı.",
         },
         {
-          status: 500,
+          status:
+            500,
         },
       );
     }
@@ -85,7 +110,8 @@ export async function GET() {
 
     let targetPlayer:
       | CandidatePlayer
-      | null = null;
+      | null =
+      null;
 
     for (
       let attempt = 0;
@@ -101,40 +127,46 @@ export async function GET() {
       const {
         data,
         error,
-      } = await supabaseAdmin
-        .from("guess_players")
-        .select(`
-          player_id,
-          nationality,
-          position,
-          sub_position,
-          age,
-          current_club_name,
-          current_competition_id,
-          preferred_foot,
-          popularity_score
-        `)
-        .eq(
-          "is_playable",
-          1,
-        )
-        .gte(
-          "popularity_score",
-          MINIMUM_POPULARITY_SCORE,
-        )
-        .order(
-          "player_id",
-          {
-            ascending: true,
-          },
-        )
-        .range(
-          randomIndex,
-          randomIndex,
-        )
-        .maybeSingle();
+      } =
+        await supabaseAdmin
+          .from(
+            "guess_players",
+          )
+          .select(`
+            player_id,
+            nationality,
+            position,
+            sub_position,
+            age,
+            current_club_name,
+            current_competition_id,
+            preferred_foot,
+            popularity_score
+          `)
+          .eq(
+            "is_playable",
+            1,
+          )
+          .gte(
+            "popularity_score",
+            MINIMUM_POPULARITY_SCORE,
+          )
+          .order(
+            "player_id",
+            {
+              ascending:
+                true,
+            },
+          )
+          .range(
+            randomIndex,
+            randomIndex,
+          )
+          .maybeSingle();
 
-      if (error) {
+      if (
+        error
+      ) {
         throw error;
       }
 
@@ -151,15 +183,19 @@ export async function GET() {
       }
     }
 
-    if (!targetPlayer) {
+    if (
+      !targetPlayer
+    ) {
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Guess the Player için uygun oyuncu seçilemedi.",
         },
         {
-          status: 500,
+          status:
+            500,
         },
       );
     }
@@ -169,24 +205,27 @@ export async function GET() {
     ===================================================== */
 
     const {
-      data: session,
-      error: sessionError,
-    } = await supabaseAdmin
-      .from(
-        "guess_player_sessions",
-      )
-      .insert({
-        player_id:
-          targetPlayer.player_id,
+      data:
+        session,
+      error:
+        sessionError,
+    } =
+      await supabaseAdmin
+        .from(
+          "guess_player_sessions",
+        )
+        .insert({
+          player_id:
+            targetPlayer.player_id,
 
-        max_attempts:
-          MAX_ATTEMPTS,
-      })
-      .select(`
-        id,
-        max_attempts
-      `)
-      .single();
+          max_attempts:
+            MAX_ATTEMPTS,
+        })
+        .select(`
+          id,
+          max_attempts
+        `)
+        .single();
 
     if (
       sessionError ||
@@ -200,19 +239,19 @@ export async function GET() {
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Yeni oyun oluşturulamadı.",
         },
         {
-          status: 500,
+          status:
+            500,
         },
       );
     }
 
     /* =====================================================
        4. RESPONSE
-
-       Hedef oyuncuyu istemciye göndermiyoruz.
     ===================================================== */
 
     return NextResponse.json({
@@ -241,7 +280,9 @@ export async function GET() {
         ],
       },
     });
-  } catch (error) {
+  } catch (
+    error
+  ) {
     console.error(
       "Guess the Player today endpoint hatası:",
       error,
@@ -257,7 +298,8 @@ export async function GET() {
             : "Yeni oyun hazırlanırken hata oluştu.",
       },
       {
-        status: 500,
+        status:
+          500,
       },
     );
   }

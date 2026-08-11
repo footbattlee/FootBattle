@@ -13,7 +13,7 @@ import {
    SETTINGS
 ========================================================= */
 
-const DEFAULT_MAX_ATTEMPTS = 5;
+const DEFAULT_MAX_ATTEMPTS = 7;
 
 const DEFAULT_MINIMUM_SEARCH_LENGTH = 3;
 
@@ -205,6 +205,8 @@ function calculateScore(
   }
 
   const scores = [
+    350,
+    300,
     250,
     200,
     150,
@@ -852,16 +854,24 @@ export default function GuessThePlayerPage() {
       }
 
       if (
-        result.won
-      ) {
-        setResultSaveMessage(
-          `${result.score ?? 0} puan hesabına eklendi. 🔥`,
-        );
-      } else {
-        setResultSaveMessage(
-          "Oyun sonucun kaydedildi.",
-        );
-      }
+  result.authenticated
+) {
+  if (
+    result.won
+  ) {
+    setResultSaveMessage(
+      `${result.score ?? 0} puan hesabına eklendi. 🔥`,
+    );
+  } else {
+    setResultSaveMessage(
+      "Oyun sonucun kaydedildi.",
+    );
+  }
+} else {
+  setResultSaveMessage(
+    "Puanını kaydetmek için giriş yapabilirsin.",
+  );
+}
     } catch (error) {
       console.error(
         "Guess the Player sonuç kayıt hatası:",
@@ -1087,24 +1097,30 @@ export default function GuessThePlayerPage() {
          LOST
       ================================================= */
 
-      if (
-        nextGuesses.length >=
-        maxAttempts
-      ) {
-        setGameStatus(
-          "lost",
-        );
+     if (
+  nextGuesses.length >=
+  maxAttempts
+) {
+  setGameStatus("lost");
 
-        setMessage(
-          "😂 Footy: Hakların bitti. Gizli oyuncuyu aşağıda görelim.",
-        );
+  if (
+    result.targetPlayer
+  ) {
+    setRevealedPlayer(
+      result.targetPlayer,
+    );
+  }
 
-        void saveGameResult(
-          nextGuesses,
-        );
+  setMessage(
+    `😂 Footy: ${maxAttempts} hakkı da kullandın. Bugün olmadı.`,
+  );
 
-        return;
-      }
+  void saveGameResult(
+    nextGuesses,
+  );
+
+  return;
+}
 
       /* =================================================
          CONTINUE

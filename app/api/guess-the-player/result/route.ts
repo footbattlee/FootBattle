@@ -3,9 +3,11 @@ import { NextResponse } from "next/server";
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-const MAX_ATTEMPTS = 5;
+const MAX_ATTEMPTS = 7;
 
 const SCORE_TABLE = [
+  350,
+  300,
   250,
   200,
   150,
@@ -26,7 +28,11 @@ export async function POST(
 ) {
   try {
     /* =====================================================
-       AUTH
+       1. AUTH
+
+       Giriş artık zorunlu değil.
+       User varsa skor/profil kaydedeceğiz.
+       Yoksa sadece oyunu tamamlayacağız.
     ===================================================== */
 
     const authClient =
@@ -34,29 +40,11 @@ export async function POST(
 
     const {
       data: { user },
-      error: userError,
     } =
       await authClient.auth.getUser();
 
-    if (
-      userError ||
-      !user
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-
-          error:
-            "Sonucu kaydetmek için giriş yapmalısın.",
-        },
-        {
-          status: 401,
-        },
-      );
-    }
-
     /* =====================================================
-       BODY
+       2. BODY
     ===================================================== */
 
     const body =
@@ -133,32 +121,33 @@ export async function POST(
     }
 
     /* =====================================================
-       SESSION
+       3. SESSION
     ===================================================== */
 
     const {
       data: session,
       error: sessionError,
-    } = await supabaseAdmin
-      .from(
-        "guess_player_sessions",
-      )
-      .select(`
-        id,
-        player_id,
-        max_attempts,
-        completed,
-        result_applied,
-        won,
-        score,
-        attempt_count,
-        user_id
-      `)
-      .eq(
-        "id",
-        sessionId,
-      )
-      .maybeSingle();
+    } =
+      await supabaseAdmin
+        .from(
+          "guess_player_sessions",
+        )
+        .select(`
+          id,
+          player_id,
+          max_attempts,
+          completed,
+          result_applied,
+          won,
+          score,
+          attempt_count,
+          user_id
+        `)
+        .eq(
+          "id",
+          sessionId,
+        )
+        .maybeSingle();
 
     if (sessionError) {
       throw sessionError;
@@ -179,39 +168,44 @@ export async function POST(
     }
 
     /* =====================================================
-       TARGET PLAYER
+       4. TARGET PLAYER
     ===================================================== */
 
     const {
       data: targetPlayer,
-      error:
-        targetPlayerError,
-    } = await supabaseAdmin
-      .from(
-        "guess_players",
-      )
-      .select(`
-        player_id,
-        name,
-        nationality,
-        position,
-        sub_position,
-        age,
-        current_club_name,
-        current_competition_id,
-        preferred_foot,
-        image_url
-      `)
-      .eq(
-        "player_id",
-        session.player_id,
-      )
-      .maybeSingle();
+      error: targetPlayerError,
+    } =
+      await supabaseAdmin
+        .from(
+          "guess_players",
+        )
+        .select(`
+          player_id,
+          name,
+          nationality,
+          position,
+          sub_position,
+          age,
+          current_club_name,
+          current_competition_id,
+          preferred_foot,
+          image_url
+        `)
+        .eq(
+          "player_id",
+          session.player_id,
+        )
+        .maybeSingle();
 
     if (
       targetPlayerError ||
       !targetPlayer
     ) {
+      console.error(
+        "Hedef oyuncu okunamadı:",
+        targetPlayerError,
+      );
+
       return NextResponse.json(
         {
           ok: false,
@@ -265,7 +259,7 @@ export async function POST(
     };
 
     /* =====================================================
-       ZATEN KAYDEDİLDİ
+       5. ZATEN TAMAMLANDI
     ===================================================== */
 
     if (
@@ -290,11 +284,14 @@ export async function POST(
 
         targetPlayer:
           mappedTargetPlayer,
+
+        authenticated:
+          Boolean(user),
       });
     }
 
     /* =====================================================
-       RESULT
+       6. RESULT
     ===================================================== */
 
     const lastPlayerId =
@@ -308,10 +305,20 @@ export async function POST(
         session.player_id,
       );
 
+    const sessionMaxAttempts =
+      Number(
+        session.max_attempts ??
+          MAX_ATTEMPTS,
+      );
+
+    /*
+     * Kazanmadıysa ancak tüm haklarını
+     * kullandıktan sonra oyun tamamlanabilir.
+     */
     if (
       !won &&
       playerIds.length <
-        session.max_attempts
+        sessionMaxAttempts
     ) {
       return NextResponse.json(
         {
@@ -351,55 +358,62 @@ export async function POST(
       new Date().toISOString();
 
     /* =====================================================
-       SESSION LOCK
+       7. SESSION'I TAMAMLA
+
+       Guest kullanıcı da session'ı tamamlayabilir.
+       Login varsa user_id bağlanır.
     ===================================================== */
 
     const {
       data: completedSession,
       error: completeError,
-    } = await supabaseAdmin
-      .from(
-        "guess_player_sessions",
-      )
-      .update({
-        completed:
-          true,
+    } =
+      await supabaseAdmin
+        .from(
+          "guess_player_sessions",
+        )
+        .update({
+          completed:
+            true,
 
-        result_applied:
-          true,
+          result_applied:
+            true,
 
-        won,
+          won,
 
-        score,
+          score,
 
-        attempt_count:
-          playerIds.length,
+          attempt_count:
+            playerIds.length,
 
-        user_id:
-          user.id,
+          user_id:
+            user?.id ??
+            null,
 
-        completed_at:
-          now,
-      })
-      .eq(
-        "id",
-        sessionId,
-      )
-      .eq(
-        "result_applied",
-        false,
-      )
-      .select(
-        "id",
-      )
-      .maybeSingle();
+          completed_at:
+            now,
+        })
+        .eq(
+          "id",
+          sessionId,
+        )
+        .eq(
+          "result_applied",
+          false,
+        )
+        .select(
+          "id",
+        )
+        .maybeSingle();
 
-    if (
-      completeError
-    ) {
+    if (completeError) {
       throw completeError;
     }
 
+    /*
+     * Başka request daha önce session'ı
+     * tamamladıysa tekrar profil puanı yazma.
+     */
     if (!completedSession) {
       return NextResponse.json({
         ok: true,
@@ -416,31 +430,87 @@ export async function POST(
 
         targetPlayer:
           mappedTargetPlayer,
+
+        authenticated:
+          Boolean(user),
       });
     }
 
     /* =====================================================
-       PROFILE
+       8. GUEST RESPONSE
+
+       Guest kullanıcı için burada işimiz bitti.
+
+       En önemlisi:
+       targetPlayer response'ta dönüyor.
+    ===================================================== */
+
+    if (!user) {
+      return NextResponse.json({
+        ok: true,
+
+        won,
+
+        score,
+
+        attemptCount:
+          playerIds.length,
+
+        alreadyRecorded:
+          false,
+
+        targetPlayer:
+          mappedTargetPlayer,
+
+        authenticated:
+          false,
+
+        currentStreak:
+          null,
+
+        bestStreak:
+          null,
+
+        totalScore:
+          0,
+
+        gamesPlayed:
+          0,
+
+        gamesWon:
+          0,
+
+        durationSeconds,
+      });
+    }
+
+    /* =====================================================
+       9. PROFILE
+
+       Buraya yalnızca giriş yapan kullanıcı gelir.
     ===================================================== */
 
     const {
       data: profile,
       error: profileError,
-    } = await supabaseAdmin
-      .from("profiles")
-      .select(`
-        id,
-        total_score,
-        games_played,
-        games_won,
-        current_streak,
-        best_streak
-      `)
-      .eq(
-        "id",
-        user.id,
-      )
-      .maybeSingle();
+    } =
+      await supabaseAdmin
+        .from(
+          "profiles",
+        )
+        .select(`
+          id,
+          total_score,
+          games_played,
+          games_won,
+          current_streak,
+          best_streak
+        `)
+        .eq(
+          "id",
+          user.id,
+        )
+        .maybeSingle();
 
     if (
       profileError ||
@@ -469,25 +539,31 @@ export async function POST(
         0) +
       (won ? 1 : 0);
 
+    /* =====================================================
+       10. PROFILE UPDATE
+    ===================================================== */
+
     const {
-      error:
-        profileUpdateError,
-    } = await supabaseAdmin
-      .from("profiles")
-      .update({
-        total_score:
-          nextTotalScore,
+      error: profileUpdateError,
+    } =
+      await supabaseAdmin
+        .from(
+          "profiles",
+        )
+        .update({
+          total_score:
+            nextTotalScore,
 
-        games_played:
-          nextGamesPlayed,
+          games_played:
+            nextGamesPlayed,
 
-        games_won:
-          nextGamesWon,
-      })
-      .eq(
-        "id",
-        user.id,
-      );
+          games_won:
+            nextGamesWon,
+        })
+        .eq(
+          "id",
+          user.id,
+        );
 
     if (
       profileUpdateError
@@ -496,7 +572,7 @@ export async function POST(
     }
 
     /* =====================================================
-       RESPONSE
+       11. AUTHENTICATED RESPONSE
     ===================================================== */
 
     return NextResponse.json({
@@ -514,6 +590,9 @@ export async function POST(
 
       targetPlayer:
         mappedTargetPlayer,
+
+      authenticated:
+        true,
 
       currentStreak:
         profile.current_streak ??
