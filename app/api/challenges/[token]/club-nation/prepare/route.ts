@@ -8,8 +8,21 @@ const GUEST_COOKIE_NAME =
   "footbattle_guest";
 
 const ROUND_COUNT = 5;
-const PLAYER_SAMPLE_SIZE = 180;
-const MAX_PLAYER_SEARCH_ROUNDS = 10;
+
+/*
+ * CLUB NATION KALİTE KURALLARI
+ *
+ * - Takım: duel_enabled = true
+ * - Takım tier: S / A / B
+ * - Milliyet: guess_players içinde en az 75 oyuncu
+ * - Takım + milliyet: en az 2 farklı oyuncu
+ * - Aynı takım bir düelloda yalnızca 1 kez
+ */
+const MIN_NATIONALITY_PLAYER_COUNT = 75;
+const MIN_PAIR_PLAYER_COUNT = 2;
+
+const PLAYER_PAGE_SIZE = 1000;
+const CLUB_PAGE_SIZE = 1000;
 
 type RouteContext = {
   params: Promise<{
@@ -121,6 +134,10 @@ function normalizeCountry(
 }
 
 async function buildQuestionPool() {
+  /* =====================================================
+     1) S / A / B TAKIM HAVUZU
+  ===================================================== */
+
   const {
     data: teamData,
     error: teamError,
@@ -133,7 +150,18 @@ async function buildQuestionPool() {
         duel_tier,
         duel_score
       `)
-      .eq("duel_enabled", true);
+      .eq(
+        "duel_enabled",
+        true,
+      )
+      .in(
+        "duel_tier",
+        [
+          "S",
+          "A",
+          "B",
+        ],
+      );
 
   if (teamError) {
     throw teamError;
@@ -146,197 +174,492 @@ async function buildQuestionPool() {
     const team of
       (teamData ?? []) as TeamRow[]
   ) {
-    const name = team.name?.trim();
-    const country = team.country?.trim();
+    const name =
+      team.name
+        ?.trim();
 
-    if (!name || !country) {
+    if (!name) {
       continue;
     }
 
-    allowedTeams.set(name, team);
-  }
-
-  if (allowedTeams.size === 0) {
-    throw new Error(
-      "Düello için uygun takım bulunamadı.",
+    allowedTeams.set(
+      name,
+      team,
     );
   }
 
-  const {
-    count: playerCount,
-    error: countError,
-  } =
-    await supabaseAdmin
-      .from("guess_players")
-      .select("player_id", {
-        count: "exact",
-        head: true,
-      })
-      .not("nationality", "is", null);
-
-  if (countError) {
-    throw countError;
+  if (
+    allowedTeams.size === 0
+  ) {
+    throw new Error(
+      "S / A / B tier uygun takım bulunamadı.",
+    );
   }
 
-  const totalPlayers =
-    playerCount ?? 0;
+  /* =====================================================
+     2) TÜM OYUNCULARI AL
 
-  const pool: Question[] = [];
-  const seen = new Set<string>();
+     Milliyet başına toplam oyuncu sayısını gerçekten
+     hesaplamak için sayfalı şekilde okuyoruz.
+  ===================================================== */
+
+  const allPlayers:
+    PlayerRow[] = [];
 
   for (
-    let round = 0;
-    round < MAX_PLAYER_SEARCH_ROUNDS &&
-    pool.length < 60;
-    round += 1
+    let from = 0;
+    ;
+    from += PLAYER_PAGE_SIZE
   ) {
-    const maxOffset =
-      Math.max(
-        0,
-        totalPlayers - PLAYER_SAMPLE_SIZE,
-      );
-
-    const offset =
-      maxOffset > 0
-        ? Math.floor(
-            Math.random() *
-              (maxOffset + 1),
-          )
-        : 0;
-
     const {
-      data: playerData,
-      error: playerError,
+      data,
+      error,
     } =
       await supabaseAdmin
-        .from("guess_players")
+        .from(
+          "guess_players",
+        )
         .select(`
           player_id,
           name,
           nationality
         `)
-        .not("nationality", "is", null)
-        .order("player_id", {
-          ascending: true,
-        })
+        .not(
+          "nationality",
+          "is",
+          null,
+        )
+        .order(
+          "player_id",
+          {
+            ascending:
+              true,
+          },
+        )
         .range(
-          offset,
-          offset + PLAYER_SAMPLE_SIZE - 1,
+          from,
+          from +
+            PLAYER_PAGE_SIZE -
+            1,
         );
 
-    if (playerError) {
-      throw playerError;
+    if (error) {
+      throw error;
     }
 
-    const players =
-      shuffleArray(
-        (playerData ?? []) as PlayerRow[],
-      ).filter(
-        (player) =>
-          Boolean(
-            player.nationality?.trim(),
-          ),
-      );
+    const page =
+      (data ?? []) as PlayerRow[];
 
-    if (players.length === 0) {
+    allPlayers.push(
+      ...page,
+    );
+
+    if (
+      page.length <
+      PLAYER_PAGE_SIZE
+    ) {
+      break;
+    }
+  }
+
+  if (
+    allPlayers.length === 0
+  ) {
+    throw new Error(
+      "Oyuncu havuzu boş.",
+    );
+  }
+
+  /* =====================================================
+     3) 75+ OYUNCULU MİLLİYETLER
+  ===================================================== */
+
+  const nationalityCounts =
+    new Map<
+      string,
+      {
+        display:
+          string;
+        count:
+          number;
+      }
+    >();
+
+  for (
+    const player of
+      allPlayers
+  ) {
+    const nationality =
+      player.nationality
+        ?.trim();
+
+    if (!nationality) {
       continue;
     }
 
-    const playerIds =
-      players.map(
-        (player) =>
-          Number(player.player_id),
+    const key =
+      normalizeCountry(
+        nationality,
       );
 
+    const current =
+      nationalityCounts.get(
+        key,
+      );
+
+    if (current) {
+      current.count += 1;
+    } else {
+      nationalityCounts.set(
+        key,
+        {
+          display:
+            nationality,
+          count:
+            1,
+        },
+      );
+    }
+  }
+
+  const allowedNationalities =
+    new Set<string>();
+
+  for (
+    const [
+      key,
+      value,
+    ] of nationalityCounts
+  ) {
+    if (
+      value.count >=
+      MIN_NATIONALITY_PLAYER_COUNT
+    ) {
+      allowedNationalities.add(
+        key,
+      );
+    }
+  }
+
+  if (
+    allowedNationalities.size ===
+    0
+  ) {
+    throw new Error(
+      "75+ oyunculu milliyet bulunamadı.",
+    );
+  }
+
+  const eligiblePlayers =
+    allPlayers.filter(
+      (player) => {
+        const nationality =
+          player.nationality
+            ?.trim();
+
+        if (
+          !nationality
+        ) {
+          return false;
+        }
+
+        return (
+          allowedNationalities.has(
+            normalizeCountry(
+              nationality,
+            ),
+          )
+        );
+      },
+    );
+
+  const eligiblePlayerIds =
+    new Set(
+      eligiblePlayers.map(
+        (player) =>
+          Number(
+            player.player_id,
+          ),
+      ),
+    );
+
+  const playerById =
+    new Map<
+      number,
+      PlayerRow
+    >();
+
+  for (
+    const player of
+      eligiblePlayers
+  ) {
+    playerById.set(
+      Number(
+        player.player_id,
+      ),
+      player,
+    );
+  }
+
+  /* =====================================================
+     4) TÜM PLAYER -> CLUB KAYITLARI
+
+     Sadece:
+     - 75+ milliyet oyuncuları
+     - S/A/B aktif takımlar
+
+     tutulur.
+  ===================================================== */
+
+  const validClubRows:
+    ClubRow[] = [];
+
+  for (
+    let from = 0;
+    ;
+    from += CLUB_PAGE_SIZE
+  ) {
     const {
-      data: clubData,
-      error: clubError,
+      data,
+      error,
     } =
       await supabaseAdmin
-        .from("player_quiz_clubs")
+        .from(
+          "player_quiz_clubs",
+        )
         .select(`
           player_id,
           club_name
         `)
-        .in("player_id", playerIds)
-        .not("club_name", "is", null);
+        .not(
+          "club_name",
+          "is",
+          null,
+        )
+        .order(
+          "id",
+          {
+            ascending:
+              true,
+          },
+        )
+        .range(
+          from,
+          from +
+            CLUB_PAGE_SIZE -
+            1,
+        );
 
-    if (clubError) {
-      throw clubError;
+    if (error) {
+      throw error;
     }
 
-    const clubsByPlayer =
-      new Map<number, string[]>();
+    const page =
+      (data ?? []) as ClubRow[];
 
     for (
-      const row of
-        (clubData ?? []) as ClubRow[]
+      const row of page
     ) {
       const playerId =
-        Number(row.player_id);
+        Number(
+          row.player_id,
+        );
+
       const clubName =
-        row.club_name?.trim();
+        row.club_name
+          ?.trim();
 
       if (
-        !Number.isInteger(playerId) ||
+        !Number.isInteger(
+          playerId,
+        ) ||
+        !eligiblePlayerIds.has(
+          playerId,
+        ) ||
         !clubName ||
-        !allowedTeams.has(clubName)
+        !allowedTeams.has(
+          clubName,
+        )
       ) {
         continue;
       }
 
-      const current =
-        clubsByPlayer.get(playerId) ?? [];
+      validClubRows.push({
+        player_id:
+          playerId,
 
-      current.push(clubName);
-      clubsByPlayer.set(
-        playerId,
-        current,
-      );
+        club_name:
+          clubName,
+      });
     }
 
-    for (const player of players) {
-      const nationality =
-        player.nationality?.trim();
-
-      if (!nationality) {
-        continue;
-      }
-
-      const clubs =
-        shuffleArray(
-          clubsByPlayer.get(
-            Number(player.player_id),
-          ) ?? [],
-        );
-
-      for (const clubName of clubs) {
-        const team =
-          allowedTeams.get(clubName);
-
-        if (!team?.country) {
-          continue;
-        }
-
-        const key =
-          `${clubName.toLocaleLowerCase("tr-TR")}::${nationality.toLocaleLowerCase("tr-TR")}`;
-
-        if (seen.has(key)) {
-          continue;
-        }
-
-        seen.add(key);
-        pool.push({
-          clubName,
-          nationality,
-          playerId:
-            Number(player.player_id),
-        });
-      }
+    if (
+      page.length <
+      CLUB_PAGE_SIZE
+    ) {
+      break;
     }
   }
 
-  return shuffleArray(pool);
+  /* =====================================================
+     5) TAKIM + MİLLİYET EŞLEŞMELERİNİ SAY
+
+     Aynı oyuncu aynı kulüp kaydında birden fazla kez
+     görünse bile yalnızca 1 kez sayılır.
+  ===================================================== */
+
+  type PairBucket = {
+    clubName:
+      string;
+
+    nationality:
+      string;
+
+    playerIds:
+      Set<number>;
+  };
+
+  const pairBuckets =
+    new Map<
+      string,
+      PairBucket
+    >();
+
+  for (
+    const row of
+      validClubRows
+  ) {
+    const player =
+      playerById.get(
+        Number(
+          row.player_id,
+        ),
+      );
+
+    const nationality =
+      player
+        ?.nationality
+        ?.trim();
+
+    const clubName =
+      row.club_name
+        ?.trim();
+
+    if (
+      !player ||
+      !nationality ||
+      !clubName
+    ) {
+      continue;
+    }
+
+    const nationalityKey =
+      normalizeCountry(
+        nationality,
+      );
+
+    if (
+      !allowedNationalities.has(
+        nationalityKey,
+      )
+    ) {
+      continue;
+    }
+
+    const pairKey =
+      `${clubName
+        .toLocaleLowerCase(
+          "tr-TR",
+        )}::${nationalityKey}`;
+
+    let bucket =
+      pairBuckets.get(
+        pairKey,
+      );
+
+    if (!bucket) {
+      bucket = {
+        clubName,
+        nationality,
+        playerIds:
+          new Set<number>(),
+      };
+
+      pairBuckets.set(
+        pairKey,
+        bucket,
+      );
+    }
+
+    bucket.playerIds.add(
+      Number(
+        player.player_id,
+      ),
+    );
+  }
+
+  /* =====================================================
+     6) EN AZ 2 CEVABI OLAN EŞLEŞMELER
+  ===================================================== */
+
+  const pool:
+    Question[] = [];
+
+  for (
+    const bucket of
+      pairBuckets.values()
+  ) {
+    if (
+      bucket
+        .playerIds
+        .size <
+      MIN_PAIR_PLAYER_COUNT
+    ) {
+      continue;
+    }
+
+    const playerIds =
+      Array.from(
+        bucket.playerIds,
+      );
+
+    const randomPlayerId =
+      playerIds[
+        Math.floor(
+          Math.random() *
+            playerIds.length,
+        )
+      ];
+
+    if (
+      !randomPlayerId
+    ) {
+      continue;
+    }
+
+    pool.push({
+      clubName:
+        bucket.clubName,
+
+      nationality:
+        bucket.nationality,
+
+      playerId:
+        randomPlayerId,
+    });
+  }
+
+  if (
+    pool.length === 0
+  ) {
+    throw new Error(
+      "S/A/B + 75+ milliyet + min 2 oyuncu kriterlerine uygun eşleşme bulunamadı.",
+    );
+  }
+
+  return shuffleArray(
+    pool,
+  );
 }
 
 export async function POST(
@@ -522,14 +845,18 @@ export async function POST(
     const selected: Question[] = [];
 
     /*
-     * DÜELLO ROUND KURALI
+     * DÜELLO ROUND SEÇİMİ
      *
-     * TEK KISIT:
-     * Aynı kulüp aynı düelloda ikinci kez gelemez.
+     * Havuz zaten şunları garanti eder:
+     * - duel_enabled = true
+     * - tier S / A / B
+     * - milliyet toplamı >= 75
+     * - takım + milliyet >= 2 gerçek oyuncu
      *
-     * Milliyet tekrar edebilir.
-     * Kulübün kendi ülkesi de gelebilir.
-     * Tier kısıtı yoktur.
+     * Round seçimindeki tek ek kural:
+     * aynı takım bu düelloda ikinci kez gelemez.
+     *
+     * Aynı milliyet tekrar gelebilir.
      */
     const usedClubs =
       new Set<string>();
