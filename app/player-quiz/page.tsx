@@ -408,28 +408,22 @@ export default function PlayerQuizPage() {
     DEFAULT_MINIMUM_SEARCH_LENGTH;
 
   const clubSlotCount =
-    gameSession?.board
-      .clubSlots ??
+    gameSession?.board.clubSlots ??
     0;
 
   const totalSlotCount =
-    gameSession?.board
-      .totalSlots ??
+    gameSession?.board.totalSlots ??
     0;
 
   const completedCount =
     useMemo(() => {
       return (
-        (
-          solvedBirthYear
-            ? 1
-            : 0
-        ) +
-        (
-          solvedNationality
-            ? 1
-            : 0
-        ) +
+        (solvedBirthYear
+          ? 1
+          : 0) +
+        (solvedNationality
+          ? 1
+          : 0) +
         solvedClubs.length
       );
     }, [
@@ -771,8 +765,7 @@ export default function PlayerQuizPage() {
             );
           } catch (error) {
             if (
-              error instanceof
-                DOMException &&
+              error instanceof DOMException &&
               error.name ===
                 "AbortError"
             ) {
@@ -897,8 +890,7 @@ export default function PlayerQuizPage() {
             );
           } catch (error) {
             if (
-              error instanceof
-                DOMException &&
+              error instanceof DOMException &&
               error.name ===
                 "AbortError"
             ) {
@@ -1303,10 +1295,6 @@ export default function PlayerQuizPage() {
       | string
       | number = "";
 
-    /* =====================================================
-       BIRTH YEAR
-    ===================================================== */
-
     if (
       field ===
       "birthYear"
@@ -1322,10 +1310,6 @@ export default function PlayerQuizPage() {
         return;
       }
     }
-
-    /* =====================================================
-       NATIONALITY
-    ===================================================== */
 
     if (
       field ===
@@ -1345,10 +1329,6 @@ export default function PlayerQuizPage() {
         return;
       }
     }
-
-    /* =====================================================
-       CLUB
-    ===================================================== */
 
     if (
       field ===
@@ -1431,12 +1411,6 @@ export default function PlayerQuizPage() {
         nextAttemptCount,
       );
 
-      /* =================================================
-         DUPLICATE CLUB
-
-         Can düşmüyor.
-      ================================================= */
-
       if (
         field ===
           "club" &&
@@ -1460,10 +1434,6 @@ export default function PlayerQuizPage() {
 
         return;
       }
-
-      /* =================================================
-         WRONG
-      ================================================= */
 
       if (
         !result.correct
@@ -1510,10 +1480,6 @@ export default function PlayerQuizPage() {
 
         return;
       }
-
-      /* =================================================
-         BIRTH YEAR CORRECT
-      ================================================= */
 
       if (
         field ===
@@ -1567,10 +1533,6 @@ export default function PlayerQuizPage() {
 
         return;
       }
-
-      /* =================================================
-         NATIONALITY CORRECT
-      ================================================= */
 
       if (
         field ===
@@ -1628,10 +1590,6 @@ export default function PlayerQuizPage() {
 
         return;
       }
-
-      /* =================================================
-         CLUB CORRECT
-      ================================================= */
 
       if (
         field ===
@@ -1714,7 +1672,7 @@ export default function PlayerQuizPage() {
   }
 
   /* =======================================================
-     SELECT AUTOCOMPLETE
+     AUTOCOMPLETE
   ======================================================= */
 
   function selectCountry(
@@ -1770,8 +1728,6 @@ export default function PlayerQuizPage() {
 
   /* =======================================================
      DISPLAY CLUBS
-
-     Kaybedince doğru cevapların tamamını aç.
   ======================================================= */
 
   const displayClubs =
@@ -1790,7 +1746,7 @@ export default function PlayerQuizPage() {
     !gameSession
   ) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#07111f] text-white">
+      <main className="flex min-h-[100dvh] items-center justify-center bg-[#07111f] text-white">
 
         <div className="text-center">
 
@@ -1815,7 +1771,7 @@ export default function PlayerQuizPage() {
     !gameSession
   ) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#07111f] px-4 text-white">
+      <main className="flex min-h-[100dvh] items-center justify-center bg-[#07111f] px-4 text-white">
 
         <div className="w-full max-w-md rounded-3xl border border-red-500/20 bg-red-500/10 p-7 text-center">
 
@@ -1851,7 +1807,7 @@ export default function PlayerQuizPage() {
   ======================================================= */
 
   return (
-    <main className="min-h-screen bg-[#07111f] px-4 py-6 text-white sm:px-6">
+    <main className="min-h-[100dvh] bg-[#07111f] px-3 pb-[calc(24px+env(safe-area-inset-bottom))] pt-4 text-white sm:px-6 sm:py-6">
 
       <div className="mx-auto max-w-5xl">
 
@@ -1859,46 +1815,54 @@ export default function PlayerQuizPage() {
             HEADER
         ================================================= */}
 
-        <header className="flex items-center justify-between border-b border-white/10 pb-5">
+        <header className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 pb-3 sm:pb-5">
 
-          <Link
-            href="/"
-            className="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-400 transition hover:border-yellow-400/40 hover:text-yellow-300"
-          >
-            ← Ana Sayfa
-          </Link>
+          <div className="flex justify-start">
+
+            <Link
+              href="/"
+              className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-400 transition hover:border-yellow-400/40 hover:text-yellow-300 sm:px-4 sm:text-sm"
+            >
+              ← Ana Sayfa
+            </Link>
+
+          </div>
 
           <div className="text-center">
 
-            <p className="font-black">
+            <p className="text-sm font-black sm:text-base">
               FootBattle
             </p>
 
-            <p className="text-xs text-slate-500">
+            <p className="text-[10px] text-slate-500 sm:text-xs">
               Player Quiz
             </p>
 
           </div>
 
-          <div className="text-right">
+          <div className="flex justify-end">
 
-            <p className="text-sm">
-              {"❤️".repeat(
-                lives,
-              )}
+            <div className="text-right">
 
-              {"🖤".repeat(
-                Math.max(
-                  maxLives -
-                    lives,
-                  0,
-                ),
-              )}
-            </p>
+              <p className="text-[11px] leading-none sm:text-sm">
+                {"❤️".repeat(
+                  lives,
+                )}
 
-            <p className="mt-1 text-xs text-slate-500">
-              {attemptCount} tahmin
-            </p>
+                {"🖤".repeat(
+                  Math.max(
+                    maxLives -
+                      lives,
+                    0,
+                  ),
+                )}
+              </p>
+
+              <p className="mt-1 text-[9px] text-slate-600 sm:text-xs">
+                {attemptCount} tahmin
+              </p>
+
+            </div>
 
           </div>
 
@@ -1908,645 +1872,697 @@ export default function PlayerQuizPage() {
             MAIN CARD
         ================================================= */}
 
-        <section className="mt-7 overflow-hidden rounded-3xl border border-yellow-400/20 bg-[#111b2a] shadow-2xl shadow-black/40">
-
-          {/* TOP */}
-
-          <div className="border-b border-white/10 bg-yellow-400 px-5 py-4 text-center text-[#111827]">
-
-            <p className="text-xs font-black uppercase tracking-[0.25em]">
-              SINIRSIZ PLAYER QUIZ
-            </p>
-
-            <h1 className="mt-1 text-2xl font-black">
-              {gameSession.player.fullName}
-            </h1>
-
-          </div>
-
-          <div className="p-5 sm:p-8">
-
-            <div className="grid gap-6 lg:grid-cols-[0.72fr_1.28fr]">
-
-              {/* =============================================
-                  LEFT
-              ============================================= */}
-
-              <div>
-
-                <div className="rounded-3xl border border-yellow-400/20 bg-yellow-400/5 p-5 text-center">
-
-                  <span className="inline-block rounded-full border border-yellow-400/30 bg-yellow-400/10 px-4 py-2 text-xs font-black text-yellow-300">
-                    YENİ OYUN
-                  </span>
-
-                  <div className="mx-auto mt-5 flex h-60 w-60 items-end justify-center overflow-hidden rounded-3xl border border-white/10 bg-[#07111f]">
-
-                    {gameSession.player.imageUrl ? (
-                      <img
-                        src={
-                          gameSession.player.imageUrl
-                        }
-                        alt={
-                          gameSession.player.fullName
-                        }
-                        className="h-full w-full object-contain"
-                      />
-                    ) : (
-                      <div className="text-6xl">
-                        ⚽
-                      </div>
-                    )}
-
-                  </div>
-
-                  <p className="mt-4 text-sm text-slate-400">
-                    Bu futbolcunun kariyer bilgilerini doldur.
-                  </p>
-
-                </div>
-
-                {/* TIMER */}
-
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-5">
-
-                  <div className="flex items-center justify-between">
-
-                    <div>
-
-                      <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                        Süre
-                      </p>
-
-                      <p
-                        className={`mt-1 text-4xl font-black ${
-                          timeLeft <=
-                          5
-                            ? "text-red-400"
-                            : "text-yellow-300"
-                        }`}
-                      >
-                        {timeLeft}
-                      </p>
-
-                    </div>
-
-                    <div className="text-right">
-
-                      <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                        Tamamlanan
-                      </p>
-
-                      <p className="mt-1 text-4xl font-black text-green-400">
-                        {completedCount}
-                        /
-                        {totalSlotCount}
-                      </p>
-
-                    </div>
-
-                  </div>
-
-                  <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/5">
-
-                    <div
-                      className="h-full rounded-full bg-green-500 transition-all duration-500"
-                      style={{
-                        width:
-                          `${progressPercentage}%`,
-                      }}
-                    />
-
-                  </div>
-
-                </div>
-
-              </div>
-
-              {/* =============================================
-                  RIGHT
-              ============================================= */}
-
-              <div>
-
-                {/* MESSAGE */}
-
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-center">
-
-                  <p className="text-sm leading-6 text-slate-300">
-                    {message}
-                  </p>
-
-                </div>
-
-                {/* ===========================================
-                    QUIZ CARDS
-                =========================================== */}
-
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
-
-                  {/* BIRTH YEAR */}
-
-                  <QuizCard
-                    title="Doğum Yılı"
-                    icon="🎂"
-                    solved={
-                      solvedBirthYear
-                    }
-                    solvedValue={
-                      solvedBirthYearValue
-                    }
-                  >
-
-                    <div className="flex gap-2">
-
-                      <input
-                        type="number"
-                        min="1900"
-                        max="2100"
-                        value={
-                          birthYearInput
-                        }
-                        disabled={
-                          solvedBirthYear ||
-                          gameStatus !==
-                            "playing"
-                        }
-                        onChange={(
-                          event,
-                        ) =>
-                          setBirthYearInput(
-                            event.target.value,
-                          )
-                        }
-                        onKeyDown={(
-                          event,
-                        ) => {
-                          if (
-                            event.key ===
-                            "Enter"
-                          ) {
-                            void submitField(
-                              "birthYear",
-                            );
-                          }
-                        }}
-                        placeholder="Örn. 1985"
-                        className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#07111f] px-4 py-3 outline-none placeholder:text-slate-600"
-                      />
-
-                      <CheckButton
-                        loading={
-                          submittingField ===
-                          "birthYear"
-                        }
-                        disabled={
-                          solvedBirthYear ||
-                          gameStatus !==
-                            "playing"
-                        }
-                        onClick={() =>
-                          void submitField(
-                            "birthYear",
-                          )
-                        }
-                      />
-
-                    </div>
-
-                  </QuizCard>
-
-                  {/* NATIONALITY */}
-
-                  <QuizCard
-                    title="Uyruk"
-                    icon="🌍"
-                    solved={
-                      solvedNationality
-                    }
-                    solvedValue={
-                      solvedNationalityValue
-                    }
-                  >
-
-                    <div className="relative">
-
-                      <div className="flex gap-2">
-
-                        <input
-                          type="text"
-                          value={
-                            nationalityInput
-                          }
-                          disabled={
-                            solvedNationality ||
-                            gameStatus !==
-                              "playing"
-                          }
-                          onChange={(
-                            event,
-                          ) => {
-                            setNationalityInput(
-                              event.target.value,
-                            );
-
-                            setCountrySelected(
-                              false,
-                            );
-                          }}
-                          onKeyDown={(
-                            event,
-                          ) => {
-                            if (
-                              event.key ===
-                              "Enter"
-                            ) {
-                              void submitField(
-                                "nationality",
-                              );
-                            }
-                          }}
-                          placeholder={`En az ${minimumSearchLength} harf`}
-                          className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#07111f] px-4 py-3 outline-none placeholder:text-slate-600"
-                        />
-
-                        <CheckButton
-                          loading={
-                            submittingField ===
-                            "nationality"
-                          }
-                          disabled={
-                            solvedNationality ||
-                            gameStatus !==
-                              "playing"
-                          }
-                          onClick={() =>
-                            void submitField(
-                              "nationality",
-                            )
-                          }
-                        />
-
-                      </div>
-
-                      {!countrySelected &&
-                        !solvedNationality &&
-                        nationalityInput.trim()
-                          .length >=
-                          minimumSearchLength &&
-                        gameStatus ===
-                          "playing" && (
-                          <SearchDropdown
-                            loading={
-                              countrySearchLoading
-                            }
-                            error={
-                              countrySearchError
-                            }
-                            emptyText="Milliyet bulunamadı."
-                            items={
-                              countryResults
-                            }
-                            onSelect={
-                              selectCountry
-                            }
-                          />
-                        )}
-
-                    </div>
-
-                  </QuizCard>
-
-                  {/* CLUBS */}
-
-                  <QuizCard
-                    title="Oynadığı Kulüpler"
-                    icon="⚽"
-                    solved={
-                      solvedClubs.length >=
-                      clubSlotCount
-                    }
-                    solvedValue=""
-                    wide
-                  >
-
-                    <div className="relative">
-
-                      <div className="flex gap-2">
-
-                        <input
-                          type="text"
-                          value={
-                            clubInput
-                          }
-                          disabled={
-                            solvedClubs.length >=
-                              clubSlotCount ||
-                            gameStatus !==
-                              "playing"
-                          }
-                          onChange={(
-                            event,
-                          ) => {
-                            setClubInput(
-                              event.target.value,
-                            );
-
-                            setClubSelected(
-                              false,
-                            );
-                          }}
-                          onKeyDown={(
-                            event,
-                          ) => {
-                            if (
-                              event.key ===
-                              "Enter"
-                            ) {
-                              void submitField(
-                                "club",
-                              );
-                            }
-                          }}
-                          placeholder={`Kulüp ara... En az ${minimumSearchLength} harf`}
-                          className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#07111f] px-4 py-3 outline-none placeholder:text-slate-600"
-                        />
-
-                        <CheckButton
-                          loading={
-                            submittingField ===
-                            "club"
-                          }
-                          disabled={
-                            solvedClubs.length >=
-                              clubSlotCount ||
-                            gameStatus !==
-                              "playing"
-                          }
-                          onClick={() =>
-                            void submitField(
-                              "club",
-                            )
-                          }
-                        />
-
-                      </div>
-
-                      {!clubSelected &&
-                        solvedClubs.length <
-                          clubSlotCount &&
-                        clubInput.trim()
-                          .length >=
-                          minimumSearchLength &&
-                        gameStatus ===
-                          "playing" && (
-                          <SearchDropdown
-                            loading={
-                              clubSearchLoading
-                            }
-                            error={
-                              clubSearchError
-                            }
-                            emptyText="Kulüp bulunamadı."
-                            items={
-                              clubResults
-                            }
-                            onSelect={
-                              selectClub
-                            }
-                          />
-                        )}
-
-                    </div>
-
-                    {/* CLUB SLOTS */}
-
-                    <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-
-                      {Array.from({
-                        length:
-                          clubSlotCount,
-                      }).map(
-                        (
-                          _,
-                          index,
-                        ) => {
-                          const slotNumber =
-                            index +
-                            1;
-
-                          const club =
-                            displayClubs.find(
-                              (
-                                solvedClub,
-                              ) =>
-                                solvedClub.careerOrder ===
-                                slotNumber,
-                            );
-
-                          const userSolved =
-                            solvedClubs.some(
-                              (
-                                solvedClub,
-                              ) =>
-                                solvedClub.id ===
-                                club?.id,
-                            );
-
-                          const revealed =
-                            gameStatus ===
-                              "lost" &&
-                            club &&
-                            !userSolved;
-
-                          return (
-                            <div
-                              key={
-                                index
-                              }
-                              className={`flex min-h-20 items-center justify-center rounded-xl border px-3 text-center text-sm font-bold ${
-                                club
-                                  ? revealed
-                                    ? "border-yellow-400/40 bg-yellow-400/15 text-yellow-200"
-                                    : "border-green-400/40 bg-green-500/20 text-green-200"
-                                  : "border-white/10 bg-[#07111f] text-2xl text-slate-600"
-                              }`}
-                            >
-                              {club
-                                ? club.name
-                                : "?"}
-                            </div>
-                          );
-                        },
-                      )}
-
-                    </div>
-
-                  </QuizCard>
-
-                </div>
-
-                {/* ===========================================
-                    RESULT
-                =========================================== */}
-
-                {gameStatus !==
-                  "playing" && (
-                  <div
-                    className={`mt-6 rounded-2xl border p-5 text-center ${
-                      gameStatus ===
-                      "won"
-                        ? "border-green-500/30 bg-green-500/10"
-                        : "border-red-500/30 bg-red-500/10"
-                    }`}
-                  >
-
-                    <p className="text-4xl">
-                      {gameStatus ===
-                      "won"
-                        ? "🏆"
-                        : "😤"}
-                    </p>
-
-                    <p className="mt-3 text-2xl font-black">
-
-                      {gameStatus ===
-                      "won"
-                        ? "Player Quiz tamamlandı!"
-                        : "Canların bitti!"}
-
-                    </p>
-
-                    <p className="mt-2 text-sm text-slate-300">
-                      {gameSession.player.fullName}
-                    </p>
-
-                    {/* LOSS ANSWERS */}
-
-                    {gameStatus ===
-                      "lost" &&
-                      resultSaving && (
-                        <p className="mt-4 text-sm text-slate-400">
-                          Doğru cevaplar yükleniyor...
-                        </p>
-                      )}
-
-                    {gameStatus ===
-                      "lost" &&
-                      correctAnswers && (
-                        <div className="mx-auto mt-5 max-w-md rounded-2xl border border-white/10 bg-black/20 p-4 text-left">
-
-                          <p className="text-center text-xs font-black uppercase tracking-widest text-yellow-300">
-                            Doğru Cevaplar
-                          </p>
-
-                          <div className="mt-4 space-y-3">
-
-                            <div className="flex items-center justify-between gap-4">
-
-                              <span className="text-sm text-slate-500">
-                                Doğum yılı
-                              </span>
-
-                              <strong className="text-white">
-                                {correctAnswers.birthYear}
-                              </strong>
-
-                            </div>
-
-                            <div className="flex items-center justify-between gap-4">
-
-                              <span className="text-sm text-slate-500">
-                                Uyruk
-                              </span>
-
-                              <strong className="text-white">
-                                {correctAnswers.nationality ??
-                                  "Bilinmiyor"}
-                              </strong>
-
-                            </div>
-
-                          </div>
-
-                          <p className="mt-4 text-center text-xs text-slate-500">
-                            Eksik kulüpler yukarıdaki kutularda sarı olarak açıldı.
-                          </p>
-
-                        </div>
-                      )}
-
-                    <p
-                      className={`mt-5 text-4xl font-black ${
-                        gameStatus ===
-                        "won"
-                          ? "text-green-400"
-                          : "text-slate-500"
-                      }`}
-                    >
-                      {gameStatus ===
-                      "won"
-                        ? `${COMPLETION_SCORE} puan`
-                        : "0 puan"}
-                    </p>
-
-                    {resultSaveMessage && (
-                      <p
-                        className={`mt-3 text-sm font-semibold ${
-                          resultSaveMessage.includes(
-                            "giriş",
-                          ) ||
-                          resultSaveMessage.includes(
-                            "hata",
-                          ) ||
-                          resultSaveMessage.includes(
-                            "kaydedilemedi",
-                          )
-                            ? "text-amber-300"
-                            : "text-yellow-200"
-                        }`}
-                      >
-                        {resultSaveMessage}
-                      </p>
-                    )}
-
-                    {/* ACTIONS */}
-
-                    <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
-
-                      <button
-                        type="button"
-                        disabled={
-                          newGameLoading ||
-                          resultSaving
-                        }
-                        onClick={() =>
-                          void handleNewGame()
-                        }
-                        className="rounded-xl bg-yellow-400 px-6 py-3 text-sm font-black text-[#111827] transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-
-                        {newGameLoading
-                          ? "Yeni oyuncu seçiliyor..."
-                          : "⚽ Yeni Oyuncuyla Tekrar Oyna"}
-
-                      </button>
-
-                      <Link
-                        href="/"
-                        className="rounded-xl border border-white/15 px-6 py-3 text-sm font-black transition hover:bg-white/5"
-                      >
-                        Ana Sayfa
-                      </Link>
-
-                    </div>
-
-                  </div>
-                )}
+        <section className="mt-4 overflow-hidden rounded-2xl border border-yellow-400/20 bg-[#111b2a] shadow-2xl shadow-black/40 sm:mt-7 sm:rounded-3xl">
+
+          {/* =================================================
+              PLAYER HERO
+          ================================================= */}
+
+          <div className="border-b border-white/10 bg-gradient-to-b from-yellow-400/[0.11] to-transparent px-4 pb-4 pt-4 text-center sm:px-6 sm:pb-6 sm:pt-6">
+
+            <div className="flex items-start justify-between gap-3 sm:hidden">
+
+              <span className="rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-yellow-300">
+                SOLO
+              </span>
+
+              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+
+                <span className="text-xs">
+                  ⏱
+                </span>
+
+                <span
+                  className={`font-mono text-sm font-black ${
+                    timeLeft <=
+                    5
+                      ? "text-red-300"
+                      : "text-yellow-300"
+                  }`}
+                >
+                  {timeLeft}s
+                </span>
 
               </div>
 
             </div>
+
+            <p className="hidden text-xs font-black uppercase tracking-[0.22em] text-yellow-300 sm:block">
+              SOLO PLAYER QUIZ
+            </p>
+
+            <h1 className="mt-3 text-2xl font-black sm:mt-2 sm:text-3xl">
+              {gameSession.player.fullName}
+            </h1>
+
+            <div className="mx-auto mt-3 flex h-40 w-40 items-end justify-center overflow-hidden rounded-2xl border border-white/10 bg-[#07111f] sm:mt-5 sm:h-60 sm:w-60 sm:rounded-3xl">
+
+              {gameSession.player.imageUrl ? (
+                <img
+                  src={
+                    gameSession.player.imageUrl
+                  }
+                  alt={
+                    gameSession.player.fullName
+                  }
+                  className="h-full w-full object-contain"
+                />
+              ) : (
+                <div className="text-5xl sm:text-6xl">
+                  ⚽
+                </div>
+              )}
+
+            </div>
+
+            <p className="mx-auto mt-3 max-w-md text-xs leading-5 text-slate-400 sm:mt-4 sm:text-sm">
+              Doğum yılını, uyruğunu ve kariyer kulüplerini doldur.
+            </p>
+
+          </div>
+
+          {/* =================================================
+              BODY
+          ================================================= */}
+
+          <div className="p-3 sm:p-8">
+
+            {/* ===============================================
+                COMPACT STATUS - MOBILE
+            =============================================== */}
+
+            <div className="grid grid-cols-3 gap-2 sm:hidden">
+
+              <CompactStat
+                label="Süre"
+                value={`${timeLeft}s`}
+                tone={
+                  timeLeft <=
+                  5
+                    ? "danger"
+                    : "warning"
+                }
+              />
+
+              <CompactStat
+                label="Tamamlanan"
+                value={`${completedCount}/${totalSlotCount}`}
+                tone="success"
+              />
+
+              <CompactStat
+                label="Can"
+                value={`${lives}/${maxLives}`}
+              />
+
+            </div>
+
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/5 sm:hidden">
+
+              <div
+                className="h-full rounded-full bg-green-500 transition-all duration-500"
+                style={{
+                  width:
+                    `${progressPercentage}%`,
+                }}
+              />
+
+            </div>
+
+            {/* ===============================================
+                DESKTOP STATUS
+            =============================================== */}
+
+            <div className="hidden grid-cols-2 gap-4 sm:grid">
+
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
+
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                  Süre
+                </p>
+
+                <p
+                  className={`mt-1 text-4xl font-black ${
+                    timeLeft <=
+                    5
+                      ? "text-red-400"
+                      : "text-yellow-300"
+                  }`}
+                >
+                  {timeLeft}
+                </p>
+
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
+
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                  Tamamlanan
+                </p>
+
+                <p className="mt-1 text-4xl font-black text-green-400">
+                  {completedCount}
+                  /
+                  {totalSlotCount}
+                </p>
+
+              </div>
+
+            </div>
+
+            <div className="mt-4 hidden h-3 overflow-hidden rounded-full bg-white/5 sm:block">
+
+              <div
+                className="h-full rounded-full bg-green-500 transition-all duration-500"
+                style={{
+                  width:
+                    `${progressPercentage}%`,
+                }}
+              />
+
+            </div>
+
+            {/* ===============================================
+                FOOTY
+            =============================================== */}
+
+            <div className="mt-3 rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-center sm:mt-5 sm:rounded-2xl sm:p-4">
+
+              <p className="text-xs leading-5 text-slate-300 sm:text-sm sm:leading-6">
+                {message}
+              </p>
+
+            </div>
+
+            {/* ===============================================
+                QUIZ GRID
+            =============================================== */}
+
+            <div className="mt-4 grid gap-3 sm:mt-5 sm:grid-cols-2 sm:gap-4">
+
+              {/* BIRTH YEAR */}
+
+              <QuizCard
+                title="Doğum Yılı"
+                icon="🎂"
+                solved={
+                  solvedBirthYear
+                }
+                solvedValue={
+                  solvedBirthYearValue
+                }
+                progress={
+                  solvedBirthYear
+                    ? "1/1"
+                    : "0/1"
+                }
+              >
+
+                <div className="flex gap-2">
+
+                  <input
+                    type="number"
+                    min="1900"
+                    max="2100"
+                    value={
+                      birthYearInput
+                    }
+                    disabled={
+                      solvedBirthYear ||
+                      gameStatus !==
+                        "playing"
+                    }
+                    onChange={(
+                      event,
+                    ) =>
+                      setBirthYearInput(
+                        event.target.value,
+                      )
+                    }
+                    onKeyDown={(
+                      event,
+                    ) => {
+                      if (
+                        event.key ===
+                        "Enter"
+                      ) {
+                        void submitField(
+                          "birthYear",
+                        );
+                      }
+                    }}
+                    placeholder="Örn. 1985"
+                    className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#07111f] px-3 py-3 text-sm font-bold outline-none placeholder:text-slate-600 focus:border-yellow-400/40 sm:px-4 sm:text-base"
+                  />
+
+                  <CheckButton
+                    loading={
+                      submittingField ===
+                      "birthYear"
+                    }
+                    disabled={
+                      solvedBirthYear ||
+                      gameStatus !==
+                        "playing"
+                    }
+                    onClick={() =>
+                      void submitField(
+                        "birthYear",
+                      )
+                    }
+                  />
+
+                </div>
+
+              </QuizCard>
+
+              {/* NATIONALITY */}
+
+              <QuizCard
+                title="Uyruk"
+                icon="🌍"
+                solved={
+                  solvedNationality
+                }
+                solvedValue={
+                  solvedNationalityValue
+                }
+                progress={
+                  solvedNationality
+                    ? "1/1"
+                    : "0/1"
+                }
+              >
+
+                <div className="relative">
+
+                  <div className="flex gap-2">
+
+                    <input
+                      type="text"
+                      value={
+                        nationalityInput
+                      }
+                      disabled={
+                        solvedNationality ||
+                        gameStatus !==
+                          "playing"
+                      }
+                      onChange={(
+                        event,
+                      ) => {
+                        setNationalityInput(
+                          event.target.value,
+                        );
+
+                        setCountrySelected(
+                          false,
+                        );
+                      }}
+                      onKeyDown={(
+                        event,
+                      ) => {
+                        if (
+                          event.key ===
+                          "Enter"
+                        ) {
+                          void submitField(
+                            "nationality",
+                          );
+                        }
+                      }}
+                      placeholder={`En az ${minimumSearchLength} harf`}
+                      className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#07111f] px-3 py-3 text-sm font-bold outline-none placeholder:text-slate-600 focus:border-yellow-400/40 sm:px-4 sm:text-base"
+                    />
+
+                    <CheckButton
+                      loading={
+                        submittingField ===
+                        "nationality"
+                      }
+                      disabled={
+                        solvedNationality ||
+                        gameStatus !==
+                          "playing"
+                      }
+                      onClick={() =>
+                        void submitField(
+                          "nationality",
+                        )
+                      }
+                    />
+
+                  </div>
+
+                  {!countrySelected &&
+                    !solvedNationality &&
+                    nationalityInput.trim()
+                      .length >=
+                      minimumSearchLength &&
+                    gameStatus ===
+                      "playing" && (
+                      <SearchDropdown
+                        loading={
+                          countrySearchLoading
+                        }
+                        error={
+                          countrySearchError
+                        }
+                        emptyText="Milliyet bulunamadı."
+                        items={
+                          countryResults
+                        }
+                        onSelect={
+                          selectCountry
+                        }
+                      />
+                    )}
+
+                </div>
+
+              </QuizCard>
+
+              {/* CLUBS */}
+
+              <QuizCard
+                title="Kariyer Kulüpleri"
+                icon="🏟️"
+                solved={
+                  solvedClubs.length >=
+                  clubSlotCount
+                }
+                solvedValue=""
+                progress={`${solvedClubs.length}/${clubSlotCount}`}
+                wide
+              >
+
+                <div className="relative">
+
+                  <div className="flex gap-2">
+
+                    <input
+                      type="text"
+                      value={
+                        clubInput
+                      }
+                      disabled={
+                        solvedClubs.length >=
+                          clubSlotCount ||
+                        gameStatus !==
+                          "playing"
+                      }
+                      onChange={(
+                        event,
+                      ) => {
+                        setClubInput(
+                          event.target.value,
+                        );
+
+                        setClubSelected(
+                          false,
+                        );
+                      }}
+                      onKeyDown={(
+                        event,
+                      ) => {
+                        if (
+                          event.key ===
+                          "Enter"
+                        ) {
+                          void submitField(
+                            "club",
+                          );
+                        }
+                      }}
+                      placeholder={`Kulüp ara... En az ${minimumSearchLength} harf`}
+                      className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#07111f] px-3 py-3 text-sm font-bold outline-none placeholder:text-slate-600 focus:border-yellow-400/40 sm:px-4 sm:text-base"
+                    />
+
+                    <CheckButton
+                      loading={
+                        submittingField ===
+                        "club"
+                      }
+                      disabled={
+                        solvedClubs.length >=
+                          clubSlotCount ||
+                        gameStatus !==
+                          "playing"
+                      }
+                      onClick={() =>
+                        void submitField(
+                          "club",
+                        )
+                      }
+                    />
+
+                  </div>
+
+                  {!clubSelected &&
+                    solvedClubs.length <
+                      clubSlotCount &&
+                    clubInput.trim()
+                      .length >=
+                      minimumSearchLength &&
+                    gameStatus ===
+                      "playing" && (
+                      <SearchDropdown
+                        loading={
+                          clubSearchLoading
+                        }
+                        error={
+                          clubSearchError
+                        }
+                        emptyText="Kulüp bulunamadı."
+                        items={
+                          clubResults
+                        }
+                        onSelect={
+                          selectClub
+                        }
+                      />
+                    )}
+
+                </div>
+
+                {/* CLUB SLOTS */}
+
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:grid-cols-3">
+
+                  {Array.from({
+                    length:
+                      clubSlotCount,
+                  }).map(
+                    (
+                      _,
+                      index,
+                    ) => {
+                      const slotNumber =
+                        index +
+                        1;
+
+                      const club =
+                        displayClubs.find(
+                          (
+                            solvedClub,
+                          ) =>
+                            solvedClub.careerOrder ===
+                            slotNumber,
+                        );
+
+                      const userSolved =
+                        solvedClubs.some(
+                          (
+                            solvedClub,
+                          ) =>
+                            solvedClub.id ===
+                            club?.id,
+                        );
+
+                      const revealed =
+                        gameStatus ===
+                          "lost" &&
+                        club &&
+                        !userSolved;
+
+                      return (
+                        <div
+                          key={
+                            index
+                          }
+                          className={`flex min-h-[58px] items-center justify-center rounded-xl border px-2 text-center text-xs font-black sm:min-h-20 sm:px-3 sm:text-sm ${
+                            club
+                              ? revealed
+                                ? "border-yellow-400/40 bg-yellow-400/15 text-yellow-200"
+                                : "border-green-400/40 bg-green-500/20 text-green-200"
+                              : "border-white/10 bg-[#07111f] text-xl text-slate-600 sm:text-2xl"
+                          }`}
+                        >
+                          {club
+                            ? club.name
+                            : "?"}
+                        </div>
+                      );
+                    },
+                  )}
+
+                </div>
+
+              </QuizCard>
+
+            </div>
+
+            {/* ===============================================
+                RESULT
+            =============================================== */}
+
+            {gameStatus !==
+              "playing" && (
+              <div
+                className={`mt-5 rounded-2xl border p-4 text-center sm:mt-6 sm:p-5 ${
+                  gameStatus ===
+                  "won"
+                    ? "border-green-500/30 bg-green-500/10"
+                    : "border-red-500/30 bg-red-500/10"
+                }`}
+              >
+
+                <p className="text-3xl sm:text-4xl">
+                  {gameStatus ===
+                  "won"
+                    ? "🏆"
+                    : "😤"}
+                </p>
+
+                <p className="mt-2 text-xl font-black sm:mt-3 sm:text-2xl">
+                  {gameStatus ===
+                  "won"
+                    ? "Player Quiz tamamlandı!"
+                    : "Canların bitti!"}
+                </p>
+
+                <p className="mt-1.5 text-xs text-slate-300 sm:mt-2 sm:text-sm">
+                  {gameSession.player.fullName}
+                </p>
+
+                {gameStatus ===
+                  "lost" &&
+                  resultSaving && (
+                    <p className="mt-3 text-xs text-slate-400 sm:mt-4 sm:text-sm">
+                      Doğru cevaplar yükleniyor...
+                    </p>
+                  )}
+
+                {gameStatus ===
+                  "lost" &&
+                  correctAnswers && (
+                    <div className="mx-auto mt-4 max-w-md rounded-2xl border border-white/10 bg-black/20 p-4 text-left sm:mt-5">
+
+                      <p className="text-center text-[10px] font-black uppercase tracking-widest text-yellow-300 sm:text-xs">
+                        Doğru Cevaplar
+                      </p>
+
+                      <div className="mt-3 space-y-2.5 sm:mt-4 sm:space-y-3">
+
+                        <div className="flex items-center justify-between gap-4">
+
+                          <span className="text-xs text-slate-500 sm:text-sm">
+                            Doğum yılı
+                          </span>
+
+                          <strong className="text-sm text-white sm:text-base">
+                            {correctAnswers.birthYear}
+                          </strong>
+
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4">
+
+                          <span className="text-xs text-slate-500 sm:text-sm">
+                            Uyruk
+                          </span>
+
+                          <strong className="text-sm text-white sm:text-base">
+                            {correctAnswers.nationality ??
+                              "Bilinmiyor"}
+                          </strong>
+
+                        </div>
+
+                      </div>
+
+                      <p className="mt-3 text-center text-[10px] leading-4 text-slate-500 sm:mt-4 sm:text-xs">
+                        Eksik kulüpler yukarıdaki kutularda sarı olarak açıldı.
+                      </p>
+
+                    </div>
+                  )}
+
+                <p
+                  className={`mt-4 text-3xl font-black sm:mt-5 sm:text-4xl ${
+                    gameStatus ===
+                    "won"
+                      ? "text-green-400"
+                      : "text-slate-500"
+                  }`}
+                >
+                  {gameStatus ===
+                  "won"
+                    ? `${COMPLETION_SCORE} puan`
+                    : "0 puan"}
+                </p>
+
+                {resultSaveMessage && (
+                  <p
+                    className={`mt-2 text-xs font-semibold sm:mt-3 sm:text-sm ${
+                      resultSaveMessage.includes(
+                        "giriş",
+                      ) ||
+                      resultSaveMessage.includes(
+                        "hata",
+                      ) ||
+                      resultSaveMessage.includes(
+                        "kaydedilemedi",
+                      )
+                        ? "text-amber-300"
+                        : "text-yellow-200"
+                    }`}
+                  >
+                    {resultSaveMessage}
+                  </p>
+                )}
+
+                <div className="mt-4 flex flex-col justify-center gap-2 sm:mt-6 sm:flex-row">
+
+                  <button
+                    type="button"
+                    disabled={
+                      newGameLoading ||
+                      resultSaving
+                    }
+                    onClick={() =>
+                      void handleNewGame()
+                    }
+                    className="rounded-xl bg-yellow-400 px-5 py-3 text-xs font-black text-[#111827] transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6 sm:text-sm"
+                  >
+
+                    {newGameLoading
+                      ? "Yeni oyuncu seçiliyor..."
+                      : "⚽ Yeni Oyuncuyla Tekrar Oyna"}
+
+                  </button>
+
+                  <Link
+                    href="/"
+                    className="rounded-xl border border-white/15 px-5 py-3 text-xs font-black transition hover:bg-white/5 sm:px-6 sm:text-sm"
+                  >
+                    Ana Sayfa
+                  </Link>
+
+                </div>
+
+              </div>
+            )}
 
           </div>
 
@@ -2559,6 +2575,52 @@ export default function PlayerQuizPage() {
 }
 
 /* =========================================================
+   COMPACT STAT
+========================================================= */
+
+function CompactStat({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?:
+    | "default"
+    | "success"
+    | "warning"
+    | "danger";
+}) {
+  const toneClasses =
+    tone ===
+    "success"
+      ? "border-green-500/20 bg-green-500/[0.06] text-green-300"
+      : tone ===
+          "warning"
+        ? "border-yellow-400/20 bg-yellow-400/[0.06] text-yellow-300"
+        : tone ===
+            "danger"
+          ? "border-red-500/20 bg-red-500/[0.06] text-red-300"
+          : "border-white/10 bg-black/10 text-white";
+
+  return (
+    <div
+      className={`rounded-xl border px-2 py-2.5 text-center ${toneClasses}`}
+    >
+
+      <p className="text-[8px] font-black uppercase tracking-[0.12em] opacity-60">
+        {label}
+      </p>
+
+      <p className="mt-1 text-sm font-black">
+        {value}
+      </p>
+
+    </div>
+  );
+}
+
+/* =========================================================
    QUIZ CARD
 ========================================================= */
 
@@ -2567,6 +2629,7 @@ type QuizCardProps = {
   icon: string;
   solved: boolean;
   solvedValue: string;
+  progress?: string;
   wide?: boolean;
   children: ReactNode;
 };
@@ -2576,12 +2639,13 @@ function QuizCard({
   icon,
   solved,
   solvedValue,
+  progress,
   wide = false,
   children,
 }: QuizCardProps) {
   return (
     <div
-      className={`rounded-2xl border p-4 transition ${
+      className={`rounded-2xl border p-3 transition sm:p-4 ${
         solved
           ? "border-green-400/40 bg-green-500/10"
           : "border-yellow-400/20 bg-yellow-400/5"
@@ -2592,16 +2656,16 @@ function QuizCard({
       }`}
     >
 
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="mb-2.5 flex items-center justify-between gap-3 sm:mb-3">
 
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
 
-          <span className="text-xl">
+          <span className="shrink-0 text-lg sm:text-xl">
             {icon}
           </span>
 
           <p
-            className={`text-sm font-black uppercase tracking-wide ${
+            className={`truncate text-xs font-black uppercase tracking-wide sm:text-sm ${
               solved
                 ? "text-green-300"
                 : "text-yellow-200"
@@ -2612,17 +2676,27 @@ function QuizCard({
 
         </div>
 
-        {solved && (
-          <span className="rounded-full bg-green-500 px-2 py-1 text-xs font-black text-[#07111f]">
-            ✓
-          </span>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+
+          {progress && (
+            <span className="text-[9px] font-black text-slate-500 sm:text-xs">
+              {progress}
+            </span>
+          )}
+
+          {solved && (
+            <span className="rounded-full bg-green-500 px-2 py-1 text-[9px] font-black text-[#07111f] sm:text-xs">
+              ✓
+            </span>
+          )}
+
+        </div>
 
       </div>
 
       {solved &&
       solvedValue ? (
-        <div className="rounded-xl border border-green-400/30 bg-green-500/20 px-4 py-4 text-center font-black text-green-100">
+        <div className="rounded-xl border border-green-400/30 bg-green-500/20 px-3 py-3 text-center text-sm font-black text-green-100 sm:px-4 sm:py-4 sm:text-base">
           {solvedValue}
         </div>
       ) : (
@@ -2658,7 +2732,7 @@ function CheckButton({
       onClick={
         onClick
       }
-      className="shrink-0 rounded-xl bg-yellow-400 px-4 py-3 text-sm font-black text-[#111827] transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-40"
+      className="shrink-0 rounded-xl bg-yellow-400 px-3 py-3 text-xs font-black text-[#111827] transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4 sm:text-sm"
     >
       {loading
         ? "..."
@@ -2690,7 +2764,7 @@ function SearchDropdown({
   onSelect,
 }: SearchDropdownProps) {
   return (
-    <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 max-h-64 overflow-y-auto rounded-2xl border border-white/10 bg-[#0c1929] shadow-2xl shadow-black/60">
+    <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 max-h-[45dvh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0c1929] shadow-2xl shadow-black/60">
 
       {loading ? (
         <p className="px-4 py-3 text-sm text-slate-500">

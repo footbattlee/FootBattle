@@ -4195,84 +4195,79 @@ export default function ChallengePage({
       remainingSeconds <=
       30;
 
+    const wrongCount =
+      Math.max(
+        0,
+        attemptCount -
+          correctCount,
+      );
+
+    const progressPercentage =
+      totalCount > 0
+        ? Math.min(
+            100,
+            Math.max(
+              0,
+              (
+                correctCount /
+                totalCount
+              ) * 100,
+            ),
+          )
+        : 0;
+
     return (
       <ChallengeShell
         wide
       >
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-5">
+        {/* ===============================================
+            COMPACT DUEL HEADER
+        =============================================== */}
 
-          <div>
+        <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3 sm:pb-5">
 
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-purple-400">
+          <div className="min-w-0">
+
+            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-purple-400 sm:text-xs sm:tracking-[0.18em]">
               ⚔️ PLAYER QUIZ VS
             </p>
 
-            <p className="mt-1 text-sm font-bold text-slate-400">
+            <p className="mt-1 truncate text-xs font-bold text-slate-400 sm:text-sm">
               {currentPlayerName ??
                 "Sen"}
-              {" vs "}
+              {"  vs  "}
               {opponentPlayerName ??
                 "Rakip"}
             </p>
 
           </div>
 
-          <div className="flex items-center gap-2">
-
-            <div
-              className={`rounded-xl border px-4 py-2 text-right ${
-                timerCritical
-                  ? "border-red-500/30 bg-red-500/10"
-                  : "border-white/10 bg-[#07111f]"
-              }`}
-            >
-
-              <p className="text-[10px] font-black uppercase text-slate-500">
-                Kalan Süre
-              </p>
-
-              <p
-                className={`font-mono text-xl font-black ${
-                  timerCritical
-                    ? "text-red-300"
-                    : "text-yellow-300"
-                }`}
-              >
-                {formatTimer(
-                  remainingSeconds,
-                )}
-              </p>
-
-            </div>
-
-            <button
-              type="button"
-              onClick={() =>
-                void forfeitChallenge()
-              }
-              disabled={
-                forfeitLoading ||
-                resultLoading
-              }
-              className="rounded-xl border border-red-500/20 bg-red-500/[0.06] px-3 py-3 text-xs font-black text-red-300 transition hover:bg-red-500/10 disabled:opacity-40"
-            >
-              {forfeitLoading
-                ? "..."
-                : "🏳 Pes Et"}
-            </button>
-
-          </div>
+          <button
+            type="button"
+            onClick={() =>
+              void forfeitChallenge()
+            }
+            disabled={
+              forfeitLoading ||
+              resultLoading
+            }
+            className="shrink-0 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-3 py-2.5 text-[10px] font-black text-red-300 transition hover:bg-red-500/10 disabled:opacity-40 sm:px-4 sm:py-3 sm:text-xs"
+          >
+            {forfeitLoading
+              ? "..."
+              : "🏳 Pes Et"}
+          </button>
 
         </div>
 
-        {/* =================================================
-            FUTBOLCU
-        ================================================= */}
+        {/* ===============================================
+            PLAYER HERO
+        =============================================== */}
 
-        <div className="mt-6 text-center">
+        <div className="mt-4 grid grid-cols-[96px_1fr] items-center gap-4 rounded-2xl border border-purple-500/15 bg-gradient-to-r from-purple-500/[0.08] to-transparent p-3 sm:mt-6 sm:grid-cols-[140px_1fr] sm:gap-6 sm:p-5">
 
-          <div className="mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-3xl border border-purple-500/20 bg-purple-500/[0.06] sm:h-32 sm:w-32">
+          <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl border border-purple-500/20 bg-[#07111f] sm:h-36 sm:w-36 sm:rounded-3xl">
 
             {game.player.imageUrl ? (
               <img
@@ -4285,113 +4280,116 @@ export default function ChallengePage({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <span className="text-4xl">
+              <span className="text-3xl sm:text-4xl">
                 ⚽
               </span>
             )}
 
           </div>
 
-          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-purple-400">
-            PLAYER QUIZ
-          </p>
+          <div className="min-w-0">
 
-          <h1 className="mt-2 text-2xl font-black sm:text-3xl">
-            {game.player.fullName}
-          </h1>
-
-          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">
-            250 saniye içinde bu futbolcunun doğum yılını,
-            milliyetini ve mümkün olduğunca fazla kariyer kulübünü bul.
-          </p>
-
-        </div>
-
-        {/* =================================================
-            LIVE SCORE
-        ================================================= */}
-
-        <div className="mt-6 grid grid-cols-2 gap-3">
-
-          <div className="rounded-2xl border border-green-500/20 bg-green-500/[0.06] p-4 text-center">
-
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-              Doğru
+            <p className="text-[9px] font-black uppercase tracking-[0.17em] text-purple-400 sm:text-[10px]">
+              AYNI OYUNCU · AYNI SÜRE
             </p>
 
-            <p className="mt-1 text-3xl font-black text-green-400">
-              {correctCount}
-              /
-              {totalCount}
-            </p>
+            <h1 className="mt-1.5 truncate text-xl font-black sm:mt-2 sm:text-3xl">
+              {game.player.fullName}
+            </h1>
 
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-[#07111f] p-4 text-center">
-
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-              Yanlış Deneme
-            </p>
-
-            <p className="mt-1 text-3xl font-black">
-              {Math.max(
-                0,
-
-                attemptCount -
-                  correctCount,
-              )}
+            <p className="mt-1.5 text-[10px] leading-4 text-slate-500 sm:mt-2 sm:max-w-xl sm:text-sm sm:leading-6">
+              Doğum yılı, milliyet ve kariyer kulüplerini rakibinden daha iyi doldur.
             </p>
 
           </div>
 
         </div>
 
-        {/* =================================================
-            PROGRESS
-        ================================================= */}
+        {/* ===============================================
+            MOBILE / COMPACT LIVE STATUS
+        =============================================== */}
 
-        <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="mt-3 grid grid-cols-3 gap-2 sm:mt-4">
 
-          <ProgressBox
+          <DuelCompactStat
+            label="Kalan Süre"
+            value={
+              formatTimer(
+                remainingSeconds,
+              )
+            }
+            tone={
+              timerCritical
+                ? "danger"
+                : "warning"
+            }
+          />
+
+          <DuelCompactStat
+            label="Doğru"
+            value={`${correctCount}/${totalCount}`}
+            tone="success"
+          />
+
+          <DuelCompactStat
+            label="Yanlış"
+            value={`${wrongCount}`}
+            tone={
+              wrongCount > 0
+                ? "danger"
+                : "default"
+            }
+          />
+
+        </div>
+
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/5">
+
+          <div
+            className="h-full rounded-full bg-green-500 transition-all duration-500"
+            style={{
+              width:
+                `${progressPercentage}%`,
+            }}
+          />
+
+        </div>
+
+        {/* ===============================================
+            FIELD PROGRESS
+        =============================================== */}
+
+        <div className="mt-3 grid grid-cols-3 gap-1.5 sm:mt-4 sm:gap-2">
+
+          <PlayerQuizMiniProgress
             label="Doğum"
+            value={
+              birthYearSolved
+                ? "1/1"
+                : "0/1"
+            }
             solved={
               birthYearSolved
             }
-            current={
-              birthYearSolved
-                ? 1
-                : 0
-            }
-            total={
-              1
-            }
           />
 
-          <ProgressBox
+          <PlayerQuizMiniProgress
             label="Milliyet"
+            value={
+              nationalitySolved
+                ? "1/1"
+                : "0/1"
+            }
             solved={
               nationalitySolved
             }
-            current={
-              nationalitySolved
-                ? 1
-                : 0
-            }
-            total={
-              1
-            }
           />
 
-          <ProgressBox
+          <PlayerQuizMiniProgress
             label="Kulüpler"
+            value={`${solvedClubs.length}/${requiredClubCount}`}
             solved={
               allClubsSolved
-            }
-            current={
-              solvedClubs.length
-            }
-            total={
-              requiredClubCount
             }
           />
 
@@ -4405,236 +4403,214 @@ export default function ChallengePage({
           />
         )}
 
-        {/* =================================================
-            BIRTH YEAR
-        ================================================= */}
+        {/* ===============================================
+            QUIZ FIELDS
+        =============================================== */}
 
-        <QuizSection
-          title="🎂 Doğum Yılı"
-          solved={
-            birthYearSolved
-          }
-        >
+        <div className="mt-4 grid gap-3 sm:mt-5 sm:grid-cols-2 sm:gap-4">
 
-          <div className="flex gap-2">
+          {/* =============================================
+              BIRTH YEAR
+          ============================================= */}
 
-            <input
-              type="number"
-              value={
-                birthYear
-              }
-              onChange={(
-                event,
-              ) =>
-                setBirthYear(
-                  event.target
-                    .value,
-                )
-              }
-              disabled={
-                birthYearSolved ||
-                remainingSeconds <=
-                  0 ||
-                resultLoading
-              }
-              placeholder="Örn. 1994"
-              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#07111f] px-4 py-3 font-bold outline-none focus:border-purple-400/50 disabled:opacity-50"
-            />
-
-            <button
-              type="button"
-              disabled={
-                birthYearSolved ||
-                answerLoading !==
-                  null ||
-                !birthYear ||
-                remainingSeconds <=
-                  0 ||
-                resultLoading
-              }
-              onClick={() =>
-                void submitAnswer(
-                  "birthYear",
-
-                  Number(
-                    birthYear,
-                  ),
-                )
-              }
-              className="rounded-xl bg-purple-500 px-5 font-black disabled:opacity-40"
-            >
-              {birthYearSolved
-                ? "✓"
-                : "Kontrol"}
-            </button>
-
-          </div>
-
-        </QuizSection>
-
-        {/* =================================================
-            NATIONALITY
-        ================================================= */}
-
-        <QuizSection
-          title="🌍 Milliyet"
-          solved={
-            nationalitySolved
-          }
-        >
-
-          <div className="relative">
+          <QuizSection
+            title="🎂 Doğum Yılı"
+            solved={
+              birthYearSolved
+            }
+            progress={
+              birthYearSolved
+                ? "1/1"
+                : "0/1"
+            }
+          >
 
             <div className="flex gap-2">
 
               <input
+                type="number"
                 value={
-                  nationality
+                  birthYear
                 }
                 onChange={(
                   event,
                 ) =>
-                  setNationality(
+                  setBirthYear(
                     event.target
                       .value,
                   )
                 }
                 disabled={
-                  nationalitySolved ||
+                  birthYearSolved ||
                   remainingSeconds <=
                     0 ||
                   resultLoading
                 }
-                placeholder="Ülke ara..."
-                className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#07111f] px-4 py-3 font-bold outline-none focus:border-purple-400/50 disabled:opacity-50"
+                placeholder="Örn. 1994"
+                className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#07111f] px-3 py-3 text-sm font-bold outline-none focus:border-purple-400/50 disabled:opacity-50 sm:px-4 sm:text-base"
+                onKeyDown={(
+                  event,
+                ) => {
+                  if (
+                    event.key ===
+                    "Enter"
+                  ) {
+                    void submitAnswer(
+                      "birthYear",
+                      Number(
+                        birthYear,
+                      ),
+                    );
+                  }
+                }}
               />
 
               <button
                 type="button"
                 disabled={
-                  nationalitySolved ||
+                  birthYearSolved ||
                   answerLoading !==
                     null ||
-                  !nationality.trim() ||
+                  !birthYear ||
                   remainingSeconds <=
                     0 ||
                   resultLoading
                 }
                 onClick={() =>
                   void submitAnswer(
-                    "nationality",
-
-                    nationality,
+                    "birthYear",
+                    Number(
+                      birthYear,
+                    ),
                   )
                 }
-                className="rounded-xl bg-purple-500 px-5 font-black disabled:opacity-40"
+                className="shrink-0 rounded-xl bg-purple-500 px-3 text-xs font-black transition hover:bg-purple-400 disabled:opacity-40 sm:px-5 sm:text-sm"
               >
-                {nationalitySolved
-                  ? "✓"
-                  : "Kontrol"}
+                {answerLoading ===
+                "birthYear"
+                  ? "..."
+                  : birthYearSolved
+                    ? "✓"
+                    : "Kontrol"}
               </button>
 
             </div>
 
-            {!nationalitySolved &&
-              countrySuggestions.length >
-                0 &&
-              remainingSeconds >
-                0 && (
-                <div className="absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-xl border border-white/10 bg-[#07111f] shadow-2xl">
+          </QuizSection>
 
-                  {countrySuggestions.map(
-                    (
-                      country,
-                    ) => (
-                      <button
-                        key={
-                          country
-                        }
-                        type="button"
-                        onClick={() => {
-                          setNationality(
-                            country,
-                          );
+          {/* =============================================
+              NATIONALITY
+          ============================================= */}
 
-                          setCountrySuggestions(
-                            [],
-                          );
-                        }}
-                        className="block w-full border-b border-white/[0.06] px-4 py-3 text-left text-sm font-bold transition last:border-0 hover:bg-white/[0.06]"
-                      >
-                        {country}
-                      </button>
-                    ),
-                  )}
+          <QuizSection
+            title="🌍 Milliyet"
+            solved={
+              nationalitySolved
+            }
+            progress={
+              nationalitySolved
+                ? "1/1"
+                : "0/1"
+            }
+          >
 
-                </div>
-              )}
+            <div className="relative">
 
-          </div>
-
-        </QuizSection>
-
-        {/* =================================================
-            CLUBS
-        ================================================= */}
-
-        <QuizSection
-          title={`🏟️ Kariyer Kulüpleri (${solvedClubs.length}/${requiredClubCount})`}
-          solved={
-            allClubsSolved
-          }
-        >
-
-          {!allClubsSolved &&
-            remainingSeconds >
-              0 &&
-            !resultLoading && (
-              <div className="relative">
+              <div className="flex gap-2">
 
                 <input
                   value={
-                    clubQuery
+                    nationality
                   }
                   onChange={(
                     event,
                   ) =>
-                    setClubQuery(
+                    setNationality(
                       event.target
                         .value,
                     )
                   }
-                  placeholder="Kulüp ara..."
-                  className="w-full rounded-xl border border-white/10 bg-[#07111f] px-4 py-3 font-bold outline-none focus:border-purple-400/50"
+                  disabled={
+                    nationalitySolved ||
+                    remainingSeconds <=
+                      0 ||
+                    resultLoading
+                  }
+                  placeholder="Ülke ara..."
+                  className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#07111f] px-3 py-3 text-sm font-bold outline-none focus:border-purple-400/50 disabled:opacity-50 sm:px-4 sm:text-base"
+                  onKeyDown={(
+                    event,
+                  ) => {
+                    if (
+                      event.key ===
+                      "Enter" &&
+                      nationality.trim()
+                    ) {
+                      void submitAnswer(
+                        "nationality",
+                        nationality,
+                      );
+                    }
+                  }}
                 />
 
-                {clubSuggestions.length >
-                  0 && (
-                  <div className="absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-xl border border-white/10 bg-[#07111f] shadow-2xl">
+                <button
+                  type="button"
+                  disabled={
+                    nationalitySolved ||
+                    answerLoading !==
+                      null ||
+                    !nationality.trim() ||
+                    remainingSeconds <=
+                      0 ||
+                    resultLoading
+                  }
+                  onClick={() =>
+                    void submitAnswer(
+                      "nationality",
+                      nationality,
+                    )
+                  }
+                  className="shrink-0 rounded-xl bg-purple-500 px-3 text-xs font-black transition hover:bg-purple-400 disabled:opacity-40 sm:px-5 sm:text-sm"
+                >
+                  {answerLoading ===
+                  "nationality"
+                    ? "..."
+                    : nationalitySolved
+                      ? "✓"
+                      : "Kontrol"}
+                </button>
 
-                    {clubSuggestions.map(
+              </div>
+
+              {!nationalitySolved &&
+                countrySuggestions.length >
+                  0 &&
+                remainingSeconds >
+                  0 && (
+                  <div className="absolute left-0 right-0 top-full z-40 mt-2 max-h-[45dvh] overflow-y-auto rounded-xl border border-white/10 bg-[#07111f] shadow-2xl">
+
+                    {countrySuggestions.map(
                       (
-                        club,
+                        country,
                       ) => (
                         <button
                           key={
-                            club.name
+                            country
                           }
                           type="button"
-                          disabled={
-                            answerLoading !==
-                            null
-                          }
-                          onClick={() =>
-                            void submitAnswer(
-                              "club",
+                          onClick={() => {
+                            setNationality(
+                              country,
+                            );
 
-                              club.name,
-                            )
-                          }
+                            setCountrySuggestions(
+                              [],
+                            );
+                          }}
                           className="block w-full border-b border-white/[0.06] px-4 py-3 text-left text-sm font-bold transition last:border-0 hover:bg-white/[0.06]"
                         >
-                          {club.name}
+                          {country}
                         </button>
                       ),
                     )}
@@ -4642,73 +4618,151 @@ export default function ChallengePage({
                   </div>
                 )}
 
-              </div>
-            )}
+            </div>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          </QuizSection>
 
-            {Array.from(
-              {
-                length:
-                  requiredClubCount,
-              },
-              (
-                _,
-                index,
-              ) => {
-                const club =
-                  solvedClubs[
-                    index
-                  ];
+          {/* =============================================
+              CLUBS
+          ============================================= */}
 
-                return (
-                  <div
-                    key={
-                      index
+          <QuizSection
+            title="🏟️ Kariyer Kulüpleri"
+            solved={
+              allClubsSolved
+            }
+            progress={`${solvedClubs.length}/${requiredClubCount}`}
+            wide
+          >
+
+            {!allClubsSolved &&
+              remainingSeconds >
+                0 &&
+              !resultLoading && (
+                <div className="relative">
+
+                  <input
+                    value={
+                      clubQuery
                     }
-                    className={`rounded-xl border px-4 py-3 ${
-                      club
-                        ? "border-green-500/20 bg-green-500/[0.07]"
-                        : "border-white/10 bg-black/10"
-                    }`}
-                  >
+                    onChange={(
+                      event,
+                    ) =>
+                      setClubQuery(
+                        event.target
+                          .value,
+                      )
+                    }
+                    placeholder="Kulüp ara..."
+                    className="w-full rounded-xl border border-white/10 bg-[#07111f] px-3 py-3 text-sm font-bold outline-none focus:border-purple-400/50 sm:px-4 sm:text-base"
+                  />
 
-                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-600">
-                      Kulüp{" "}
-                      {index +
-                        1}
-                    </p>
+                  {clubSuggestions.length >
+                    0 && (
+                    <div className="absolute left-0 right-0 top-full z-40 mt-2 max-h-[45dvh] overflow-y-auto rounded-xl border border-white/10 bg-[#07111f] shadow-2xl">
 
-                    <p
-                      className={`mt-1 truncate text-sm font-black ${
+                      {clubSuggestions.map(
+                        (
+                          club,
+                        ) => (
+                          <button
+                            key={
+                              club.name
+                            }
+                            type="button"
+                            disabled={
+                              answerLoading !==
+                              null
+                            }
+                            onClick={() =>
+                              void submitAnswer(
+                                "club",
+                                club.name,
+                              )
+                            }
+                            className="block w-full border-b border-white/[0.06] px-4 py-3 text-left text-sm font-bold transition last:border-0 hover:bg-white/[0.06]"
+                          >
+                            {club.name}
+                          </button>
+                        ),
+                      )}
+
+                    </div>
+                  )}
+
+                </div>
+              )}
+
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:grid-cols-3">
+
+              {Array.from(
+                {
+                  length:
+                    requiredClubCount,
+                },
+                (
+                  _,
+                  index,
+                ) => {
+                  const club =
+                    solvedClubs[
+                      index
+                    ];
+
+                  return (
+                    <div
+                      key={
+                        index
+                      }
+                      className={`rounded-xl border px-3 py-2.5 sm:px-4 sm:py-3 ${
                         club
-                          ? "text-green-300"
-                          : "text-slate-600"
+                          ? "border-green-500/20 bg-green-500/[0.07]"
+                          : "border-white/10 bg-black/10"
                       }`}
                     >
-                      {club
-                        ? club.name
-                        : "???"}
-                    </p>
 
-                  </div>
-                );
-              },
-            )}
+                      <p className="text-[8px] font-black uppercase tracking-wider text-slate-600 sm:text-[10px]">
+                        Kulüp{" "}
+                        {index +
+                          1}
+                      </p>
 
-          </div>
+                      <p
+                        className={`mt-1 truncate text-xs font-black sm:text-sm ${
+                          club
+                            ? "text-green-300"
+                            : "text-slate-600"
+                        }`}
+                      >
+                        {club
+                          ? club.name
+                          : "???"}
+                      </p>
 
-        </QuizSection>
+                    </div>
+                  );
+                },
+              )}
 
-        <div className="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-[#07111f] px-4 py-3">
+            </div>
+
+          </QuizSection>
+
+        </div>
+
+        {/* ===============================================
+            BOTTOM INFO
+        =============================================== */}
+
+        <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-[#07111f] px-3 py-2.5 sm:mt-6 sm:rounded-2xl sm:px-4 sm:py-3">
 
           <div>
 
-            <p className="text-[10px] font-black uppercase text-slate-600">
+            <p className="text-[8px] font-black uppercase text-slate-600 sm:text-[10px]">
               Toplam Deneme
             </p>
 
-            <p className="font-black">
+            <p className="text-sm font-black sm:text-base">
               {attemptCount}
             </p>
 
@@ -4716,11 +4770,11 @@ export default function ChallengePage({
 
           <div className="text-right">
 
-            <p className="text-[10px] font-black uppercase text-slate-600">
+            <p className="text-[8px] font-black uppercase text-slate-600 sm:text-[10px]">
               Bulunan Bilgi
             </p>
 
-            <p className="font-black text-green-400">
+            <p className="text-sm font-black text-green-400 sm:text-base">
               {correctCount}
               /
               {totalCount}
@@ -4731,7 +4785,7 @@ export default function ChallengePage({
         </div>
 
         {resultLoading && (
-          <div className="mt-5 rounded-xl border border-green-500/20 bg-green-500/[0.06] px-4 py-4 text-center text-sm font-bold text-green-400">
+          <div className="mt-4 rounded-xl border border-green-500/20 bg-green-500/[0.06] px-4 py-3 text-center text-xs font-bold text-green-400 sm:mt-5 sm:py-4 sm:text-sm">
             ✓ Sonucun hesaplanıyor...
           </div>
         )}
@@ -5230,40 +5284,136 @@ function ClubClashRoundHistory({
 function QuizSection({
   title,
   solved,
+  progress,
+  wide = false,
   children,
 }: {
   title: string;
   solved: boolean;
+  progress?: string;
+  wide?: boolean;
 
   children:
     React.ReactNode;
 }) {
   return (
     <section
-      className={`mt-5 rounded-2xl border p-5 ${
+      className={`rounded-2xl border p-3 transition sm:p-5 ${
         solved
           ? "border-green-500/20 bg-green-500/[0.04]"
           : "border-white/10 bg-white/[0.02]"
+      } ${
+        wide
+          ? "sm:col-span-2"
+          : ""
       }`}
     >
 
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-2.5 flex items-center justify-between gap-3 sm:mb-4">
 
-        <h2 className="font-black">
+        <h2 className="min-w-0 truncate text-xs font-black sm:text-base">
           {title}
         </h2>
 
-        {solved && (
-          <span className="rounded-full bg-green-500/15 px-3 py-1 text-[10px] font-black uppercase text-green-400">
-            ✓ Doğru
-          </span>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+
+          {progress && (
+            <span className="text-[9px] font-black text-slate-500 sm:text-xs">
+              {progress}
+            </span>
+          )}
+
+          {solved && (
+            <span className="rounded-full bg-green-500/15 px-2 py-1 text-[8px] font-black uppercase text-green-400 sm:px-3 sm:text-[10px]">
+              ✓ Doğru
+            </span>
+          )}
+
+        </div>
 
       </div>
 
       {children}
 
     </section>
+  );
+}
+
+function DuelCompactStat({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?:
+    | "default"
+    | "success"
+    | "warning"
+    | "danger";
+}) {
+  const classes =
+    tone ===
+    "success"
+      ? "border-green-500/20 bg-green-500/[0.06] text-green-300"
+      : tone ===
+          "warning"
+        ? "border-yellow-400/20 bg-yellow-400/[0.06] text-yellow-300"
+        : tone ===
+            "danger"
+          ? "border-red-500/20 bg-red-500/[0.06] text-red-300"
+          : "border-white/10 bg-black/10 text-white";
+
+  return (
+    <div
+      className={`rounded-xl border px-2 py-2.5 text-center ${classes}`}
+    >
+
+      <p className="text-[8px] font-black uppercase tracking-[0.1em] opacity-60 sm:text-[9px]">
+        {label}
+      </p>
+
+      <p className="mt-1 font-mono text-sm font-black sm:text-lg">
+        {value}
+      </p>
+
+    </div>
+  );
+}
+
+function PlayerQuizMiniProgress({
+  label,
+  value,
+  solved,
+}: {
+  label: string;
+  value: string;
+  solved: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-lg border px-2 py-2 text-center sm:rounded-xl sm:p-3 ${
+        solved
+          ? "border-green-500/20 bg-green-500/[0.06]"
+          : "border-white/[0.07] bg-black/10"
+      }`}
+    >
+
+      <p className="truncate text-[8px] font-black uppercase tracking-wider text-slate-600 sm:text-[9px]">
+        {label}
+      </p>
+
+      <p
+        className={`mt-0.5 text-xs font-black sm:mt-1 sm:text-lg ${
+          solved
+            ? "text-green-400"
+            : "text-white"
+        }`}
+      >
+        {value}
+      </p>
+
+    </div>
   );
 }
 
