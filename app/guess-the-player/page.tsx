@@ -14,7 +14,6 @@ import {
 ========================================================= */
 
 const DEFAULT_MAX_ATTEMPTS = 7;
-
 const DEFAULT_MINIMUM_SEARCH_LENGTH = 3;
 
 /* =========================================================
@@ -34,126 +33,74 @@ type GameStatus =
 
 type Player = {
   id: number;
-
   fullName: string;
-
   nationality: string;
-
   position: string;
-
   club: string;
-
   league: string;
-
   age: number;
-
   preferredFoot: string;
-
-  imageUrl:
-    | string
-    | null;
+  imageUrl: string | null;
 };
 
 type GuessComparison = {
   nationality: ComparisonStatus;
-
   position: ComparisonStatus;
-
   club: ComparisonStatus;
-
   league: ComparisonStatus;
-
   age: ComparisonStatus;
-
   preferredFoot: ComparisonStatus;
 };
 
 type GuessRow = {
   player: Player;
-
   comparison: GuessComparison;
 };
 
 type GameSession = {
   sessionId: string;
-
   maxAttempts: number;
-
   minimumSearchLength: number;
 };
 
 type TodayResponse = {
   ok?: boolean;
-
   error?: string;
-
   sessionId?: string;
-
   maxAttempts?: number;
-
   minimumSearchLength?: number;
 };
 
 type SearchResponse = {
   ok?: boolean;
-
   error?: string;
-
   players?: Player[];
 };
 
 type GuessResponse = {
   ok?: boolean;
-
   error?: string;
-
   won?: boolean;
-
   player?: Player;
-
   comparison?: GuessComparison;
-
-  targetPlayer?:
-    | Player
-    | null;
+  targetPlayer?: Player | null;
 };
 
 type ResultResponse = {
   ok?: boolean;
-
   error?: string;
-
   won?: boolean;
-
   score?: number;
-
   attemptCount?: number;
-
   alreadyRecorded?: boolean;
-
   authenticated?: boolean;
-
-  targetPlayer?:
-    | Player
-    | null;
-
-  currentStreak?:
-    | number
-    | null;
-
-  bestStreak?:
-    | number
-    | null;
-
+  targetPlayer?: Player | null;
+  currentStreak?: number | null;
+  bestStreak?: number | null;
   totalScore?: number;
-
   gamesPlayed?: number;
-
   gamesWon?: number;
-
-  durationSeconds?:
-    | number
-    | null;
+  durationSeconds?: number | null;
 };
 
 /* =========================================================
@@ -163,18 +110,13 @@ type ResultResponse = {
 function getComparisonClasses(
   status: ComparisonStatus,
 ) {
-  if (
-    status ===
-    "correct"
-  ) {
+  if (status === "correct") {
     return "border-green-400/40 bg-green-500/20 text-green-200";
   }
 
   if (
-    status ===
-      "higher" ||
-    status ===
-      "lower"
+    status === "higher" ||
+    status === "lower"
   ) {
     return "border-amber-400/40 bg-amber-400/15 text-amber-200";
   }
@@ -185,17 +127,11 @@ function getComparisonClasses(
 function getAgeDirection(
   status: ComparisonStatus,
 ) {
-  if (
-    status ===
-    "higher"
-  ) {
+  if (status === "higher") {
     return "↑";
   }
 
-  if (
-    status ===
-    "lower"
-  ) {
+  if (status === "lower") {
     return "↓";
   }
 
@@ -232,10 +168,6 @@ function calculateScore(
 ========================================================= */
 
 export default function GuessThePlayerPage() {
-  /* =======================================================
-     SESSION
-  ======================================================= */
-
   const [
     gameSession,
     setGameSession,
@@ -255,10 +187,6 @@ export default function GuessThePlayerPage() {
     setLoadingError,
   ] =
     useState("");
-
-  /* =======================================================
-     SEARCH
-  ======================================================= */
 
   const [
     searchText,
@@ -291,10 +219,6 @@ export default function GuessThePlayerPage() {
     setSearchError,
   ] =
     useState("");
-
-  /* =======================================================
-     GAME
-  ======================================================= */
 
   const [
     guesses,
@@ -332,10 +256,6 @@ export default function GuessThePlayerPage() {
   ] =
     useState(false);
 
-  /* =======================================================
-     RESULT
-  ======================================================= */
-
   const [
     resultSaved,
     setResultSaved,
@@ -353,10 +273,6 @@ export default function GuessThePlayerPage() {
     setResultSaveMessage,
   ] =
     useState("");
-
-  /* =======================================================
-     NEW GAME
-  ======================================================= */
 
   const [
     newGameLoading,
@@ -380,8 +296,7 @@ export default function GuessThePlayerPage() {
   const score =
     calculateScore(
       guesses.length,
-      gameStatus ===
-        "won",
+      gameStatus === "won",
     );
 
   const guessedPlayerIds =
@@ -389,24 +304,18 @@ export default function GuessThePlayerPage() {
       () =>
         new Set(
           guesses.map(
-            (
-              guess,
-            ) =>
+            (guess) =>
               guess.player.id,
           ),
         ),
-      [
-        guesses,
-      ],
+      [guesses],
     );
 
   const visibleSearchResults =
     useMemo(
       () =>
         searchResults.filter(
-          (
-            player,
-          ) =>
+          (player) =>
             !guessedPlayerIds.has(
               player.id,
             ),
@@ -418,56 +327,75 @@ export default function GuessThePlayerPage() {
     );
 
   /* =======================================================
-     RESET LOCAL STATE
+     SCROLL TO GUESS
+  ======================================================= */
+
+  function scrollToGuess(
+    guessNumber: number,
+  ) {
+    const element =
+      document.getElementById(
+        `mobile-guess-${guessNumber}`,
+      );
+
+    if (!element) {
+      return;
+    }
+
+    element.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    element.classList.add(
+      "ring-2",
+      "ring-purple-400/70",
+    );
+
+    window.setTimeout(
+      () => {
+        element.classList.remove(
+          "ring-2",
+          "ring-purple-400/70",
+        );
+      },
+      900,
+    );
+  }
+
+  function scrollToLatestGuess() {
+    if (
+      guesses.length ===
+      0
+    ) {
+      return;
+    }
+
+    scrollToGuess(
+      guesses.length,
+    );
+  }
+
+  /* =======================================================
+     RESET
   ======================================================= */
 
   const resetGameState =
     useCallback(() => {
       setSearchText("");
+      setSearchResults([]);
+      setSelectedPlayer(null);
+      setSearchLoading(false);
+      setSearchError("");
 
-      setSearchResults(
-        [],
-      );
+      setGuesses([]);
+      setGameStatus("playing");
+      setRevealedPlayer(null);
+      setSubmitting(false);
 
-      setSelectedPlayer(
-        null,
-      );
-
-      setSearchLoading(
-        false,
-      );
-
-      setSearchError(
-        "",
-      );
-
-      setGuesses(
-        [],
-      );
-
-      setGameStatus(
-        "playing",
-      );
-
-      setRevealedPlayer(
-        null,
-      );
-
-      setSubmitting(
-        false,
-      );
-
-      setResultSaved(
-        false,
-      );
-
-      setResultLoading(
-        false,
-      );
-
-      setResultSaveMessage(
-        "",
-      );
+      setResultSaved(false);
+      setResultLoading(false);
+      setResultSaveMessage("");
 
       setMessage(
         "😏 Footy: Üç harf yaz da kimi düşündüğünü görelim.",
@@ -495,9 +423,7 @@ export default function GuessThePlayerPage() {
             );
           }
 
-          setLoadingError(
-            "",
-          );
+          setLoadingError("");
 
           resetGameState();
 
@@ -505,11 +431,8 @@ export default function GuessThePlayerPage() {
             await fetch(
               "/api/guess-the-player/today",
               {
-                method:
-                  "GET",
-
-                cache:
-                  "no-store",
+                method: "GET",
+                cache: "no-store",
               },
             );
 
@@ -568,18 +491,11 @@ export default function GuessThePlayerPage() {
               : "Yeni oyun hazırlanamadı.",
           );
         } finally {
-          setLoadingGame(
-            false,
-          );
-
-          setNewGameLoading(
-            false,
-          );
+          setLoadingGame(false);
+          setNewGameLoading(false);
         }
       },
-      [
-        resetGameState,
-      ],
+      [resetGameState],
     );
 
   /* =======================================================
@@ -595,7 +511,7 @@ export default function GuessThePlayerPage() {
   ]);
 
   /* =======================================================
-     SEARCH PLAYER
+     SEARCH
   ======================================================= */
 
   useEffect(() => {
@@ -609,17 +525,9 @@ export default function GuessThePlayerPage() {
       gameStatus !==
         "playing"
     ) {
-      setSearchResults(
-        [],
-      );
-
-      setSearchLoading(
-        false,
-      );
-
-      setSearchError(
-        "",
-      );
+      setSearchResults([]);
+      setSearchLoading(false);
+      setSearchError("");
 
       return;
     }
@@ -631,13 +539,8 @@ export default function GuessThePlayerPage() {
       window.setTimeout(
         async () => {
           try {
-            setSearchLoading(
-              true,
-            );
-
-            setSearchError(
-              "",
-            );
+            setSearchLoading(true);
+            setSearchError("");
 
             const response =
               await fetch(
@@ -667,15 +570,12 @@ export default function GuessThePlayerPage() {
             }
 
             setSearchResults(
-              result.players ??
-                [],
+              result.players ?? [],
             );
           } catch (error) {
             if (
-              error instanceof
-                DOMException &&
-              error.name ===
-                "AbortError"
+              error instanceof DOMException &&
+              error.name === "AbortError"
             ) {
               return;
             }
@@ -685,9 +585,7 @@ export default function GuessThePlayerPage() {
               error,
             );
 
-            setSearchResults(
-              [],
-            );
+            setSearchResults([]);
 
             setSearchError(
               error instanceof Error
@@ -695,9 +593,7 @@ export default function GuessThePlayerPage() {
                 : "Oyuncular aranamadı.",
             );
           } finally {
-            setSearchLoading(
-              false,
-            );
+            setSearchLoading(false);
           }
         },
         250,
@@ -732,13 +628,8 @@ export default function GuessThePlayerPage() {
       player.fullName,
     );
 
-    setSearchResults(
-      [],
-    );
-
-    setSearchError(
-      "",
-    );
+    setSearchResults([]);
+    setSearchError("");
 
     setMessage(
       `👀 Footy: ${player.fullName} diyorsun. Eminsen tahmini gönder.`,
@@ -762,9 +653,7 @@ export default function GuessThePlayerPage() {
     }
 
     try {
-      setResultLoading(
-        true,
-      );
+      setResultLoading(true);
 
       setResultSaveMessage(
         "Sonuç hazırlanıyor...",
@@ -774,8 +663,7 @@ export default function GuessThePlayerPage() {
         await fetch(
           "/api/guess-the-player/result",
           {
-            method:
-              "POST",
+            method: "POST",
 
             headers: {
               "Content-Type":
@@ -789,9 +677,7 @@ export default function GuessThePlayerPage() {
 
                 playerIds:
                   completedGuesses.map(
-                    (
-                      guess,
-                    ) =>
+                    (guess) =>
                       guess.player.id,
                   ),
               }),
@@ -822,9 +708,7 @@ export default function GuessThePlayerPage() {
         );
       }
 
-      setResultSaved(
-        true,
-      );
+      setResultSaved(true);
 
       if (
         result.targetPlayer
@@ -887,9 +771,7 @@ export default function GuessThePlayerPage() {
           : "Sonuç alınırken hata oluştu.",
       );
     } finally {
-      setResultLoading(
-        false,
-      );
+      setResultLoading(false);
     }
   }
 
@@ -969,21 +851,14 @@ export default function GuessThePlayerPage() {
         "😏 Footy: Bu oyuncuyu zaten tahmin ettin.",
       );
 
-      setSelectedPlayer(
-        null,
-      );
-
-      setSearchText(
-        "",
-      );
+      setSelectedPlayer(null);
+      setSearchText("");
 
       return;
     }
 
     try {
-      setSubmitting(
-        true,
-      );
+      setSubmitting(true);
 
       setMessage(
         "👀 Footy: Tahminin kontrol ediliyor...",
@@ -993,8 +868,7 @@ export default function GuessThePlayerPage() {
         await fetch(
           "/api/guess-the-player/guess",
           {
-            method:
-              "POST",
+            method: "POST",
 
             headers: {
               "Content-Type":
@@ -1043,17 +917,9 @@ export default function GuessThePlayerPage() {
         nextGuesses,
       );
 
-      setSelectedPlayer(
-        null,
-      );
-
-      setSearchText(
-        "",
-      );
-
-      setSearchResults(
-        [],
-      );
+      setSelectedPlayer(null);
+      setSearchText("");
+      setSearchResults([]);
 
       /* =================================================
          WON
@@ -1145,14 +1011,12 @@ export default function GuessThePlayerPage() {
           : "⚠️ Footy: Tahmin kontrol edilemedi.",
       );
     } finally {
-      setSubmitting(
-        false,
-      );
+      setSubmitting(false);
     }
   }
 
   /* =======================================================
-     NEW GAME BUTTON
+     NEW GAME
   ======================================================= */
 
   async function handleNewGame() {
@@ -1274,13 +1138,28 @@ export default function GuessThePlayerPage() {
 
           <div className="flex justify-end">
 
-            <div className="rounded-xl border border-white/10 px-3 py-2 text-xs font-black sm:px-4 sm:text-sm">
+            <button
+              type="button"
+              disabled={
+                guesses.length ===
+                0
+              }
+              onClick={
+                scrollToLatestGuess
+              }
+              title={
+                guesses.length > 0
+                  ? "Son tahmine git"
+                  : "Henüz tahmin yok"
+              }
+              className="rounded-xl border border-white/10 px-3 py-2 text-xs font-black transition hover:border-purple-400/40 hover:bg-purple-500/10 hover:text-purple-300 disabled:cursor-default disabled:hover:border-white/10 disabled:hover:bg-transparent disabled:hover:text-white sm:px-4 sm:text-sm"
+            >
 
               {guesses.length}
               /
               {maxAttempts}
 
-            </div>
+            </button>
 
           </div>
 
@@ -1292,9 +1171,7 @@ export default function GuessThePlayerPage() {
 
         <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-3 shadow-2xl shadow-black/30 sm:mt-7 sm:rounded-3xl sm:p-7">
 
-          {/* ===============================================
-              TITLE
-          =============================================== */}
+          {/* TITLE */}
 
           <div className="text-center">
 
@@ -1307,11 +1184,15 @@ export default function GuessThePlayerPage() {
             </h1>
 
             <p className="mt-1.5 text-xs leading-5 text-slate-400 sm:mt-2 sm:text-base">
+
               Oyuncuları karşılaştır ve gizli futbolcuyu{" "}
+
               <strong className="text-white">
                 {maxAttempts} tahminde
               </strong>{" "}
+
               bul.
+
             </p>
 
             <p className="mt-1 hidden text-xs font-semibold text-purple-300/70 sm:block">
@@ -1345,13 +1226,8 @@ export default function GuessThePlayerPage() {
                     event.target.value,
                   );
 
-                  setSelectedPlayer(
-                    null,
-                  );
-
-                  setSearchError(
-                    "",
-                  );
+                  setSelectedPlayer(null);
+                  setSearchError("");
                 }}
                 onKeyDown={(
                   event,
@@ -1387,14 +1263,14 @@ export default function GuessThePlayerPage() {
                 }
                 className="absolute bottom-1.5 right-1.5 top-1.5 rounded-lg bg-purple-500 px-3 text-xs font-black text-white transition hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-40 sm:bottom-2 sm:right-2 sm:top-2 sm:rounded-xl sm:px-5 sm:text-sm"
               >
+
                 {submitting
                   ? "Kontrol..."
                   : "Tahmin Et"}
+
               </button>
 
-              {/* =============================================
-                  SEARCH RESULTS
-              ============================================= */}
+              {/* SEARCH RESULTS */}
 
               {searchText.trim()
                 .length >=
@@ -1499,13 +1375,8 @@ export default function GuessThePlayerPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedPlayer(
-                      null,
-                    );
-
-                    setSearchText(
-                      "",
-                    );
+                    setSelectedPlayer(null);
+                    setSearchText("");
                   }}
                   className="ml-3 shrink-0 rounded-lg border border-white/10 px-3 py-2 text-[10px] font-black text-slate-400 transition hover:text-white sm:text-xs"
                 >
@@ -1519,7 +1390,11 @@ export default function GuessThePlayerPage() {
               İsmin herhangi bir yerinden 3 harf yazabilirsin.
               <span className="hidden sm:inline">
                 {" "}
-                Örn. <strong className="text-slate-500">nei</strong> → Wesley Sneijder.
+                Örn.{" "}
+                <strong className="text-slate-500">
+                  nei
+                </strong>{" "}
+                → Wesley Sneijder.
               </span>
             </p>
 
@@ -1538,28 +1413,41 @@ export default function GuessThePlayerPage() {
           </div>
 
           {/* ===============================================
-              MOBILE PROGRESS + CARDS
+              MOBILE
           =============================================== */}
 
           <div className="mt-4 md:hidden">
 
-            {/* PROGRESS */}
+            {/* =============================================
+                PROGRESS
+            ============================================= */}
 
-            <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="mb-3">
 
-              <div className="shrink-0">
+              <div className="flex items-end justify-between gap-3">
 
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-600">
-                  Tahminler
-                </p>
+                <div>
 
-                <p className="mt-0.5 text-xs font-black text-slate-300">
-                  {guesses.length}/{maxAttempts} kullanıldı
-                </p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-600">
+                    Tahminler
+                  </p>
+
+                  <p className="mt-0.5 text-xs font-black text-slate-300">
+                    {guesses.length}/{maxAttempts} kullanıldı
+                  </p>
+
+                </div>
+
+                {guesses.length >
+                  0 && (
+                  <p className="text-[9px] text-slate-600">
+                    Numaraya dokun → tahmine git
+                  </p>
+                )}
 
               </div>
 
-              <div className="flex min-w-0 flex-1 justify-end gap-1">
+              <div className="mt-2.5 grid grid-cols-7 gap-1.5">
 
                 {Array.from({
                   length:
@@ -1568,26 +1456,133 @@ export default function GuessThePlayerPage() {
                   (
                     _,
                     index,
-                  ) => (
-                    <div
-                      key={
-                        index
-                      }
-                      className={`h-2 min-w-0 flex-1 rounded-full transition ${
-                        index <
-                        guesses.length
-                          ? "bg-purple-400"
-                          : "bg-white/10"
-                      }`}
-                    />
-                  ),
+                  ) => {
+                    const guessNumber =
+                      index + 1;
+
+                    const completed =
+                      guessNumber <=
+                      guesses.length;
+
+                    const latest =
+                      guessNumber ===
+                        guesses.length &&
+                      guesses.length >
+                        0;
+
+                    return (
+                      <button
+                        key={
+                          guessNumber
+                        }
+                        type="button"
+                        disabled={
+                          !completed
+                        }
+                        onClick={() =>
+                          scrollToGuess(
+                            guessNumber,
+                          )
+                        }
+                        className={`flex h-8 items-center justify-center rounded-lg border text-[10px] font-black transition ${
+                          latest
+                            ? "border-purple-400 bg-purple-500 text-white shadow-lg shadow-purple-500/15"
+                            : completed
+                              ? "border-purple-500/30 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20"
+                              : "cursor-default border-white/[0.06] bg-white/[0.02] text-slate-700"
+                        }`}
+                      >
+                        {guessNumber}
+                      </button>
+                    );
+                  },
                 )}
 
               </div>
 
             </div>
 
-            {/* NO GUESS */}
+            {/* =============================================
+                LOST - TARGET PLAYER
+
+                BURASI YENİ:
+                Progress ile son tahmin arasına taşındı.
+            ============================================= */}
+
+            {gameStatus ===
+              "lost" &&
+              resultLoading &&
+              !revealedPlayer && (
+                <div className="mb-3 rounded-2xl border border-red-500/15 bg-red-500/[0.05] px-4 py-4 text-center">
+
+                  <p className="text-xs font-semibold text-slate-400">
+                    Gizli oyuncu açıklanıyor...
+                  </p>
+
+                </div>
+              )}
+
+            {gameStatus ===
+              "lost" &&
+              revealedPlayer && (
+                <div className="mb-3 overflow-hidden rounded-2xl border border-red-500/25 bg-red-500/[0.07]">
+
+                  <div className="border-b border-white/[0.06] px-4 py-2.5">
+
+                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-red-300">
+                      😤 Doğru Cevap
+                    </p>
+
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3.5">
+
+                    {revealedPlayer.imageUrl ? (
+                      <img
+                        src={
+                          revealedPlayer.imageUrl
+                        }
+                        alt={
+                          revealedPlayer.fullName
+                        }
+                        className="h-14 w-14 shrink-0 rounded-xl border border-white/10 bg-white/5 object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-xl">
+                        ⚽
+                      </div>
+                    )}
+
+                    <div className="min-w-0 flex-1">
+
+                      <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">
+                        Gizli Oyuncu
+                      </p>
+
+                      <p className="mt-1 truncate text-lg font-black text-white">
+                        {revealedPlayer.fullName}
+                      </p>
+
+                      <p className="mt-1 truncate text-xs font-semibold text-slate-400">
+                        {revealedPlayer.club}
+                      </p>
+
+                      <p className="mt-0.5 truncate text-[10px] text-slate-600">
+                        {revealedPlayer.nationality}
+                        {" · "}
+                        {revealedPlayer.position}
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                </div>
+              )}
+
+            {/* =============================================
+                NO GUESS
+            ============================================= */}
 
             {guesses.length ===
               0 && (
@@ -1608,159 +1603,170 @@ export default function GuessThePlayerPage() {
               </div>
             )}
 
-            {/* GUESS CARDS */}
+            {/* =============================================
+                GUESS CARDS
+                EN SON TAHMİN EN ÜSTTE
+            ============================================= */}
 
             <div className="space-y-3">
 
-              {guesses.map(
-                (
-                  guess,
-                  index,
-                ) => {
-                  const playerIsCorrect =
-                    Object.values(
-                      guess.comparison,
-                    ).every(
-                      (
-                        status,
-                      ) =>
-                        status ===
-                        "correct",
-                    );
+              {[...guesses]
+                .reverse()
+                .map(
+                  (
+                    guess,
+                    reversedIndex,
+                  ) => {
+                    const originalIndex =
+                      guesses.length -
+                      1 -
+                      reversedIndex;
 
-                  return (
-                    <article
-                      key={`${guess.player.id}-${index}`}
-                      className={`overflow-hidden rounded-2xl border ${
-                        playerIsCorrect
-                          ? "border-green-400/30 bg-green-500/[0.07]"
-                          : "border-white/10 bg-white/[0.035]"
-                      }`}
-                    >
+                    const guessNumber =
+                      originalIndex +
+                      1;
 
-                      {/* PLAYER HEADER */}
+                    const playerIsCorrect =
+                      Object.values(
+                        guess.comparison,
+                      ).every(
+                        (
+                          status,
+                        ) =>
+                          status ===
+                          "correct",
+                      );
 
-                      <div className="flex items-center gap-3 border-b border-white/[0.07] p-3">
+                    return (
+                      <article
+                        id={`mobile-guess-${guessNumber}`}
+                        key={`${guess.player.id}-${originalIndex}`}
+                        className={`scroll-mt-24 overflow-hidden rounded-2xl border transition-all duration-300 ${
+                          playerIsCorrect
+                            ? "border-green-400/30 bg-green-500/[0.07]"
+                            : "border-white/10 bg-white/[0.035]"
+                        }`}
+                      >
 
-                        {guess.player.imageUrl ? (
-                          <img
-                            src={
-                              guess.player.imageUrl
-                            }
-                            alt={
-                              guess.player.fullName
-                            }
-                            className="h-11 w-11 shrink-0 rounded-xl border border-white/10 bg-white/5 object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-lg">
-                            ⚽
+                        <div className="flex items-center gap-3 border-b border-white/[0.07] p-3">
+
+                          {guess.player.imageUrl ? (
+                            <img
+                              src={
+                                guess.player.imageUrl
+                              }
+                              alt={
+                                guess.player.fullName
+                              }
+                              className="h-11 w-11 shrink-0 rounded-xl border border-white/10 bg-white/5 object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-lg">
+                              ⚽
+                            </div>
+                          )}
+
+                          <div className="min-w-0 flex-1">
+
+                            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-600">
+                              Tahmin {guessNumber}
+                            </p>
+
+                            <p className="mt-0.5 truncate text-sm font-black text-white">
+                              {guess.player.fullName}
+                            </p>
+
                           </div>
-                        )}
 
-                        <div className="min-w-0 flex-1">
-
-                          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-600">
-                            Tahmin {index + 1}
-                          </p>
-
-                          <p className="mt-0.5 truncate text-sm font-black text-white">
-                            {guess.player.fullName}
-                          </p>
+                          {playerIsCorrect ? (
+                            <span className="shrink-0 rounded-full bg-green-500/15 px-2.5 py-1 text-[9px] font-black text-green-300">
+                              ✓ DOĞRU
+                            </span>
+                          ) : (
+                            <span className="shrink-0 rounded-full bg-red-500/10 px-2.5 py-1 text-[9px] font-black text-red-300">
+                              YANLIŞ
+                            </span>
+                          )}
 
                         </div>
 
-                        {playerIsCorrect ? (
-                          <span className="shrink-0 rounded-full bg-green-500/15 px-2.5 py-1 text-[9px] font-black text-green-300">
-                            ✓ DOĞRU
-                          </span>
-                        ) : (
-                          <span className="shrink-0 rounded-full bg-red-500/10 px-2.5 py-1 text-[9px] font-black text-red-300">
-                            YANLIŞ
-                          </span>
-                        )}
+                        <div className="grid grid-cols-2 gap-2 p-2.5">
 
-                      </div>
+                          <MobileComparisonItem
+                            icon="🌍"
+                            label="Milliyet"
+                            value={
+                              guess.player.nationality
+                            }
+                            status={
+                              guess.comparison.nationality
+                            }
+                          />
 
-                      {/* ATTRIBUTES */}
+                          <MobileComparisonItem
+                            icon="🎯"
+                            label="Pozisyon"
+                            value={
+                              guess.player.position
+                            }
+                            status={
+                              guess.comparison.position
+                            }
+                          />
 
-                      <div className="grid grid-cols-2 gap-2 p-2.5">
+                          <MobileComparisonItem
+                            icon="🏟️"
+                            label="Kulüp"
+                            value={
+                              guess.player.club
+                            }
+                            status={
+                              guess.comparison.club
+                            }
+                          />
 
-                        <MobileComparisonItem
-                          icon="🌍"
-                          label="Milliyet"
-                          value={
-                            guess.player.nationality
-                          }
-                          status={
-                            guess.comparison.nationality
-                          }
-                        />
+                          <MobileComparisonItem
+                            icon="🏆"
+                            label="Lig"
+                            value={
+                              guess.player.league
+                            }
+                            status={
+                              guess.comparison.league
+                            }
+                          />
 
-                        <MobileComparisonItem
-                          icon="🎯"
-                          label="Pozisyon"
-                          value={
-                            guess.player.position
-                          }
-                          status={
-                            guess.comparison.position
-                          }
-                        />
+                          <MobileComparisonItem
+                            icon="🎂"
+                            label="Yaş"
+                            value={`${guess.player.age}`}
+                            status={
+                              guess.comparison.age
+                            }
+                            suffix={
+                              getAgeDirection(
+                                guess.comparison.age,
+                              )
+                            }
+                          />
 
-                        <MobileComparisonItem
-                          icon="🏟️"
-                          label="Kulüp"
-                          value={
-                            guess.player.club
-                          }
-                          status={
-                            guess.comparison.club
-                          }
-                        />
+                          <MobileComparisonItem
+                            icon="🦶"
+                            label="Ayak"
+                            value={
+                              guess.player.preferredFoot
+                            }
+                            status={
+                              guess.comparison.preferredFoot
+                            }
+                          />
 
-                        <MobileComparisonItem
-                          icon="🏆"
-                          label="Lig"
-                          value={
-                            guess.player.league
-                          }
-                          status={
-                            guess.comparison.league
-                          }
-                        />
+                        </div>
 
-                        <MobileComparisonItem
-                          icon="🎂"
-                          label="Yaş"
-                          value={`${guess.player.age}`}
-                          status={
-                            guess.comparison.age
-                          }
-                          suffix={
-                            getAgeDirection(
-                              guess.comparison.age,
-                            )
-                          }
-                        />
-
-                        <MobileComparisonItem
-                          icon="🦶"
-                          label="Ayak"
-                          value={
-                            guess.player.preferredFoot
-                          }
-                          status={
-                            guess.comparison.preferredFoot
-                          }
-                        />
-
-                      </div>
-
-                    </article>
-                  );
-                },
-              )}
+                      </article>
+                    );
+                  },
+                )}
 
             </div>
 
@@ -1881,8 +1887,7 @@ export default function GuessThePlayerPage() {
 
                         <div
                           className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
-                            guess.comparison
-                              .nationality,
+                            guess.comparison.nationality,
                           )}`}
                         >
                           {guess.player.nationality}
@@ -1890,8 +1895,7 @@ export default function GuessThePlayerPage() {
 
                         <div
                           className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
-                            guess.comparison
-                              .position,
+                            guess.comparison.position,
                           )}`}
                         >
                           {guess.player.position}
@@ -1899,8 +1903,7 @@ export default function GuessThePlayerPage() {
 
                         <div
                           className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
-                            guess.comparison
-                              .club,
+                            guess.comparison.club,
                           )}`}
                         >
                           {guess.player.club}
@@ -1908,8 +1911,7 @@ export default function GuessThePlayerPage() {
 
                         <div
                           className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
-                            guess.comparison
-                              .league,
+                            guess.comparison.league,
                           )}`}
                         >
                           {guess.player.league}
@@ -1917,33 +1919,31 @@ export default function GuessThePlayerPage() {
 
                         <div
                           className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
-                            guess.comparison
-                              .age,
+                            guess.comparison.age,
                           )}`}
                         >
+
                           <span>
+
                             {guess.player.age}
                             {" "}
 
                             <strong className="text-lg">
                               {getAgeDirection(
-                                guess.comparison
-                                  .age,
+                                guess.comparison.age,
                               )}
                             </strong>
+
                           </span>
+
                         </div>
 
                         <div
                           className={`flex min-h-[70px] items-center justify-center rounded-xl border px-2 text-center text-sm font-semibold ${getComparisonClasses(
-                            guess.comparison
-                              .preferredFoot,
+                            guess.comparison.preferredFoot,
                           )}`}
                         >
-                          {
-                            guess.player
-                              .preferredFoot
-                          }
+                          {guess.player.preferredFoot}
                         </div>
 
                       </div>
@@ -1973,40 +1973,46 @@ export default function GuessThePlayerPage() {
             >
 
               <p className="text-3xl sm:text-4xl">
+
                 {gameStatus ===
                 "won"
                   ? "🏆"
                   : "😤"}
+
               </p>
 
               <p className="mt-2 text-lg font-black sm:mt-3 sm:text-xl">
+
                 {gameStatus ===
                 "won"
                   ? "Tebrikler!"
                   : "Oyuncuyu bulamadın!"}
+
               </p>
 
-              {/* TARGET PLAYER LOADING */}
+              {/* ===========================================
+                  DESKTOP TARGET PLAYER
+
+                  Mobilde yukarı taşıdık.
+              =========================================== */}
 
               {gameStatus ===
                 "lost" &&
                 resultLoading &&
                 !revealedPlayer && (
-                  <p className="mt-3 text-xs text-slate-400 sm:mt-4 sm:text-sm">
+                  <p className="mt-4 hidden text-sm text-slate-400 md:block">
                     Gizli oyuncu açıklanıyor...
                   </p>
                 )}
 
-              {/* TARGET PLAYER */}
-
               {revealedPlayer && (
-                <div className="mx-auto mt-4 max-w-sm rounded-2xl border border-white/10 bg-black/20 p-4 sm:mt-5 sm:p-5">
+                <div className="mx-auto mt-5 hidden max-w-sm rounded-2xl border border-white/10 bg-black/20 p-5 md:block">
 
-                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 sm:text-xs">
+                  <p className="text-xs font-black uppercase tracking-wider text-slate-500">
                     Gizli Oyuncu
                   </p>
 
-                  <div className="mt-3 flex items-center justify-center gap-3 sm:mt-4 sm:gap-4">
+                  <div className="mt-4 flex items-center justify-center gap-4">
 
                     {revealedPlayer.imageUrl ? (
                       <img
@@ -2016,25 +2022,25 @@ export default function GuessThePlayerPage() {
                         alt={
                           revealedPlayer.fullName
                         }
-                        className="h-14 w-14 rounded-xl border border-white/10 object-cover sm:h-16 sm:w-16 sm:rounded-2xl"
+                        className="h-16 w-16 rounded-2xl border border-white/10 object-cover"
                       />
                     ) : (
-                      <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-xl sm:h-16 sm:w-16 sm:rounded-2xl sm:text-2xl">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-2xl">
                         ⚽
                       </div>
                     )}
 
                     <div className="min-w-0 text-left">
 
-                      <p className="truncate text-lg font-black text-white sm:text-xl">
+                      <p className="truncate text-xl font-black text-white">
                         {revealedPlayer.fullName}
                       </p>
 
-                      <p className="mt-0.5 truncate text-xs font-semibold text-slate-400 sm:mt-1 sm:text-sm">
+                      <p className="mt-1 truncate text-sm font-semibold text-slate-400">
                         {revealedPlayer.club}
                       </p>
 
-                      <p className="mt-0.5 truncate text-[10px] text-slate-600 sm:mt-1 sm:text-xs">
+                      <p className="mt-1 truncate text-xs text-slate-600">
                         {revealedPlayer.nationality}
                         {" · "}
                         {revealedPlayer.position}
@@ -2078,8 +2084,6 @@ export default function GuessThePlayerPage() {
                 </p>
               )}
 
-              {/* ACTIONS */}
-
               <div className="mt-4 flex flex-col justify-center gap-2 sm:mt-6 sm:flex-row">
 
                 <button
@@ -2093,9 +2097,11 @@ export default function GuessThePlayerPage() {
                   }
                   className="rounded-xl bg-purple-500 px-5 py-3 text-xs font-black text-white transition hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6 sm:text-sm"
                 >
+
                   {newGameLoading
                     ? "Yeni oyuncu seçiliyor..."
                     : "⚽ Yeni Oyuncuyla Tekrar Oyna"}
+
                 </button>
 
                 <Link
@@ -2170,13 +2176,9 @@ function MobileComparisonItem({
   suffix = "",
 }: {
   icon: string;
-
   label: string;
-
   value: string;
-
   status: ComparisonStatus;
-
   suffix?: string;
 }) {
   return (
