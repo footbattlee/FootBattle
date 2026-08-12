@@ -13,17 +13,31 @@ export const TIC_TAC_TOE_MINIMUM_COUNTRY_SCORE =
 export const TIC_TAC_TOE_MINIMUM_CELL_PLAYERS =
   2;
 
-const PLAYER_PAGE_SIZE =
+const DB_PAGE_SIZE =
   1000;
 
-const PLAYER_CHUNK_SIZE =
-  50;
+const TEAM_QUERY_CHUNK_SIZE =
+  35;
+
+const PLAYER_QUERY_CHUNK_SIZE =
+  200;
 
 const GRID_SIZE =
   3;
 
+/*
+ * En bağlantılı takımlar arasından grid arıyoruz.
+ * 180 yerine 70; hem yeterince çeşitli hem çok daha hızlı.
+ */
 const MAX_CLUB_SEARCH_POOL =
-  180;
+  70;
+
+/*
+ * Uygun bir grid bulunduğunda sonsuza kadar
+ * "daha iyisini" aramıyoruz.
+ */
+const GOOD_GRID_QUALITY_SCORE =
+  48;
 
 /* =========================================================
    TYPES
@@ -65,6 +79,7 @@ export type TicTacToeGrid = {
 
 type PlayerRow = {
   player_id: number;
+
   nationality:
     | string
     | null;
@@ -72,6 +87,7 @@ type PlayerRow = {
 
 type ClubRow = {
   player_id: number;
+
   club_name:
     | string
     | null;
@@ -79,6 +95,7 @@ type ClubRow = {
 
 type TeamRow = {
   name: string;
+
   duel_score:
     | number
     | null;
@@ -105,16 +122,21 @@ type PlayerProfile = {
     | string
     | null;
 
-  clubs: Set<string>;
+  clubs:
+    Set<string>;
 };
 
 type PairEntry = {
   key: string;
 
-  left: TicTacToeAxisItem;
-  right: TicTacToeAxisItem;
+  left:
+    TicTacToeAxisItem;
 
-  playerIds: number[];
+  right:
+    TicTacToeAxisItem;
+
+  playerIds:
+    number[];
 };
 
 /* =========================================================
@@ -257,97 +279,9 @@ function intersectSets(
 }
 
 /* =========================================================
-   LOAD PLAYERS
+   ELIGIBLE TEAM HEADERS
 
-   KRİTİK:
-   popularity filtresi YOK.
-========================================================= */
-
-async function loadPlayablePlayers() {
-  const players:
-    PlayerRow[] =
-    [];
-
-  let from =
-    0;
-
-  while (
-    true
-  ) {
-    const to =
-      from +
-      PLAYER_PAGE_SIZE -
-      1;
-
-    const {
-      data,
-      error,
-    } =
-      await supabaseAdmin
-        .from(
-          "guess_players",
-        )
-        .select(`
-          player_id,
-          nationality
-        `)
-        .eq(
-          "is_playable",
-          1,
-        )
-        .order(
-          "player_id",
-          {
-            ascending:
-              true,
-          },
-        )
-        .range(
-          from,
-          to,
-        );
-
-    if (
-      error
-    ) {
-      throw error;
-    }
-
-    const rows =
-      (
-        data ??
-        []
-      ) as PlayerRow[];
-
-    players.push(
-      ...rows,
-    );
-
-    if (
-      rows.length <
-      PLAYER_PAGE_SIZE
-    ) {
-      break;
-    }
-
-    from +=
-      PLAYER_PAGE_SIZE;
-
-    if (
-      from >
-      100_000
-    ) {
-      throw new Error(
-        "TicTacToe oyuncu havuzu güvenlik sınırını aştı.",
-      );
-    }
-  }
-
-  return players;
-}
-
-/* =========================================================
-   LOAD ELIGIBLE TEAMS
+   SADECE BAŞLIKLAR PUANLI.
 ========================================================= */
 
 async function loadEligibleTeams() {
@@ -420,7 +354,7 @@ async function loadEligibleTeams() {
 }
 
 /* =========================================================
-   LOAD ELIGIBLE COUNTRIES
+   ELIGIBLE COUNTRY HEADERS
 ========================================================= */
 
 async function loadEligibleCountries() {
@@ -485,34 +419,41 @@ async function loadEligibleCountries() {
 }
 
 /* =========================================================
-   LOAD PLAYER CLUBS
+   ONLY RELEVANT CLUB HISTORY
 
-   Pagination var, hiçbir kariyer satırı kesilmez.
+   Eski kod:
+   bütün playable oyuncuları çekiyor,
+   sonra tüm kariyerlerini okuyordu.
+
+   Yeni kod:
+   önce uygun takım adlarını biliyor.
+   player_quiz_clubs içinden SADECE bu takımlardaki
+   kariyer satırlarını getiriyor.
+
+   En büyük performans kazancı burada.
 ========================================================= */
 
-async function loadPlayerClubs(
-  playerIds: number[],
+async function loadRelevantClubRows(
+  eligibleTeamNames:
+    string[],
 ) {
   const rows:
     ClubRow[] =
     [];
 
-  const PAGE_SIZE =
-    1000;
-
   for (
-    let index =
+    let teamIndex =
       0;
-    index <
-    playerIds.length;
-    index +=
-      PLAYER_CHUNK_SIZE
+    teamIndex <
+    eligibleTeamNames.length;
+    teamIndex +=
+      TEAM_QUERY_CHUNK_SIZE
   ) {
-    const chunk =
-      playerIds.slice(
-        index,
-        index +
-          PLAYER_CHUNK_SIZE,
+    const teamChunk =
+      eligibleTeamNames.slice(
+        teamIndex,
+        teamIndex +
+          TEAM_QUERY_CHUNK_SIZE,
       );
 
     let from =
@@ -523,7 +464,7 @@ async function loadPlayerClubs(
     ) {
       const to =
         from +
-        PAGE_SIZE -
+        DB_PAGE_SIZE -
         1;
 
       const {
@@ -539,8 +480,8 @@ async function loadPlayerClubs(
             club_name
           `)
           .in(
-            "player_id",
-            chunk,
+            "club_name",
+            teamChunk,
           )
           .not(
             "club_name",
@@ -577,14 +518,92 @@ async function loadPlayerClubs(
 
       if (
         pageRows.length <
-        PAGE_SIZE
+        DB_PAGE_SIZE
       ) {
         break;
       }
 
       from +=
-        PAGE_SIZE;
+        DB_PAGE_SIZE;
+
+      if (
+        from >
+        100_000
+      ) {
+        throw new Error(
+          "TicTacToe kulüp geçmişi güvenlik sınırını aştı.",
+        );
+      }
     }
+  }
+
+  return rows;
+}
+
+/* =========================================================
+   LOAD ONLY PLAYERS WHO APPEAR IN RELEVANT CLUB ROWS
+
+   Cevap oyuncusunda popularity filtresi YOK.
+========================================================= */
+
+async function loadRelevantPlayablePlayers(
+  playerIds:
+    number[],
+) {
+  const rows:
+    PlayerRow[] =
+    [];
+
+  for (
+    let index =
+      0;
+    index <
+    playerIds.length;
+    index +=
+      PLAYER_QUERY_CHUNK_SIZE
+  ) {
+    const chunk =
+      playerIds.slice(
+        index,
+        index +
+          PLAYER_QUERY_CHUNK_SIZE,
+      );
+
+    const {
+      data,
+      error,
+    } =
+      await supabaseAdmin
+        .from(
+          "guess_players",
+        )
+        .select(`
+          player_id,
+          nationality
+        `)
+        .eq(
+          "is_playable",
+          1,
+        )
+        .in(
+          "player_id",
+          chunk,
+        );
+
+    if (
+      error
+    ) {
+      throw error;
+    }
+
+    rows.push(
+      ...(
+        (
+          data ??
+          []
+        ) as PlayerRow[]
+      ),
+    );
   }
 
   return rows;
@@ -596,40 +615,69 @@ async function loadPlayerClubs(
 
 async function buildPlayerProfiles() {
   const [
-    playerRows,
     eligibleTeams,
     eligibleCountries,
   ] =
     await Promise.all([
-      loadPlayablePlayers(),
       loadEligibleTeams(),
       loadEligibleCountries(),
     ]);
 
-  const playerIds =
-    playerRows
-      .map(
-        (
-          player,
-        ) =>
-          Number(
-            player.player_id,
-          ),
-      )
-      .filter(
-        (
-          playerId,
-        ) =>
-          Number.isInteger(
-            playerId,
-          ) &&
-          playerId >
-            0,
-      );
+  const eligibleTeamNames =
+    Array.from(
+      eligibleTeams.keys(),
+    );
+
+  if (
+    eligibleTeamNames.length ===
+    0
+  ) {
+    return {
+      profiles:
+        [] as PlayerProfile[],
+
+      eligibleTeams,
+      eligibleCountries,
+    };
+  }
 
   const clubRows =
-    await loadPlayerClubs(
-      playerIds,
+    await loadRelevantClubRows(
+      eligibleTeamNames,
+    );
+
+  /*
+   * Aynı oyuncunun aynı kulübü kariyerde birkaç kez
+   * geçmiş olabilir. Burada player id havuzunu tekilleştiriyoruz.
+   */
+  const relevantPlayerIds =
+    Array.from(
+      new Set(
+        clubRows
+          .map(
+            (
+              row,
+            ) =>
+              Number(
+                row.player_id,
+              ),
+          )
+          .filter(
+            (
+              playerId,
+            ) =>
+              Number.isInteger(
+                playerId,
+              ) &&
+              playerId >
+                0,
+          ),
+      ),
+    );
+
+  const playerRows =
+    await loadRelevantPlayablePlayers(
+      relevantPlayerIds,
     );
 
   const profileMap =
@@ -690,6 +738,20 @@ async function buildPlayerProfiles() {
         row.player_id,
       );
 
+    const profile =
+      profileMap.get(
+        playerId,
+      );
+
+    if (
+      !profile
+    ) {
+      /*
+       * is_playable = 0 olan oyuncu olabilir.
+       */
+      continue;
+    }
+
     const clubName =
       normalizeValue(
         row.club_name,
@@ -700,17 +762,6 @@ async function buildPlayerProfiles() {
       !eligibleTeams.has(
         clubName,
       )
-    ) {
-      continue;
-    }
-
-    const profile =
-      profileMap.get(
-        playerId,
-      );
-
-    if (
-      !profile
     ) {
       continue;
     }
@@ -728,11 +779,23 @@ async function buildPlayerProfiles() {
         profile,
       ) =>
         profile.clubs.size >
-          0 ||
-        Boolean(
-          profile.nationality,
-        ),
+        0,
     );
+
+  console.log(
+    "TTT perf - eligible teams:",
+    eligibleTeams.size,
+  );
+
+  console.log(
+    "TTT perf - relevant club rows:",
+    clubRows.length,
+  );
+
+  console.log(
+    "TTT perf - relevant playable players:",
+    profiles.length,
+  );
 
   return {
     profiles,
@@ -787,6 +850,10 @@ function buildPairMaps(
     if (
       existing
     ) {
+      /*
+       * Aynı oyuncu aynı kulübü kariyerde
+       * birkaç defa geçmiş olsa bile tekrar ekleme.
+       */
       if (
         !existing.playerIds.includes(
           playerId,
@@ -853,15 +920,14 @@ function buildPairMaps(
               profile.nationality,
           };
 
-        const key =
+        addPlayer(
+          clubNationMap,
+
           makeTypedKey(
             clubAxis,
             nationalityAxis,
-          );
+          ),
 
-        addPlayer(
-          clubNationMap,
-          key,
           clubAxis,
           nationalityAxis,
           profile.playerId,
@@ -952,15 +1018,14 @@ function buildPairMaps(
               ],
           };
 
-        const key =
+        addPlayer(
+          clubClubMap,
+
           makeClubPairKey(
             firstClub,
             secondClub,
-          );
+          ),
 
-        addPlayer(
-          clubClubMap,
-          key,
           left,
           right,
           profile.playerId,
@@ -1151,14 +1216,26 @@ function tryBuildClubNationGrid(
             )?.size ??
             0
           ),
-      );
-
-  const searchClubs =
-    shuffleArray(
-      clubs.slice(
+      )
+      .slice(
         0,
         MAX_CLUB_SEARCH_POOL,
-      ),
+      );
+
+  if (
+    clubs.length <
+    GRID_SIZE
+  ) {
+    return null;
+  }
+
+  /*
+   * En bağlantılı havuz korunuyor,
+   * sadece sıra randomlaşıyor.
+   */
+  const searchClubs =
+    shuffleArray(
+      clubs,
     );
 
   let bestGrid:
@@ -1275,6 +1352,10 @@ function tryBuildClubNationGrid(
             thirdClub,
           ];
 
+        /*
+         * Milliyetler random, ama zaten üç takımın da
+         * her biriyle minimum 2 cevapları var.
+         */
         const selectedNationalities =
           shuffleArray(
             Array.from(
@@ -1441,9 +1522,13 @@ function tryBuildClubNationGrid(
             grid;
         }
 
+        /*
+         * Yeterince kaliteli ilk gridde çık.
+         * Burada saniyeler kazandırıyoruz.
+         */
         if (
           grid.qualityScore >=
-          55
+          GOOD_GRID_QUALITY_SCORE
         ) {
           return grid;
         }
@@ -1581,6 +1666,14 @@ function tryBuildClubClubGrid(
         0,
         MAX_CLUB_SEARCH_POOL,
       );
+
+  if (
+    clubs.length <
+    GRID_SIZE *
+      2
+  ) {
+    return null;
+  }
 
   const searchClubs =
     shuffleArray(
@@ -1869,7 +1962,7 @@ function tryBuildClubClubGrid(
 
         if (
           grid.qualityScore >=
-          55
+          GOOD_GRID_QUALITY_SCORE
         ) {
           return grid;
         }
@@ -1886,6 +1979,9 @@ function tryBuildClubClubGrid(
 
 export async function generateTicTacToeGrid():
   Promise<TicTacToeGrid> {
+  const startedAt =
+    Date.now();
+
   const {
     profiles,
   } =
@@ -1908,10 +2004,28 @@ export async function generateTicTacToeGrid():
       profiles,
     );
 
+  /*
+   * Önce daha ucuz/oynanabilir club+nation dene.
+   * İyi grid çıkarsa club+club brute-force'a hiç girme.
+   */
   const clubNationGrid =
     tryBuildClubNationGrid(
       clubNationMap,
     );
+
+  if (
+    clubNationGrid &&
+    clubNationGrid.qualityScore >=
+      GOOD_GRID_QUALITY_SCORE
+  ) {
+    console.log(
+      "TTT perf - generated in ms:",
+      Date.now() -
+        startedAt,
+    );
+
+    return clubNationGrid;
+  }
 
   const clubClubGrid =
     tryBuildClubClubGrid(
@@ -1941,45 +2055,22 @@ export async function generateTicTacToeGrid():
     );
   }
 
-  if (
-    candidates.length ===
-    1
-  ) {
-    return candidates[
-      0
-    ];
-  }
+  candidates.sort(
+    (
+      first,
+      second,
+    ) =>
+      second.qualityScore -
+      first.qualityScore,
+  );
 
-  const sorted =
-    candidates.sort(
-      (
-        first,
-        second,
-      ) =>
-        second.qualityScore -
-        first.qualityScore,
-    );
+  console.log(
+    "TTT perf - generated in ms:",
+    Date.now() -
+      startedAt,
+  );
 
-  const best =
-    sorted[
-      0
-    ];
-
-  const second =
-    sorted[
-      1
-    ];
-
-  if (
-    best.qualityScore -
-      second.qualityScore >=
-    20
-  ) {
-    return best;
-  }
-
-  return Math.random() <
-    0.65
-    ? best
-    : second;
+  return candidates[
+    0
+  ];
 }
