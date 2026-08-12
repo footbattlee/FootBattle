@@ -2155,7 +2155,42 @@ export default function GuessThePlayerPage() {
             </div>
 
           </div>
+{/* SEO CONTENT */}
 
+<section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-left">
+
+  <h2 className="text-xl font-black text-white">
+    Futbolcu Tahmin Oyunu
+  </h2>
+
+  <p className="mt-3 text-sm text-slate-300">
+    FootBattle Futbolcu Tahmin Oyunu ile gizli futbolcuyu
+    kulüp, yaş, pozisyon, lig ve milliyet ipuçlarını
+    kullanarak tahmin etmeye çalış.
+  </p>
+
+  <h3 className="mt-5 text-lg font-bold text-white">
+    Guess The Player
+  </h3>
+
+  <p className="mt-2 text-sm text-slate-400">
+    Guess the hidden football player using clues such as
+    nationality, club, league, age and position.
+  </p>
+
+  <h3 className="mt-5 text-lg font-bold text-white">
+    Nasıl Oynanır?
+  </h3>
+
+  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-400">
+    <li>Bir futbolcu ara.</li>
+    <li>Tahminini gönder.</li>
+    <li>Yeşil kutular doğru eşleşmeleri gösterir.</li>
+    <li>Yaş alanındaki oklar yön belirtir.</li>
+    <li>Gizli oyuncuyu en az tahminle bulmaya çalış.</li>
+  </ul>
+
+</section>
         </section>
 
       </div>

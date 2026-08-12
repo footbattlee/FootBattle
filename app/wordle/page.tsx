@@ -1750,7 +1750,43 @@ export default function WordlePage() {
               </div>
 
             </div>
+{/* SEO CONTENT */}
 
+<section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-left">
+
+  <h2 className="text-xl font-black text-white">
+    Futbol Wordle Oyunu
+  </h2>
+
+  <p className="mt-3 text-sm text-slate-300">
+    FootBattle Wordle oyununda futbolcuların soyadlarını
+    tahmin etmeye çalışırsın. Her tahminden sonra doğru
+    harfler ve doğru konumlar renklerle gösterilir.
+  </p>
+
+  <h3 className="mt-5 text-lg font-bold text-white">
+    Football Wordle
+  </h3>
+
+  <p className="mt-2 text-sm text-slate-400">
+    Football Wordle is a soccer player guessing game where
+    you try to find the hidden footballer's surname using
+    letter clues and color hints.
+  </p>
+
+  <h3 className="mt-5 text-lg font-bold text-white">
+    Nasıl Oynanır?
+  </h3>
+
+  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-400">
+    <li>Oyuncunun soyadını tahmin et.</li>
+    <li>Yeşil harf doğru yerde demektir.</li>
+    <li>Sarı harf kelimede vardır ama yeri yanlıştır.</li>
+    <li>Gri harf cevapta bulunmaz.</li>
+    <li>En az tahminle doğru cevaba ulaşmaya çalış.</li>
+  </ul>
+
+</section>
           </section>
 
         </div>

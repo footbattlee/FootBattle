@@ -222,24 +222,24 @@ const GAMES: GameItem[] = [
   },
 
   /* -------------------------------------------------------
-     CAREER PATH
+     TIC TAC TOE
   ------------------------------------------------------- */
 
   {
     code:
-      "career_path",
+      "tic_tac_toe",
 
     title:
-      "Career Path",
+      "Futbol Tic Tac Toe",
 
     description:
-      "Oyuncunun kariyerinde forma giydiği kulüpleri doğru şekilde tamamla.",
+      "Takım ve milliyet kesişimlerine uygun futbolcuları bul. 120 saniyede 3x3 grid'i tamamla.",
 
     heroDescription:
-      "Oyuncunun kariyer yolunu çöz ve forma giydiği kulüpleri bul.",
+      "Takım ve milliyet kesişimlerini doldur, 3x3 futbol grid'inde skorunu yükselt.",
 
     icon:
-      "🛣️",
+      "⭕",
 
     mode:
       "solo",
@@ -248,10 +248,10 @@ const GAMES: GameItem[] = [
       true,
 
     playHref:
-      "/career-path",
+      "/tic-tac-toe",
 
     accent:
-      "amber",
+      "rose",
   },
 
   /* -------------------------------------------------------
@@ -291,36 +291,6 @@ const GAMES: GameItem[] = [
   },
 
   /* -------------------------------------------------------
-     TIC TAC TOE
-  ------------------------------------------------------- */
-
-  {
-    code:
-      "tic_tac_toe",
-
-    title:
-      "Futbol Tic Tac Toe",
-
-    description:
-      "Takım ve ülke kriterlerini sağlayan futbolcuları bul, rakibinden önce üçlü sırayı tamamla.",
-
-    heroDescription:
-      "Takım ve ülke kesişimlerini doldurup üçlü sırayı tamamla.",
-
-    icon:
-      "❌",
-
-    mode:
-      "duel",
-
-    ready:
-      false,
-
-    accent:
-      "rose",
-  },
-
-  /* -------------------------------------------------------
      1 TAKIM 1 MİLLET
   ------------------------------------------------------- */
 
@@ -348,11 +318,45 @@ const GAMES: GameItem[] = [
 
     playHref:
       "/club-nation",
+
     duelHref:
       "/duels/challenge?game=club_nation",
 
     accent:
       "blue",
+  },
+
+  /* -------------------------------------------------------
+     CAREER PATH
+  ------------------------------------------------------- */
+
+  {
+    code:
+      "career_path",
+
+    title:
+      "Career Path",
+
+    description:
+      "Oyuncunun kariyerinde forma giydiği kulüpleri doğru şekilde tamamla.",
+
+    heroDescription:
+      "Oyuncunun kariyer yolunu çöz ve forma giydiği kulüpleri bul.",
+
+    icon:
+      "🛣️",
+
+    mode:
+      "solo",
+
+    ready:
+      true,
+
+    playHref:
+      "/career-path",
+
+    accent:
+      "amber",
   },
 ];
 
@@ -1468,8 +1472,8 @@ export default function HomePage() {
                 </h2>
 
                 <p className="mt-2 max-w-[700px] text-sm leading-6 text-slate-400">
-                  Futbol Tic Tac Toe ve
-                  yeni düello modları,
+                  Tic Tac Toe düello modu ve
+                  yeni rekabetçi oyun modları,
                   mevcut challenge altyapısına
                   ekleyeceğimiz sonraki özellikler.
                 </p>
@@ -1479,7 +1483,7 @@ export default function HomePage() {
               <div className="flex gap-2">
 
                 <SoonPill>
-                  ❌ Tic Tac Toe
+                  ⭕ Tic Tac Toe Düello
                 </SoonPill>
 
               </div>

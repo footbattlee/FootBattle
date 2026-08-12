@@ -1849,6 +1849,44 @@ export default function ClubNationPage() {
           Süre devam ederken 3 kez
           pas geçebilirsin.
         </div>
+
+        {/* SEO CONTENT */}
+
+        <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-left">
+          <h2 className="text-xl font-black text-white">
+            Takım ve Milliyet Oyunu
+          </h2>
+
+          <p className="mt-3 text-sm leading-6 text-slate-300">
+            FootBattle 1 Takım 1 Millet oyununda verilen takım ve
+            milliyet kombinasyonuna uygun futbolcuyu bulmaya çalış.
+            120 saniye içinde mümkün olduğunca çok doğru cevap ver
+            ve en yüksek skoru yap.
+          </p>
+
+          <h3 className="mt-5 text-lg font-bold text-white">
+            Club and Nation Football Quiz
+          </h3>
+
+          <p className="mt-2 text-sm leading-6 text-slate-400">
+            Find football players who match both the club and
+            nationality requirements. Test your football knowledge,
+            score points and try to beat your best result.
+          </p>
+
+          <h3 className="mt-5 text-lg font-bold text-white">
+            Nasıl Oynanır?
+          </h3>
+
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-slate-400">
+            <li>Verilen takımı incele.</li>
+            <li>Gösterilen milliyeti kontrol et.</li>
+            <li>Her iki koşulu da sağlayan futbolcuyu bul.</li>
+            <li>Her doğru cevapta +20 puan kazan.</li>
+            <li>120 saniye boyunca mümkün olduğunca çok doğru yap.</li>
+            <li>Toplam 3 pas hakkını gerektiğinde kullan.</li>
+          </ul>
+        </section>
       </div>
     </main>
   );

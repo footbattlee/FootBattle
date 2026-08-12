@@ -2568,6 +2568,39 @@ export default function PlayerQuizPage() {
 
         </section>
 
+        {/* SEO CONTENT */}
+
+        <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-left">
+          <h2 className="text-xl font-black text-white">
+            Futbolcu Bilgi Yarışması
+          </h2>
+
+          <p className="mt-3 text-sm leading-6 text-slate-300">
+            Futbolcu Bilgi Yarışması oyununda futbolcuların doğum yılı,
+            milliyeti ve kariyerinde oynadığı kulüpleri tahmin etmeye çalışırsın.
+          </p>
+
+          <h3 className="mt-5 text-lg font-bold text-white">
+            Football Quiz Game
+          </h3>
+
+          <p className="mt-2 text-sm leading-6 text-slate-400">
+            Test your football knowledge by guessing a player&apos;s
+            nationality, birth year and career clubs.
+          </p>
+
+          <h3 className="mt-5 text-lg font-bold text-white">
+            Nasıl Oynanır?
+          </h3>
+
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-slate-400">
+            <li>Doğum yılını tahmin et.</li>
+            <li>Milliyetini bul.</li>
+            <li>Kariyerindeki kulüpleri eşleştir.</li>
+            <li>Tüm alanları tamamlayarak puan kazan.</li>
+          </ul>
+        </section>
+
       </div>
 
     </main>
