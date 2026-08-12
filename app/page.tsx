@@ -266,19 +266,22 @@ const GAMES: GameItem[] = [
       "2 Takım 1 Oyuncu",
 
     description:
-      "İki takımda da forma giymiş futbolcuyu rakibinden önce bul. 5 round, ilk 3 alan kazanır.",
+      "İki takımda da forma giymiş futbolcuyu bul. 120 saniyede skor kovala veya arkadaşına meydan oku.",
 
     heroDescription:
-      "İki takımda da oynamış futbolcuyu rakibinden önce bul. İlk 3 roundu alan kazanır.",
+      "İki takımda da oynamış futbolcuları 120 saniyede bul. Her doğru +20 puan, 3 pas hakkın var.",
 
     icon:
       "⚔️",
 
     mode:
-      "duel",
+      "both",
 
     ready:
       true,
+
+    playHref:
+      "/club-clash",
 
     duelHref:
       "/duels/challenge?game=club_clash",
@@ -1060,6 +1063,104 @@ export default function HomePage() {
       </header>
 
       {/* ===================================================
+          GAMES
+      =================================================== */}
+
+      <section
+        id="oyunlar"
+        className="scroll-mt-24 border-t border-white/5 bg-[#081523]"
+      >
+
+        <div className="mx-auto max-w-[1240px] px-5 py-16 lg:px-6">
+
+          {/* TITLE */}
+
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+
+            <div>
+
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-green-400">
+                FootBattle Oyunları
+              </p>
+
+              <h2 className="mt-2 text-3xl font-black sm:text-4xl">
+                Arenadaki oyununu seç
+              </h2>
+
+              <p className="mt-3 max-w-[760px] text-sm leading-6 text-slate-400 sm:text-base">
+                Hazır oyunlara hemen gir.
+                Düello destekleyenlerde
+                arkadaşına link gönderip
+                kapış. Geliştirme aşamasındaki
+                oyunları da burada takip et.
+              </p>
+
+            </div>
+
+            <div className="flex items-center gap-4 text-xs font-black">
+
+              <span className="flex items-center gap-2 text-green-400">
+
+                <span className="h-2 w-2 rounded-full bg-green-400" />
+
+                {
+                  GAMES.filter(
+                    (
+                      game,
+                    ) =>
+                      game.ready,
+                  ).length
+                } oynanabilir
+
+              </span>
+
+              <span className="flex items-center gap-2 text-slate-500">
+
+                <span className="h-2 w-2 rounded-full bg-slate-600" />
+
+                {
+                  GAMES.filter(
+                    (
+                      game,
+                    ) =>
+                      !game.ready,
+                  ).length
+                } yakında
+
+              </span>
+
+            </div>
+
+          </div>
+
+          {/* =================================================
+              GAME GRID
+          ================================================= */}
+
+          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+
+            {GAMES.map(
+              (
+                game,
+              ) => (
+                <GameCard
+                  key={
+                    game.code
+                  }
+                  game={
+                    game
+                  }
+                />
+              ),
+            )}
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* ===================================================
           HERO
       =================================================== */}
 
@@ -1069,7 +1170,7 @@ export default function HomePage() {
       >
 
         <div
-          className={`mx-auto px-5 pb-16 pt-8 lg:px-6 ${
+          className={`mx-auto px-5 pb-12 pt-6 lg:px-6 ${
             user
               ? "grid max-w-[1240px] gap-10 lg:grid-cols-[minmax(0,1.12fr)_minmax(350px,0.72fr)]"
               : "max-w-[1180px]"
@@ -1088,7 +1189,7 @@ export default function HomePage() {
             className={`flex flex-col justify-center pt-7 ${
               user
                 ? ""
-                : "min-h-[650px] w-full"
+                : "min-h-[480px] w-full"
             }`}
           >
 
@@ -1302,104 +1403,6 @@ export default function HomePage() {
 
             </div>
           )}
-
-        </div>
-
-      </section>
-
-      {/* ===================================================
-          GAMES
-      =================================================== */}
-
-      <section
-        id="oyunlar"
-        className="scroll-mt-24 border-t border-white/5 bg-[#081523]"
-      >
-
-        <div className="mx-auto max-w-[1240px] px-5 py-16 lg:px-6">
-
-          {/* TITLE */}
-
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-
-            <div>
-
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-green-400">
-                FootBattle Oyunları
-              </p>
-
-              <h2 className="mt-2 text-3xl font-black sm:text-4xl">
-                Arenadaki oyununu seç
-              </h2>
-
-              <p className="mt-3 max-w-[760px] text-sm leading-6 text-slate-400 sm:text-base">
-                Hazır oyunlara hemen gir.
-                Düello destekleyenlerde
-                arkadaşına link gönderip
-                kapış. Geliştirme aşamasındaki
-                oyunları da burada takip et.
-              </p>
-
-            </div>
-
-            <div className="flex items-center gap-4 text-xs font-black">
-
-              <span className="flex items-center gap-2 text-green-400">
-
-                <span className="h-2 w-2 rounded-full bg-green-400" />
-
-                {
-                  GAMES.filter(
-                    (
-                      game,
-                    ) =>
-                      game.ready,
-                  ).length
-                } oynanabilir
-
-              </span>
-
-              <span className="flex items-center gap-2 text-slate-500">
-
-                <span className="h-2 w-2 rounded-full bg-slate-600" />
-
-                {
-                  GAMES.filter(
-                    (
-                      game,
-                    ) =>
-                      !game.ready,
-                  ).length
-                } yakında
-
-              </span>
-
-            </div>
-
-          </div>
-
-          {/* =================================================
-              GAME GRID
-          ================================================= */}
-
-          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-
-            {GAMES.map(
-              (
-                game,
-              ) => (
-                <GameCard
-                  key={
-                    game.code
-                  }
-                  game={
-                    game
-                  }
-                />
-              ),
-            )}
-
-          </div>
 
         </div>
 
