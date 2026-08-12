@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 const MAX_ATTEMPTS = 5;
 
 const MINIMUM_POPULARITY_SCORE =
-  82;
+  84;
 
 function getLastName(
   nameNormalized: string,

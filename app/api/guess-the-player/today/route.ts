@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 
 const MAX_ATTEMPTS = 7;
 const MINIMUM_SEARCH_LENGTH = 3;
-const MINIMUM_POPULARITY_SCORE = 82;
+const MINIMUM_POPULARITY_SCORE = 84;
 
 type CandidatePlayer = {
   player_id: number;

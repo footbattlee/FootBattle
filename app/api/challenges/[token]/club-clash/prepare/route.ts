@@ -4,14 +4,9 @@ import { cookies } from "next/headers";
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-const GUEST_COOKIE_NAME =
-  "footbattle_guest";
-
-const ROUND_COUNT = 5;
-const PLAYER_SAMPLE_SIZE = 180;
-const MAX_PLAYER_SEARCH_ROUNDS = 10;
-const MINIMUM_POPULARITY_SCORE = 82;
-const MINIMUM_TEAM_DUEL_SCORE = 60;
+/* =========================================================
+   TYPES
+========================================================= */
 
 type RouteContext = {
   params: Promise<{
@@ -21,19 +16,28 @@ type RouteContext = {
 
 type ChallengeRow = {
   id: number;
-  invite_token: string;
-  game_code: string;
-  status: string;
-  challenger_user_id: string | null;
-  challenger_guest_id: string | null;
-  opponent_user_id: string | null;
-  opponent_guest_id: string | null;
-};
 
-type PlayerRow = {
-  player_id: number;
-  name: string;
-  nationality: string | null;
+  invite_token: string;
+
+  game_code: string;
+
+  status: string;
+
+  challenger_user_id:
+    | string
+    | null;
+
+  challenger_guest_id:
+    | string
+    | null;
+
+  opponent_user_id:
+    | string
+    | null;
+
+  opponent_guest_id:
+    | string
+    | null;
 };
 
 type ClubRow = {
@@ -41,193 +45,462 @@ type ClubRow = {
   club_name: string;
 };
 
+type TeamTier =
+  | "S"
+  | "A"
+  | "B";
+
 type TeamRow = {
   name: string;
-  country: string | null;
-  duel_tier: string | null;
-  duel_score: number | null;
+
+  duel_tier: TeamTier;
+
+  duel_score: number;
 };
 
-type Question = {
-  clubName: string;
-  nationality: string;
-  playerId: number;
+type PairCandidate = {
+  clubA: string;
+  clubB: string;
+
+  tierA: TeamTier;
+  tierB: TeamTier;
+
+  scoreA: number;
+  scoreB: number;
+
+  sharedCount: number;
 };
+
+type RoundRule = {
+  roundNo: number;
+
+  leftTiers: TeamTier[];
+
+  rightTiers: TeamTier[];
+
+  preferredMinSharedPlayers: number;
+};
+
+/* =========================================================
+   SETTINGS
+========================================================= */
+
+const GUEST_COOKIE_NAME =
+  "footbattle_guest";
+
+const ROUND_COUNT =
+  5;
+
+const CLUB_ROWS_PAGE_SIZE =
+  1000;
+
+const PLAYER_ROWS_PAGE_SIZE =
+  1000;
+
+const PLAYER_ID_CHUNK_SIZE =
+  200;
+
+const MINIMUM_POPULARITY_SCORE =
+  85;
+
+const MINIMUM_TEAM_DUEL_SCORE =
+  70;
+
+/* =========================================================
+   ROUND DIFFICULTY
+
+   R1:
+   Büyük × Büyük
+
+   R2:
+   Büyük × Orta
+
+   R3:
+   Büyük × Orta
+
+   R4:
+   Orta × Orta
+
+   R5:
+   Daha zor kombinasyon
+========================================================= */
+
+const ROUND_TIER_RULES:
+  RoundRule[] = [
+    {
+      roundNo:
+        1,
+
+      leftTiers: [
+        "S",
+      ],
+
+      rightTiers: [
+        "S",
+      ],
+
+      preferredMinSharedPlayers:
+        8,
+    },
+
+    {
+      roundNo:
+        2,
+
+      leftTiers: [
+        "S",
+      ],
+
+      rightTiers: [
+        "A",
+      ],
+
+      preferredMinSharedPlayers:
+        6,
+    },
+
+    {
+      roundNo:
+        3,
+
+      leftTiers: [
+        "S",
+      ],
+
+      rightTiers: [
+        "A",
+      ],
+
+      preferredMinSharedPlayers:
+        4,
+    },
+
+    {
+      roundNo:
+        4,
+
+      leftTiers: [
+        "A",
+      ],
+
+      rightTiers: [
+        "A",
+      ],
+
+      preferredMinSharedPlayers:
+        3,
+    },
+
+    {
+      roundNo:
+        5,
+
+      leftTiers: [
+        "S",
+        "A",
+      ],
+
+      rightTiers: [
+        "A",
+        "B",
+      ],
+
+      preferredMinSharedPlayers:
+        2,
+    },
+  ];
+
+/* =========================================================
+   HELPERS
+========================================================= */
 
 function sanitizeToken(
   value: unknown,
 ) {
-  return String(value ?? "")
+  return String(
+    value ?? "",
+  )
     .trim()
-    .replace(/[^a-zA-Z0-9]/g, "")
-    .slice(0, 64);
+    .replace(
+      /[^a-zA-Z0-9]/g,
+      "",
+    )
+    .slice(
+      0,
+      64,
+    );
 }
 
 function shuffleArray<T>(
   values: T[],
 ) {
-  const result = [...values];
+  const result =
+    [...values];
 
   for (
-    let index = result.length - 1;
-    index > 0;
-    index -= 1
+    let i =
+      result.length -
+      1;
+    i >
+    0;
+    i -=
+      1
   ) {
-    const randomIndex =
+    const j =
       Math.floor(
         Math.random() *
-          (index + 1),
+          (i + 1),
       );
 
     [
-      result[index],
-      result[randomIndex],
+      result[i],
+      result[j],
     ] = [
-      result[randomIndex],
-      result[index],
+      result[j],
+      result[i],
     ];
   }
 
   return result;
 }
 
-function normalizeCountry(
-  value: string,
+function makePairKey(
+  clubA: string,
+  clubB: string,
 ) {
-  const normalized =
-    value
-      .trim()
-      .toLocaleLowerCase("en-US")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]/g, "");
-
-  const aliases: Record<string, string> = {
-    turkiye: "turkey",
-    turkey: "turkey",
-    usa: "unitedstates",
-    unitedstatesofamerica: "unitedstates",
-    unitedstates: "unitedstates",
-    uae: "unitedarabemirates",
-    unitedarabemirates: "unitedarabemirates",
-    southkorea: "korearepublic",
-    korearepublic: "korearepublic",
-    korea: "korearepublic",
-    ivorycoast: "cotedivoire",
-    cotedivoire: "cotedivoire",
-    czechrepublic: "czechia",
-    czechia: "czechia",
-  };
-
-  return aliases[normalized] ?? normalized;
+  return [
+    clubA,
+    clubB,
+  ]
+    .sort(
+      (
+        a,
+        b,
+      ) =>
+        a.localeCompare(
+          b,
+          "tr",
+        ),
+    )
+    .join(
+      "|||",
+    );
 }
 
-async function buildQuestionPool() {
-  const {
-    data: teamData,
-    error: teamError,
-  } =
-    await supabaseAdmin
-      .from("football_teams")
-      .select(`
-        name,
-        country,
-        duel_tier,
-        duel_score
-      `)
-      .eq("duel_enabled", true)
-      .gte(
-        "duel_score",
-        MINIMUM_TEAM_DUEL_SCORE,
-      );
-
-  if (teamError) {
-    throw teamError;
-  }
-
-  const allowedTeams =
-    new Map<string, TeamRow>();
-
-  for (
-    const team of
-      (teamData ?? []) as TeamRow[]
-  ) {
-    const name = team.name?.trim();
-    const country = team.country?.trim();
-
-    if (!name || !country) {
-      continue;
-    }
-
-    allowedTeams.set(name, team);
-  }
-
-  if (allowedTeams.size === 0) {
-    throw new Error(
-      "Düello için uygun takım bulunamadı.",
+function pairMatchesRule(
+  pair: PairCandidate,
+  rule: RoundRule,
+) {
+  const direct =
+    rule.leftTiers.includes(
+      pair.tierA,
+    ) &&
+    rule.rightTiers.includes(
+      pair.tierB,
     );
-  }
 
-  const {
-    count: playerCount,
-    error: countError,
-  } =
-    await supabaseAdmin
-      .from("guess_players")
-      .select("player_id", {
-        count: "exact",
-        head: true,
-      })
-      .eq(
-        "is_playable",
-        1,
-      )
-      .gte(
-        "popularity_score",
-        MINIMUM_POPULARITY_SCORE,
-      )
-      .not("nationality", "is", null);
+  const reverse =
+    rule.leftTiers.includes(
+      pair.tierB,
+    ) &&
+    rule.rightTiers.includes(
+      pair.tierA,
+    );
 
-  if (countError) {
-    throw countError;
-  }
+  return (
+    direct ||
+    reverse
+  );
+}
 
-  const totalPlayers =
-    playerCount ?? 0;
+/* =========================================================
+   PAIR QUALITY
 
-  const pool: Question[] = [];
-  const seen = new Set<string>();
+   Aynı minimum shared count içindeki seçeneklerde
+   daha tanınmış takımları öne alıyoruz.
+
+   duel_score yüksekse daha bilinen takım varsayıyoruz.
+========================================================= */
+
+function pairQualityScore(
+  pair: PairCandidate,
+) {
+  return (
+    pair.sharedCount *
+      1000 +
+    pair.scoreA +
+    pair.scoreB
+  );
+}
+
+/* =========================================================
+   BUILD ROUND POOL
+========================================================= */
+
+function buildRoundPool(
+  allPairs: PairCandidate[],
+  rule: RoundRule,
+
+  usedPairKeys: Set<string>,
+
+  usedClubs: Set<string>,
+) {
+  /* -------------------------------------------------------
+     TIER + DUPLICATE PAIR
+  ------------------------------------------------------- */
+
+  const ruleMatches =
+    allPairs.filter(
+      (
+        pair,
+      ) =>
+        pairMatchesRule(
+          pair,
+          rule,
+        ) &&
+        !usedPairKeys.has(
+          makePairKey(
+            pair.clubA,
+            pair.clubB,
+          ),
+        ),
+    );
+
+  /* -------------------------------------------------------
+     ÖNCELİK:
+     Daha önce hiç kullanılmamış iki takım.
+  ------------------------------------------------------- */
+
+  const totallyFresh =
+    ruleMatches.filter(
+      (
+        pair,
+      ) =>
+        !usedClubs.has(
+          pair.clubA,
+        ) &&
+        !usedClubs.has(
+          pair.clubB,
+        ),
+    );
+
+  const basePool =
+    totallyFresh.length >
+    0
+      ? totallyFresh
+      : ruleMatches;
+
+  /* -------------------------------------------------------
+     SHARED PLAYER THRESHOLD
+
+     İstenen minimumdan başlıyoruz.
+     Yeterli eşleşme yoksa kontrollü şekilde düşürüyoruz.
+  ------------------------------------------------------- */
 
   for (
-    let round = 0;
-    round < MAX_PLAYER_SEARCH_ROUNDS &&
-    pool.length < 60;
-    round += 1
+    let minShared =
+      rule.preferredMinSharedPlayers;
+    minShared >=
+    1;
+    minShared -=
+      1
   ) {
-    const maxOffset =
-      Math.max(
-        0,
-        totalPlayers - PLAYER_SAMPLE_SIZE,
+    const eligible =
+      basePool.filter(
+        (
+          pair,
+        ) =>
+          pair.sharedCount >=
+          minShared,
       );
 
-    const offset =
-      maxOffset > 0
-        ? Math.floor(
-            Math.random() *
-              (maxOffset + 1),
-          )
-        : 0;
+    if (
+      eligible.length >
+      0
+    ) {
+      /*
+       * Kaliteli eşleşmeleri öne çıkar.
+       *
+       * En iyi havuzun tamamından random yerine
+       * üst segment içinden random seçiyoruz.
+       */
+      const sorted =
+        [...eligible].sort(
+          (
+            first,
+            second,
+          ) =>
+            pairQualityScore(
+              second,
+            ) -
+            pairQualityScore(
+              first,
+            ),
+        );
+
+      /*
+       * İlk maksimum 15 kaliteli aday.
+       * Böylece her maç aynı takımlar gelmez ama
+       * Cagliari/Elche gibi çok zayıf eşleşmeler de
+       * erken roundlara düşmez.
+       */
+      const qualityPool =
+        sorted.slice(
+          0,
+          Math.min(
+            15,
+            sorted.length,
+          ),
+        );
+
+      return {
+        pool:
+          qualityPool,
+
+        actualMinShared:
+          minShared,
+      };
+    }
+  }
+
+  return {
+    pool: [],
+
+    actualMinShared:
+      0,
+  };
+}
+
+/* =========================================================
+   LOAD CLUB DATA
+========================================================= */
+
+async function loadEligiblePlayerIds() {
+  let from =
+    0;
+
+  const playerIds:
+    number[] =
+    [];
+
+  while (
+    true
+  ) {
+    const to =
+      from +
+      PLAYER_ROWS_PAGE_SIZE -
+      1;
 
     const {
-      data: playerData,
-      error: playerError,
+      data,
+      error,
     } =
       await supabaseAdmin
-        .from("guess_players")
+        .from(
+          "guess_players",
+        )
         .select(`
-          player_id,
-          name,
-          nationality
+          player_id
         `)
         .eq(
           "is_playable",
@@ -237,166 +510,213 @@ async function buildQuestionPool() {
           "popularity_score",
           MINIMUM_POPULARITY_SCORE,
         )
-        .not("nationality", "is", null)
-        .order("player_id", {
-          ascending: true,
-        })
+        .order(
+          "player_id",
+          {
+            ascending:
+              true,
+          },
+        )
         .range(
-          offset,
-          offset + PLAYER_SAMPLE_SIZE - 1,
+          from,
+          to,
         );
 
-    if (playerError) {
-      throw playerError;
+    if (
+      error
+    ) {
+      throw error;
     }
 
-    const players =
-      shuffleArray(
-        (playerData ?? []) as PlayerRow[],
-      ).filter(
-        (player) =>
-          Boolean(
-            player.nationality?.trim(),
-          ),
+    const rows =
+      data ??
+      [];
+
+    for (
+      const row
+      of rows
+    ) {
+      const playerId =
+        Number(
+          row.player_id,
+        );
+
+      if (
+        Number.isInteger(
+          playerId,
+        ) &&
+        playerId >
+          0
+      ) {
+        playerIds.push(
+          playerId,
+        );
+      }
+    }
+
+    if (
+      rows.length <
+      PLAYER_ROWS_PAGE_SIZE
+    ) {
+      break;
+    }
+
+    from +=
+      PLAYER_ROWS_PAGE_SIZE;
+
+    if (
+      from >
+      100_000
+    ) {
+      throw new Error(
+        "Oyuncu havuzu güvenlik sınırını aştı.",
       );
-
-    if (players.length === 0) {
-      continue;
     }
+  }
 
-    const playerIds =
-      players.map(
-        (player) =>
-          Number(player.player_id),
+  return Array.from(
+    new Set(
+      playerIds,
+    ),
+  );
+}
+
+/* =========================================================
+   LOAD CLUB DATA
+
+   Sadece popularity >= 85 olan oynanabilir oyuncuların
+   kariyer satırlarını çekiyoruz.
+
+   Böylece:
+   - hazırlık daha hızlı olur
+   - takım çiftini bilinmeyen oyuncular oluşturmaz
+========================================================= */
+
+async function loadEligibleClubRows() {
+  const playerIds =
+    await loadEligiblePlayerIds();
+
+  if (
+    playerIds.length ===
+    0
+  ) {
+    return [] as ClubRow[];
+  }
+
+  const allRows:
+    ClubRow[] =
+    [];
+
+  for (
+    let index =
+      0;
+    index <
+    playerIds.length;
+    index +=
+      PLAYER_ID_CHUNK_SIZE
+  ) {
+    const chunk =
+      playerIds.slice(
+        index,
+        index +
+          PLAYER_ID_CHUNK_SIZE,
       );
 
     const {
-      data: clubData,
-      error: clubError,
+      data,
+      error,
     } =
       await supabaseAdmin
-        .from("player_quiz_clubs")
+        .from(
+          "player_quiz_clubs",
+        )
         .select(`
           player_id,
           club_name
         `)
-        .in("player_id", playerIds)
-        .not("club_name", "is", null);
-
-    if (clubError) {
-      throw clubError;
-    }
-
-    const clubsByPlayer =
-      new Map<number, string[]>();
-
-    for (
-      const row of
-        (clubData ?? []) as ClubRow[]
-    ) {
-      const playerId =
-        Number(row.player_id);
-      const clubName =
-        row.club_name?.trim();
-
-      if (
-        !Number.isInteger(playerId) ||
-        !clubName ||
-        !allowedTeams.has(clubName)
-      ) {
-        continue;
-      }
-
-      const current =
-        clubsByPlayer.get(playerId) ?? [];
-
-      current.push(clubName);
-      clubsByPlayer.set(
-        playerId,
-        current,
-      );
-    }
-
-    for (const player of players) {
-      const nationality =
-        player.nationality?.trim();
-
-      if (!nationality) {
-        continue;
-      }
-
-      const clubs =
-        shuffleArray(
-          clubsByPlayer.get(
-            Number(player.player_id),
-          ) ?? [],
+        .in(
+          "player_id",
+          chunk,
+        )
+        .not(
+          "club_name",
+          "is",
+          null,
         );
 
-      for (const clubName of clubs) {
-        const team =
-          allowedTeams.get(clubName);
-
-        if (!team?.country) {
-          continue;
-        }
-
-        if (
-          normalizeCountry(team.country) ===
-          normalizeCountry(nationality)
-        ) {
-          continue;
-        }
-
-        const key =
-          `${clubName.toLocaleLowerCase("tr-TR")}::${nationality.toLocaleLowerCase("tr-TR")}`;
-
-        if (seen.has(key)) {
-          continue;
-        }
-
-        seen.add(key);
-        pool.push({
-          clubName,
-          nationality,
-          playerId:
-            Number(player.player_id),
-        });
-      }
+    if (
+      error
+    ) {
+      throw error;
     }
+
+    allRows.push(
+      ...(
+        (
+          data ??
+          []
+        ) as ClubRow[]
+      ),
+    );
   }
 
-  return shuffleArray(pool);
+  return allRows;
 }
+
+/* =========================================================
+   POST
+========================================================= */
 
 export async function POST(
   _request: Request,
   context: RouteContext,
 ) {
   try {
-    const { token: rawToken } =
+    /* =====================================================
+       TOKEN
+    ===================================================== */
+
+    const {
+      token:
+        rawToken,
+    } =
       await context.params;
 
     const token =
-      sanitizeToken(rawToken);
+      sanitizeToken(
+        rawToken,
+      );
 
-    if (!token) {
+    if (
+      !token
+    ) {
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Geçerli challenge bulunamadı.",
         },
-        { status: 400 },
+        {
+          status:
+            400,
+        },
       );
     }
 
-    const authClient =
+    /* =====================================================
+       AUTH / GUEST
+    ===================================================== */
+
+    const authSupabase =
       await createAuthServerClient();
 
     const {
-      data: { user },
+      data: {
+        user,
+      },
     } =
-      await authClient.auth.getUser();
+      await authSupabase.auth.getUser();
 
     const cookieStore =
       await cookies();
@@ -404,258 +724,948 @@ export async function POST(
     const guestId =
       cookieStore.get(
         GUEST_COOKIE_NAME,
-      )?.value ?? null;
+      )?.value ??
+      null;
+
+    /* =====================================================
+       CHALLENGE
+    ===================================================== */
 
     const {
-      data: challengeData,
-      error: challengeError,
+      data:
+        challengeData,
+
+      error:
+        challengeError,
     } =
       await supabaseAdmin
-        .from("guest_challenges")
+        .from(
+          "guest_challenges",
+        )
         .select(`
           id,
           invite_token,
           game_code,
           status,
+
           challenger_user_id,
           challenger_guest_id,
+
           opponent_user_id,
           opponent_guest_id
         `)
-        .eq("invite_token", token)
+        .eq(
+          "invite_token",
+          token,
+        )
         .maybeSingle();
 
-    if (challengeError) {
-      throw challengeError;
-    }
+    if (
+      challengeError
+    ) {
+      console.error(
+        "Club Clash challenge sorgu hatası:",
+        challengeError,
+      );
 
-    if (!challengeData) {
       return NextResponse.json(
         {
           ok: false,
+
+          error:
+            "Challenge okunamadı.",
+        },
+        {
+          status:
+            500,
+        },
+      );
+    }
+
+    if (
+      !challengeData
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+
           error:
             "Challenge bulunamadı.",
         },
-        { status: 404 },
+        {
+          status:
+            404,
+        },
       );
     }
 
     const challenge =
       challengeData as ChallengeRow;
 
+    /* =====================================================
+       ACCESS
+    ===================================================== */
+
     const isChallenger =
       user
-        ? challenge.challenger_user_id ===
+        ? challenge
+            .challenger_user_id ===
           user.id
         : Boolean(
             guestId &&
-              challenge.challenger_guest_id ===
+              challenge
+                .challenger_guest_id ===
                 guestId,
           );
 
     const isOpponent =
       user
-        ? challenge.opponent_user_id ===
+        ? challenge
+            .opponent_user_id ===
           user.id
         : Boolean(
             guestId &&
-              challenge.opponent_guest_id ===
+              challenge
+                .opponent_guest_id ===
                 guestId,
           );
 
-    if (!isChallenger && !isOpponent) {
+    if (
+      !isChallenger &&
+      !isOpponent
+    ) {
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Bu challenge'a erişim yetkin yok.",
         },
-        { status: 403 },
+        {
+          status:
+            403,
+        },
       );
     }
+
+    const role:
+      | "challenger"
+      | "opponent" =
+      isChallenger
+        ? "challenger"
+        : "opponent";
+
+    /* =====================================================
+       GAME CONTROL
+    ===================================================== */
 
     if (
       challenge.game_code !==
-      "club_nation"
+      "club_clash"
     ) {
       return NextResponse.json(
         {
           ok: false,
+
           error:
-            "Bu challenge 1 Takım 1 Millet değil.",
+            "Bu challenge 2 Takım 1 Oyuncu değil.",
         },
-        { status: 409 },
+        {
+          status:
+            409,
+        },
       );
     }
 
+    /* =====================================================
+       STATUS
+    ===================================================== */
+
     if (
-      challenge.status !== "playing"
+      challenge.status !==
+        "ready" &&
+      challenge.status !==
+        "playing"
     ) {
       return NextResponse.json(
         {
           ok: false,
+
           error:
-            "Düello henüz başlamadı.",
+            "2 Takım 1 Oyuncu şu anda hazırlanamaz.",
         },
-        { status: 409 },
+        {
+          status:
+            409,
+        },
       );
     }
+
+    /* =====================================================
+       EXISTING ROUNDS
+
+       İkinci oyuncu da prepare çağırabilir.
+       Aynı challenge için yeniden round üretmeyelim.
+    ===================================================== */
 
     const {
-      data: existingRounds,
-      error: existingError,
+      data:
+        existingRounds,
+
+      error:
+        existingRoundsError,
     } =
       await supabaseAdmin
-        .from("challenge_rounds")
-        .select(`
-          id,
-          round_no,
-          left_type,
-          left_value,
-          right_type,
-          right_value,
-          winner_side,
-          completed_at
-        `)
-        .eq("challenge_id", challenge.id)
-        .eq("game_code", "club_nation")
-        .order("round_no", {
-          ascending: true,
-        });
-
-    if (existingError) {
-      throw existingError;
-    }
-
-    if (
-      existingRounds &&
-      existingRounds.length > 0
-    ) {
-      return NextResponse.json({
-        ok: true,
-        alreadyPrepared: true,
-        role:
-          isChallenger
-            ? "challenger"
-            : "opponent",
-        roundCount:
-          existingRounds.length,
-        rounds:
-          existingRounds,
-      });
-    }
-
-    const pool =
-      await buildQuestionPool();
-
-    const selected: Question[] = [];
-    const usedClubs = new Set<string>();
-
-    for (const item of pool) {
-      /*
-       * Aynı takım aynı düelloda ikinci kez gelmesin.
-       * Milliyet tekrar edebilir.
-       */
-      if (
-        usedClubs.has(
-          item.clubName,
+        .from(
+          "challenge_rounds",
         )
-      ) {
-        continue;
-      }
-
-      selected.push(item);
-      usedClubs.add(
-        item.clubName,
-      );
-
-      if (
-        selected.length === ROUND_COUNT
-      ) {
-        break;
-      }
-    }
-
-    if (
-      selected.length < ROUND_COUNT
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "5 uygun round hazırlanamadı.",
-        },
-        { status: 500 },
-      );
-    }
-
-    const rowsToInsert =
-      selected.map(
-        (question, index) => ({
-          challenge_id:
-            challenge.id,
-          round_no:
-            index + 1,
-          game_code:
-            "club_nation",
-          left_type:
-            "club",
-          left_value:
-            question.clubName,
-          right_type:
-            "nationality",
-          right_value:
-            question.nationality,
-        }),
-      );
-
-    const {
-      data: insertedRounds,
-      error: insertError,
-    } =
-      await supabaseAdmin
-        .from("challenge_rounds")
-        .insert(rowsToInsert)
         .select(`
           id,
           challenge_id,
           round_no,
           game_code,
+
           left_type,
           left_value,
+
           right_type,
           right_value,
+
           winner_side,
+
           challenger_answer,
           opponent_answer,
+
           challenger_answer_player_id,
           opponent_answer_player_id,
+
           challenger_answered_at,
           opponent_answered_at,
+
           completed_at,
           created_at
         `)
-        .order("round_no", {
-          ascending: true,
-        });
+        .eq(
+          "challenge_id",
+          challenge.id,
+        )
+        .eq(
+          "game_code",
+          "club_clash",
+        )
+        .order(
+          "round_no",
+          {
+            ascending:
+              true,
+          },
+        );
 
-    if (insertError) {
-      if (insertError.code === "23505") {
+    if (
+      existingRoundsError
+    ) {
+      console.error(
+        "Challenge round sorgu hatası:",
+        existingRoundsError,
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "Round bilgileri kontrol edilemedi.",
+        },
+        {
+          status:
+            500,
+        },
+      );
+    }
+
+    if (
+      existingRounds &&
+      existingRounds.length >
+        0
+    ) {
+      return NextResponse.json({
+        ok: true,
+
+        role,
+
+        alreadyPrepared:
+          true,
+
+        roundCount:
+          existingRounds.length,
+
+        rounds:
+          existingRounds.map(
+            (
+              round,
+            ) => ({
+              id:
+                Number(
+                  round.id,
+                ),
+
+              roundNo:
+                Number(
+                  round.round_no,
+                ),
+
+              left: {
+                type:
+                  round.left_type,
+
+                value:
+                  round.left_value,
+              },
+
+              right: {
+                type:
+                  round.right_type,
+
+                value:
+                  round.right_value,
+              },
+
+              winnerSide:
+                round.winner_side,
+
+              completedAt:
+                round.completed_at,
+            }),
+          ),
+      });
+    }
+
+    /* =====================================================
+       TEAMS
+    ===================================================== */
+
+    const {
+      data:
+        teamData,
+
+      error:
+        teamError,
+    } =
+      await supabaseAdmin
+        .from(
+          "football_teams",
+        )
+        .select(`
+          name,
+          duel_tier,
+          duel_score
+        `)
+        .eq(
+          "duel_enabled",
+          true,
+        )
+        .gte(
+          "duel_score",
+          MINIMUM_TEAM_DUEL_SCORE,
+        );
+
+    if (
+      teamError
+    ) {
+      console.error(
+        "football_teams sorgu hatası:",
+        teamError,
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "Düello takım havuzu okunamadı.",
+        },
+        {
+          status:
+            500,
+        },
+      );
+    }
+
+    const teams =
+      (
+        teamData ??
+        []
+      ).filter(
+        (
+          row,
+        ): row is TeamRow =>
+          Boolean(
+            row.name,
+          ) &&
+          (
+            row.duel_tier ===
+              "S" ||
+            row.duel_tier ===
+              "A" ||
+            row.duel_tier ===
+              "B"
+          ),
+      );
+
+    if (
+      teams.length ===
+      0
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "Düello için aktif takım bulunamadı.",
+        },
+        {
+          status:
+            500,
+        },
+      );
+    }
+
+    const teamMap =
+      new Map<
+        string,
+        TeamRow
+      >();
+
+    for (
+      const team
+      of teams
+    ) {
+      teamMap.set(
+        team.name,
+        team,
+      );
+    }
+
+    /* =====================================================
+       CLUB DATA
+    ===================================================== */
+
+    let rawClubRows:
+      ClubRow[];
+
+    try {
+      rawClubRows =
+        await loadEligibleClubRows();
+    } catch (
+      loadError
+    ) {
+      console.error(
+        "Club Clash kariyer verisi okunamadı:",
+        loadError,
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "Popüler oyuncuların kulüp kariyer verileri okunamadı.",
+        },
+        {
+          status:
+            500,
+        },
+      );
+    }
+
+    const clubRows =
+      rawClubRows
+        .map(
+          (
+            row,
+          ) => ({
+            player_id:
+              Number(
+                row.player_id,
+              ),
+
+            club_name:
+              row.club_name
+                ?.trim(),
+          }),
+        )
+        .filter(
+          (
+            row,
+          ): row is {
+            player_id: number;
+            club_name: string;
+          } =>
+            Number.isInteger(
+              row.player_id,
+            ) &&
+            row.player_id >
+              0 &&
+            Boolean(
+              row.club_name,
+            ),
+        )
+        .filter(
+          (
+            row,
+          ) =>
+            teamMap.has(
+              row.club_name,
+            ),
+        );
+
+    /* =====================================================
+       PLAYER -> CLUB SET
+    ===================================================== */
+
+    const playerClubs =
+      new Map<
+        number,
+        Set<string>
+      >();
+
+    for (
+      const row
+      of clubRows
+    ) {
+      let clubs =
+        playerClubs.get(
+          row.player_id,
+        );
+
+      if (
+        !clubs
+      ) {
+        clubs =
+          new Set<string>();
+
+        playerClubs.set(
+          row.player_id,
+          clubs,
+        );
+      }
+
+      clubs.add(
+        row.club_name,
+      );
+    }
+
+    /* =====================================================
+       BUILD PAIR COUNTS
+    ===================================================== */
+
+    const pairCounts =
+      new Map<
+        string,
+        PairCandidate
+      >();
+
+    for (
+      const clubsSet
+      of playerClubs.values()
+    ) {
+      const clubs =
+        Array.from(
+          clubsSet,
+        );
+
+      if (
+        clubs.length <
+        2
+      ) {
+        continue;
+      }
+
+      for (
+        let i =
+          0;
+        i <
+        clubs.length -
+          1;
+        i +=
+          1
+      ) {
+        for (
+          let j =
+            i + 1;
+          j <
+          clubs.length;
+        j +=
+          1
+        ) {
+          const first =
+            clubs[i];
+
+          const second =
+            clubs[j];
+
+          if (
+            !first ||
+            !second ||
+            first ===
+              second
+          ) {
+            continue;
+          }
+
+          const teamA =
+            teamMap.get(
+              first,
+            );
+
+          const teamB =
+            teamMap.get(
+              second,
+            );
+
+          if (
+            !teamA ||
+            !teamB
+          ) {
+            continue;
+          }
+
+          const key =
+            makePairKey(
+              first,
+              second,
+            );
+
+          const existing =
+            pairCounts.get(
+              key,
+            );
+
+          if (
+            existing
+          ) {
+            existing.sharedCount +=
+              1;
+
+            continue;
+          }
+
+          const sorted =
+            [
+              teamA,
+              teamB,
+            ].sort(
+              (
+                firstTeam,
+                secondTeam,
+              ) =>
+                firstTeam.name.localeCompare(
+                  secondTeam.name,
+                  "tr",
+                ),
+            );
+
+          pairCounts.set(
+            key,
+            {
+              clubA:
+                sorted[0]
+                  .name,
+
+              clubB:
+                sorted[1]
+                  .name,
+
+              tierA:
+                sorted[0]
+                  .duel_tier,
+
+              tierB:
+                sorted[1]
+                  .duel_tier,
+
+              scoreA:
+                Number(
+                  sorted[0]
+                    .duel_score ??
+                    0,
+                ),
+
+              scoreB:
+                Number(
+                  sorted[1]
+                    .duel_score ??
+                    0,
+                ),
+
+              sharedCount:
+                1,
+            },
+          );
+        }
+      }
+    }
+
+    const validPairs =
+      Array.from(
+        pairCounts.values(),
+      ).filter(
+        (
+          pair,
+        ) =>
+          pair.sharedCount >=
+          1,
+      );
+
+    if (
+      validPairs.length ===
+      0
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "Ortak oyuncusu bulunan takım eşleşmesi bulunamadı.",
+        },
+        {
+          status:
+            500,
+        },
+      );
+    }
+
+    /* =====================================================
+       SELECT ROUNDS
+    ===================================================== */
+
+    const selectedPairs:
+      PairCandidate[] =
+      [];
+
+    const usedPairKeys =
+      new Set<string>();
+
+    const usedClubs =
+      new Set<string>();
+
+    for (
+      const rule
+      of ROUND_TIER_RULES
+    ) {
+      const {
+        pool,
+      } =
+        buildRoundPool(
+          validPairs,
+          rule,
+          usedPairKeys,
+          usedClubs,
+        );
+
+      if (
+        pool.length ===
+        0
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+
+            error:
+              `Round ${rule.roundNo} için uygun takım eşleşmesi bulunamadı.`,
+          },
+          {
+            status:
+              500,
+          },
+        );
+      }
+
+      /*
+       * Kaliteli ilk 15 havuzun içinden random.
+       */
+      const selected =
+        shuffleArray(
+          pool,
+        )[0];
+
+      if (
+        !selected
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+
+            error:
+              `Round ${rule.roundNo} için takım seçilemedi.`,
+          },
+          {
+            status:
+              500,
+          },
+        );
+      }
+
+      selectedPairs.push(
+        selected,
+      );
+
+      usedPairKeys.add(
+        makePairKey(
+          selected.clubA,
+          selected.clubB,
+        ),
+      );
+
+      usedClubs.add(
+        selected.clubA,
+      );
+
+      usedClubs.add(
+        selected.clubB,
+      );
+    }
+
+    if (
+      selectedPairs.length !==
+      ROUND_COUNT
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "5 round hazırlanamadı.",
+        },
+        {
+          status:
+            500,
+        },
+      );
+    }
+
+    /* =====================================================
+       INSERT ROUNDS
+    ===================================================== */
+
+    const rowsToInsert =
+      selectedPairs.map(
+        (
+          pair,
+          index,
+        ) => ({
+          challenge_id:
+            challenge.id,
+
+          round_no:
+            index +
+            1,
+
+          game_code:
+            "club_clash",
+
+          left_type:
+            "club",
+
+          left_value:
+            pair.clubA,
+
+          right_type:
+            "club",
+
+          right_value:
+            pair.clubB,
+        }),
+      );
+
+    const {
+      data:
+        insertedRounds,
+
+      error:
+        insertError,
+    } =
+      await supabaseAdmin
+        .from(
+          "challenge_rounds",
+        )
+        .insert(
+          rowsToInsert,
+        )
+        .select(`
+          id,
+          challenge_id,
+          round_no,
+          game_code,
+
+          left_type,
+          left_value,
+
+          right_type,
+          right_value,
+
+          winner_side,
+
+          challenger_answer,
+          opponent_answer,
+
+          challenger_answer_player_id,
+          opponent_answer_player_id,
+
+          challenger_answered_at,
+          opponent_answered_at,
+
+          completed_at,
+          created_at
+        `)
+        .order(
+          "round_no",
+          {
+            ascending:
+              true,
+          },
+        );
+
+    /* =====================================================
+       RACE CONDITION
+
+       İki taraf prepare'a aynı anda basarsa.
+    ===================================================== */
+
+    if (
+      insertError
+    ) {
+      if (
+        insertError.code ===
+        "23505"
+      ) {
         const {
-          data: roundsAfterConflict,
-          error: readError,
+          data:
+            roundsAfterConflict,
+
+          error:
+            readError,
         } =
           await supabaseAdmin
-            .from("challenge_rounds")
+            .from(
+              "challenge_rounds",
+            )
             .select(`
               id,
+              challenge_id,
               round_no,
+              game_code,
+
               left_type,
               left_value,
+
               right_type,
               right_value,
+
               winner_side,
-              completed_at
+
+              completed_at,
+              created_at
             `)
             .eq(
               "challenge_id",
@@ -663,60 +1673,208 @@ export async function POST(
             )
             .eq(
               "game_code",
-              "club_nation",
+              "club_clash",
             )
-            .order("round_no", {
-              ascending: true,
-            });
+            .order(
+              "round_no",
+              {
+                ascending:
+                  true,
+              },
+            );
 
-        if (readError) {
-          throw readError;
+        if (
+          readError
+        ) {
+          console.error(
+            "Conflict sonrası round okuma hatası:",
+            readError,
+          );
+
+          return NextResponse.json(
+            {
+              ok: false,
+
+              error:
+                "Roundlar hazırlanamadı.",
+            },
+            {
+              status:
+                500,
+            },
+          );
         }
 
         return NextResponse.json({
           ok: true,
-          alreadyPrepared: true,
-          role:
-            isChallenger
-              ? "challenger"
-              : "opponent",
+
+          role,
+
+          alreadyPrepared:
+            true,
+
           roundCount:
-            roundsAfterConflict?.length ?? 0,
+            roundsAfterConflict
+              ?.length ??
+            0,
+
           rounds:
-            roundsAfterConflict ?? [],
+            (
+              roundsAfterConflict ??
+              []
+            ).map(
+              (
+                round,
+              ) => ({
+                id:
+                  Number(
+                    round.id,
+                  ),
+
+                roundNo:
+                  Number(
+                    round.round_no,
+                  ),
+
+                left: {
+                  type:
+                    round.left_type,
+
+                  value:
+                    round.left_value,
+                },
+
+                right: {
+                  type:
+                    round.right_type,
+
+                  value:
+                    round.right_value,
+                },
+
+                winnerSide:
+                  round.winner_side,
+
+                completedAt:
+                  round.completed_at,
+              }),
+            ),
         });
       }
 
-      throw insertError;
+      console.error(
+        "Challenge Club Clash round insert hatası:",
+        insertError,
+      );
+
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "2 Takım 1 Oyuncu roundları oluşturulamadı.",
+        },
+        {
+          status:
+            500,
+        },
+      );
     }
+
+    /* =====================================================
+       RESPONSE
+    ===================================================== */
 
     return NextResponse.json({
       ok: true,
-      alreadyPrepared: false,
-      role:
-        isChallenger
-          ? "challenger"
-          : "opponent",
+
+      role,
+
+      alreadyPrepared:
+        false,
+
+      game: {
+        code:
+          "club_clash",
+
+        label:
+          "2 Takım 1 Oyuncu",
+
+        roundCount:
+          ROUND_COUNT,
+
+        winScore:
+          3,
+      },
+
       roundCount:
-        insertedRounds?.length ?? 0,
+        insertedRounds
+          ?.length ??
+        0,
+
       rounds:
-        insertedRounds ?? [],
+        (
+          insertedRounds ??
+          []
+        ).map(
+          (
+            round,
+          ) => ({
+            id:
+              Number(
+                round.id,
+              ),
+
+            roundNo:
+              Number(
+                round.round_no,
+              ),
+
+            left: {
+              type:
+                round.left_type,
+
+              value:
+                round.left_value,
+            },
+
+            right: {
+              type:
+                round.right_type,
+
+              value:
+                round.right_value,
+            },
+
+            winnerSide:
+              round.winner_side,
+
+            completedAt:
+              round.completed_at,
+          }),
+        ),
     });
-  } catch (error) {
+  } catch (
+    error
+  ) {
     console.error(
-      "Club Nation prepare endpoint hatası:",
+      "Guest Club Clash prepare endpoint hatası:",
       error,
     );
 
     return NextResponse.json(
       {
         ok: false,
+
         error:
           error instanceof Error
             ? error.message
-            : "Düello roundları hazırlanamadı.",
+            : "2 Takım 1 Oyuncu hazırlanamadı.",
       },
-      { status: 500 },
+      {
+        status:
+          500,
+      },
     );
   }
 }
