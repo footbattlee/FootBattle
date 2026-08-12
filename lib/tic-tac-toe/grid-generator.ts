@@ -538,6 +538,21 @@ async function buildPlayerProfiles() {
       playerIds,
     );
 
+  console.log(
+    "TTT debug - eligible team count:",
+    eligibleTeams.size,
+  );
+
+  console.log(
+    "TTT debug - eligible player count:",
+    playerRows.length,
+  );
+
+  console.log(
+    "TTT debug - player club row count:",
+    clubRows.length,
+  );
+
   const profileMap =
     new Map<
       number,
@@ -625,17 +640,55 @@ async function buildPlayerProfiles() {
     );
   }
 
+  const playableProfiles =
+    Array.from(
+      profileMap.values(),
+    ).filter(
+      (
+        profile,
+      ) =>
+        profile.clubs.size >
+        0,
+    );
+
+  console.log(
+    "TTT debug - profiles with eligible clubs:",
+    playableProfiles.length,
+  );
+
+  console.log(
+    "TTT debug - sample eligible teams:",
+    Array.from(
+      eligibleTeams.keys(),
+    ).slice(
+      0,
+      20,
+    ),
+  );
+
+  console.log(
+    "TTT debug - sample player clubs:",
+    clubRows
+      .map(
+        (
+          row,
+        ) =>
+          normalizeValue(
+            row.club_name,
+          ),
+      )
+      .filter(
+        Boolean,
+      )
+      .slice(
+        0,
+        20,
+      ),
+  );
+
   return {
     profiles:
-      Array.from(
-        profileMap.values(),
-      ).filter(
-        (
-          profile,
-        ) =>
-          profile.clubs.size >
-          0,
-      ),
+      playableProfiles,
 
     eligibleTeams,
   };
@@ -1479,6 +1532,21 @@ export async function generateTicTacToeGrid():
       profiles,
     );
 
+  console.log(
+    "TTT debug - profile count:",
+    profiles.length,
+  );
+
+  console.log(
+    "TTT debug - clubNation pair count:",
+    clubNationMap.size,
+  );
+
+  console.log(
+    "TTT debug - clubClub pair count:",
+    clubClubMap.size,
+  );
+
   /*
    * İki türü de üretmeye
    * çalışıyoruz.
@@ -1495,6 +1563,35 @@ export async function generateTicTacToeGrid():
       clubNationMap,
     );
 
+  console.log(
+    "TTT debug - clubNation grid:",
+    clubNationGrid
+      ? {
+          mode:
+            clubNationGrid.mode,
+
+          qualityScore:
+            clubNationGrid.qualityScore,
+
+          rows:
+            clubNationGrid.rows.map(
+              (
+                row,
+              ) =>
+                row.value,
+            ),
+
+          columns:
+            clubNationGrid.columns.map(
+              (
+                column,
+              ) =>
+                column.value,
+            ),
+        }
+      : null,
+  );
+
   if (
     clubNationGrid
   ) {
@@ -1508,6 +1605,35 @@ export async function generateTicTacToeGrid():
       clubClubMap,
     );
 
+  console.log(
+    "TTT debug - clubClub grid:",
+    clubClubGrid
+      ? {
+          mode:
+            clubClubGrid.mode,
+
+          qualityScore:
+            clubClubGrid.qualityScore,
+
+          rows:
+            clubClubGrid.rows.map(
+              (
+                row,
+              ) =>
+                row.value,
+            ),
+
+          columns:
+            clubClubGrid.columns.map(
+              (
+                column,
+              ) =>
+                column.value,
+            ),
+        }
+      : null,
+  );
+
   if (
     clubClubGrid
   ) {
@@ -1520,6 +1646,72 @@ export async function generateTicTacToeGrid():
     candidates.length ===
     0
   ) {
+    const validClubNationPairs =
+      getValidPairs(
+        clubNationMap,
+      );
+
+    const validClubClubPairs =
+      getValidPairs(
+        clubClubMap,
+      );
+
+    console.log(
+      "TTT debug - valid clubNation pair count:",
+      validClubNationPairs.length,
+    );
+
+    console.log(
+      "TTT debug - valid clubClub pair count:",
+      validClubClubPairs.length,
+    );
+
+    console.log(
+      "TTT debug - sample valid clubNation pairs:",
+      validClubNationPairs
+        .slice(
+          0,
+          20,
+        )
+        .map(
+          (
+            pair,
+          ) => ({
+            left:
+              pair.left.value,
+
+            right:
+              pair.right.value,
+
+            playerCount:
+              pair.playerIds.length,
+          }),
+        ),
+    );
+
+    console.log(
+      "TTT debug - sample valid clubClub pairs:",
+      validClubClubPairs
+        .slice(
+          0,
+          20,
+        )
+        .map(
+          (
+            pair,
+          ) => ({
+            left:
+              pair.left.value,
+
+            right:
+              pair.right.value,
+
+            playerCount:
+              pair.playerIds.length,
+          }),
+        ),
+    );
+
     throw new Error(
       "TicTacToe için çözülebilir 3x3 grid üretilemedi.",
     );
