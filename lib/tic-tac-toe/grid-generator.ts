@@ -5,10 +5,10 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 ========================================================= */
 
 export const TIC_TAC_TOE_MINIMUM_POPULARITY_SCORE =
-  83;
+  75;
 
 export const TIC_TAC_TOE_MINIMUM_TEAM_SCORE =
-  60;
+  50;
 
 export const TIC_TAC_TOE_MINIMUM_CELL_PLAYERS =
   1;
