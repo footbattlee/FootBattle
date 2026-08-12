@@ -62,7 +62,6 @@ type StartResponse = {
     code: string;
     label: string;
     mode: string;
-
     durationSeconds: number;
     scorePerCorrect: number;
     fullGridBonus: number;
@@ -70,10 +69,8 @@ type StartResponse = {
 
   session?: {
     id: string;
-
     startedAt: string;
     expiresAt: string;
-
     score: number;
     correctCount: number;
     wrongCount: number;
@@ -87,9 +84,7 @@ type StartResponse = {
 
     rows: AxisItem[];
     columns: AxisItem[];
-
     cells: GridCell[];
-
     qualityScore: number;
   };
 };
@@ -97,9 +92,7 @@ type StartResponse = {
 type SearchResponse = {
   ok?: boolean;
   error?: string;
-
   minimumSearchLength?: number;
-
   players?: PlayerSearchItem[];
 };
 
@@ -121,7 +114,6 @@ type AnswerResponse = {
   remainingSeconds?: number;
 
   cell?: GridCell;
-
   message?: string;
 };
 
@@ -131,7 +123,6 @@ type FinishResponse = {
 
   completed?: boolean;
   alreadyCompleted?: boolean;
-
   reason?: string;
 
   score?: number;
@@ -139,7 +130,6 @@ type FinishResponse = {
   wrongCount?: number;
 
   remainingSeconds?: number;
-
   message?: string;
 };
 
@@ -210,10 +200,6 @@ function axisIcon(
 ========================================================= */
 
 export default function TicTacToePage() {
-  /* =======================================================
-     GAME
-  ======================================================= */
-
   const [
     sessionId,
     setSessionId,
@@ -268,18 +254,6 @@ export default function TicTacToePage() {
   ] =
     useState("");
 
-  /* =======================================================
-     GAME SETTINGS
-  ======================================================= */
-
-  const [
-    durationSeconds,
-    setDurationSeconds,
-  ] =
-    useState(
-      DEFAULT_DURATION_SECONDS,
-    );
-
   const [
     scorePerCorrect,
     setScorePerCorrect,
@@ -295,10 +269,6 @@ export default function TicTacToePage() {
     useState(
       DEFAULT_FULL_GRID_BONUS,
     );
-
-  /* =======================================================
-     STATS
-  ======================================================= */
 
   const [
     score,
@@ -326,10 +296,6 @@ export default function TicTacToePage() {
       DEFAULT_DURATION_SECONDS,
     );
 
-  /* =======================================================
-     SELECTED CELL
-  ======================================================= */
-
   const [
     selectedCell,
     setSelectedCell,
@@ -341,9 +307,11 @@ export default function TicTacToePage() {
       null,
     );
 
-  /* =======================================================
-     SEARCH
-  ======================================================= */
+  const [
+    answerModalOpen,
+    setAnswerModalOpen,
+  ] =
+    useState(false);
 
   const [
     query,
@@ -379,10 +347,6 @@ export default function TicTacToePage() {
   ] =
     useState(false);
 
-  /* =======================================================
-     FEEDBACK
-  ======================================================= */
-
   const [
     message,
     setMessage,
@@ -409,10 +373,6 @@ export default function TicTacToePage() {
   ] =
     useState(false);
 
-  /* =======================================================
-     REFS
-  ======================================================= */
-
   const expiresAtRef =
     useRef<
       number | null
@@ -425,10 +385,6 @@ export default function TicTacToePage() {
     useRef<HTMLInputElement | null>(
       null,
     );
-
-  /* =======================================================
-     DERIVED
-  ======================================================= */
 
   const cellMap =
     useMemo(
@@ -502,10 +458,6 @@ export default function TicTacToePage() {
         null
       : null;
 
-  /* =======================================================
-     RESET SEARCH
-  ======================================================= */
-
   const resetSearch =
     useCallback(
       () => {
@@ -532,9 +484,38 @@ export default function TicTacToePage() {
       [],
     );
 
-  /* =======================================================
-     START GAME
-  ======================================================= */
+  const closeAnswerModal =
+    useCallback(
+      () => {
+        if (
+          submitting
+        ) {
+          return;
+        }
+
+        setAnswerModalOpen(
+          false,
+        );
+
+        setSelectedCell(
+          null,
+        );
+
+        setFeedbackType(
+          "neutral",
+        );
+
+        setMessage(
+          "Bir hücre seç ve uygun futbolcuyu bul.",
+        );
+
+        resetSearch();
+      },
+      [
+        resetSearch,
+        submitting,
+      ],
+    );
 
   const startGame =
     useCallback(
@@ -555,6 +536,10 @@ export default function TicTacToePage() {
 
           setSelectedCell(
             null,
+          );
+
+          setAnswerModalOpen(
+            false,
           );
 
           setGameFinished(
@@ -636,14 +621,6 @@ export default function TicTacToePage() {
               result.session
                 .wrongCount ??
                 0,
-            ),
-          );
-
-          setDurationSeconds(
-            Number(
-              result.game
-                .durationSeconds ??
-                DEFAULT_DURATION_SECONDS,
             ),
           );
 
@@ -743,10 +720,6 @@ export default function TicTacToePage() {
       ],
     );
 
-  /* =======================================================
-     FINISH
-  ======================================================= */
-
   const finishGame =
     useCallback(
       async () => {
@@ -789,10 +762,6 @@ export default function TicTacToePage() {
             !response.ok ||
             !result.ok
           ) {
-            /*
-             * Client/server saatı
-             * milisaniye farklı olabilir.
-             */
             if (
               response.status ===
               409
@@ -822,21 +791,21 @@ export default function TicTacToePage() {
           setScore(
             Number(
               result.score ??
-                score,
+                0,
             ),
           );
 
           setCorrectCount(
             Number(
               result.correctCount ??
-                correctCount,
+                0,
             ),
           );
 
           setWrongCount(
             Number(
               result.wrongCount ??
-                wrongCount,
+                0,
             ),
           );
 
@@ -854,6 +823,10 @@ export default function TicTacToePage() {
 
           setSelectedCell(
             null,
+          );
+
+          setAnswerModalOpen(
+            false,
           );
 
           resetSearch();
@@ -885,17 +858,10 @@ export default function TicTacToePage() {
         }
       },
       [
-        correctCount,
         resetSearch,
-        score,
         sessionId,
-        wrongCount,
       ],
     );
-
-  /* =======================================================
-     TIMER
-  ======================================================= */
 
   useEffect(
     () => {
@@ -965,15 +931,37 @@ export default function TicTacToePage() {
     ],
   );
 
-  /* =======================================================
-     SEARCH
-  ======================================================= */
+  useEffect(
+    () => {
+      if (
+        !answerModalOpen
+      ) {
+        return;
+      }
+
+      const previousOverflow =
+        document.body.style
+          .overflow;
+
+      document.body.style.overflow =
+        "hidden";
+
+      return () => {
+        document.body.style.overflow =
+          previousOverflow;
+      };
+    },
+    [
+      answerModalOpen,
+    ],
+  );
 
   useEffect(
     () => {
       if (
         !gameStarted ||
         gameFinished ||
+        !answerModalOpen ||
         !selectedCell ||
         selectedCellData
           ?.answered ||
@@ -1106,6 +1094,7 @@ export default function TicTacToePage() {
       };
     },
     [
+      answerModalOpen,
       gameFinished,
       gameStarted,
       query,
@@ -1114,10 +1103,6 @@ export default function TicTacToePage() {
       selectedPlayer,
     ],
   );
-
-  /* =======================================================
-     SELECT CELL
-  ======================================================= */
 
   function chooseCell(
     rowIndex: number,
@@ -1165,7 +1150,11 @@ export default function TicTacToePage() {
     );
 
     setMessage(
-      "Şimdi bu iki koşulu sağlayan futbolcuyu seç.",
+      "Bu iki koşulu sağlayan futbolcuyu bul.",
+    );
+
+    setAnswerModalOpen(
+      true,
     );
 
     window.setTimeout(
@@ -1173,13 +1162,9 @@ export default function TicTacToePage() {
         searchInputRef.current
           ?.focus();
       },
-      80,
+      120,
     );
   }
-
-  /* =======================================================
-     SELECT PLAYER
-  ======================================================= */
 
   function choosePlayer(
     player: PlayerSearchItem,
@@ -1200,10 +1185,6 @@ export default function TicTacToePage() {
       false,
     );
   }
-
-  /* =======================================================
-     ANSWER
-  ======================================================= */
 
   async function submitAnswer(
     event?: FormEvent,
@@ -1313,10 +1294,6 @@ export default function TicTacToePage() {
         );
       }
 
-      /* =================================================
-         WRONG
-      ================================================= */
-
       if (
         !result.correct
       ) {
@@ -1326,7 +1303,7 @@ export default function TicTacToePage() {
 
         setMessage(
           result.message ??
-            "Yanlış oyuncu. Hücre boş kaldı.",
+            "Yanlış oyuncu. Başka bir oyuncu dene.",
         );
 
         resetSearch();
@@ -1341,10 +1318,6 @@ export default function TicTacToePage() {
 
         return;
       }
-
-      /* =================================================
-         CORRECT
-      ================================================= */
 
       if (
         result.cell
@@ -1382,11 +1355,11 @@ export default function TicTacToePage() {
         null,
       );
 
-      resetSearch();
+      setAnswerModalOpen(
+        false,
+      );
 
-      /* =================================================
-         9/9
-      ================================================= */
+      resetSearch();
 
       if (
         result.completed
@@ -1400,11 +1373,6 @@ export default function TicTacToePage() {
 
         setGameFinished(
           true,
-        );
-
-        setTimeLeft(
-          result.remainingSeconds ??
-            timeLeft,
         );
 
         return;
@@ -1432,10 +1400,6 @@ export default function TicTacToePage() {
       );
     }
   }
-
-  /* =======================================================
-     START SCREEN
-  ======================================================= */
 
   if (
     !gameStarted &&
@@ -1528,10 +1492,6 @@ export default function TicTacToePage() {
       </main>
     );
   }
-
-  /* =======================================================
-     RESULT SCREEN
-  ======================================================= */
 
   if (
     gameFinished
@@ -1634,50 +1594,44 @@ export default function TicTacToePage() {
     );
   }
 
-  /* =======================================================
-     GAME SCREEN
-  ======================================================= */
-
   return (
-    <main className="min-h-screen bg-[#07111f] px-3 py-4 text-white sm:px-5 sm:py-8">
+    <main className="min-h-screen bg-[#07111f] px-3 py-4 text-white sm:px-5 sm:py-6">
       <div className="mx-auto max-w-5xl">
-        {/* HEADER */}
+        <div className="sticky top-0 z-20 -mx-3 mb-3 border-b border-white/5 bg-[#07111f]/95 px-3 py-2 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href="/"
+              className="rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-slate-400 transition hover:text-white sm:text-sm"
+            >
+              ← Ana Sayfa
+            </Link>
 
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <Link
-            href="/"
-            className="rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-slate-400 transition hover:text-white sm:text-sm"
-          >
-            ← Ana Sayfa
-          </Link>
+            <div className="text-center">
+              <div className="text-sm font-black">
+                FootBattle
+              </div>
 
-          <div className="text-center">
-            <div className="text-sm font-black">
-              FootBattle
+              <div className="text-[10px] text-slate-500 sm:text-xs">
+                Tic Tac Toe
+              </div>
             </div>
 
-            <div className="text-[10px] text-slate-500 sm:text-xs">
-              Tic Tac Toe
+            <div
+              className={`rounded-xl border px-3 py-2 text-sm font-black sm:px-4 ${
+                timeLeft <=
+                15
+                  ? "border-red-500/30 bg-red-500/10 text-red-400"
+                  : "border-white/10 bg-white/5"
+              }`}
+            >
+              {formatTime(
+                timeLeft,
+              )}
             </div>
-          </div>
-
-          <div
-            className={`rounded-xl border px-3 py-2 text-sm font-black sm:px-4 ${
-              timeLeft <=
-              15
-                ? "border-red-500/30 bg-red-500/10 text-red-400"
-                : "border-white/10 bg-white/5"
-            }`}
-          >
-            {formatTime(
-              timeLeft,
-            )}
           </div>
         </div>
 
-        {/* STATS */}
-
-        <div className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="mb-3 grid grid-cols-3 gap-2 sm:gap-3">
           <StatCard
             label="Skor"
             value={`${score}`}
@@ -1697,19 +1651,13 @@ export default function TicTacToePage() {
           />
         </div>
 
-        {/* GRID */}
-
         <section className="mx-auto max-w-[820px] rounded-3xl border border-white/10 bg-[#101c2c] p-2 shadow-2xl sm:p-4">
-          <div className="grid grid-cols-[72px_repeat(3,minmax(0,1fr))] gap-1.5 sm:grid-cols-[130px_repeat(3,minmax(0,1fr))] sm:gap-2">
-            {/* CORNER */}
-
-            <div className="flex min-h-[72px] items-center justify-center rounded-xl border border-white/[0.05] bg-black/10 p-2 text-center text-[9px] font-black uppercase tracking-wider text-slate-600 sm:min-h-[82px] sm:text-xs">
+          <div className="grid grid-cols-[64px_repeat(3,minmax(0,1fr))] gap-1.5 sm:grid-cols-[108px_repeat(3,minmax(0,1fr))] sm:gap-2">
+            <div className="flex min-h-[64px] items-center justify-center rounded-xl border border-white/[0.05] bg-black/10 p-2 text-center text-[8px] font-black uppercase tracking-wider text-slate-600 sm:min-h-[82px] sm:text-[10px]">
               Futbol
               <br />
               Grid
             </div>
-
-            {/* COLUMNS */}
 
             {columns.map(
               (
@@ -1723,8 +1671,6 @@ export default function TicTacToePage() {
                 />
               ),
             )}
-
-            {/* ROWS + CELLS */}
 
             {rows.map(
               (
@@ -1781,7 +1727,7 @@ export default function TicTacToePage() {
                               column.index,
                             )
                           }
-                          className={`relative flex min-h-[78px] min-w-0 items-center justify-center overflow-hidden rounded-xl border p-1.5 text-center transition sm:min-h-[105px] sm:rounded-2xl sm:p-3 ${
+                          className={`relative flex min-h-[78px] min-w-0 items-center justify-center overflow-hidden rounded-xl border p-1.5 text-center transition sm:min-h-[105px] sm:rounded-2xl sm:p-2 ${
                             cell
                               ?.answered
                               ? "cursor-default border-green-500/30 bg-green-500/[0.09]"
@@ -1808,15 +1754,15 @@ export default function TicTacToePage() {
                                       .player
                                       .name
                                   }
-                                  className="mx-auto h-9 w-9 rounded-full border border-white/10 object-cover sm:h-14 sm:w-14"
+                                  className="mx-auto h-8 w-8 rounded-full border border-white/10 object-cover sm:h-11 sm:w-11"
                                 />
                               ) : (
-                                <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-base sm:h-14 sm:w-14 sm:text-xl">
+                                <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm sm:h-11 sm:w-11 sm:text-base">
                                   ⚽
                                 </div>
                               )}
 
-                              <div className="mt-1.5 truncate text-[9px] font-black leading-tight text-green-300 sm:mt-2 sm:text-sm">
+                              <div className="mt-1 truncate text-[8px] font-black leading-tight text-green-300 sm:text-xs">
                                 {
                                   cell
                                     .player
@@ -1824,17 +1770,17 @@ export default function TicTacToePage() {
                                 }
                               </div>
 
-                              <div className="mt-1 text-[8px] font-black uppercase tracking-wider text-green-400/50 sm:text-[10px]">
+                              <div className="mt-0.5 text-[7px] font-black uppercase tracking-wider text-green-400/50 sm:text-[9px]">
                                 ✓ DOĞRU
                               </div>
                             </div>
                           ) : (
                             <div>
-                              <div className="text-xl text-slate-700 sm:text-3xl">
+                              <div className="text-lg text-slate-700 sm:text-2xl">
                                 +
                               </div>
 
-                              <div className="mt-1 text-[8px] font-bold uppercase tracking-wider text-slate-600 sm:text-[10px]">
+                              <div className="mt-0.5 text-[7px] font-bold uppercase tracking-wider text-slate-600 sm:text-[9px]">
                                 Oyuncu
                               </div>
                             </div>
@@ -1849,54 +1795,94 @@ export default function TicTacToePage() {
           </div>
         </section>
 
-        {/* SELECTED CELL / ANSWER */}
+        <p className="mx-auto mt-3 max-w-[820px] text-center text-[10px] leading-5 text-slate-600 sm:text-xs">
+          Her doğru hücre +
+          {scorePerCorrect} puan · 9/9 tamamlayınca +
+          {fullGridBonus} bonus · Aynı oyuncuyu tekrar kullanamazsın.
+        </p>
+      </div>
 
-        <section className="mt-4 rounded-3xl border border-white/10 bg-white/[0.035] p-4 sm:p-6">
-          {!selectedCell ? (
-            <div className="py-3 text-center">
-              <div className="text-2xl">
-                👆
+      {answerModalOpen &&
+        selectedCell &&
+        selectedRow &&
+        selectedColumn && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-4 backdrop-blur-sm"
+            onMouseDown={
+              closeAnswerModal
+            }
+          >
+            <div
+              className="w-full max-w-lg rounded-3xl border border-purple-400/20 bg-[#101c2c] p-5 shadow-2xl sm:p-6"
+              onMouseDown={(
+                event,
+              ) => {
+                event.stopPropagation();
+              }}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-purple-300/60">
+                    Seçili Hücre
+                  </p>
+
+                  <h2 className="mt-1 text-xl font-black text-white">
+                    Oyuncuyu Bul
+                  </h2>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`rounded-xl border px-3 py-2 text-sm font-black ${
+                      timeLeft <=
+                      15
+                        ? "border-red-500/30 bg-red-500/10 text-red-400"
+                        : "border-white/10 bg-white/5 text-white"
+                    }`}
+                  >
+                    ⏱ {formatTime(
+                      timeLeft,
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={
+                      submitting
+                    }
+                    onClick={
+                      closeAnswerModal
+                    }
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-lg font-black text-slate-400 transition hover:bg-white/10 hover:text-white disabled:opacity-40"
+                  >
+                    ×
+                  </button>
+                </div>
               </div>
 
-              <p className="mt-2 text-sm font-black">
-                Bir hücre seç
-              </p>
+              <div className="mt-5 flex items-center justify-center gap-2">
+                <ConditionPill
+                  item={
+                    selectedRow
+                  }
+                />
 
-              <p className="mt-1 text-xs text-slate-500">
-                Satır ve sütundaki iki koşulu sağlayan futbolcuyu bul.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="text-center">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-                  Seçili Hücre
-                </p>
+                <span className="font-black text-slate-600">
+                  +
+                </span>
 
-                <div className="mt-3 flex items-center justify-center gap-2 sm:gap-4">
-                  <ConditionPill
-                    item={
-                      selectedRow
-                    }
-                  />
-
-                  <span className="font-black text-slate-600">
-                    +
-                  </span>
-
-                  <ConditionPill
-                    item={
-                      selectedColumn
-                    }
-                  />
-                </div>
+                <ConditionPill
+                  item={
+                    selectedColumn
+                  }
+                />
               </div>
 
               <form
                 onSubmit={
                   submitAnswer
                 }
-                className="mx-auto mt-5 max-w-xl"
+                className="mt-6"
               >
                 <div className="relative">
                   <input
@@ -1916,9 +1902,7 @@ export default function TicTacToePage() {
                       event,
                     ) => {
                       setQuery(
-                        event
-                          .target
-                          .value,
+                        event.target.value,
                       );
 
                       setSelectedPlayer(
@@ -1935,7 +1919,7 @@ export default function TicTacToePage() {
                         );
                       }
                     }}
-                    className="w-full rounded-2xl border border-white/10 bg-[#07111f] px-4 py-4 pr-14 text-sm font-semibold outline-none transition placeholder:text-slate-600 focus:border-purple-400/50 sm:px-5 sm:text-base"
+                    className="w-full rounded-2xl border border-white/10 bg-[#07111f] px-4 py-4 pr-14 text-sm font-semibold outline-none transition placeholder:text-slate-600 focus:border-purple-400/50 sm:text-base"
                   />
 
                   {searchLoading && (
@@ -1947,7 +1931,7 @@ export default function TicTacToePage() {
                   {searchOpen &&
                     searchResults.length >
                       0 && (
-                      <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 max-h-72 overflow-y-auto rounded-2xl border border-white/10 bg-[#0b1726] p-2 shadow-2xl">
+                      <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 max-h-64 overflow-y-auto rounded-2xl border border-white/10 bg-[#07111f] p-2 shadow-2xl">
                         {searchResults.map(
                           (
                             player,
@@ -1987,7 +1971,7 @@ export default function TicTacToePage() {
                               </div>
 
                               <div className="min-w-0 flex-1">
-                                <div className="truncate text-sm font-black">
+                                <div className="truncate text-sm font-black text-white">
                                   {
                                     player.name
                                   }
@@ -2033,13 +2017,20 @@ export default function TicTacToePage() {
 
                     <button
                       type="button"
-                      onClick={() => {
-                        resetSearch();
-                      }}
+                      onClick={
+                        resetSearch
+                      }
                       className="ml-3 rounded-lg border border-white/10 px-3 py-2 text-xs font-black text-slate-400"
                     >
                       Değiştir
                     </button>
+                  </div>
+                )}
+
+                {feedbackType ===
+                  "wrong" && (
+                  <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-center text-sm font-bold text-red-300">
+                    {message}
                   </div>
                 )}
 
@@ -2056,32 +2047,9 @@ export default function TicTacToePage() {
                     : `Hücreyi Doldur (+${scorePerCorrect})`}
                 </button>
               </form>
-            </>
-          )}
-
-          {/* MESSAGE */}
-
-          <div
-            className={`mt-4 rounded-2xl border px-4 py-3 text-center text-sm font-semibold ${
-              feedbackType ===
-              "correct"
-                ? "border-green-500/30 bg-green-500/10 text-green-300"
-                : feedbackType ===
-                    "wrong"
-                  ? "border-red-500/30 bg-red-500/10 text-red-300"
-                  : "border-white/10 bg-black/20 text-slate-400"
-            }`}
-          >
-            {message}
+            </div>
           </div>
-        </section>
-
-        <p className="mt-4 text-center text-[10px] leading-5 text-slate-600 sm:text-xs">
-          Her doğru hücre +
-          {scorePerCorrect} puan · 9/9 tamamlayınca +
-          {fullGridBonus} bonus · Aynı oyuncuyu tekrar kullanamazsın.
-        </p>
-      </div>
+        )}
     </main>
   );
 }
@@ -2096,15 +2064,15 @@ function AxisHeader({
   item: AxisItem;
 }) {
   return (
-    <div className="flex min-h-[64px] min-w-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] p-1.5 text-center sm:min-h-[100px] sm:rounded-2xl sm:p-3">
+    <div className="flex min-h-[64px] min-w-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] p-1.5 text-center sm:min-h-[82px] sm:rounded-2xl sm:p-2">
       <div className="min-w-0">
-        <div className="text-sm sm:text-xl">
+        <div className="text-xs sm:text-base">
           {axisIcon(
             item.type,
           )}
         </div>
 
-        <div className="mt-1 break-words text-[9px] font-black leading-tight text-slate-200 sm:mt-2 sm:text-sm">
+        <div className="mt-1 break-words text-[8px] font-black leading-tight text-slate-200 sm:text-xs">
           {item.value}
         </div>
       </div>
@@ -2163,13 +2131,13 @@ function StatCard({
         : "text-red-400";
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-3 text-center sm:p-4">
-      <div className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-600 sm:text-xs">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-center sm:p-3">
+      <div className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-600 sm:text-[10px]">
         {label}
       </div>
 
       <div
-        className={`mt-1 text-xl font-black sm:text-2xl ${valueClass}`}
+        className={`mt-1 text-lg font-black sm:text-xl ${valueClass}`}
       >
         {value}
       </div>

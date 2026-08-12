@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const MINIMUM_POPULARITY_SCORE =
-  83;
+  0;
 
 const MINIMUM_SEARCH_LENGTH =
   2;
