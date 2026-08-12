@@ -1699,11 +1699,11 @@ export default function TicTacToePage() {
 
         {/* GRID */}
 
-        <section className="rounded-3xl border border-white/10 bg-[#101c2c] p-2 shadow-2xl sm:p-5">
+        <section className="mx-auto max-w-[820px] rounded-3xl border border-white/10 bg-[#101c2c] p-2 shadow-2xl sm:p-4">
           <div className="grid grid-cols-[72px_repeat(3,minmax(0,1fr))] gap-1.5 sm:grid-cols-[130px_repeat(3,minmax(0,1fr))] sm:gap-2">
             {/* CORNER */}
 
-            <div className="flex min-h-[72px] items-center justify-center rounded-xl border border-white/[0.05] bg-black/10 p-2 text-center text-[9px] font-black uppercase tracking-wider text-slate-600 sm:min-h-[100px] sm:text-xs">
+            <div className="flex min-h-[72px] items-center justify-center rounded-xl border border-white/[0.05] bg-black/10 p-2 text-center text-[9px] font-black uppercase tracking-wider text-slate-600 sm:min-h-[82px] sm:text-xs">
               Futbol
               <br />
               Grid
@@ -1781,7 +1781,7 @@ export default function TicTacToePage() {
                               column.index,
                             )
                           }
-                          className={`relative flex min-h-[92px] min-w-0 items-center justify-center overflow-hidden rounded-xl border p-1.5 text-center transition sm:min-h-[135px] sm:rounded-2xl sm:p-3 ${
+                          className={`relative flex min-h-[78px] min-w-0 items-center justify-center overflow-hidden rounded-xl border p-1.5 text-center transition sm:min-h-[105px] sm:rounded-2xl sm:p-3 ${
                             cell
                               ?.answered
                               ? "cursor-default border-green-500/30 bg-green-500/[0.09]"
@@ -2096,7 +2096,7 @@ function AxisHeader({
   item: AxisItem;
 }) {
   return (
-    <div className="flex min-h-[72px] min-w-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] p-1.5 text-center sm:min-h-[100px] sm:rounded-2xl sm:p-3">
+    <div className="flex min-h-[64px] min-w-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] p-1.5 text-center sm:min-h-[100px] sm:rounded-2xl sm:p-3">
       <div className="min-w-0">
         <div className="text-sm sm:text-xl">
           {axisIcon(

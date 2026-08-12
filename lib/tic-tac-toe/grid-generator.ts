@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 ========================================================= */
 
 export const TIC_TAC_TOE_MINIMUM_POPULARITY_SCORE =
-  83;
+  80;
 
 export const TIC_TAC_TOE_MINIMUM_TEAM_SCORE =
   60;
@@ -17,7 +17,7 @@ const PLAYER_PAGE_SIZE =
   1000;
 
 const PLAYER_CHUNK_SIZE =
-  200;
+  50;
 
 const GRID_SIZE =
   3;
@@ -434,6 +434,9 @@ async function loadPlayerClubs(
     ClubRow[] =
     [];
 
+  const PAGE_SIZE =
+    1000;
+
   for (
     let index =
       0;
@@ -449,42 +452,85 @@ async function loadPlayerClubs(
           PLAYER_CHUNK_SIZE,
       );
 
-    const {
-      data,
-      error,
-    } =
-      await supabaseAdmin
-        .from(
-          "player_quiz_clubs",
-        )
-        .select(`
-          player_id,
-          club_name
-        `)
-        .in(
-          "player_id",
-          chunk,
-        )
-        .not(
-          "club_name",
-          "is",
-          null,
-        );
+    let from =
+      0;
 
-    if (
-      error
+    while (
+      true
     ) {
-      throw error;
-    }
+      const to =
+        from +
+        PAGE_SIZE -
+        1;
 
-    rows.push(
-      ...(
+      const {
+        data,
+        error,
+      } =
+        await supabaseAdmin
+          .from(
+            "player_quiz_clubs",
+          )
+          .select(`
+            player_id,
+            club_name
+          `)
+          .in(
+            "player_id",
+            chunk,
+          )
+          .not(
+            "club_name",
+            "is",
+            null,
+          )
+          .order(
+            "player_id",
+            {
+              ascending:
+                true,
+            },
+          )
+          .range(
+            from,
+            to,
+          );
+
+      if (
+        error
+      ) {
+        throw error;
+      }
+
+      const pageRows =
         (
           data ??
           []
-        ) as ClubRow[]
-      ),
-    );
+        ) as ClubRow[];
+
+      rows.push(
+        ...pageRows,
+      );
+
+      if (
+        pageRows.length <
+        PAGE_SIZE
+      ) {
+        break;
+      }
+
+      from +=
+        PAGE_SIZE;
+
+      if (
+        from >
+        100_000
+      ) {
+        throw new Error(
+          "TicTacToe kulüp geçmişi güvenlik sınırını aştı.",
+        );
+      }
+    }
   }
 
   return rows;
