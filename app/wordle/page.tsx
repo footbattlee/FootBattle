@@ -673,6 +673,22 @@ export default function WordlePage() {
           const result =
             (await response.json()) as SaveResultResponse;
 
+          /*
+           * Doğru cevabı auth kontrolünden ÖNCE al.
+           *
+           * Misafir kullanıcıda /result 401 dönebilir.
+           * Ancak API cevap oyuncusunu response içinde
+           * gönderiyorsa kullanıcı yine de doğru cevabı
+           * görebilmeli.
+           */
+          if (
+            result.answerPlayerName
+          ) {
+            setAnswerPlayerName(
+              result.answerPlayerName,
+            );
+          }
+
           if (
             response.status ===
             401
