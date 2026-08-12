@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-
+import Image from "next/image";
 import {
   useEffect,
   useMemo,
@@ -944,36 +944,29 @@ export default function HomePage() {
 
       <header className="sticky top-0 z-50 border-b border-white/10 bg-[#07111f]/95 shadow-lg shadow-black/10 backdrop-blur-xl">
 
-        <div className="mx-auto flex h-[72px] max-w-[1240px] items-center justify-between px-5 lg:px-6">
+        <div className="mx-auto flex h-[82px] max-w-[1240px] items-center justify-between px-4 sm:px-5 lg:px-6">
 
           {/* LOGO */}
 
           <Link
             href="/"
-            className="flex items-center gap-3"
+            aria-label="FootBattle Ana Sayfa"
+            className="flex min-w-0 items-center"
           >
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-500 text-base font-black text-[#07111f] shadow-lg shadow-green-500/20">
-              FB
-            </div>
-
-            <div>
-
-              <p className="text-lg font-black leading-none">
-                FootBattle
-              </p>
-
-              <p className="mt-1 text-xs text-slate-500">
-                Futbol oyunları arenası
-              </p>
-
-            </div>
-
+            <Image
+              src="/footbattle-logo.png"
+              alt="FootBattle - Futbolu Bilen Kazanır"
+              width={360}
+              height={110}
+              priority
+              sizes="(max-width: 640px) 170px, 230px"
+              className="h-auto w-[170px] object-contain sm:w-[210px] lg:w-[230px]"
+            />
           </Link>
 
           {/* NAV */}
 
-          <nav className="hidden items-center gap-7 text-sm font-bold text-slate-400 xl:flex">
+          <nav className="hidden items-center gap-6 text-sm font-bold text-slate-400 xl:flex">
 
             <button
               type="button"
