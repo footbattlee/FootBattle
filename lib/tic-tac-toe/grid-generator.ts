@@ -5,10 +5,10 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 ========================================================= */
 
 export const TIC_TAC_TOE_MINIMUM_POPULARITY_SCORE =
-  75;
+  83;
 
 export const TIC_TAC_TOE_MINIMUM_TEAM_SCORE =
-  50;
+  60;
 
 export const TIC_TAC_TOE_MINIMUM_CELL_PLAYERS =
   1;
@@ -21,6 +21,16 @@ const PLAYER_CHUNK_SIZE =
 
 const GRID_SIZE =
   3;
+
+/*
+ * Club x Club aramasında en bağlantılı
+ * takımlardan başlıyoruz.
+ *
+ * 387 takımın tamamında kör brute-force
+ * yapmak yerine yeterince geniş bir havuz.
+ */
+const MAX_CLUB_SEARCH_POOL =
+  180;
 
 /* =========================================================
    TYPES
@@ -43,7 +53,6 @@ export type TicTacToeCell = {
   column: TicTacToeAxisItem;
 
   validPlayerIds: number[];
-
   validPlayerCount: number;
 };
 
@@ -53,20 +62,11 @@ export type TicTacToeGrid = {
     | "nation_club"
     | "club_club";
 
-  rows:
-    TicTacToeAxisItem[];
+  rows: TicTacToeAxisItem[];
+  columns: TicTacToeAxisItem[];
 
-  columns:
-    TicTacToeAxisItem[];
+  cells: TicTacToeCell[];
 
-  cells:
-    TicTacToeCell[];
-
-  /*
-   * Grid kalite puanı.
-   * Yüksek olması daha rahat oynanan
-   * bir grid demek.
-   */
   qualityScore: number;
 };
 
@@ -105,24 +105,18 @@ type PlayerProfile = {
     | string
     | null;
 
-  popularityScore:
-    number;
+  popularityScore: number;
 
-  clubs:
-    Set<string>;
+  clubs: Set<string>;
 };
 
 type PairEntry = {
   key: string;
 
-  left:
-    TicTacToeAxisItem;
+  left: TicTacToeAxisItem;
+  right: TicTacToeAxisItem;
 
-  right:
-    TicTacToeAxisItem;
-
-  playerIds:
-    number[];
+  playerIds: number[];
 };
 
 /* =========================================================
@@ -182,28 +176,9 @@ function shuffleArray<T>(
   return result;
 }
 
-function uniqueStrings(
-  values: string[],
-) {
-  return Array.from(
-    new Set(
-      values
-        .map(
-          normalizeValue,
-        )
-        .filter(
-          Boolean,
-        ),
-    ),
-  );
-}
-
 function makeTypedKey(
-  first:
-    TicTacToeAxisItem,
-
-  second:
-    TicTacToeAxisItem,
+  first: TicTacToeAxisItem,
+  second: TicTacToeAxisItem,
 ) {
   return [
     `${first.type}:${first.value}`,
@@ -240,33 +215,51 @@ function makeClubPairKey(
   );
 }
 
-function getCellKey(
-  row:
-    TicTacToeAxisItem,
-
-  column:
-    TicTacToeAxisItem,
+function intersectSets(
+  first: Set<string>,
+  second: Set<string>,
 ) {
-  if (
-    row.type ===
-      "club" &&
-    column.type ===
-      "club"
+  const result =
+    new Set<string>();
+
+  /*
+   * Küçük set üzerinden dönelim.
+   */
+  const [
+    smaller,
+    larger,
+  ] =
+    first.size <=
+    second.size
+      ? [
+          first,
+          second,
+        ]
+      : [
+          second,
+          first,
+        ];
+
+  for (
+    const value
+    of smaller
   ) {
-    return makeClubPairKey(
-      row.value,
-      column.value,
-    );
+    if (
+      larger.has(
+        value,
+      )
+    ) {
+      result.add(
+        value,
+      );
+    }
   }
 
-  return makeTypedKey(
-    row,
-    column,
-  );
+  return result;
 }
 
 /* =========================================================
-   LOAD ELIGIBLE PLAYERS
+   LOAD PLAYERS
 ========================================================= */
 
 async function loadEligiblePlayers() {
@@ -358,7 +351,7 @@ async function loadEligiblePlayers() {
 }
 
 /* =========================================================
-   LOAD ELIGIBLE TEAMS
+   LOAD TEAMS
 ========================================================= */
 
 async function loadEligibleTeams() {
@@ -431,12 +424,11 @@ async function loadEligibleTeams() {
 }
 
 /* =========================================================
-   LOAD PLAYER CLUBS
+   LOAD CLUB HISTORY
 ========================================================= */
 
 async function loadPlayerClubs(
-  playerIds:
-    number[],
+  playerIds: number[],
 ) {
   const rows:
     ClubRow[] =
@@ -499,7 +491,7 @@ async function loadPlayerClubs(
 }
 
 /* =========================================================
-   BUILD PLAYER PROFILES
+   PLAYER PROFILES
 ========================================================= */
 
 async function buildPlayerProfiles() {
@@ -537,21 +529,6 @@ async function buildPlayerProfiles() {
     await loadPlayerClubs(
       playerIds,
     );
-
-  console.log(
-    "TTT debug - eligible team count:",
-    eligibleTeams.size,
-  );
-
-  console.log(
-    "TTT debug - eligible player count:",
-    playerRows.length,
-  );
-
-  console.log(
-    "TTT debug - player club row count:",
-    clubRows.length,
-  );
 
   const profileMap =
     new Map<
@@ -640,7 +617,7 @@ async function buildPlayerProfiles() {
     );
   }
 
-  const playableProfiles =
+  const profiles =
     Array.from(
       profileMap.values(),
     ).filter(
@@ -652,69 +629,29 @@ async function buildPlayerProfiles() {
     );
 
   console.log(
-    "TTT debug - profiles with eligible clubs:",
-    playableProfiles.length,
+    "TTT profiles:",
+    profiles.length,
   );
 
   console.log(
-    "TTT debug - sample eligible teams:",
-    Array.from(
-      eligibleTeams.keys(),
-    ).slice(
-      0,
-      20,
-    ),
-  );
-
-  console.log(
-    "TTT debug - sample player clubs:",
-    clubRows
-      .map(
-        (
-          row,
-        ) =>
-          normalizeValue(
-            row.club_name,
-          ),
-      )
-      .filter(
-        Boolean,
-      )
-      .slice(
-        0,
-        20,
-      ),
+    "TTT eligible teams:",
+    eligibleTeams.size,
   );
 
   return {
-    profiles:
-      playableProfiles,
-
+    profiles,
     eligibleTeams,
   };
 }
 
 /* =========================================================
-   BUILD PAIR MAP
-
-   Burada üç farklı kesişim havuzu hazırlanıyor:
-
-   club + nationality
-   nationality + club
-   club + club
+   PAIR MAPS
 ========================================================= */
 
 function buildPairMaps(
-  profiles:
-    PlayerProfile[],
+  profiles: PlayerProfile[],
 ) {
   const clubNationMap =
-    new Map<
-      string,
-      PairEntry
-    >();
-
-  const nationClubMap =
     new Map<
       string,
       PairEntry
@@ -726,15 +663,14 @@ function buildPairMaps(
       PairEntry
     >();
 
-  function addPlayerToPair(
+  function addPlayer(
     map:
       Map<
         string,
         PairEntry
       >,
 
-    key:
-      string,
+    key: string,
 
     left:
       TicTacToeAxisItem,
@@ -742,8 +678,7 @@ function buildPairMaps(
     right:
       TicTacToeAxisItem,
 
-    playerId:
-      number,
+    playerId: number,
   ) {
     const existing =
       map.get(
@@ -770,9 +705,7 @@ function buildPairMaps(
       key,
       {
         key,
-
         left,
-
         right,
 
         playerIds:
@@ -792,9 +725,7 @@ function buildPairMaps(
         profile.clubs,
       );
 
-    /* =====================================================
-       CLUB + NATION
-    ===================================================== */
+    /* CLUB + NATIONALITY */
 
     if (
       profile.nationality
@@ -823,39 +754,23 @@ function buildPairMaps(
               profile.nationality,
           };
 
-        const clubNationKey =
+        const key =
           makeTypedKey(
             clubAxis,
             nationalityAxis,
           );
 
-        addPlayerToPair(
+        addPlayer(
           clubNationMap,
-          clubNationKey,
+          key,
           clubAxis,
           nationalityAxis,
-          profile.playerId,
-        );
-
-        const nationClubKey =
-          makeTypedKey(
-            nationalityAxis,
-            clubAxis,
-          );
-
-        addPlayerToPair(
-          nationClubMap,
-          nationClubKey,
-          nationalityAxis,
-          clubAxis,
           profile.playerId,
         );
       }
     }
 
-    /* =====================================================
-       CLUB + CLUB
-    ===================================================== */
+    /* CLUB + CLUB */
 
     if (
       clubs.length <
@@ -899,7 +814,7 @@ function buildPairMaps(
           continue;
         }
 
-        const sortedClubs =
+        const sorted =
           [
             firstClub,
             secondClub,
@@ -921,7 +836,7 @@ function buildPairMaps(
               "club",
 
             value:
-              sortedClubs[
+              sorted[
                 0
               ],
           };
@@ -933,18 +848,18 @@ function buildPairMaps(
               "club",
 
             value:
-              sortedClubs[
+              sorted[
                 1
               ],
           };
 
         const key =
           makeClubPairKey(
-            left.value,
-            right.value,
+            firstClub,
+            secondClub,
           );
 
-        addPlayerToPair(
+        addPlayer(
           clubClubMap,
           key,
           left,
@@ -957,7 +872,6 @@ function buildPairMaps(
 
   return {
     clubNationMap,
-    nationClubMap,
     clubClubMap,
   };
 }
@@ -985,128 +899,13 @@ function getValidPairs(
 }
 
 /* =========================================================
-   BUILD GRID CELLS
-========================================================= */
-
-function buildCells(
-  rows:
-    TicTacToeAxisItem[],
-
-  columns:
-    TicTacToeAxisItem[],
-
-  pairMap:
-    Map<
-      string,
-      PairEntry
-    >,
-) {
-  const cells:
-    TicTacToeCell[] =
-    [];
-
-  for (
-    let rowIndex =
-      0;
-    rowIndex <
-    rows.length;
-    rowIndex +=
-      1
-  ) {
-    for (
-      let columnIndex =
-        0;
-      columnIndex <
-      columns.length;
-      columnIndex +=
-        1
-    ) {
-      const row =
-        rows[
-          rowIndex
-        ];
-
-      const column =
-        columns[
-          columnIndex
-        ];
-
-      /*
-       * Takım kendisiyle
-       * kesişemez.
-       */
-      if (
-        row.type ===
-          "club" &&
-        column.type ===
-          "club" &&
-        row.value ===
-          column.value
-      ) {
-        return null;
-      }
-
-      const key =
-        getCellKey(
-          row,
-          column,
-        );
-
-      const pair =
-        pairMap.get(
-          key,
-        );
-
-      if (
-        !pair ||
-        pair.playerIds.length <
-          TIC_TAC_TOE_MINIMUM_CELL_PLAYERS
-      ) {
-        return null;
-      }
-
-      cells.push({
-        rowIndex,
-        columnIndex,
-
-        row,
-        column,
-
-        validPlayerIds:
-          [
-            ...pair.playerIds,
-          ],
-
-        validPlayerCount:
-          pair.playerIds.length,
-      });
-    }
-  }
-
-  return cells;
-}
-
-/* =========================================================
-   GRID QUALITY
-
-   Çok az cevabı olan hücreler
-   grid kalitesini düşürüyor.
-
-   Ama 50 cevabı olan hücreyi de
-   sonsuz yüksek saymıyoruz.
+   QUALITY
 ========================================================= */
 
 function calculateGridQuality(
   cells:
     TicTacToeCell[],
 ) {
-  if (
-    cells.length ===
-    0
-  ) {
-    return 0;
-  }
-
   let score =
     0;
 
@@ -1117,24 +916,34 @@ function calculateGridQuality(
     const count =
       cell.validPlayerCount;
 
+    /*
+     * Tek cevabı olan hücre
+     * oynanabilir ama kalite düşük.
+     */
     if (
+      count ===
+      1
+    ) {
+      score +=
+        1;
+    } else if (
       count ===
       2
     ) {
       score +=
-        2;
+        3;
     } else if (
       count <=
       4
     ) {
       score +=
-        5;
+        6;
     } else if (
       count <=
       8
     ) {
       score +=
-        8;
+        9;
     } else if (
       count <=
       15
@@ -1143,7 +952,7 @@ function calculateGridQuality(
         10;
     } else {
       score +=
-        8;
+        9;
     }
   }
 
@@ -1151,7 +960,66 @@ function calculateGridQuality(
 }
 
 /* =========================================================
-   TRY CLUB x NATION
+   BUILD CLUB-NATION ADJACENCY
+
+   club => hangi milliyetlerle geçerli?
+========================================================= */
+
+function buildClubNationAdjacency(
+  clubNationMap:
+    Map<
+      string,
+      PairEntry
+    >,
+) {
+  const adjacency =
+    new Map<
+      string,
+      Set<string>
+    >();
+
+  for (
+    const pair
+    of getValidPairs(
+      clubNationMap,
+    )
+  ) {
+    const club =
+      pair.left.value;
+
+    const nationality =
+      pair.right.value;
+
+    if (
+      !adjacency.has(
+        club,
+      )
+    ) {
+      adjacency.set(
+        club,
+        new Set<string>(),
+      );
+    }
+
+    adjacency
+      .get(
+        club,
+      )!
+      .add(
+        nationality,
+      );
+  }
+
+  return adjacency;
+}
+
+/* =========================================================
+   SMART CLUB x NATION GRID
+
+   3 takım seçiyoruz.
+   Bu üç takımın ORTAK milliyetlerini buluyoruz.
+
+   Böylece 9 hücrenin tamamı garanti.
 ========================================================= */
 
 function tryBuildClubNationGrid(
@@ -1160,212 +1028,527 @@ function tryBuildClubNationGrid(
       string,
       PairEntry
     >,
-) {
-  const validPairs =
-    getValidPairs(
+):
+  TicTacToeGrid |
+  null {
+  const adjacency =
+    buildClubNationAdjacency(
       clubNationMap,
     );
 
   const clubs =
-    uniqueStrings(
-      validPairs.map(
+    Array.from(
+      adjacency.keys(),
+    )
+      .filter(
         (
-          pair,
+          club,
         ) =>
-          pair.left.value,
-      ),
-    );
-
-  const nationalities =
-    uniqueStrings(
-      validPairs.map(
+          (
+            adjacency.get(
+              club,
+            )?.size ??
+            0
+          ) >=
+          GRID_SIZE,
+      )
+      .sort(
         (
-          pair,
+          first,
+          second,
         ) =>
-          pair.right.value,
-      ),
-    );
+          (
+            adjacency.get(
+              second,
+            )?.size ??
+            0
+          ) -
+          (
+            adjacency.get(
+              first,
+            )?.size ??
+            0
+          ),
+      );
 
   if (
     clubs.length <
-      GRID_SIZE ||
-    nationalities.length <
-      GRID_SIZE
+    GRID_SIZE
   ) {
     return null;
   }
 
   /*
-   * Random denemeler.
+   * Biraz çeşitlilik için başlangıç
+   * sırasını karıştırıyoruz ama artık
+   * kör random grid kurmuyoruz.
    */
+  const searchClubs =
+    shuffleArray(
+      clubs.slice(
+        0,
+        MAX_CLUB_SEARCH_POOL,
+      ),
+    );
+
+  let bestGrid:
+    TicTacToeGrid |
+    null =
+    null;
+
   for (
-    let attempt =
+    let firstIndex =
       0;
-    attempt <
-    250;
-    attempt +=
+    firstIndex <
+    searchClubs.length -
+      2;
+    firstIndex +=
       1
   ) {
-    const selectedClubs =
-      shuffleArray(
-        clubs,
-      ).slice(
-        0,
-        GRID_SIZE,
+    const firstClub =
+      searchClubs[
+        firstIndex
+      ];
+
+    const firstNations =
+      adjacency.get(
+        firstClub,
       );
-
-    const selectedNationalities =
-      shuffleArray(
-        nationalities,
-      ).slice(
-        0,
-        GRID_SIZE,
-      );
-
-    const rows:
-      TicTacToeAxisItem[] =
-      selectedNationalities.map(
-        (
-          nationality,
-        ) => ({
-          type:
-            "nationality",
-
-          value:
-            nationality,
-        }),
-      );
-
-    const columns:
-      TicTacToeAxisItem[] =
-      selectedClubs.map(
-        (
-          club,
-        ) => ({
-          type:
-            "club",
-
-          value:
-            club,
-        }),
-      );
-
-    /*
-     * pair map club -> nation şeklinde.
-     *
-     * Grid ise row nation,
-     * column club.
-     *
-     * O yüzden key'i ters
-     * oluşturuyoruz.
-     */
-    const cells:
-      TicTacToeCell[] =
-      [];
-
-    let valid =
-      true;
-
-    for (
-      let rowIndex =
-        0;
-      rowIndex <
-      GRID_SIZE;
-      rowIndex +=
-        1
-    ) {
-      for (
-        let columnIndex =
-          0;
-        columnIndex <
-        GRID_SIZE;
-        columnIndex +=
-          1
-      ) {
-        const row =
-          rows[
-            rowIndex
-          ];
-
-        const column =
-          columns[
-            columnIndex
-          ];
-
-        const key =
-          makeTypedKey(
-            column,
-            row,
-          );
-
-        const pair =
-          clubNationMap.get(
-            key,
-          );
-
-        if (
-          !pair ||
-          pair.playerIds.length <
-            TIC_TAC_TOE_MINIMUM_CELL_PLAYERS
-        ) {
-          valid =
-            false;
-
-          break;
-        }
-
-        cells.push({
-          rowIndex,
-          columnIndex,
-
-          row,
-          column,
-
-          validPlayerIds:
-            [
-              ...pair.playerIds,
-            ],
-
-          validPlayerCount:
-            pair.playerIds.length,
-        });
-      }
-
-      if (
-        !valid
-      ) {
-        break;
-      }
-    }
 
     if (
-      !valid ||
-      cells.length !==
-        9
+      !firstNations
     ) {
       continue;
     }
 
-    return {
-      mode:
-        "nation_club" as const,
+    for (
+      let secondIndex =
+        firstIndex +
+        1;
+      secondIndex <
+      searchClubs.length -
+        1;
+      secondIndex +=
+        1
+    ) {
+      const secondClub =
+        searchClubs[
+          secondIndex
+        ];
 
-      rows,
-      columns,
-      cells,
+      const secondNations =
+        adjacency.get(
+          secondClub,
+        );
 
-      qualityScore:
-        calculateGridQuality(
-          cells,
-        ),
-    };
+      if (
+        !secondNations
+      ) {
+        continue;
+      }
+
+      const firstTwoCommon =
+        intersectSets(
+          firstNations,
+          secondNations,
+        );
+
+      if (
+        firstTwoCommon.size <
+        GRID_SIZE
+      ) {
+        continue;
+      }
+
+      for (
+        let thirdIndex =
+          secondIndex +
+          1;
+        thirdIndex <
+        searchClubs.length;
+        thirdIndex +=
+          1
+      ) {
+        const thirdClub =
+          searchClubs[
+            thirdIndex
+          ];
+
+        const thirdNations =
+          adjacency.get(
+            thirdClub,
+          );
+
+        if (
+          !thirdNations
+        ) {
+          continue;
+        }
+
+        const commonNations =
+          intersectSets(
+            firstTwoCommon,
+            thirdNations,
+          );
+
+        if (
+          commonNations.size <
+          GRID_SIZE
+        ) {
+          continue;
+        }
+
+        const selectedClubs =
+          [
+            firstClub,
+            secondClub,
+            thirdClub,
+          ];
+
+        /*
+         * Milliyetleri hücrelerdeki cevap
+         * sayısına göre skorlayalım.
+         */
+        const nationalityScores =
+          Array.from(
+            commonNations,
+          )
+            .map(
+              (
+                nationality,
+              ) => {
+                let score =
+                  0;
+
+                for (
+                  const club
+                  of selectedClubs
+                ) {
+                  const pair =
+                    clubNationMap.get(
+                      makeTypedKey(
+                        {
+                          type:
+                            "club",
+
+                          value:
+                            club,
+                        },
+                        {
+                          type:
+                            "nationality",
+
+                          value:
+                            nationality,
+                        },
+                      ),
+                    );
+
+                  score +=
+                    pair?.playerIds.length ??
+                    0;
+                }
+
+                return {
+                  nationality,
+                  score,
+                };
+              },
+            )
+            .sort(
+              (
+                first,
+                second,
+              ) =>
+                second.score -
+                first.score,
+            );
+
+        /*
+         * Hep en kolay 3 milliyet çıkmasın.
+         * İlk 6 kaliteli seçenekten 3 seç.
+         */
+        const selectedNationalities =
+          shuffleArray(
+            nationalityScores
+              .slice(
+                0,
+                6,
+              )
+              .map(
+                (
+                  item,
+                ) =>
+                  item.nationality,
+              ),
+          ).slice(
+            0,
+            GRID_SIZE,
+          );
+
+        if (
+          selectedNationalities.length !==
+          GRID_SIZE
+        ) {
+          continue;
+        }
+
+        const rows:
+          TicTacToeAxisItem[] =
+          selectedNationalities.map(
+            (
+              nationality,
+            ) => ({
+              type:
+                "nationality",
+
+              value:
+                nationality,
+            }),
+          );
+
+        const columns:
+          TicTacToeAxisItem[] =
+          selectedClubs.map(
+            (
+              club,
+            ) => ({
+              type:
+                "club",
+
+              value:
+                club,
+            }),
+          );
+
+        const cells:
+          TicTacToeCell[] =
+          [];
+
+        let valid =
+          true;
+
+        for (
+          let rowIndex =
+            0;
+          rowIndex <
+          GRID_SIZE;
+          rowIndex +=
+            1
+        ) {
+          for (
+            let columnIndex =
+              0;
+            columnIndex <
+            GRID_SIZE;
+            columnIndex +=
+              1
+          ) {
+            const nationality =
+              rows[
+                rowIndex
+              ].value;
+
+            const club =
+              columns[
+                columnIndex
+              ].value;
+
+            const pair =
+              clubNationMap.get(
+                makeTypedKey(
+                  {
+                    type:
+                      "club",
+
+                    value:
+                      club,
+                  },
+                  {
+                    type:
+                      "nationality",
+
+                    value:
+                      nationality,
+                  },
+                ),
+              );
+
+            if (
+              !pair ||
+              pair.playerIds.length <
+                TIC_TAC_TOE_MINIMUM_CELL_PLAYERS
+            ) {
+              valid =
+                false;
+
+              break;
+            }
+
+            cells.push({
+              rowIndex,
+              columnIndex,
+
+              row:
+                rows[
+                  rowIndex
+                ],
+
+              column:
+                columns[
+                  columnIndex
+                ],
+
+              validPlayerIds:
+                [
+                  ...pair.playerIds,
+                ],
+
+              validPlayerCount:
+                pair.playerIds.length,
+            });
+          }
+
+          if (
+            !valid
+          ) {
+            break;
+          }
+        }
+
+        if (
+          !valid ||
+          cells.length !==
+            9
+        ) {
+          continue;
+        }
+
+        const grid:
+          TicTacToeGrid =
+          {
+            mode:
+              "nation_club",
+
+            rows,
+            columns,
+            cells,
+
+            qualityScore:
+              calculateGridQuality(
+                cells,
+              ),
+          };
+
+        if (
+          !bestGrid ||
+          grid.qualityScore >
+            bestGrid.qualityScore
+        ) {
+          bestGrid =
+            grid;
+        }
+
+        /*
+         * Kalite yeterince iyiyse
+         * daha fazla aramaya gerek yok.
+         */
+        if (
+          grid.qualityScore >=
+          55
+        ) {
+          return grid;
+        }
+      }
+    }
   }
 
-  return null;
+  return bestGrid;
 }
 
 /* =========================================================
-   TRY CLUB x CLUB
+   CLUB x CLUB ADJACENCY
+
+   club => hangi takımlarla ortak oyuncusu var?
+========================================================= */
+
+function buildClubClubAdjacency(
+  clubClubMap:
+    Map<
+      string,
+      PairEntry
+    >,
+) {
+  const adjacency =
+    new Map<
+      string,
+      Set<string>
+    >();
+
+  for (
+    const pair
+    of getValidPairs(
+      clubClubMap,
+    )
+  ) {
+    const firstClub =
+      pair.left.value;
+
+    const secondClub =
+      pair.right.value;
+
+    if (
+      !adjacency.has(
+        firstClub,
+      )
+    ) {
+      adjacency.set(
+        firstClub,
+        new Set<string>(),
+      );
+    }
+
+    if (
+      !adjacency.has(
+        secondClub,
+      )
+    ) {
+      adjacency.set(
+        secondClub,
+        new Set<string>(),
+      );
+    }
+
+    adjacency
+      .get(
+        firstClub,
+      )!
+      .add(
+        secondClub,
+      );
+
+    adjacency
+      .get(
+        secondClub,
+      )!
+      .add(
+        firstClub,
+      );
+  }
+
+  return adjacency;
+}
+
+/* =========================================================
+   SMART CLUB x CLUB GRID
+
+   Aradığımız yapı aslında K3,3.
+
+   3 satır takımı seçilir.
+   Bu üçünün ortak komşuları bulunur.
+   Ortak komşulardan 3 sütun takımı seçilir.
+
+   Böylece 9 hücre garanti eşleşir.
 ========================================================= */
 
 function tryBuildClubClubGrid(
@@ -1374,23 +1557,52 @@ function tryBuildClubClubGrid(
       string,
       PairEntry
     >,
-) {
-  const validPairs =
-    getValidPairs(
+):
+  TicTacToeGrid |
+  null {
+  const adjacency =
+    buildClubClubAdjacency(
       clubClubMap,
     );
 
   const clubs =
-    uniqueStrings(
-      validPairs.flatMap(
+    Array.from(
+      adjacency.keys(),
+    )
+      .filter(
         (
-          pair,
-        ) => [
-          pair.left.value,
-          pair.right.value,
-        ],
-      ),
-    );
+          club,
+        ) =>
+          (
+            adjacency.get(
+              club,
+            )?.size ??
+            0
+          ) >=
+          GRID_SIZE,
+      )
+      .sort(
+        (
+          first,
+          second,
+        ) =>
+          (
+            adjacency.get(
+              second,
+            )?.size ??
+            0
+          ) -
+          (
+            adjacency.get(
+              first,
+            )?.size ??
+            0
+          ),
+      )
+      .slice(
+        0,
+        MAX_CLUB_SEARCH_POOL,
+      );
 
   if (
     clubs.length <
@@ -1400,108 +1612,374 @@ function tryBuildClubClubGrid(
     return null;
   }
 
+  const searchClubs =
+    shuffleArray(
+      clubs,
+    );
+
+  let bestGrid:
+    TicTacToeGrid |
+    null =
+    null;
+
   for (
-    let attempt =
+    let firstIndex =
       0;
-    attempt <
-    400;
-    attempt +=
+    firstIndex <
+    searchClubs.length -
+      2;
+    firstIndex +=
       1
   ) {
-    const shuffled =
-      shuffleArray(
-        clubs,
+    const firstClub =
+      searchClubs[
+        firstIndex
+      ];
+
+    const firstNeighbors =
+      adjacency.get(
+        firstClub,
       );
 
-    const rowClubs =
-      shuffled.slice(
-        0,
-        GRID_SIZE,
-      );
-
-    const columnClubs =
-      shuffled.slice(
-        GRID_SIZE,
-        GRID_SIZE *
-          2,
-      );
-
-    /*
-     * Aynı takım iki eksende
-     * görünmesin.
-     */
     if (
-      rowClubs.some(
-        (
-          club,
-        ) =>
-          columnClubs.includes(
-            club,
-          ),
-      )
+      !firstNeighbors
     ) {
       continue;
     }
 
-    const rows:
-      TicTacToeAxisItem[] =
-      rowClubs.map(
-        (
-          club,
-        ) => ({
-          type:
-            "club",
-
-          value:
-            club,
-        }),
-      );
-
-    const columns:
-      TicTacToeAxisItem[] =
-      columnClubs.map(
-        (
-          club,
-        ) => ({
-          type:
-            "club",
-
-          value:
-            club,
-        }),
-      );
-
-    const cells =
-      buildCells(
-        rows,
-        columns,
-        clubClubMap,
-      );
-
-    if (
-      !cells ||
-      cells.length !==
-        9
+    for (
+      let secondIndex =
+        firstIndex +
+        1;
+      secondIndex <
+      searchClubs.length -
+        1;
+      secondIndex +=
+        1
     ) {
-      continue;
+      const secondClub =
+        searchClubs[
+          secondIndex
+        ];
+
+      const secondNeighbors =
+        adjacency.get(
+          secondClub,
+        );
+
+      if (
+        !secondNeighbors
+      ) {
+        continue;
+      }
+
+      const firstTwoCommon =
+        intersectSets(
+          firstNeighbors,
+          secondNeighbors,
+        );
+
+      /*
+       * Satır takımlarını sütun olarak
+       * kullanmayacağımız için biraz pay.
+       */
+      if (
+        firstTwoCommon.size <
+        GRID_SIZE
+      ) {
+        continue;
+      }
+
+      for (
+        let thirdIndex =
+          secondIndex +
+          1;
+        thirdIndex <
+        searchClubs.length;
+        thirdIndex +=
+          1
+      ) {
+        const thirdClub =
+          searchClubs[
+            thirdIndex
+          ];
+
+        const thirdNeighbors =
+          adjacency.get(
+            thirdClub,
+          );
+
+        if (
+          !thirdNeighbors
+        ) {
+          continue;
+        }
+
+        const commonNeighbors =
+          intersectSets(
+            firstTwoCommon,
+            thirdNeighbors,
+          );
+
+        /*
+         * Aynı takımlar hem satırda
+         * hem sütunda olmayacak.
+         */
+        commonNeighbors.delete(
+          firstClub,
+        );
+
+        commonNeighbors.delete(
+          secondClub,
+        );
+
+        commonNeighbors.delete(
+          thirdClub,
+        );
+
+        if (
+          commonNeighbors.size <
+          GRID_SIZE
+        ) {
+          continue;
+        }
+
+        const rowClubs =
+          [
+            firstClub,
+            secondClub,
+            thirdClub,
+          ];
+
+        /*
+         * Sütun takımlarını cevap sayısına
+         * göre kalite puanla.
+         */
+        const columnScores =
+          Array.from(
+            commonNeighbors,
+          )
+            .map(
+              (
+                columnClub,
+              ) => {
+                let score =
+                  0;
+
+                for (
+                  const rowClub
+                  of rowClubs
+                ) {
+                  const pair =
+                    clubClubMap.get(
+                      makeClubPairKey(
+                        rowClub,
+                        columnClub,
+                      ),
+                    );
+
+                  score +=
+                    pair?.playerIds.length ??
+                    0;
+                }
+
+                return {
+                  club:
+                    columnClub,
+
+                  score,
+                };
+              },
+            )
+            .sort(
+              (
+                first,
+                second,
+              ) =>
+                second.score -
+                first.score,
+            );
+
+        const columnClubs =
+          shuffleArray(
+            columnScores
+              .slice(
+                0,
+                7,
+              )
+              .map(
+                (
+                  item,
+                ) =>
+                  item.club,
+              ),
+          ).slice(
+            0,
+            GRID_SIZE,
+          );
+
+        if (
+          columnClubs.length !==
+          GRID_SIZE
+        ) {
+          continue;
+        }
+
+        const rows:
+          TicTacToeAxisItem[] =
+          rowClubs.map(
+            (
+              club,
+            ) => ({
+              type:
+                "club",
+
+              value:
+                club,
+            }),
+          );
+
+        const columns:
+          TicTacToeAxisItem[] =
+          columnClubs.map(
+            (
+              club,
+            ) => ({
+              type:
+                "club",
+
+              value:
+                club,
+            }),
+          );
+
+        const cells:
+          TicTacToeCell[] =
+          [];
+
+        let valid =
+          true;
+
+        for (
+          let rowIndex =
+            0;
+          rowIndex <
+          GRID_SIZE;
+          rowIndex +=
+            1
+        ) {
+          for (
+            let columnIndex =
+              0;
+            columnIndex <
+            GRID_SIZE;
+            columnIndex +=
+              1
+          ) {
+            const rowClub =
+              rows[
+                rowIndex
+              ].value;
+
+            const columnClub =
+              columns[
+                columnIndex
+              ].value;
+
+            const pair =
+              clubClubMap.get(
+                makeClubPairKey(
+                  rowClub,
+                  columnClub,
+                ),
+              );
+
+            if (
+              !pair ||
+              pair.playerIds.length <
+                TIC_TAC_TOE_MINIMUM_CELL_PLAYERS
+            ) {
+              valid =
+                false;
+
+              break;
+            }
+
+            cells.push({
+              rowIndex,
+              columnIndex,
+
+              row:
+                rows[
+                  rowIndex
+                ],
+
+              column:
+                columns[
+                  columnIndex
+                ],
+
+              validPlayerIds:
+                [
+                  ...pair.playerIds,
+                ],
+
+              validPlayerCount:
+                pair.playerIds.length,
+            });
+          }
+
+          if (
+            !valid
+          ) {
+            break;
+          }
+        }
+
+        if (
+          !valid ||
+          cells.length !==
+            9
+        ) {
+          continue;
+        }
+
+        const grid:
+          TicTacToeGrid =
+          {
+            mode:
+              "club_club",
+
+            rows,
+            columns,
+            cells,
+
+            qualityScore:
+              calculateGridQuality(
+                cells,
+              ),
+          };
+
+        if (
+          !bestGrid ||
+          grid.qualityScore >
+            bestGrid.qualityScore
+        ) {
+          bestGrid =
+            grid;
+        }
+
+        if (
+          grid.qualityScore >=
+          55
+        ) {
+          return grid;
+        }
+      }
     }
-
-    return {
-      mode:
-        "club_club" as const,
-
-      rows,
-      columns,
-      cells,
-
-      qualityScore:
-        calculateGridQuality(
-          cells,
-        ),
-    };
   }
 
-  return null;
+  return bestGrid;
 }
 
 /* =========================================================
@@ -1533,30 +2011,18 @@ export async function generateTicTacToeGrid():
     );
 
   console.log(
-    "TTT debug - profile count:",
-    profiles.length,
-  );
-
-  console.log(
-    "TTT debug - clubNation pair count:",
+    "TTT clubNation pairs:",
     clubNationMap.size,
   );
 
   console.log(
-    "TTT debug - clubClub pair count:",
+    "TTT clubClub pairs:",
     clubClubMap.size,
   );
 
-  /*
-   * İki türü de üretmeye
-   * çalışıyoruz.
-   *
-   * Sonra kalite puanı
-   * daha yüksek olanı seçiyoruz.
-   */
-  const candidates:
-    TicTacToeGrid[] =
-    [];
+  /* =====================================================
+     İKİ GRID TÜRÜNÜ DE DENE
+  ===================================================== */
 
   const clubNationGrid =
     tryBuildClubNationGrid(
@@ -1564,41 +2030,30 @@ export async function generateTicTacToeGrid():
     );
 
   console.log(
-    "TTT debug - clubNation grid:",
+    "TTT clubNation grid:",
     clubNationGrid
       ? {
-          mode:
-            clubNationGrid.mode,
-
-          qualityScore:
+          quality:
             clubNationGrid.qualityScore,
 
           rows:
             clubNationGrid.rows.map(
               (
-                row,
+                item,
               ) =>
-                row.value,
+                item.value,
             ),
 
           columns:
             clubNationGrid.columns.map(
               (
-                column,
+                item,
               ) =>
-                column.value,
+                item.value,
             ),
         }
       : null,
   );
-
-  if (
-    clubNationGrid
-  ) {
-    candidates.push(
-      clubNationGrid,
-    );
-  }
 
   const clubClubGrid =
     tryBuildClubClubGrid(
@@ -1606,121 +2061,66 @@ export async function generateTicTacToeGrid():
     );
 
   console.log(
-    "TTT debug - clubClub grid:",
+    "TTT clubClub grid:",
     clubClubGrid
       ? {
-          mode:
-            clubClubGrid.mode,
-
-          qualityScore:
+          quality:
             clubClubGrid.qualityScore,
 
           rows:
             clubClubGrid.rows.map(
               (
-                row,
+                item,
               ) =>
-                row.value,
+                item.value,
             ),
 
           columns:
             clubClubGrid.columns.map(
               (
-                column,
+                item,
               ) =>
-                column.value,
+                item.value,
             ),
         }
       : null,
   );
 
-  if (
-    clubClubGrid
-  ) {
-    candidates.push(
+  const candidates =
+    [
+      clubNationGrid,
       clubClubGrid,
+    ].filter(
+      (
+        grid,
+      ):
+        grid is TicTacToeGrid =>
+        Boolean(
+          grid,
+        ),
     );
-  }
 
   if (
     candidates.length ===
     0
   ) {
-    const validClubNationPairs =
-      getValidPairs(
-        clubNationMap,
-      );
-
-    const validClubClubPairs =
-      getValidPairs(
-        clubClubMap,
-      );
-
-    console.log(
-      "TTT debug - valid clubNation pair count:",
-      validClubNationPairs.length,
-    );
-
-    console.log(
-      "TTT debug - valid clubClub pair count:",
-      validClubClubPairs.length,
-    );
-
-    console.log(
-      "TTT debug - sample valid clubNation pairs:",
-      validClubNationPairs
-        .slice(
-          0,
-          20,
-        )
-        .map(
-          (
-            pair,
-          ) => ({
-            left:
-              pair.left.value,
-
-            right:
-              pair.right.value,
-
-            playerCount:
-              pair.playerIds.length,
-          }),
-        ),
-    );
-
-    console.log(
-      "TTT debug - sample valid clubClub pairs:",
-      validClubClubPairs
-        .slice(
-          0,
-          20,
-        )
-        .map(
-          (
-            pair,
-          ) => ({
-            left:
-              pair.left.value,
-
-            right:
-              pair.right.value,
-
-            playerCount:
-              pair.playerIds.length,
-          }),
-        ),
-    );
-
     throw new Error(
       "TicTacToe için çözülebilir 3x3 grid üretilemedi.",
     );
   }
 
+  if (
+    candidates.length ===
+    1
+  ) {
+    return candidates[
+      0
+    ];
+  }
+
   /*
-   * Sadece hep aynı tip
-   * çıkmasın diye en iyi iki
-   * grid arasında hafif random.
+   * Kaliteli olanı daha sık seç.
+   * Ama tek tip grid çıkmasın.
    */
   const sorted =
     candidates.sort(
@@ -1732,33 +2132,30 @@ export async function generateTicTacToeGrid():
         first.qualityScore,
     );
 
-  if (
-    sorted.length ===
-    1
-  ) {
-    return sorted[0];
-  }
-
   const best =
-    sorted[0];
+    sorted[
+      0
+    ];
 
   const second =
-    sorted[1];
+    sorted[
+      1
+    ];
 
   /*
-   * Kalite farkı çok büyükse
-   * net şekilde iyiyi kullan.
+   * Arada kalite uçurumu varsa
+   * kötü olanı kullanma.
    */
   if (
     best.qualityScore -
       second.qualityScore >=
-    15
+    20
   ) {
     return best;
   }
 
   return Math.random() <
-    0.6
+    0.65
     ? best
     : second;
 }
