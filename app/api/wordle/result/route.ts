@@ -43,6 +43,10 @@ export async function POST(
   try {
     /* =====================================================
        1. AUTH
+
+       Misafir kullanıcıyı burada durdurmuyoruz.
+       Önce session ve doğru oyuncu okunacak; böylece
+       kaybeden misafir de doğru cevabı görebilecek.
     ===================================================== */
 
     const authClient =
@@ -53,23 +57,6 @@ export async function POST(
       error: userError,
     } =
       await authClient.auth.getUser();
-
-    if (
-      userError ||
-      !user
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-
-          error:
-            "Sonucu kaydetmek için giriş yapmalısın.",
-        },
-        {
-          status: 401,
-        },
-      );
-    }
 
     /* =====================================================
        2. BODY
@@ -218,7 +205,31 @@ export async function POST(
       null;
 
     /* =====================================================
-       5. ZATEN KAYDEDİLDİ
+       5. MISAFIR KULLANICI
+
+       Puan/istatistik kaydı için giriş gerekli; ancak doğru
+       cevap gizlenmemeli. Frontend 401 cevabındaki
+       answerPlayerName alanını okuyup sonuç kartında gösterir.
+    ===================================================== */
+
+    if (userError || !user) {
+      return NextResponse.json(
+        {
+          ok: false,
+
+          error:
+            "Puanını kaydetmek için giriş yapmalısın.",
+
+          answerPlayerName,
+        },
+        {
+          status: 401,
+        },
+      );
+    }
+
+    /* =====================================================
+       6. ZATEN KAYDEDİLDİ
     ===================================================== */
 
     if (
@@ -246,7 +257,7 @@ export async function POST(
     }
 
     /* =====================================================
-       6. TAHMİNLERİ DOĞRULA
+       7. TAHMİNLERİ DOĞRULA
     ===================================================== */
 
     const answer =
@@ -319,7 +330,7 @@ export async function POST(
     }
 
     /* =====================================================
-       7. SCORE
+       8. SCORE
     ===================================================== */
 
     const score =
@@ -347,7 +358,7 @@ export async function POST(
       new Date().toISOString();
 
     /* =====================================================
-       8. SESSION'I TAMAMLA
+       9. SESSION'I TAMAMLA
 
        result_applied=false kontrolü aynı session'ın
        iki kere puan yazmasını engeller.
@@ -435,7 +446,7 @@ export async function POST(
     }
 
     /* =====================================================
-       9. PROFILE
+       10. PROFILE
     ===================================================== */
 
     const {
@@ -548,7 +559,7 @@ export async function POST(
     }
 
     /* =====================================================
-       10. RESPONSE
+       11. RESPONSE
     ===================================================== */
 
     return NextResponse.json({
