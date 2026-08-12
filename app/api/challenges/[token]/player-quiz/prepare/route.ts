@@ -13,7 +13,7 @@ const GUEST_COOKIE_NAME =
   "footbattle_guest";
 
 const MIN_POPULARITY_SCORE =
-  72;
+  82;
 
 const PLAYER_QUIZ_VS_DURATION_SECONDS =
   250;

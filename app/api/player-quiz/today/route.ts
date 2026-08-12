@@ -13,7 +13,7 @@ const GUESS_TIME_SECONDS = 30;
 
 const MINIMUM_SEARCH_LENGTH = 3;
 
-const MINIMUM_POPULARITY_SCORE = 72;
+const MINIMUM_POPULARITY_SCORE = 82;
 
 type CandidatePlayer = {
   player_id: number;
@@ -73,6 +73,7 @@ export async function GET() {
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Oyuncu havuzu okunamadı.",
         },
@@ -89,6 +90,7 @@ export async function GET() {
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Player Quiz için uygun oyuncu bulunamadı.",
         },
@@ -100,8 +102,6 @@ export async function GET() {
 
     /* =====================================================
        2. RANDOM BAŞLANGIÇ
-
-       sort(Math.random) yerine daha düzgün ve ucuz.
     ===================================================== */
 
     const randomStart =
@@ -124,7 +124,8 @@ export async function GET() {
 
     let selectedPlayer:
       | CandidatePlayer
-      | null = null;
+      | null =
+      null;
 
     let selectedCareer:
       ReturnType<
@@ -268,8 +269,6 @@ export async function GET() {
 
     /* =====================================================
        5. SESSION
-
-       30 SANİYE BURAYA DA YAZILIYOR.
     ===================================================== */
 
     const {
@@ -351,6 +350,9 @@ export async function GET() {
       minimumSearchLength:
         MINIMUM_SEARCH_LENGTH,
 
+      minimumPopularityScore:
+        MINIMUM_POPULARITY_SCORE,
+
       board: {
         birthYearSlots:
           1,
@@ -358,10 +360,6 @@ export async function GET() {
         nationalitySlots:
           1,
 
-        /*
-         * KRİTİK:
-         * ham DB satır sayısı değil.
-         */
         clubSlots:
           selectedCareer.length,
 

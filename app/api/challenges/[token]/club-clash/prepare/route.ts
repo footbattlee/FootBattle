@@ -10,6 +10,8 @@ const GUEST_COOKIE_NAME =
 const ROUND_COUNT = 5;
 const PLAYER_SAMPLE_SIZE = 180;
 const MAX_PLAYER_SEARCH_ROUNDS = 10;
+const MINIMUM_POPULARITY_SCORE = 82;
+const MINIMUM_TEAM_DUEL_SCORE = 60;
 
 type RouteContext = {
   params: Promise<{
@@ -134,11 +136,10 @@ async function buildQuestionPool() {
         duel_score
       `)
       .eq("duel_enabled", true)
-      .in("duel_tier", [
-        "S",
-        "A",
-        "B",
-      ]);
+      .gte(
+        "duel_score",
+        MINIMUM_TEAM_DUEL_SCORE,
+      );
 
   if (teamError) {
     throw teamError;
@@ -177,6 +178,14 @@ async function buildQuestionPool() {
         count: "exact",
         head: true,
       })
+      .eq(
+        "is_playable",
+        1,
+      )
+      .gte(
+        "popularity_score",
+        MINIMUM_POPULARITY_SCORE,
+      )
       .not("nationality", "is", null);
 
   if (countError) {
@@ -220,6 +229,14 @@ async function buildQuestionPool() {
           name,
           nationality
         `)
+        .eq(
+          "is_playable",
+          1,
+        )
+        .gte(
+          "popularity_score",
+          MINIMUM_POPULARITY_SCORE,
+        )
         .not("nationality", "is", null)
         .order("player_id", {
           ascending: true,
@@ -533,23 +550,23 @@ export async function POST(
 
     const selected: Question[] = [];
     const usedClubs = new Set<string>();
-    const usedNationalities =
-      new Set<string>();
 
     for (const item of pool) {
+      /*
+       * Aynı takım aynı düelloda ikinci kez gelmesin.
+       * Milliyet tekrar edebilir.
+       */
       if (
-        usedClubs.has(item.clubName) &&
-        usedNationalities.has(
-          item.nationality,
+        usedClubs.has(
+          item.clubName,
         )
       ) {
         continue;
       }
 
       selected.push(item);
-      usedClubs.add(item.clubName);
-      usedNationalities.add(
-        item.nationality,
+      usedClubs.add(
+        item.clubName,
       );
 
       if (

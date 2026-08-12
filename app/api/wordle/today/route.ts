@@ -4,6 +4,9 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 
 const MAX_ATTEMPTS = 5;
 
+const MINIMUM_POPULARITY_SCORE =
+  82;
+
 function getLastName(
   nameNormalized: string,
 ) {
@@ -28,20 +31,31 @@ export async function GET() {
     const {
       count,
       error: countError,
-    } = await supabaseAdmin
-      .from("guess_players")
-      .select(
-        "player_id",
-        {
-          count: "exact",
-          head: true,
-        },
-      )
-      .not(
-        "name_normalized",
-        "is",
-        null,
-      );
+    } =
+      await supabaseAdmin
+        .from(
+          "guess_players",
+        )
+        .select(
+          "player_id",
+          {
+            count: "exact",
+            head: true,
+          },
+        )
+        .eq(
+          "is_playable",
+          1,
+        )
+        .gte(
+          "popularity_score",
+          MINIMUM_POPULARITY_SCORE,
+        )
+        .not(
+          "name_normalized",
+          "is",
+          null,
+        );
 
     if (
       countError ||
@@ -55,6 +69,7 @@ export async function GET() {
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Wordle oyuncu havuzu okunamadı.",
         },
@@ -71,12 +86,19 @@ export async function GET() {
     let selectedPlayer:
       | {
           player_id: number;
-          name: string;
-          name_normalized: string;
-        }
-      | null = null;
 
-    let answer = "";
+          name: string;
+
+          name_normalized: string;
+
+          popularity_score:
+            number | null;
+        }
+      | null =
+      null;
+
+    let answer =
+      "";
 
     /*
      * Çok kısa / çok uzun soyadlarını
@@ -98,36 +120,50 @@ export async function GET() {
       const {
         data,
         error,
-      } = await supabaseAdmin
-        .from("guess_players")
-        .select(`
-          player_id,
-          name,
-          name_normalized
-        `)
-        .not(
-          "name_normalized",
-          "is",
-          null,
-        )
-        .order(
-          "player_id",
-          {
-            ascending: true,
-          },
-        )
-        .range(
-          randomIndex,
-          randomIndex,
-        )
-        .maybeSingle();
+      } =
+        await supabaseAdmin
+          .from(
+            "guess_players",
+          )
+          .select(`
+            player_id,
+            name,
+            name_normalized,
+            popularity_score
+          `)
+          .eq(
+            "is_playable",
+            1,
+          )
+          .gte(
+            "popularity_score",
+            MINIMUM_POPULARITY_SCORE,
+          )
+          .not(
+            "name_normalized",
+            "is",
+            null,
+          )
+          .order(
+            "player_id",
+            {
+              ascending:
+                true,
+            },
+          )
+          .range(
+            randomIndex,
+            randomIndex,
+          )
+          .maybeSingle();
 
       if (error) {
         throw error;
       }
 
       if (
-        !data?.name_normalized
+        !data
+          ?.name_normalized
       ) {
         continue;
       }
@@ -139,12 +175,30 @@ export async function GET() {
           .toLocaleUpperCase(
             "tr-TR",
           )
-          .replace(/İ/g, "I")
-          .replace(/Ç/g, "C")
-          .replace(/Ğ/g, "G")
-          .replace(/Ö/g, "O")
-          .replace(/Ş/g, "S")
-          .replace(/Ü/g, "U");
+          .replace(
+            /İ/g,
+            "I",
+          )
+          .replace(
+            /Ç/g,
+            "C",
+          )
+          .replace(
+            /Ğ/g,
+            "G",
+          )
+          .replace(
+            /Ö/g,
+            "O",
+          )
+          .replace(
+            /Ş/g,
+            "S",
+          )
+          .replace(
+            /Ü/g,
+            "U",
+          );
 
       /*
        * Wordle sadece harf.
@@ -158,22 +212,35 @@ export async function GET() {
       }
 
       if (
-        surname.length < 4 ||
-        surname.length > 10
+        surname.length <
+          4 ||
+        surname.length >
+          10
       ) {
         continue;
       }
 
-      selectedPlayer = {
-        player_id:
-          data.player_id,
+      selectedPlayer =
+        {
+          player_id:
+            Number(
+              data.player_id,
+            ),
 
-        name:
-          data.name,
+          name:
+            data.name,
 
-        name_normalized:
-          data.name_normalized,
-      };
+          name_normalized:
+            data.name_normalized,
+
+          popularity_score:
+            data.popularity_score ===
+            null
+              ? null
+              : Number(
+                  data.popularity_score,
+                ),
+        };
 
       answer =
         surname;
@@ -188,6 +255,7 @@ export async function GET() {
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Wordle için uygun futbolcu seçilemedi.",
         },
@@ -203,30 +271,33 @@ export async function GET() {
 
     const {
       data: session,
-      error: sessionError,
-    } = await supabaseAdmin
-      .from(
-        "wordle_sessions",
-      )
-      .insert({
-        player_id:
-          selectedPlayer.player_id,
+      error:
+        sessionError,
+    } =
+      await supabaseAdmin
+        .from(
+          "wordle_sessions",
+        )
+        .insert({
+          player_id:
+            selectedPlayer
+              .player_id,
 
-        answer_normalized:
-          answer,
+          answer_normalized:
+            answer,
 
-        letter_count:
-          answer.length,
+          letter_count:
+            answer.length,
 
-        max_attempts:
-          MAX_ATTEMPTS,
-      })
-      .select(`
-        id,
-        letter_count,
-        max_attempts
-      `)
-      .single();
+          max_attempts:
+            MAX_ATTEMPTS,
+        })
+        .select(`
+          id,
+          letter_count,
+          max_attempts
+        `)
+        .single();
 
     if (
       sessionError ||
@@ -240,6 +311,7 @@ export async function GET() {
       return NextResponse.json(
         {
           ok: false,
+
           error:
             "Yeni Wordle oyunu oluşturulamadı.",
         },
@@ -248,6 +320,10 @@ export async function GET() {
         },
       );
     }
+
+    /* =====================================================
+       4. RESPONSE
+    ===================================================== */
 
     return NextResponse.json({
       ok: true,
@@ -260,6 +336,9 @@ export async function GET() {
 
       maxAttempts:
         session.max_attempts,
+
+      minimumPopularityScore:
+        MINIMUM_POPULARITY_SCORE,
     });
   } catch (error) {
     console.error(
@@ -270,8 +349,11 @@ export async function GET() {
     return NextResponse.json(
       {
         ok: false,
+
         error:
-          "Yeni oyun hazırlanırken hata oluştu.",
+          error instanceof Error
+            ? error.message
+            : "Yeni oyun hazırlanırken hata oluştu.",
       },
       {
         status: 500,
