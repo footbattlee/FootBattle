@@ -4,14 +4,14 @@ import { supabaseAdmin } from "@/lib/supabase/server";
    SETTINGS
 ========================================================= */
 
-export const TIC_TAC_TOE_MINIMUM_POPULARITY_SCORE =
+export const TIC_TAC_TOE_MINIMUM_TEAM_SCORE =
   80;
 
-export const TIC_TAC_TOE_MINIMUM_TEAM_SCORE =
-  60;
+export const TIC_TAC_TOE_MINIMUM_COUNTRY_SCORE =
+  80;
 
 export const TIC_TAC_TOE_MINIMUM_CELL_PLAYERS =
-  1;
+  2;
 
 const PLAYER_PAGE_SIZE =
   1000;
@@ -22,13 +22,6 @@ const PLAYER_CHUNK_SIZE =
 const GRID_SIZE =
   3;
 
-/*
- * Club x Club aramasında en bağlantılı
- * takımlardan başlıyoruz.
- *
- * 387 takımın tamamında kör brute-force
- * yapmak yerine yeterince geniş bir havuz.
- */
 const MAX_CLUB_SEARCH_POOL =
   180;
 
@@ -72,19 +65,13 @@ export type TicTacToeGrid = {
 
 type PlayerRow = {
   player_id: number;
-
   nationality:
     | string
-    | null;
-
-  popularity_score:
-    | number
     | null;
 };
 
 type ClubRow = {
   player_id: number;
-
   club_name:
     | string
     | null;
@@ -92,8 +79,21 @@ type ClubRow = {
 
 type TeamRow = {
   name: string;
-
   duel_score:
+    | number
+    | null;
+};
+
+type CountryRow = {
+  country_name:
+    | string
+    | null;
+
+  nationality_db_value:
+    | string
+    | null;
+
+  popularity_score:
     | number
     | null;
 };
@@ -104,8 +104,6 @@ type PlayerProfile = {
   nationality:
     | string
     | null;
-
-  popularityScore: number;
 
   clubs: Set<string>;
 };
@@ -177,8 +175,11 @@ function shuffleArray<T>(
 }
 
 function makeTypedKey(
-  first: TicTacToeAxisItem,
-  second: TicTacToeAxisItem,
+  first:
+    TicTacToeAxisItem,
+
+  second:
+    TicTacToeAxisItem,
 ) {
   return [
     `${first.type}:${first.value}`,
@@ -222,9 +223,6 @@ function intersectSets(
   const result =
     new Set<string>();
 
-  /*
-   * Küçük set üzerinden dönelim.
-   */
   const [
     smaller,
     larger,
@@ -260,9 +258,12 @@ function intersectSets(
 
 /* =========================================================
    LOAD PLAYERS
+
+   KRİTİK:
+   popularity filtresi YOK.
 ========================================================= */
 
-async function loadEligiblePlayers() {
+async function loadPlayablePlayers() {
   const players:
     PlayerRow[] =
     [];
@@ -288,16 +289,11 @@ async function loadEligiblePlayers() {
         )
         .select(`
           player_id,
-          nationality,
-          popularity_score
+          nationality
         `)
         .eq(
           "is_playable",
           1,
-        )
-        .gte(
-          "popularity_score",
-          TIC_TAC_TOE_MINIMUM_POPULARITY_SCORE,
         )
         .order(
           "player_id",
@@ -351,7 +347,7 @@ async function loadEligiblePlayers() {
 }
 
 /* =========================================================
-   LOAD TEAMS
+   LOAD ELIGIBLE TEAMS
 ========================================================= */
 
 async function loadEligibleTeams() {
@@ -424,7 +420,74 @@ async function loadEligibleTeams() {
 }
 
 /* =========================================================
-   LOAD CLUB HISTORY
+   LOAD ELIGIBLE COUNTRIES
+========================================================= */
+
+async function loadEligibleCountries() {
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "challenge_countries",
+      )
+      .select(`
+        country_name,
+        nationality_db_value,
+        popularity_score
+      `)
+      .gte(
+        "popularity_score",
+        TIC_TAC_TOE_MINIMUM_COUNTRY_SCORE,
+      );
+
+  if (
+    error
+  ) {
+    throw error;
+  }
+
+  const rows =
+    (
+      data ??
+      []
+    ) as CountryRow[];
+
+  const countries =
+    new Map<
+      string,
+      CountryRow
+    >();
+
+  for (
+    const row
+    of rows
+  ) {
+    const dbValue =
+      normalizeValue(
+        row.nationality_db_value,
+      );
+
+    if (
+      !dbValue
+    ) {
+      continue;
+    }
+
+    countries.set(
+      dbValue,
+      row,
+    );
+  }
+
+  return countries;
+}
+
+/* =========================================================
+   LOAD PLAYER CLUBS
+
+   Pagination var, hiçbir kariyer satırı kesilmez.
 ========================================================= */
 
 async function loadPlayerClubs(
@@ -521,15 +584,6 @@ async function loadPlayerClubs(
 
       from +=
         PAGE_SIZE;
-
-      if (
-        from >
-        100_000
-      ) {
-        throw new Error(
-          "TicTacToe kulüp geçmişi güvenlik sınırını aştı.",
-        );
-      }
     }
   }
 
@@ -537,17 +591,19 @@ async function loadPlayerClubs(
 }
 
 /* =========================================================
-   PLAYER PROFILES
+   BUILD PLAYER PROFILES
 ========================================================= */
 
 async function buildPlayerProfiles() {
   const [
     playerRows,
     eligibleTeams,
+    eligibleCountries,
   ] =
     await Promise.all([
-      loadEligiblePlayers(),
+      loadPlayablePlayers(),
       loadEligibleTeams(),
+      loadEligibleCountries(),
     ]);
 
   const playerIds =
@@ -601,22 +657,23 @@ async function buildPlayerProfiles() {
       continue;
     }
 
+    const nationality =
+      normalizeValue(
+        player.nationality,
+      );
+
     profileMap.set(
       playerId,
       {
         playerId,
 
         nationality:
-          normalizeValue(
-            player.nationality,
-          ) ||
-          null,
-
-        popularityScore:
-          Number(
-            player.popularity_score ??
-              0,
-          ),
+          nationality &&
+          eligibleCountries.has(
+            nationality,
+          )
+            ? nationality
+            : null,
 
         clubs:
           new Set<string>(),
@@ -671,31 +728,26 @@ async function buildPlayerProfiles() {
         profile,
       ) =>
         profile.clubs.size >
-        0,
+          0 ||
+        Boolean(
+          profile.nationality,
+        ),
     );
-
-  console.log(
-    "TTT profiles:",
-    profiles.length,
-  );
-
-  console.log(
-    "TTT eligible teams:",
-    eligibleTeams.size,
-  );
 
   return {
     profiles,
     eligibleTeams,
+    eligibleCountries,
   };
 }
 
 /* =========================================================
-   PAIR MAPS
+   BUILD PAIR MAPS
 ========================================================= */
 
 function buildPairMaps(
-  profiles: PlayerProfile[],
+  profiles:
+    PlayerProfile[],
 ) {
   const clubNationMap =
     new Map<
@@ -724,7 +776,8 @@ function buildPairMaps(
     right:
       TicTacToeAxisItem,
 
-    playerId: number,
+    playerId:
+      number,
   ) {
     const existing =
       map.get(
@@ -962,17 +1015,7 @@ function calculateGridQuality(
     const count =
       cell.validPlayerCount;
 
-    /*
-     * Tek cevabı olan hücre
-     * oynanabilir ama kalite düşük.
-     */
     if (
-      count ===
-      1
-    ) {
-      score +=
-        1;
-    } else if (
       count ===
       2
     ) {
@@ -1006,9 +1049,7 @@ function calculateGridQuality(
 }
 
 /* =========================================================
-   BUILD CLUB-NATION ADJACENCY
-
-   club => hangi milliyetlerle geçerli?
+   CLUB-NATION ADJACENCY
 ========================================================= */
 
 function buildClubNationAdjacency(
@@ -1061,11 +1102,6 @@ function buildClubNationAdjacency(
 
 /* =========================================================
    SMART CLUB x NATION GRID
-
-   3 takım seçiyoruz.
-   Bu üç takımın ORTAK milliyetlerini buluyoruz.
-
-   Böylece 9 hücrenin tamamı garanti.
 ========================================================= */
 
 function tryBuildClubNationGrid(
@@ -1117,18 +1153,6 @@ function tryBuildClubNationGrid(
           ),
       );
 
-  if (
-    clubs.length <
-    GRID_SIZE
-  ) {
-    return null;
-  }
-
-  /*
-   * Biraz çeşitlilik için başlangıç
-   * sırasını karıştırıyoruz ama artık
-   * kör random grid kurmuyoruz.
-   */
   const searchClubs =
     shuffleArray(
       clubs.slice(
@@ -1251,93 +1275,15 @@ function tryBuildClubNationGrid(
             thirdClub,
           ];
 
-        /*
-         * Milliyetleri hücrelerdeki cevap
-         * sayısına göre skorlayalım.
-         */
-        const nationalityScores =
-          Array.from(
-            commonNations,
-          )
-            .map(
-              (
-                nationality,
-              ) => {
-                let score =
-                  0;
-
-                for (
-                  const club
-                  of selectedClubs
-                ) {
-                  const pair =
-                    clubNationMap.get(
-                      makeTypedKey(
-                        {
-                          type:
-                            "club",
-
-                          value:
-                            club,
-                        },
-                        {
-                          type:
-                            "nationality",
-
-                          value:
-                            nationality,
-                        },
-                      ),
-                    );
-
-                  score +=
-                    pair?.playerIds.length ??
-                    0;
-                }
-
-                return {
-                  nationality,
-                  score,
-                };
-              },
-            )
-            .sort(
-              (
-                first,
-                second,
-              ) =>
-                second.score -
-                first.score,
-            );
-
-        /*
-         * Hep en kolay 3 milliyet çıkmasın.
-         * İlk 6 kaliteli seçenekten 3 seç.
-         */
         const selectedNationalities =
           shuffleArray(
-            nationalityScores
-              .slice(
-                0,
-                6,
-              )
-              .map(
-                (
-                  item,
-                ) =>
-                  item.nationality,
-              ),
+            Array.from(
+              commonNations,
+            ),
           ).slice(
             0,
             GRID_SIZE,
           );
-
-        if (
-          selectedNationalities.length !==
-          GRID_SIZE
-        ) {
-          continue;
-        }
 
         const rows:
           TicTacToeAxisItem[] =
@@ -1495,10 +1441,6 @@ function tryBuildClubNationGrid(
             grid;
         }
 
-        /*
-         * Kalite yeterince iyiyse
-         * daha fazla aramaya gerek yok.
-         */
         if (
           grid.qualityScore >=
           55
@@ -1513,9 +1455,7 @@ function tryBuildClubNationGrid(
 }
 
 /* =========================================================
-   CLUB x CLUB ADJACENCY
-
-   club => hangi takımlarla ortak oyuncusu var?
+   CLUB-CLUB ADJACENCY
 ========================================================= */
 
 function buildClubClubAdjacency(
@@ -1587,14 +1527,6 @@ function buildClubClubAdjacency(
 
 /* =========================================================
    SMART CLUB x CLUB GRID
-
-   Aradığımız yapı aslında K3,3.
-
-   3 satır takımı seçilir.
-   Bu üçünün ortak komşuları bulunur.
-   Ortak komşulardan 3 sütun takımı seçilir.
-
-   Böylece 9 hücre garanti eşleşir.
 ========================================================= */
 
 function tryBuildClubClubGrid(
@@ -1649,14 +1581,6 @@ function tryBuildClubClubGrid(
         0,
         MAX_CLUB_SEARCH_POOL,
       );
-
-  if (
-    clubs.length <
-    GRID_SIZE *
-      2
-  ) {
-    return null;
-  }
 
   const searchClubs =
     shuffleArray(
@@ -1725,10 +1649,6 @@ function tryBuildClubClubGrid(
           secondNeighbors,
         );
 
-      /*
-       * Satır takımlarını sütun olarak
-       * kullanmayacağımız için biraz pay.
-       */
       if (
         firstTwoCommon.size <
         GRID_SIZE
@@ -1767,10 +1687,6 @@ function tryBuildClubClubGrid(
             thirdNeighbors,
           );
 
-        /*
-         * Aynı takımlar hem satırda
-         * hem sütunda olmayacak.
-         */
         commonNeighbors.delete(
           firstClub,
         );
@@ -1797,79 +1713,15 @@ function tryBuildClubClubGrid(
             thirdClub,
           ];
 
-        /*
-         * Sütun takımlarını cevap sayısına
-         * göre kalite puanla.
-         */
-        const columnScores =
-          Array.from(
-            commonNeighbors,
-          )
-            .map(
-              (
-                columnClub,
-              ) => {
-                let score =
-                  0;
-
-                for (
-                  const rowClub
-                  of rowClubs
-                ) {
-                  const pair =
-                    clubClubMap.get(
-                      makeClubPairKey(
-                        rowClub,
-                        columnClub,
-                      ),
-                    );
-
-                  score +=
-                    pair?.playerIds.length ??
-                    0;
-                }
-
-                return {
-                  club:
-                    columnClub,
-
-                  score,
-                };
-              },
-            )
-            .sort(
-              (
-                first,
-                second,
-              ) =>
-                second.score -
-                first.score,
-            );
-
         const columnClubs =
           shuffleArray(
-            columnScores
-              .slice(
-                0,
-                7,
-              )
-              .map(
-                (
-                  item,
-                ) =>
-                  item.club,
-              ),
+            Array.from(
+              commonNeighbors,
+            ),
           ).slice(
             0,
             GRID_SIZE,
           );
-
-        if (
-          columnClubs.length !==
-          GRID_SIZE
-        ) {
-          continue;
-        }
 
         const rows:
           TicTacToeAxisItem[] =
@@ -2056,81 +1908,15 @@ export async function generateTicTacToeGrid():
       profiles,
     );
 
-  console.log(
-    "TTT clubNation pairs:",
-    clubNationMap.size,
-  );
-
-  console.log(
-    "TTT clubClub pairs:",
-    clubClubMap.size,
-  );
-
-  /* =====================================================
-     İKİ GRID TÜRÜNÜ DE DENE
-  ===================================================== */
-
   const clubNationGrid =
     tryBuildClubNationGrid(
       clubNationMap,
     );
 
-  console.log(
-    "TTT clubNation grid:",
-    clubNationGrid
-      ? {
-          quality:
-            clubNationGrid.qualityScore,
-
-          rows:
-            clubNationGrid.rows.map(
-              (
-                item,
-              ) =>
-                item.value,
-            ),
-
-          columns:
-            clubNationGrid.columns.map(
-              (
-                item,
-              ) =>
-                item.value,
-            ),
-        }
-      : null,
-  );
-
   const clubClubGrid =
     tryBuildClubClubGrid(
       clubClubMap,
     );
-
-  console.log(
-    "TTT clubClub grid:",
-    clubClubGrid
-      ? {
-          quality:
-            clubClubGrid.qualityScore,
-
-          rows:
-            clubClubGrid.rows.map(
-              (
-                item,
-              ) =>
-                item.value,
-            ),
-
-          columns:
-            clubClubGrid.columns.map(
-              (
-                item,
-              ) =>
-                item.value,
-            ),
-        }
-      : null,
-  );
 
   const candidates =
     [
@@ -2164,10 +1950,6 @@ export async function generateTicTacToeGrid():
     ];
   }
 
-  /*
-   * Kaliteli olanı daha sık seç.
-   * Ama tek tip grid çıkmasın.
-   */
   const sorted =
     candidates.sort(
       (
@@ -2188,10 +1970,6 @@ export async function generateTicTacToeGrid():
       1
     ];
 
-  /*
-   * Arada kalite uçurumu varsa
-   * kötü olanı kullanma.
-   */
   if (
     best.qualityScore -
       second.qualityScore >=

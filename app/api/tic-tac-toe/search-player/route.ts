@@ -2,9 +2,6 @@ import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-const MINIMUM_POPULARITY_SCORE =
-  0;
-
 const MINIMUM_SEARCH_LENGTH =
   2;
 
@@ -98,6 +95,15 @@ export async function GET(
 
     /* =====================================================
        2. OYUNCU ARA
+
+       KRİTİK:
+       popularity filtresi YOK.
+
+       Grid başlıklarının kalitesini
+       takım ve milliyet skorları belirliyor.
+
+       Cevap oyuncusu ise popularity'den
+       bağımsız olarak kullanılabilir.
     ===================================================== */
 
     const {
@@ -120,10 +126,6 @@ export async function GET(
         .eq(
           "is_playable",
           1,
-        )
-        .gte(
-          "popularity_score",
-          MINIMUM_POPULARITY_SCORE,
         )
         .ilike(
           "name_normalized",
