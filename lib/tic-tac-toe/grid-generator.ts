@@ -8,10 +8,10 @@ export const TIC_TAC_TOE_MINIMUM_POPULARITY_SCORE =
   83;
 
 export const TIC_TAC_TOE_MINIMUM_TEAM_SCORE =
-  70;
+  60;
 
 export const TIC_TAC_TOE_MINIMUM_CELL_PLAYERS =
-  2;
+  1;
 
 const PLAYER_PAGE_SIZE =
   1000;
