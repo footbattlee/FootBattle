@@ -222,6 +222,39 @@ const GAMES: GameItem[] = [
   },
 
   /* -------------------------------------------------------
+     TRANSFER QUIZ
+  ------------------------------------------------------- */
+
+  {
+    code:
+      "transfer_quiz",
+
+    title:
+      "Transfer Quiz",
+
+    description:
+      "Transfer gündemindeki yıldızın doğum yılını, milliyetini ve kariyer kulüplerini tamamla.",
+
+    heroDescription:
+      "Gündemdeki transfer oyuncusunu ne kadar tanıyorsun? Doğum yılı, milliyet ve kulüp geçmişini çöz.",
+
+    icon:
+      "🔥",
+
+    mode:
+      "solo",
+
+    ready:
+      true,
+
+    playHref:
+      "/transfer-quiz",
+
+    accent:
+      "amber",
+  },
+
+  /* -------------------------------------------------------
      TIC TAC TOE
   ------------------------------------------------------- */
 
