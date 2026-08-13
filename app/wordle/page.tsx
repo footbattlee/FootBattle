@@ -72,12 +72,20 @@ type WordleGame = {
   letterCount: number;
 
   maxAttempts: number;
+
+  daily: boolean;
 };
 
 type NewGameResponse = {
   ok?: boolean;
 
   error?: string;
+
+  mode?:
+    | "daily"
+    | "random";
+
+  daily?: boolean;
 
   sessionId?: string;
 
@@ -96,6 +104,26 @@ type GuessResponse = {
   evaluation?: EvaluatedLetter[];
 
   won?: boolean;
+};
+
+
+type DailyChallengeNextGame = {
+  code: string;
+  label: string;
+  href: string;
+};
+
+type DailyChallengeUpdateResponse = {
+  ok?: boolean;
+  error?: string;
+
+  nextGame?:
+    | DailyChallengeNextGame
+    | null;
+
+  challengeCompleted?: boolean;
+  perfectCompleted?: boolean;
+  rewardAdded?: number;
 };
 
 type SaveResultResponse = {
@@ -254,7 +282,9 @@ function normalizeKeyboardLetter(
     .replace(/Ü/g, "U");
 }
 
-async function markWordleDailyChallenge() {
+async function markWordleDailyChallenge(): Promise<
+  DailyChallengeUpdateResponse | null
+> {
   try {
     const response =
       await fetch(
@@ -276,38 +306,41 @@ async function markWordleDailyChallenge() {
         },
       );
 
-    /*
-     * Giriş yapmayan kullanıcıda günlük görev işaretlenmez.
-     * Normal Wordle akışını bozmasın.
-     */
     if (
       response.status ===
       401
     ) {
-      return;
+      return null;
     }
 
-    if (
-      !response.ok
-    ) {
-      const result =
-        await response
-          .json()
-          .catch(
-            () =>
-              null,
-          );
+    const result =
+      (await response
+        .json()
+        .catch(
+          () =>
+            null,
+        )) as DailyChallengeUpdateResponse | null;
 
+    if (
+      !response.ok ||
+      !result?.ok
+    ) {
       console.error(
         "Wordle daily challenge update error:",
         result,
       );
+
+      return null;
     }
+
+    return result;
   } catch (error) {
     console.error(
       "Wordle daily challenge request error:",
       error,
     );
+
+    return null;
   }
 }
 
@@ -416,6 +449,12 @@ export default function WordlePage() {
   ] =
     useState("");
 
+  const [
+    dailyChallengeCompleted,
+    setDailyChallengeCompleted,
+  ] =
+    useState(false);
+
   /* =======================================================
      COMPUTED
   ======================================================= */
@@ -468,6 +507,10 @@ export default function WordlePage() {
       setShareMessage(
         "",
       );
+
+      setDailyChallengeCompleted(
+        false,
+      );
     }, []);
 
   /* =======================================================
@@ -493,9 +536,21 @@ export default function WordlePage() {
             resetLocalGame();
           }
 
+          const dailyMode =
+            initial &&
+            typeof window !==
+              "undefined" &&
+            new URLSearchParams(
+              window.location.search,
+            ).get(
+              "daily",
+            ) === "1";
+
           const response =
             await fetch(
-              "/api/wordle/today",
+              dailyMode
+                ? "/api/wordle/today?daily=1"
+                : "/api/wordle/today",
               {
                 method:
                   "GET",
@@ -538,6 +593,12 @@ export default function WordlePage() {
             maxAttempts:
               result.maxAttempts ??
               DEFAULT_MAX_ATTEMPTS,
+
+            daily:
+              Boolean(
+                result.daily ??
+                  dailyMode,
+              ),
           });
 
           void trackGameStarted(
@@ -802,9 +863,19 @@ export default function WordlePage() {
 
           if (
             status ===
-            "won"
+              "won" &&
+            game.daily
           ) {
-            void markWordleDailyChallenge();
+            const dailyResult =
+              await markWordleDailyChallenge();
+
+            if (
+              dailyResult
+            ) {
+              setDailyChallengeCompleted(
+                true,
+              );
+            }
           }
 
           void trackGameCompleted(
@@ -1428,7 +1499,9 @@ export default function WordlePage() {
             <div className="text-center">
 
               <span className="inline-block rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-[9px] font-black uppercase tracking-[0.15em] text-green-400 sm:px-4 sm:py-1.5 sm:text-[11px]">
-                SINIRSIZ MOD
+                {game.daily
+                  ? "GÜNLÜK GÖREV"
+                  : "SINIRSIZ MOD"}
               </span>
 
               <h1 className="mt-2.5 text-2xl font-black leading-tight sm:mt-4 sm:text-[34px]">
@@ -1774,23 +1847,62 @@ export default function WordlePage() {
                   </p>
                 )}
 
+                {game.daily &&
+                  gameStatus ===
+                    "won" &&
+                  dailyChallengeCompleted && (
+                    <div className="mx-auto mt-4 max-w-lg rounded-2xl border border-green-500/25 bg-green-500/[0.08] p-4">
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-green-300">
+                        🏆 Günlük Görev Tamamlandı
+                      </p>
+
+                      <p className="mt-2 text-sm font-bold text-slate-200">
+                        Bugünün FootBattle görevlerini tamamladın.
+                      </p>
+                    </div>
+                  )}
+
                 <div className="mt-4 flex flex-col justify-center gap-2 sm:mt-5 sm:flex-row">
 
-                  <button
-                    type="button"
-                    disabled={
-                      loadingGame ||
-                      resultLoading
-                    }
-                    onClick={() =>
-                      void handleNewGame()
-                    }
-                    className="rounded-xl bg-green-500 px-5 py-3 text-xs font-black text-[#07111f] transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
-                  >
-                    {loadingGame
-                      ? "Yeni oyuncu seçiliyor..."
-                      : "⚽ Yeni Oyuncuyla Tekrar Oyna"}
-                  </button>
+                  {!game.daily && (
+                    <button
+                      type="button"
+                      disabled={
+                        loadingGame ||
+                        resultLoading
+                      }
+                      onClick={() =>
+                        void handleNewGame()
+                      }
+                      className="rounded-xl bg-green-500 px-5 py-3 text-xs font-black text-[#07111f] transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
+                    >
+                      {loadingGame
+                        ? "Yeni oyuncu seçiliyor..."
+                        : "⚽ Yeni Oyuncuyla Tekrar Oyna"}
+                    </button>
+                  )}
+
+                  {game.daily &&
+                    gameStatus ===
+                      "lost" && (
+                      <button
+                        type="button"
+                        disabled={
+                          loadingGame ||
+                          resultLoading
+                        }
+                        onClick={() =>
+                          void startNewGame(
+                            true,
+                          )
+                        }
+                        className="rounded-xl bg-green-500 px-5 py-3 text-xs font-black text-[#07111f] transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
+                      >
+                        {loadingGame
+                          ? "Günlük oyun hazırlanıyor..."
+                          : "↻ Günlük Görevi Tekrar Dene"}
+                      </button>
+                    )}
 
                   <button
                     type="button"
@@ -1806,7 +1918,9 @@ export default function WordlePage() {
                     href="/"
                     className="rounded-xl border border-white/15 px-5 py-3 text-xs font-semibold transition hover:border-white/30 hover:bg-white/5 sm:text-sm"
                   >
-                    Ana Sayfa
+                    {game.daily
+                      ? "Ana Sayfaya Dön"
+                      : "Ana Sayfa"}
                   </Link>
 
                 </div>

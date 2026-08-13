@@ -12,11 +12,95 @@ const GAME_DURATION_SECONDS =
 
 type AxisResponseItem = {
   index: number;
+
   type:
     | "club"
     | "nationality";
+
   value: string;
 };
+
+type DailyGridCell = {
+  rowType:
+    | "club"
+    | "nationality";
+
+  rowIndex: number;
+
+  rowValue: string;
+
+  columnType:
+    | "club"
+    | "nationality";
+
+  columnIndex: number;
+
+  columnValue: string;
+
+  validPlayerIds:
+    number[];
+};
+
+type PreparedGrid = {
+  mode: string;
+
+  rows:
+    AxisResponseItem[];
+
+  columns:
+    AxisResponseItem[];
+
+  cells:
+    {
+      rowIndex: number;
+
+      columnIndex: number;
+
+      row: {
+        type:
+          | "club"
+          | "nationality";
+
+        value:
+          string;
+      };
+
+      column: {
+        type:
+          | "club"
+          | "nationality";
+
+        value:
+          string;
+      };
+
+      validPlayerIds:
+        number[];
+    }[];
+
+  qualityScore: number;
+};
+
+function getTurkeyDateKey() {
+  return new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone:
+        "Europe/Istanbul",
+
+      year:
+        "numeric",
+
+      month:
+        "2-digit",
+
+      day:
+        "2-digit",
+    },
+  ).format(
+    new Date(),
+  );
+}
 
 function mapAxis(
   values:
@@ -38,39 +122,271 @@ function mapAxis(
   );
 }
 
-export async function POST() {
+export async function POST(
+  request: Request,
+) {
   try {
+    const url =
+      new URL(
+        request.url,
+      );
+
+    const dailyMode =
+      url.searchParams.get(
+        "daily",
+      ) === "1";
+
+    let preparedGrid:
+      PreparedGrid;
+
     /* =====================================================
-       1. GRID ÜRET
+       1. DAILY GRID
     ===================================================== */
 
-    const grid =
-      await generateTicTacToeGrid();
+    if (dailyMode) {
+      const playDate =
+        getTurkeyDateKey();
 
-    if (
-      !grid ||
-      grid.rows.length !==
-        3 ||
-      grid.columns.length !==
-        3 ||
-      grid.cells.length !==
-        9
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
+      const {
+        data:
+          dailyGrid,
 
-          error:
-            "Geçerli TicTacToe grid'i oluşturulamadı.",
-        },
-        {
-          status: 500,
-        },
-      );
+        error:
+          dailyError,
+      } =
+        await supabaseAdmin
+          .from(
+            "daily_tic_tac_toe",
+          )
+          .select(`
+            play_date,
+            rows,
+            columns,
+            cells,
+            quality_score,
+            is_published
+          `)
+          .eq(
+            "play_date",
+            playDate,
+          )
+          .eq(
+            "is_published",
+            true,
+          )
+          .maybeSingle();
+
+      if (dailyError) {
+        console.error(
+          "Daily Tic Tac Toe okunamadı:",
+          dailyError,
+        );
+
+        return NextResponse.json(
+          {
+            ok: false,
+
+            error:
+              "Bugünün Tic Tac Toe grid'i okunamadı.",
+          },
+          {
+            status: 500,
+          },
+        );
+      }
+
+      if (!dailyGrid) {
+        return NextResponse.json(
+          {
+            ok: false,
+
+            error:
+              "Bugünün Tic Tac Toe grid'i henüz yayınlanmadı.",
+          },
+          {
+            status: 404,
+          },
+        );
+      }
+
+      const rows =
+        (
+          dailyGrid.rows ??
+          []
+        ) as AxisResponseItem[];
+
+      const columns =
+        (
+          dailyGrid.columns ??
+          []
+        ) as AxisResponseItem[];
+
+      const dailyCells =
+        (
+          dailyGrid.cells ??
+          []
+        ) as DailyGridCell[];
+
+      if (
+        rows.length !==
+          3 ||
+        columns.length !==
+          3 ||
+        dailyCells.length !==
+          9
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+
+            error:
+              "Yayınlanan günlük Tic Tac Toe grid'i geçersiz.",
+          },
+          {
+            status: 422,
+          },
+        );
+      }
+
+      preparedGrid = {
+        mode:
+          "daily",
+
+        rows,
+
+        columns,
+
+        qualityScore:
+          Number(
+            dailyGrid.quality_score ??
+              0,
+          ),
+
+        cells:
+          dailyCells.map(
+            (
+              cell,
+            ) => ({
+              rowIndex:
+                Number(
+                  cell.rowIndex,
+                ),
+
+              columnIndex:
+                Number(
+                  cell.columnIndex,
+                ),
+
+              row: {
+                type:
+                  cell.rowType,
+
+                value:
+                  cell.rowValue,
+              },
+
+              column: {
+                type:
+                  cell.columnType,
+
+                value:
+                  cell.columnValue,
+              },
+
+              validPlayerIds:
+                Array.isArray(
+                  cell.validPlayerIds,
+                )
+                  ? cell.validPlayerIds.map(
+                      Number,
+                    )
+                  : [],
+            }),
+          ),
+      };
+    } else {
+      /* ===================================================
+         2. NORMAL RANDOM GRID
+      =================================================== */
+
+      const grid =
+        await generateTicTacToeGrid();
+
+      if (
+        !grid ||
+        grid.rows.length !==
+          3 ||
+        grid.columns.length !==
+          3 ||
+        grid.cells.length !==
+          9
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+
+            error:
+              "Geçerli TicTacToe grid'i oluşturulamadı.",
+          },
+          {
+            status: 500,
+          },
+        );
+      }
+
+      preparedGrid = {
+        mode:
+          grid.mode,
+
+        rows:
+          mapAxis(
+            grid.rows,
+          ),
+
+        columns:
+          mapAxis(
+            grid.columns,
+          ),
+
+        cells:
+          grid.cells.map(
+            (
+              cell,
+            ) => ({
+              rowIndex:
+                cell.rowIndex,
+
+              columnIndex:
+                cell.columnIndex,
+
+              row: {
+                type:
+                  cell.row.type,
+
+                value:
+                  cell.row.value,
+              },
+
+              column: {
+                type:
+                  cell.column.type,
+
+                value:
+                  cell.column.value,
+              },
+
+              validPlayerIds:
+                cell.validPlayerIds,
+            }),
+          ),
+
+        qualityScore:
+          grid.qualityScore,
+      };
     }
 
     /* =====================================================
-       2. SESSION
+       3. SESSION
     ===================================================== */
 
     const {
@@ -138,11 +454,11 @@ export async function POST() {
     }
 
     /* =====================================================
-       3. HÜCRELERİ KAYDET
+       4. CELLS
     ===================================================== */
 
     const cellRows =
-      grid.cells.map(
+      preparedGrid.cells.map(
         (
           cell,
         ) => ({
@@ -193,17 +509,12 @@ export async function POST() {
           cellRows,
         );
 
-    if (
-      cellsError
-    ) {
+    if (cellsError) {
       console.error(
         "TicTacToe hücre insert hatası:",
         cellsError,
       );
 
-      /*
-       * Yarım session bırakmayalım.
-       */
       await supabaseAdmin
         .from(
           "tic_tac_toe_sessions",
@@ -228,7 +539,7 @@ export async function POST() {
     }
 
     /* =====================================================
-       4. EXPIRES AT
+       5. EXPIRES
     ===================================================== */
 
     const createdAtMs =
@@ -244,14 +555,19 @@ export async function POST() {
       ).toISOString();
 
     /* =====================================================
-       5. RESPONSE
-
-       KRİTİK:
-       validPlayerIds client'a gönderilmiyor.
+       6. RESPONSE
     ===================================================== */
 
     return NextResponse.json({
       ok: true,
+
+      mode:
+        dailyMode
+          ? "daily"
+          : "random",
+
+      daily:
+        dailyMode,
 
       game: {
         code:
@@ -294,20 +610,16 @@ export async function POST() {
 
       grid: {
         type:
-          grid.mode,
+          preparedGrid.mode,
 
         rows:
-          mapAxis(
-            grid.rows,
-          ),
+          preparedGrid.rows,
 
         columns:
-          mapAxis(
-            grid.columns,
-          ),
+          preparedGrid.columns,
 
         cells:
-          grid.cells.map(
+          preparedGrid.cells.map(
             (
               cell,
             ) => ({
@@ -329,12 +641,10 @@ export async function POST() {
           ),
 
         qualityScore:
-          grid.qualityScore,
+          preparedGrid.qualityScore,
       },
     });
-  } catch (
-    error
-  ) {
+  } catch (error) {
     console.error(
       "TicTacToe solo start endpoint hatası:",
       error,

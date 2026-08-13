@@ -34,6 +34,27 @@ type CandidatePlayer = {
     | null;
 };
 
+function getTurkeyDateKey() {
+  return new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone:
+        "Europe/Istanbul",
+
+      year:
+        "numeric",
+
+      month:
+        "2-digit",
+
+      day:
+        "2-digit",
+    },
+  ).format(
+    new Date(),
+  );
+}
+
 function isCompletePlayer(
   player: CandidatePlayer,
 ) {
@@ -47,86 +68,97 @@ function isCompletePlayer(
   );
 }
 
-export async function GET() {
+export async function GET(
+  request: Request,
+) {
   try {
-    /* =====================================================
-       1. PLAYABLE + BİLİNİRLİĞİ YETERLİ OYUNCU SAYISI
-    ===================================================== */
-
-    const {
-      count,
-      error:
-        countError,
-    } =
-      await supabaseAdmin
-        .from(
-          "guess_players",
-        )
-        .select(
-          "player_id",
-          {
-            count:
-              "exact",
-
-            head:
-              true,
-          },
-        )
-        .eq(
-          "is_playable",
-          1,
-        )
-        .gte(
-          "popularity_score",
-          MINIMUM_POPULARITY_SCORE,
-        );
-
-    if (
-      countError ||
-      !count
-    ) {
-      console.error(
-        "Guess the Player oyuncu sayısı okunamadı:",
-        countError,
+    const url =
+      new URL(
+        request.url,
       );
 
-      return NextResponse.json(
-        {
-          ok: false,
-
-          error:
-            "Oyuncu havuzu okunamadı.",
-        },
-        {
-          status:
-            500,
-        },
-      );
-    }
-
-    /* =====================================================
-       2. RANDOM UYGUN OYUNCU
-    ===================================================== */
+    const dailyMode =
+      url.searchParams.get(
+        "daily",
+      ) === "1";
 
     let targetPlayer:
       | CandidatePlayer
       | null =
       null;
 
-    for (
-      let attempt = 0;
-      attempt < 30;
-      attempt += 1
-    ) {
-      const randomIndex =
-        Math.floor(
-          Math.random() *
-            count,
-        );
+    /* =====================================================
+       1. DAILY MODE
+    ===================================================== */
+
+    if (dailyMode) {
+      const playDate =
+        getTurkeyDateKey();
 
       const {
-        data,
-        error,
+        data:
+          dailyRow,
+
+        error:
+          dailyError,
+      } =
+        await supabaseAdmin
+          .from(
+            "daily_guess_player",
+          )
+          .select(`
+            player_id,
+            is_published
+          `)
+          .eq(
+            "play_date",
+            playDate,
+          )
+          .eq(
+            "is_published",
+            true,
+          )
+          .maybeSingle();
+
+      if (dailyError) {
+        console.error(
+          "Daily Guess The Player okunamadı:",
+          dailyError,
+        );
+
+        return NextResponse.json(
+          {
+            ok: false,
+
+            error:
+              "Bugünün Guess The Player bilgisi okunamadı.",
+          },
+          {
+            status: 500,
+          },
+        );
+      }
+
+      if (!dailyRow) {
+        return NextResponse.json(
+          {
+            ok: false,
+
+            error:
+              "Bugünün Guess The Player oyunu henüz yayınlanmadı.",
+          },
+          {
+            status: 404,
+          },
+        );
+      }
+
+      const {
+        data:
+          dailyPlayer,
+
+        error:
+          playerError,
       } =
         await supabaseAdmin
           .from(
@@ -144,48 +176,187 @@ export async function GET() {
             popularity_score
           `)
           .eq(
+            "player_id",
+            dailyRow.player_id,
+          )
+          .eq(
+            "is_playable",
+            1,
+          )
+          .maybeSingle();
+
+      if (
+        playerError ||
+        !dailyPlayer
+      ) {
+        console.error(
+          "Daily Guess oyuncusu okunamadı:",
+          playerError,
+        );
+
+        return NextResponse.json(
+          {
+            ok: false,
+
+            error:
+              "Bugünün Guess The Player oyuncusu bulunamadı.",
+          },
+          {
+            status: 404,
+          },
+        );
+      }
+
+      if (
+        !isCompletePlayer(
+          dailyPlayer,
+        )
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+
+            error:
+              "Admin tarafından seçilen Guess The Player oyuncusunun oyun bilgileri eksik.",
+          },
+          {
+            status: 422,
+          },
+        );
+      }
+
+      targetPlayer =
+        dailyPlayer;
+    } else {
+      /* ===================================================
+         2. NORMAL RANDOM MODE
+      =================================================== */
+
+      const {
+        count,
+
+        error:
+          countError,
+      } =
+        await supabaseAdmin
+          .from(
+            "guess_players",
+          )
+          .select(
+            "player_id",
+            {
+              count:
+                "exact",
+
+              head:
+                true,
+            },
+          )
+          .eq(
             "is_playable",
             1,
           )
           .gte(
             "popularity_score",
             MINIMUM_POPULARITY_SCORE,
-          )
-          .order(
-            "player_id",
-            {
-              ascending:
-                true,
-            },
-          )
-          .range(
-            randomIndex,
-            randomIndex,
-          )
-          .maybeSingle();
+          );
 
       if (
-        error
+        countError ||
+        !count
       ) {
-        throw error;
+        console.error(
+          "Guess the Player oyuncu sayısı okunamadı:",
+          countError,
+        );
+
+        return NextResponse.json(
+          {
+            ok: false,
+
+            error:
+              "Oyuncu havuzu okunamadı.",
+          },
+          {
+            status: 500,
+          },
+        );
       }
 
-      if (
-        data &&
-        isCompletePlayer(
-          data,
-        )
+      for (
+        let attempt = 0;
+        attempt < 30;
+        attempt += 1
       ) {
-        targetPlayer =
-          data;
+        const randomIndex =
+          Math.floor(
+            Math.random() *
+              count,
+          );
 
-        break;
+        const {
+          data,
+          error,
+        } =
+          await supabaseAdmin
+            .from(
+              "guess_players",
+            )
+            .select(`
+              player_id,
+              nationality,
+              position,
+              sub_position,
+              age,
+              current_club_name,
+              current_competition_id,
+              preferred_foot,
+              popularity_score
+            `)
+            .eq(
+              "is_playable",
+              1,
+            )
+            .gte(
+              "popularity_score",
+              MINIMUM_POPULARITY_SCORE,
+            )
+            .order(
+              "player_id",
+              {
+                ascending:
+                  true,
+              },
+            )
+            .range(
+              randomIndex,
+              randomIndex,
+            )
+            .maybeSingle();
+
+        if (error) {
+          throw error;
+        }
+
+        if (
+          data &&
+          isCompletePlayer(
+            data,
+          )
+        ) {
+          targetPlayer =
+            data;
+
+          break;
+        }
       }
     }
 
-    if (
-      !targetPlayer
-    ) {
+    /* =====================================================
+       3. TARGET KONTROL
+    ===================================================== */
+
+    if (!targetPlayer) {
       return NextResponse.json(
         {
           ok: false,
@@ -194,19 +365,19 @@ export async function GET() {
             "Guess the Player için uygun oyuncu seçilemedi.",
         },
         {
-          status:
-            500,
+          status: 500,
         },
       );
     }
 
     /* =====================================================
-       3. SESSION OLUŞTUR
+       4. SESSION
     ===================================================== */
 
     const {
       data:
         session,
+
       error:
         sessionError,
     } =
@@ -244,18 +415,25 @@ export async function GET() {
             "Yeni oyun oluşturulamadı.",
         },
         {
-          status:
-            500,
+          status: 500,
         },
       );
     }
 
     /* =====================================================
-       4. RESPONSE
+       5. RESPONSE
     ===================================================== */
 
     return NextResponse.json({
       ok: true,
+
+      mode:
+        dailyMode
+          ? "daily"
+          : "random",
+
+      daily:
+        dailyMode,
 
       sessionId:
         session.id,
@@ -280,9 +458,7 @@ export async function GET() {
         ],
       },
     });
-  } catch (
-    error
-  ) {
+  } catch (error) {
     console.error(
       "Guess the Player today endpoint hatası:",
       error,
@@ -298,8 +474,7 @@ export async function GET() {
             : "Yeni oyun hazırlanırken hata oluştu.",
       },
       {
-        status:
-          500,
+        status: 500,
       },
     );
   }

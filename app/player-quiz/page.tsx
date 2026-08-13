@@ -67,6 +67,8 @@ type GameSession = {
   minimumSearchLength: number;
 
   board: BoardConfig;
+
+  daily: boolean;
 };
 
 type SolvedClub = {
@@ -78,6 +80,12 @@ type SolvedClub = {
 type TodayResponse = {
   ok?: boolean;
   error?: string;
+
+  mode?:
+    | "daily"
+    | "random";
+
+  daily?: boolean;
 
   sessionId?: string;
 
@@ -174,7 +182,33 @@ type ResultSnapshot = {
   attemptCount: number;
 };
 
-async function markPlayerQuizDailyChallenge() {
+type DailyChallengeNextGame = {
+  code: string;
+  label: string;
+  href: string;
+};
+
+type DailyChallengeUpdateResponse = {
+  ok?: boolean;
+  error?: string;
+
+  completedCount?: number;
+  required?: number;
+  totalGames?: number;
+
+  challengeCompleted?: boolean;
+  perfectCompleted?: boolean;
+
+  rewardAdded?: number;
+
+  nextGame?:
+    | DailyChallengeNextGame
+    | null;
+};
+
+async function markPlayerQuizDailyChallenge(): Promise<
+  DailyChallengeUpdateResponse | null
+> {
   try {
     const response =
       await fetch(
@@ -204,30 +238,37 @@ async function markPlayerQuizDailyChallenge() {
       response.status ===
       401
     ) {
-      return;
+      return null;
     }
 
-    if (
-      !response.ok
-    ) {
-      const result =
-        await response
-          .json()
-          .catch(
-            () =>
-              null,
-          );
+    const result =
+      (await response
+        .json()
+        .catch(
+          () =>
+            null,
+        )) as DailyChallengeUpdateResponse | null;
 
+    if (
+      !response.ok ||
+      !result?.ok
+    ) {
       console.error(
         "Player Quiz daily challenge update error:",
         result,
       );
+
+      return null;
     }
+
+    return result;
   } catch (error) {
     console.error(
       "Player Quiz daily challenge request error:",
       error,
     );
+
+    return null;
   }
 }
 
@@ -345,6 +386,20 @@ export default function PlayerQuizPage() {
     useState<CorrectAnswers | null>(
       null,
     );
+
+  const [
+    dailyChallengeNextGame,
+    setDailyChallengeNextGame,
+  ] =
+    useState<DailyChallengeNextGame | null>(
+      null,
+    );
+
+  const [
+    dailyChallengeUpdated,
+    setDailyChallengeUpdated,
+  ] =
+    useState(false);
 
   /* =======================================================
      BIRTH YEAR
@@ -552,6 +607,14 @@ export default function PlayerQuizPage() {
         null,
       );
 
+      setDailyChallengeNextGame(
+        null,
+      );
+
+      setDailyChallengeUpdated(
+        false,
+      );
+
       setBirthYearInput(
         "",
       );
@@ -636,9 +699,21 @@ export default function PlayerQuizPage() {
 
           resetLocalGame();
 
+          const dailyMode =
+            initial &&
+            typeof window !==
+              "undefined" &&
+            new URLSearchParams(
+              window.location.search,
+            ).get(
+              "daily",
+            ) === "1";
+
           const response =
             await fetch(
-              "/api/player-quiz/today",
+              dailyMode
+                ? "/api/player-quiz/today?daily=1"
+                : "/api/player-quiz/today",
               {
                 cache:
                   "no-store",
@@ -690,6 +765,12 @@ export default function PlayerQuizPage() {
 
               board:
                 result.board,
+
+              daily:
+                Boolean(
+                  result.daily ??
+                    dailyMode,
+                ),
             };
 
           setGameSession(
@@ -1123,9 +1204,24 @@ export default function PlayerQuizPage() {
           }
 
           if (
-            result.won
+            result.won &&
+            gameSession.daily
           ) {
-            void markPlayerQuizDailyChallenge();
+            const dailyResult =
+              await markPlayerQuizDailyChallenge();
+
+            if (
+              dailyResult
+            ) {
+              setDailyChallengeUpdated(
+                true,
+              );
+
+              setDailyChallengeNextGame(
+                dailyResult.nextGame ??
+                  null,
+              );
+            }
           }
 
           void trackGameCompleted(
@@ -1990,7 +2086,9 @@ export default function PlayerQuizPage() {
             <div className="flex items-start justify-between gap-3 sm:hidden">
 
               <span className="rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-yellow-300">
-                SOLO
+                {gameSession.daily
+                  ? "GÜNLÜK"
+                  : "SOLO"}
               </span>
 
               <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2">
@@ -2015,7 +2113,9 @@ export default function PlayerQuizPage() {
             </div>
 
             <p className="hidden text-xs font-black uppercase tracking-[0.22em] text-yellow-300 sm:block">
-              SOLO PLAYER QUIZ
+              {gameSession.daily
+                ? "GÜNLÜK PLAYER QUIZ"
+                : "SOLO PLAYER QUIZ"}
             </p>
 
             <h1 className="mt-3 text-2xl font-black sm:mt-2 sm:text-3xl">
@@ -2639,25 +2739,84 @@ export default function PlayerQuizPage() {
                   </p>
                 )}
 
+                {gameSession.daily &&
+                  gameStatus ===
+                    "won" &&
+                  dailyChallengeUpdated && (
+                    <div className="mx-auto mt-4 max-w-lg rounded-2xl border border-yellow-400/20 bg-yellow-400/[0.07] p-4 sm:mt-5">
+
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-yellow-300">
+                        🔥 Günlük Görev
+                      </p>
+
+                      <p className="mt-2 text-sm font-bold text-slate-200">
+                        Player Quiz günlük görevde tamamlandı.
+                      </p>
+
+                    </div>
+                  )}
+
                 <div className="mt-4 flex flex-col justify-center gap-2 sm:mt-6 sm:flex-row">
 
-                  <button
-                    type="button"
-                    disabled={
-                      newGameLoading ||
-                      resultSaving
-                    }
-                    onClick={() =>
-                      void handleNewGame()
-                    }
-                    className="rounded-xl bg-yellow-400 px-5 py-3 text-xs font-black text-[#111827] transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6 sm:text-sm"
-                  >
+                  {gameSession.daily ? (
+                    gameStatus ===
+                    "won" ? (
+                      dailyChallengeNextGame ? (
+                        <Link
+                          href={`${dailyChallengeNextGame.href}?daily=1`}
+                          className="rounded-xl bg-yellow-400 px-5 py-3 text-xs font-black text-[#111827] transition hover:bg-yellow-300 sm:px-6 sm:text-sm"
+                        >
+                          Sıradaki Görev →{" "}
+                          {
+                            dailyChallengeNextGame.label
+                          }
+                        </Link>
+                      ) : (
+                        <Link
+                          href="/"
+                          className="rounded-xl bg-green-500 px-5 py-3 text-xs font-black text-[#07111f] transition hover:bg-green-400 sm:px-6 sm:text-sm"
+                        >
+                          🏆 Günlük Görev Tamamlandı
+                        </Link>
+                      )
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={
+                          newGameLoading ||
+                          resultSaving
+                        }
+                        onClick={() =>
+                          void startNewGame(
+                            true,
+                          )
+                        }
+                        className="rounded-xl bg-yellow-400 px-5 py-3 text-xs font-black text-[#111827] transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6 sm:text-sm"
+                      >
+                        {newGameLoading
+                          ? "Günlük oyun hazırlanıyor..."
+                          : "↻ Günlük Görevi Tekrar Dene"}
+                      </button>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={
+                        newGameLoading ||
+                        resultSaving
+                      }
+                      onClick={() =>
+                        void handleNewGame()
+                      }
+                      className="rounded-xl bg-yellow-400 px-5 py-3 text-xs font-black text-[#111827] transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6 sm:text-sm"
+                    >
 
-                    {newGameLoading
-                      ? "Yeni oyuncu seçiliyor..."
-                      : "⚽ Yeni Oyuncuyla Tekrar Oyna"}
+                      {newGameLoading
+                        ? "Yeni oyuncu seçiliyor..."
+                        : "⚽ Yeni Oyuncuyla Tekrar Oyna"}
 
-                  </button>
+                    </button>
+                  )}
 
                   <Link
                     href="/"

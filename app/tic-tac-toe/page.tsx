@@ -66,6 +66,12 @@ type StartResponse = {
   ok?: boolean;
   error?: string;
 
+  mode?:
+    | "daily"
+    | "random";
+
+  daily?: boolean;
+
   game?: {
     code: string;
     label: string;
@@ -123,6 +129,26 @@ type AnswerResponse = {
 
   cell?: GridCell;
   message?: string;
+};
+
+
+type DailyChallengeNextGame = {
+  code: string;
+  label: string;
+  href: string;
+};
+
+type DailyChallengeUpdateResponse = {
+  ok?: boolean;
+  error?: string;
+
+  nextGame?:
+    | DailyChallengeNextGame
+    | null;
+
+  challengeCompleted?: boolean;
+  perfectCompleted?: boolean;
+  rewardAdded?: number;
 };
 
 type FinishResponse = {
@@ -203,7 +229,9 @@ function axisIcon(
     : "🌍";
 }
 
-async function markTicTacToeDailyChallenge() {
+async function markTicTacToeDailyChallenge(): Promise<
+  DailyChallengeUpdateResponse | null
+> {
   try {
     const response =
       await fetch(
@@ -225,38 +253,41 @@ async function markTicTacToeDailyChallenge() {
         },
       );
 
-    /*
-     * Giriş yapmayan kullanıcıda günlük görev işaretlenmez.
-     * Normal Tic Tac Toe akışını bozmasın.
-     */
     if (
       response.status ===
       401
     ) {
-      return;
+      return null;
     }
 
-    if (
-      !response.ok
-    ) {
-      const result =
-        await response
-          .json()
-          .catch(
-            () =>
-              null,
-          );
+    const result =
+      (await response
+        .json()
+        .catch(
+          () =>
+            null,
+        )) as DailyChallengeUpdateResponse | null;
 
+    if (
+      !response.ok ||
+      !result?.ok
+    ) {
       console.error(
         "Tic Tac Toe daily challenge update error:",
         result,
       );
+
+      return null;
     }
+
+    return result;
   } catch (error) {
     console.error(
       "Tic Tac Toe daily challenge request error:",
       error,
     );
+
+    return null;
   }
 }
 
@@ -304,6 +335,26 @@ export default function TicTacToePage() {
   const [
     gameFinished,
     setGameFinished,
+  ] =
+    useState(false);
+
+  const [
+    dailyMode,
+    setDailyMode,
+  ] =
+    useState(false);
+
+  const [
+    dailyChallengeNextGame,
+    setDailyChallengeNextGame,
+  ] =
+    useState<DailyChallengeNextGame | null>(
+      null,
+    );
+
+  const [
+    dailyChallengeUpdated,
+    setDailyChallengeUpdated,
   ] =
     useState(false);
 
@@ -619,9 +670,32 @@ export default function TicTacToePage() {
             "neutral",
           );
 
+          const isDaily =
+            typeof window !==
+              "undefined" &&
+            new URLSearchParams(
+              window.location.search,
+            ).get(
+              "daily",
+            ) === "1";
+
+          setDailyMode(
+            isDaily,
+          );
+
+          setDailyChallengeNextGame(
+            null,
+          );
+
+          setDailyChallengeUpdated(
+            false,
+          );
+
           const response =
             await fetch(
-              "/api/tic-tac-toe/start",
+              isDaily
+                ? "/api/tic-tac-toe/start?daily=1"
+                : "/api/tic-tac-toe/start",
               {
                 method:
                   "POST",
@@ -1469,9 +1543,25 @@ export default function TicTacToePage() {
        */
       if (
         nextCorrectCount >=
-        5
+          5 &&
+        dailyMode &&
+        !dailyChallengeUpdated
       ) {
-        void markTicTacToeDailyChallenge();
+        const dailyResult =
+          await markTicTacToeDailyChallenge();
+
+        if (
+          dailyResult
+        ) {
+          setDailyChallengeUpdated(
+            true,
+          );
+
+          setDailyChallengeNextGame(
+            dailyResult.nextGame ??
+              null,
+          );
+        }
       }
 
       setSelectedCell(
@@ -1715,27 +1805,70 @@ export default function TicTacToePage() {
                 {message}
               </p>
 
-              <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  disabled={
-                    loading
-                  }
-                  onClick={() => {
-                    void trackPlayAgain(
-                      GAME_NAMES.TIC_TAC_TOE,
-                      sessionId ||
-                        null,
-                    );
+              {dailyMode &&
+                dailyChallengeUpdated && (
+                  <div className="mt-6 rounded-2xl border border-green-500/20 bg-green-500/[0.07] p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-green-300">
+                      🔥 Günlük Görev
+                    </p>
 
-                    void startGame();
-                  }}
-                  className="rounded-2xl bg-green-500 px-6 py-4 font-black text-[#07111f] transition hover:bg-green-400 disabled:opacity-50"
-                >
-                  {loading
-                    ? "Hazırlanıyor..."
-                    : "Tekrar Oyna"}
-                </button>
+                    <p className="mt-2 text-sm font-bold text-slate-200">
+                      Tic Tac Toe için 5 doğru hücre şartını tamamladın.
+                    </p>
+                  </div>
+                )}
+
+              <div className="mt-8 grid gap-3 sm:grid-cols-2">
+
+                {dailyMode ? (
+                  dailyChallengeNextGame ? (
+                    <Link
+                      href={`${dailyChallengeNextGame.href}?daily=1`}
+                      className="rounded-2xl bg-green-500 px-6 py-4 font-black text-[#07111f] transition hover:bg-green-400"
+                    >
+                      Sıradaki Görev →{" "}
+                      {
+                        dailyChallengeNextGame.label
+                      }
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={
+                        loading
+                      }
+                      onClick={() =>
+                        void startGame()
+                      }
+                      className="rounded-2xl bg-green-500 px-6 py-4 font-black text-[#07111f] transition hover:bg-green-400 disabled:opacity-50"
+                    >
+                      {loading
+                        ? "Hazırlanıyor..."
+                        : "↻ Günlük Görevi Tekrar Dene"}
+                    </button>
+                  )
+                ) : (
+                  <button
+                    type="button"
+                    disabled={
+                      loading
+                    }
+                    onClick={() => {
+                      void trackPlayAgain(
+                        GAME_NAMES.TIC_TAC_TOE,
+                        sessionId ||
+                          null,
+                      );
+
+                      void startGame();
+                    }}
+                    className="rounded-2xl bg-green-500 px-6 py-4 font-black text-[#07111f] transition hover:bg-green-400 disabled:opacity-50"
+                  >
+                    {loading
+                      ? "Hazırlanıyor..."
+                      : "Tekrar Oyna"}
+                  </button>
+                )}
 
                 <Link
                   href="/"
