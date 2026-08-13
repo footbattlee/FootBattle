@@ -1,6 +1,6 @@
 export const DAILY_GAME_TABLES = {
   guess_the_player:
-    "daily_guess_player"
+    "daily_guess_player",
 
   player_quiz:
     "daily_player_quiz",
