@@ -12,7 +12,7 @@ type LeaderboardType =
   | "wordle"
   | "guess_the_player"
   | "player_quiz"
-  | "career_path";
+  | "tic_tac_toe";
 
 type LeaderboardEntry = {
   rank: number;
@@ -55,8 +55,8 @@ const FILTERS: {
     label: "Player Quiz",
   },
   {
-    value: "career_path",
-    label: "Career Path",
+    value: "tic_tac_toe",
+    label: "Tic Tac Toe",
   },
 ];
 
@@ -128,8 +128,8 @@ export default function LeaderboardCard() {
       try {
         const query =
           selectedType === "overall"
-            ? "/api/leaderboard?limit=10"
-            : `/api/leaderboard?game=${encodeURIComponent(
+            ? "/api/leaderboard?period=week&limit=10"
+            : `/api/leaderboard?period=week&game=${encodeURIComponent(
                 selectedType,
               )}&limit=10`;
 
@@ -204,7 +204,7 @@ export default function LeaderboardCard() {
           </h2>
 
           <p className="mt-1 text-sm text-slate-500">
-            En yüksek skorlu oyuncular.
+            Bu haftanın en yüksek skorlu oyuncuları.
           </p>
         </div>
 
@@ -269,8 +269,7 @@ export default function LeaderboardCard() {
               </p>
 
               <p className="mt-2 text-sm text-slate-600">
-                Bu oyun için skor oluştuğunda
-                burada görünecek.
+                Bu hafta skor oluştuğunda burada görünecek.
               </p>
             </div>
           </div>
@@ -369,14 +368,14 @@ export default function LeaderboardCard() {
 
       <div className="flex items-center justify-between border-t border-white/10 px-5 py-4">
         <p className="text-xs text-slate-600">
-          {selectedLabel} • İlk 10
+          {selectedLabel} • Bu Hafta • İlk 10
         </p>
 
         <Link
           href={`/leaderboard${
             selectedType === "overall"
-              ? ""
-              : `?game=${selectedType}`
+              ? "?period=week"
+              : `?period=week&game=${selectedType}`
           }`}
           className="text-sm font-black text-yellow-300 transition hover:text-yellow-200"
         >

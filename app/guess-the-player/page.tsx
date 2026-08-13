@@ -171,6 +171,63 @@ function calculateScore(
   );
 }
 
+async function markGuessThePlayerDailyChallenge() {
+  try {
+    const response =
+      await fetch(
+        "/api/daily-challenge",
+        {
+          method:
+            "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body:
+            JSON.stringify({
+              game:
+                "guess_the_player",
+            }),
+        },
+      );
+
+    /*
+     * Giriş yapmayan kullanıcıda endpoint 401 dönebilir.
+     * Bu durum normal oyunun sonucunu bozmasın.
+     */
+    if (
+      response.status ===
+      401
+    ) {
+      return;
+    }
+
+    if (
+      !response.ok
+    ) {
+      const result =
+        await response
+          .json()
+          .catch(
+            () =>
+              null,
+          );
+
+      console.error(
+        "Guess The Player daily challenge update error:",
+        result,
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Guess The Player daily challenge request error:",
+      error,
+    );
+  }
+}
+
 /* =========================================================
    PAGE
 ========================================================= */
@@ -747,6 +804,12 @@ export default function GuessThePlayerPage() {
         }
 
         return;
+      }
+
+      if (
+        result.won
+      ) {
+        void markGuessThePlayerDailyChallenge();
       }
 
       void trackGameCompleted(

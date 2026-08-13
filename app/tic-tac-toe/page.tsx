@@ -203,6 +203,63 @@ function axisIcon(
     : "🌍";
 }
 
+async function markTicTacToeDailyChallenge() {
+  try {
+    const response =
+      await fetch(
+        "/api/daily-challenge",
+        {
+          method:
+            "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body:
+            JSON.stringify({
+              game:
+                "tic_tac_toe",
+            }),
+        },
+      );
+
+    /*
+     * Giriş yapmayan kullanıcıda günlük görev işaretlenmez.
+     * Normal Tic Tac Toe akışını bozmasın.
+     */
+    if (
+      response.status ===
+      401
+    ) {
+      return;
+    }
+
+    if (
+      !response.ok
+    ) {
+      const result =
+        await response
+          .json()
+          .catch(
+            () =>
+              null,
+          );
+
+      console.error(
+        "Tic Tac Toe daily challenge update error:",
+        result,
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Tic Tac Toe daily challenge request error:",
+      error,
+    );
+  }
+}
+
 /* =========================================================
    PAGE
 ========================================================= */
@@ -1395,6 +1452,27 @@ export default function TicTacToePage() {
         result.message ??
           `Doğru! +${scorePerCorrect} puan.`,
       );
+
+      const nextCorrectCount =
+        typeof result.correctCount ===
+          "number"
+          ? result.correctCount
+          : correctCount +
+            1;
+
+      /*
+       * Günlük görev kuralı:
+       * Tic Tac Toe'da en az 5 doğru hücre yeterli.
+       *
+       * Endpoint aynı gün tekrar çağrılsa bile
+       * ikinci kez ödül yazmaz.
+       */
+      if (
+        nextCorrectCount >=
+        5
+      ) {
+        void markTicTacToeDailyChallenge();
+      }
 
       setSelectedCell(
         null,

@@ -174,6 +174,63 @@ type ResultSnapshot = {
   attemptCount: number;
 };
 
+async function markPlayerQuizDailyChallenge() {
+  try {
+    const response =
+      await fetch(
+        "/api/daily-challenge",
+        {
+          method:
+            "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body:
+            JSON.stringify({
+              game:
+                "player_quiz",
+            }),
+        },
+      );
+
+    /*
+     * Giriş yapmayan kullanıcıda günlük görev işaretlenmez.
+     * Bu durum normal oyunun sonucunu bozmasın.
+     */
+    if (
+      response.status ===
+      401
+    ) {
+      return;
+    }
+
+    if (
+      !response.ok
+    ) {
+      const result =
+        await response
+          .json()
+          .catch(
+            () =>
+              null,
+          );
+
+      console.error(
+        "Player Quiz daily challenge update error:",
+        result,
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Player Quiz daily challenge request error:",
+      error,
+    );
+  }
+}
+
 /* =========================================================
    PAGE
 ========================================================= */
@@ -1063,6 +1120,12 @@ export default function PlayerQuizPage() {
             );
 
             return;
+          }
+
+          if (
+            result.won
+          ) {
+            void markPlayerQuizDailyChallenge();
           }
 
           void trackGameCompleted(

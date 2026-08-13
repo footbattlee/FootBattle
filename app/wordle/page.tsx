@@ -254,6 +254,63 @@ function normalizeKeyboardLetter(
     .replace(/Ü/g, "U");
 }
 
+async function markWordleDailyChallenge() {
+  try {
+    const response =
+      await fetch(
+        "/api/daily-challenge",
+        {
+          method:
+            "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body:
+            JSON.stringify({
+              game:
+                "wordle",
+            }),
+        },
+      );
+
+    /*
+     * Giriş yapmayan kullanıcıda günlük görev işaretlenmez.
+     * Normal Wordle akışını bozmasın.
+     */
+    if (
+      response.status ===
+      401
+    ) {
+      return;
+    }
+
+    if (
+      !response.ok
+    ) {
+      const result =
+        await response
+          .json()
+          .catch(
+            () =>
+              null,
+          );
+
+      console.error(
+        "Wordle daily challenge update error:",
+        result,
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Wordle daily challenge request error:",
+      error,
+    );
+  }
+}
+
 /* =========================================================
    PAGE
 ========================================================= */
@@ -741,6 +798,13 @@ export default function WordlePage() {
             );
 
             return;
+          }
+
+          if (
+            status ===
+            "won"
+          ) {
+            void markWordleDailyChallenge();
           }
 
           void trackGameCompleted(

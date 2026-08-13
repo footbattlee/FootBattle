@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 
+import LeaderboardCard from "../components/LeaderboardCard";
 import { createClient } from "../lib/supabase/client";
 
 /* =========================================================
@@ -77,6 +78,43 @@ type FriendsResponse = {
   };
 
   friends?: FriendItem[];
+};
+
+type DailyChallengeProgress = {
+  guessThePlayer: boolean;
+  playerQuiz: boolean;
+  ticTacToe: boolean;
+  wordle: boolean;
+};
+
+type DailyChallengeNextGame = {
+  code: string;
+  label: string;
+  href: string;
+};
+
+type DailyChallengeResponse = {
+  ok?: boolean;
+  authenticated?: boolean;
+  error?: string;
+
+  challengeDate?: string;
+
+  required?: number;
+  totalGames?: number;
+  completedCount?: number;
+
+  challengeCompleted?: boolean;
+  perfectCompleted?: boolean;
+
+  reward?: number;
+  rewardClaimed?: boolean;
+
+  progress?: DailyChallengeProgress;
+
+  nextGame?:
+    | DailyChallengeNextGame
+    | null;
 };
 
 type GameMode =
@@ -632,6 +670,24 @@ export default function HomePage() {
     useState(false);
 
   /* =======================================================
+     DAILY CHALLENGE
+  ======================================================= */
+
+  const [
+    dailyChallenge,
+    setDailyChallenge,
+  ] =
+    useState<DailyChallengeResponse | null>(
+      null,
+    );
+
+  const [
+    dailyChallengeLoading,
+    setDailyChallengeLoading,
+  ] =
+    useState(false);
+
+  /* =======================================================
      LOAD USER
   ======================================================= */
 
@@ -866,6 +922,108 @@ export default function HomePage() {
   ]);
 
   /* =======================================================
+     LOAD DAILY CHALLENGE
+  ======================================================= */
+
+  useEffect(() => {
+    if (!user) {
+      setDailyChallenge(
+        null,
+      );
+
+      setDailyChallengeLoading(
+        false,
+      );
+
+      return;
+    }
+
+    let cancelled =
+      false;
+
+    async function loadDailyChallenge() {
+      try {
+        setDailyChallengeLoading(
+          true,
+        );
+
+        const response =
+          await fetch(
+            "/api/daily-challenge",
+            {
+              cache:
+                "no-store",
+            },
+          );
+
+        const result =
+          (await response.json()) as DailyChallengeResponse;
+
+        if (
+          cancelled
+        ) {
+          return;
+        }
+
+        if (
+          !response.ok ||
+          !result.ok
+        ) {
+          setDailyChallenge(
+            null,
+          );
+
+          return;
+        }
+
+        setDailyChallenge(
+          result,
+        );
+      } catch {
+        if (
+          !cancelled
+        ) {
+          setDailyChallenge(
+            null,
+          );
+        }
+      } finally {
+        if (
+          !cancelled
+        ) {
+          setDailyChallengeLoading(
+            false,
+          );
+        }
+      }
+    }
+
+    void loadDailyChallenge();
+
+    const handleFocus =
+      () => {
+        void loadDailyChallenge();
+      };
+
+    window.addEventListener(
+      "focus",
+      handleFocus,
+    );
+
+    return () => {
+      cancelled =
+        true;
+
+      window.removeEventListener(
+        "focus",
+        handleFocus,
+      );
+    };
+  }, [
+    user,
+  ]);
+
+  /* =======================================================
      LOGOUT
   ======================================================= */
 
@@ -1091,6 +1249,58 @@ export default function HomePage() {
         </div>
 
       </header>
+
+      {/* ===================================================
+          DAILY CHALLENGE + LEADERBOARD
+      =================================================== */}
+
+      <section className="border-b border-white/5 bg-[#081523]">
+
+        <div className="mx-auto max-w-[1240px] px-5 py-8 lg:px-6">
+
+          <div className="mb-5">
+
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-yellow-400">
+              Her Gün Geri Dön
+            </p>
+
+            <h2 className="mt-2 text-2xl font-black sm:text-3xl">
+              Bugünün görevi ve arena sıralaması
+            </h2>
+
+            <p className="mt-2 max-w-[760px] text-sm leading-6 text-slate-400">
+              Dört günlük oyundan üçünü tamamla, bonus puanı kap.
+              Dördünü de bitirirsen ekstra ödül kazan.
+            </p>
+
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.18fr)_minmax(340px,0.82fr)]">
+
+            <DailyChallengeCard
+              user={
+                user
+              }
+              loading={
+                dailyChallengeLoading
+              }
+              data={
+                dailyChallenge
+              }
+            />
+
+            <div
+              id="liderlik"
+              className="scroll-mt-24"
+            >
+              <LeaderboardCard />
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
 
       {/* ===================================================
           GAMES
@@ -1550,6 +1760,376 @@ export default function HomePage() {
       </footer>
 
     </main>
+  );
+}
+
+/* =========================================================
+   DAILY CHALLENGE CARD
+========================================================= */
+
+function DailyChallengeCard({
+  user,
+  loading,
+  data,
+}: {
+  user:
+    | HomeUser
+    | null;
+
+  loading:
+    boolean;
+
+  data:
+    | DailyChallengeResponse
+    | null;
+}) {
+  const progress =
+    data?.progress ?? {
+      guessThePlayer:
+        false,
+
+      playerQuiz:
+        false,
+
+      ticTacToe:
+        false,
+
+      wordle:
+        false,
+    };
+
+  const games = [
+    {
+      code:
+        "guess_the_player",
+
+      label:
+        "Guess The Player",
+
+      href:
+        "/guess-the-player",
+
+      icon:
+        "🕵️",
+
+      completed:
+        progress.guessThePlayer,
+    },
+
+    {
+      code:
+        "player_quiz",
+
+      label:
+        "Player Quiz",
+
+      href:
+        "/player-quiz",
+
+      icon:
+        "🧠",
+
+      completed:
+        progress.playerQuiz,
+    },
+
+    {
+      code:
+        "tic_tac_toe",
+
+      label:
+        "Tic Tac Toe",
+
+      href:
+        "/tic-tac-toe",
+
+      icon:
+        "⭕",
+
+      completed:
+        progress.ticTacToe,
+    },
+
+    {
+      code:
+        "wordle",
+
+      label:
+        "Wordle",
+
+      href:
+        "/wordle",
+
+      icon:
+        "🟩",
+
+      completed:
+        progress.wordle,
+    },
+  ];
+
+  const completedCount =
+    data?.completedCount ??
+    games.filter(
+      (
+        game,
+      ) =>
+        game.completed,
+    ).length;
+
+  const required =
+    data?.required ??
+    3;
+
+  const totalGames =
+    data?.totalGames ??
+    4;
+
+  const progressPercent =
+    Math.min(
+      100,
+      Math.round(
+        (
+          completedCount /
+          totalGames
+        ) *
+          100,
+      ),
+    );
+
+  const nextGame =
+    data?.nextGame ??
+    games.find(
+      (
+        game,
+      ) =>
+        !game.completed,
+    ) ??
+    null;
+
+  if (!user) {
+    return (
+      <section className="relative overflow-hidden rounded-3xl border border-yellow-400/20 bg-yellow-400/[0.045] p-5 sm:p-6">
+
+        <div className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-yellow-400/10 blur-3xl" />
+
+        <div className="relative">
+
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-yellow-300">
+            🔥 Bugünün FootBattle&apos;ı
+          </p>
+
+          <h3 className="mt-2 text-2xl font-black">
+            Günlük görevini tamamla
+          </h3>
+
+          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
+            4 oyundan 3&apos;ünü tamamla ve 250 bonus puan kazan.
+            4/4 yaparsan günlük ödülün 350 puana çıkar.
+          </p>
+
+          <div className="mt-5 grid gap-2 sm:grid-cols-2">
+
+            {games.map(
+              (
+                game,
+              ) => (
+                <div
+                  key={
+                    game.code
+                  }
+                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/15 px-4 py-3"
+                >
+                  <span className="text-xl">
+                    {
+                      game.icon
+                    }
+                  </span>
+
+                  <span className="text-sm font-black">
+                    {
+                      game.label
+                    }
+                  </span>
+                </div>
+              ),
+            )}
+
+          </div>
+
+          <Link
+            href="/login"
+            className="mt-5 inline-flex rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-[#07111f] transition hover:bg-yellow-300"
+          >
+            Giriş Yap ve Göreve Başla →
+          </Link>
+
+        </div>
+
+      </section>
+    );
+  }
+
+  return (
+    <section className="relative overflow-hidden rounded-3xl border border-yellow-400/20 bg-yellow-400/[0.045] p-5 sm:p-6">
+
+      <div className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-yellow-400/10 blur-3xl" />
+
+      <div className="relative">
+
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+
+          <div>
+
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-yellow-300">
+              🔥 Bugünün FootBattle&apos;ı
+            </p>
+
+            <h3 className="mt-2 text-2xl font-black">
+              Günlük Görev
+            </h3>
+
+            <p className="mt-2 text-sm text-slate-400">
+              {completedCount >=
+              4
+                ? "Dört oyunu da tamamladın. Bugünlük görev tertemiz. 🏆"
+                : completedCount >=
+                    required
+                  ? "Ana ödülü aldın. 4/4 yaparsan ekstra 100 puan daha var."
+                  : `${required}/${totalGames} tamamla → +250 puan`}
+            </p>
+
+          </div>
+
+          <div className="shrink-0 rounded-2xl border border-yellow-400/20 bg-black/20 px-4 py-3 text-center">
+
+            <p className="text-2xl font-black text-yellow-300">
+              {completedCount}
+              <span className="text-slate-600">
+                /{totalGames}
+              </span>
+            </p>
+
+            <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-slate-500">
+              Tamamlandı
+            </p>
+
+          </div>
+
+        </div>
+
+        <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/10">
+
+          <div
+            className="h-full rounded-full bg-yellow-400 transition-all duration-500"
+            style={{
+              width:
+                `${progressPercent}%`,
+            }}
+          />
+
+        </div>
+
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+
+          {games.map(
+            (
+              game,
+            ) => (
+              <Link
+                key={
+                  game.code
+                }
+                href={
+                  game.href
+                }
+                className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition ${
+                  game.completed
+                    ? "border-green-500/20 bg-green-500/[0.08]"
+                    : "border-white/10 bg-black/15 hover:border-yellow-400/30 hover:bg-yellow-400/[0.04]"
+                }`}
+              >
+
+                <div className="flex min-w-0 items-center gap-3">
+
+                  <span className="text-xl">
+                    {
+                      game.icon
+                    }
+                  </span>
+
+                  <span className="truncate text-sm font-black">
+                    {
+                      game.label
+                    }
+                  </span>
+
+                </div>
+
+                <span
+                  className={`text-sm font-black ${
+                    game.completed
+                      ? "text-green-400"
+                      : "text-slate-600"
+                  }`}
+                >
+                  {game.completed
+                    ? "✓"
+                    : "○"}
+                </span>
+
+              </Link>
+            ),
+          )}
+
+        </div>
+
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+          <div className="flex flex-wrap gap-2 text-xs font-black">
+
+            <span className="rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1.5 text-green-300">
+              3/4 → +250
+            </span>
+
+            <span className="rounded-full border border-yellow-400/20 bg-yellow-400/10 px-3 py-1.5 text-yellow-300">
+              4/4 → +350
+            </span>
+
+          </div>
+
+          {loading ? (
+            <span className="text-sm font-black text-slate-500">
+              Görev yükleniyor...
+            </span>
+          ) : completedCount >=
+            totalGames ? (
+            <span className="rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-2.5 text-sm font-black text-green-300">
+              🏆 Günlük görev tamamlandı
+            </span>
+          ) : nextGame ? (
+            <Link
+              href={
+                nextGame.href
+              }
+              className="rounded-xl bg-yellow-400 px-4 py-2.5 text-sm font-black text-[#07111f] transition hover:bg-yellow-300"
+            >
+              {completedCount ===
+              0
+                ? "Göreve Başla"
+                : "Devam Et"}
+              {" → "}
+              {
+                nextGame.label
+              }
+            </Link>
+          ) : null}
+
+        </div>
+
+      </div>
+
+    </section>
   );
 }
 
