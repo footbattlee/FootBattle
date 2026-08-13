@@ -1,5 +1,13 @@
 "use client";
 
+import {
+  GAME_NAMES,
+  trackGameStarted,
+  trackGameCompleted,
+  trackPlayAgain,
+} from "@/lib/analytics/game-analytics";
+
+
 import Link from "next/link";
 
 import {
@@ -631,6 +639,11 @@ export default function PlayerQuizPage() {
             session,
           );
 
+          void trackGameStarted(
+            GAME_NAMES.PLAYER_QUIZ,
+            session.sessionId,
+          );
+
           setLives(
             session.maxLives,
           );
@@ -1051,6 +1064,31 @@ export default function PlayerQuizPage() {
 
             return;
           }
+
+          void trackGameCompleted(
+            GAME_NAMES.PLAYER_QUIZ,
+            gameSession.sessionId,
+            {
+              won:
+                Boolean(
+                  result.won,
+                ),
+
+              score:
+                result.score ??
+                (
+                  result.won
+                    ? COMPLETION_SCORE
+                    : 0
+                ),
+
+              attemptCount:
+                result.attemptCount ??
+                snapshot.attemptCount,
+
+              finishReason,
+            },
+          );
 
           if (
             result.won
@@ -1720,6 +1758,12 @@ export default function PlayerQuizPage() {
     ) {
       return;
     }
+
+    void trackPlayAgain(
+      GAME_NAMES.PLAYER_QUIZ,
+      gameSession?.sessionId ??
+        null,
+    );
 
     await startNewGame(
       false,

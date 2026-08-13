@@ -1,5 +1,13 @@
 "use client";
 
+import {
+  GAME_NAMES,
+  trackGameStarted,
+  trackGameCompleted,
+  trackPlayAgain,
+} from "@/lib/analytics/game-analytics";
+
+
 import Link from "next/link";
 
 import {
@@ -471,6 +479,37 @@ export default function ClubNationPage() {
             true,
           );
 
+          if (
+            !result.alreadyCompleted
+          ) {
+            void trackGameCompleted(
+              GAME_NAMES.CLUB_NATION,
+              id,
+              {
+                score:
+                  Number(
+                    result.score ??
+                      0,
+                  ),
+
+                correctCount:
+                  Number(
+                    result.correctCount ??
+                      0,
+                  ),
+
+                wrongCount:
+                  Number(
+                    result.wrongCount ??
+                      0,
+                  ),
+
+                reason:
+                  "finished",
+              },
+            );
+          }
+
           setGameStarted(
             false,
           );
@@ -571,6 +610,11 @@ export default function ClubNationPage() {
 
           setSession(
             result.session,
+          );
+
+          void trackGameStarted(
+            GAME_NAMES.CLUB_NATION,
+            result.session.id,
           );
 
           setQuestion(
@@ -1057,6 +1101,35 @@ export default function ClubNationPage() {
         setMessage(
           result.message ??
             "Süre doldu!",
+        );
+
+        void trackGameCompleted(
+          GAME_NAMES.CLUB_NATION,
+          session?.id ??
+            null,
+          {
+            score:
+              Number(
+                result.score ??
+                  score,
+              ),
+
+            correctCount:
+              Number(
+                result.correctCount ??
+                  correctCount,
+              ),
+
+            wrongCount:
+              Number(
+                result.wrongCount ??
+                  wrongCount,
+              ),
+
+            reason:
+              result.reason ??
+              "completed",
+          },
         );
 
         return;

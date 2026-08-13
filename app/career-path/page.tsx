@@ -1,5 +1,13 @@
 "use client";
 
+import {
+  GAME_NAMES,
+  trackGameStarted,
+  trackGameCompleted,
+  trackPlayAgain,
+} from "@/lib/analytics/game-analytics";
+
+
 import Link from "next/link";
 
 import {
@@ -495,6 +503,11 @@ export default function CareerPathPage() {
               DEFAULT_SCORING,
           });
 
+          void trackGameStarted(
+            GAME_NAMES.CAREER_PATH,
+            result.sessionId,
+          );
+
           setMessage(
             initial
               ? "😏 Footy: Oyuncunun kariyerindeki kulüpleri bul."
@@ -811,6 +824,31 @@ export default function CareerPathPage() {
 
         return;
       }
+
+      void trackGameCompleted(
+        GAME_NAMES.CAREER_PATH,
+        gameSession.sessionId,
+        {
+          won:
+            Boolean(
+              result.won,
+            ),
+
+          score:
+            result.score ??
+            0,
+
+          wrongCount:
+            result.wrongCount ??
+            nextWrongCount,
+
+          attemptCount:
+            result.attemptCount ??
+            nextAttemptCount,
+
+          finishReason,
+        },
+      );
 
       if (
         result.won
@@ -1156,6 +1194,12 @@ export default function CareerPathPage() {
     ) {
       return;
     }
+
+    void trackPlayAgain(
+      GAME_NAMES.CAREER_PATH,
+      gameSession?.sessionId ??
+        null,
+    );
 
     await startNewGame(
       false,

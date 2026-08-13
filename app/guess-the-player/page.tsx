@@ -1,5 +1,13 @@
 "use client";
 
+import {
+  GAME_NAMES,
+  trackGameStarted,
+  trackGameCompleted,
+  trackPlayAgain,
+} from "@/lib/analytics/game-analytics";
+
+
 import Link from "next/link";
 
 import {
@@ -470,6 +478,11 @@ export default function GuessThePlayerPage() {
               DEFAULT_MINIMUM_SEARCH_LENGTH,
           });
 
+          void trackGameStarted(
+            GAME_NAMES.GUESS_THE_PLAYER,
+            result.sessionId,
+          );
+
           setMessage(
             initial
               ? "😏 Footy: Üç harf yaz da kimi düşündüğünü görelim."
@@ -735,6 +748,29 @@ export default function GuessThePlayerPage() {
 
         return;
       }
+
+      void trackGameCompleted(
+        GAME_NAMES.GUESS_THE_PLAYER,
+        gameSession.sessionId,
+        {
+          won:
+            Boolean(
+              result.won,
+            ),
+
+          score:
+            result.score ??
+            0,
+
+          attemptCount:
+            result.attemptCount ??
+            guesses.length,
+
+          durationSeconds:
+            result.durationSeconds ??
+            null,
+        },
+      );
 
       if (
         result.authenticated
@@ -1027,6 +1063,12 @@ export default function GuessThePlayerPage() {
     ) {
       return;
     }
+
+    void trackPlayAgain(
+      GAME_NAMES.GUESS_THE_PLAYER,
+      gameSession?.sessionId ??
+        null,
+    );
 
     await startNewGame(
       false,

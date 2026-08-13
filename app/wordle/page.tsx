@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  GAME_NAMES,
+  trackGameStarted,
+  trackGameCompleted,
+  trackPlayAgain,
+  trackShared,
+} from "@/lib/analytics/game-analytics";
+
+
 import Link from "next/link";
 import {
   useCallback,
@@ -474,6 +483,11 @@ export default function WordlePage() {
               DEFAULT_MAX_ATTEMPTS,
           });
 
+          void trackGameStarted(
+            GAME_NAMES.WORDLE,
+            result.sessionId,
+          );
+
           setEvaluatedGuesses(
             [],
           );
@@ -728,6 +742,24 @@ export default function WordlePage() {
 
             return;
           }
+
+          void trackGameCompleted(
+            GAME_NAMES.WORDLE,
+            game.sessionId,
+            {
+              won:
+                status ===
+                "won",
+
+              score:
+                result.score ??
+                0,
+
+              attemptCount:
+                result.attemptCount ??
+                completedGuesses.length,
+            },
+          );
 
           setResultSaveMessage(
             status ===
@@ -1155,6 +1187,11 @@ export default function WordlePage() {
         resultText,
       );
 
+      void trackShared(
+        GAME_NAMES.WORDLE,
+        game.sessionId,
+      );
+
       setShareMessage(
         "Sonuç panoya kopyalandı! ✅",
       );
@@ -1185,6 +1222,12 @@ export default function WordlePage() {
     ) {
       return;
     }
+
+    void trackPlayAgain(
+      GAME_NAMES.WORDLE,
+      game?.sessionId ??
+        null,
+    );
 
     await startNewGame(
       false,

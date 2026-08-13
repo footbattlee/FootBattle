@@ -1,5 +1,13 @@
 "use client";
 
+import {
+  GAME_NAMES,
+  trackGameStarted,
+  trackGameCompleted,
+  trackPlayAgain,
+} from "@/lib/analytics/game-analytics";
+
+
 import Link from "next/link";
 
 import {
@@ -588,6 +596,11 @@ export default function TicTacToePage() {
             result.session.id,
           );
 
+          void trackGameStarted(
+            GAME_NAMES.TIC_TAC_TOE,
+            result.session.id,
+          );
+
           setRows(
             result.grid.rows,
           );
@@ -820,6 +833,38 @@ export default function TicTacToePage() {
           setGameFinished(
             true,
           );
+
+          if (
+            !result.alreadyCompleted
+          ) {
+            void trackGameCompleted(
+              GAME_NAMES.TIC_TAC_TOE,
+              sessionId,
+              {
+                score:
+                  Number(
+                    result.score ??
+                      0,
+                  ),
+
+                correctCount:
+                  Number(
+                    result.correctCount ??
+                      0,
+                  ),
+
+                wrongCount:
+                  Number(
+                    result.wrongCount ??
+                      0,
+                  ),
+
+                reason:
+                  result.reason ??
+                  "finished",
+              },
+            );
+          }
 
           setSelectedCell(
             null,
@@ -1375,6 +1420,34 @@ export default function TicTacToePage() {
           true,
         );
 
+        void trackGameCompleted(
+          GAME_NAMES.TIC_TAC_TOE,
+          sessionId,
+          {
+            score:
+              Number(
+                result.score ??
+                  score,
+              ),
+
+            correctCount:
+              Number(
+                result.correctCount ??
+                  correctCount,
+              ),
+
+            wrongCount:
+              Number(
+                result.wrongCount ??
+                  wrongCount,
+              ),
+
+            reason:
+              result.reason ??
+              "completed",
+          },
+        );
+
         return;
       }
     } catch (
@@ -1570,9 +1643,15 @@ export default function TicTacToePage() {
                   disabled={
                     loading
                   }
-                  onClick={() =>
-                    void startGame()
-                  }
+                  onClick={() => {
+                    void trackPlayAgain(
+                      GAME_NAMES.TIC_TAC_TOE,
+                      sessionId ||
+                        null,
+                    );
+
+                    void startGame();
+                  }}
                   className="rounded-2xl bg-green-500 px-6 py-4 font-black text-[#07111f] transition hover:bg-green-400 disabled:opacity-50"
                 >
                   {loading
