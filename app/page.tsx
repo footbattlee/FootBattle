@@ -2040,9 +2040,7 @@ function DailyChallengeCard({
                 key={
                   game.code
                 }
-                href={
-                  game.href
-                }
+                href={`${game.href}?daily=1`}
                 className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition ${
                   game.completed
                     ? "border-green-500/20 bg-green-500/[0.08]"
@@ -2109,9 +2107,7 @@ function DailyChallengeCard({
             </span>
           ) : nextGame ? (
             <Link
-              href={
-                nextGame.href
-              }
+              href={`${nextGame.href}?daily=1`}
               className="rounded-xl bg-yellow-400 px-4 py-2.5 text-sm font-black text-[#07111f] transition hover:bg-yellow-300"
             >
               {completedCount ===
