@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title:
@@ -45,5 +46,16 @@ export default function HalisahaKadroLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return children;
+  return (
+    <>
+      {children}
+      <Link
+        href="/halisaha-mac"
+        className="fixed bottom-[max(16px,env(safe-area-inset-bottom))] right-4 z-50 inline-flex min-h-12 items-center gap-2 rounded-full border border-yellow-300/30 bg-yellow-400 px-5 py-3 text-sm font-black text-[#07111f] shadow-2xl shadow-black/40 transition hover:bg-yellow-300 sm:right-6"
+        aria-label="Yeni halısaha maçı oluştur"
+      >
+        ⚽ Maç Oluştur
+      </Link>
+    </>
+  );
 }
