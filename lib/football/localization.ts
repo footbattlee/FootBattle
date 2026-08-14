@@ -17,11 +17,11 @@ const LEAGUE_TR_MAP: Record<string, string> = {
   PO2: "Liga Portugal 2",
   TR1: "Süper Lig",
   TR2: "1. Lig",
-  SA1: "Saudi Pro League",
+  SA1: "Suudi Pro Ligi",
   NL1: "Eredivisie",
   NL2: "Eerste Divisie",
   BE1: "Jupiler Pro League",
-  SC1: "Scottish Premiership",
+  SC1: "İskoçya Premiership",
   GR1: "Yunanistan Süper Ligi",
   RU1: "Rusya Premier Ligi",
   UKR1: "Ukrayna Premier Ligi",
@@ -41,6 +41,49 @@ const LEAGUE_TR_MAP: Record<string, string> = {
   MEXA: "Liga MX",
 };
 
+const PREFERRED_FOOT_TR_MAP: Record<string, string> = {
+  right: "Sağ",
+  left: "Sol",
+  both: "İki Ayağını da Kullanıyor",
+  either: "İki Ayağını da Kullanıyor",
+  ambidextrous: "İki Ayağını da Kullanıyor",
+};
+
+const POSITION_TR_MAP: Record<string, string> = {
+  goalkeeper: "Kaleci",
+  keeper: "Kaleci",
+  defender: "Defans",
+  defence: "Defans",
+  defense: "Defans",
+  midfield: "Orta Saha",
+  midfielder: "Orta Saha",
+  attack: "Hücum",
+  attacker: "Hücum",
+  forward: "Forvet",
+  striker: "Forvet",
+  "centre-back": "Stoper",
+  "center-back": "Stoper",
+  "central defender": "Stoper",
+  "left-back": "Sol Bek",
+  "right-back": "Sağ Bek",
+  "left back": "Sol Bek",
+  "right back": "Sağ Bek",
+  "defensive midfield": "Ön Libero",
+  "central midfield": "Merkez Orta Saha",
+  "attacking midfield": "Ofansif Orta Saha",
+  "left midfield": "Sol Orta Saha",
+  "right midfield": "Sağ Orta Saha",
+  "left winger": "Sol Kanat",
+  "right winger": "Sağ Kanat",
+  "centre-forward": "Santrfor",
+  "center-forward": "Santrfor",
+  "second striker": "İkinci Forvet",
+};
+
+function normalizeLookupValue(value: string | null | undefined) {
+  return String(value ?? "").trim().toLocaleLowerCase("en-US");
+}
+
 export function leagueToDisplayName(value: string | null | undefined) {
   const raw = String(value ?? "").trim();
   if (!raw) return "Bilinmiyor";
@@ -53,10 +96,25 @@ export function nationalityToDisplayName(value: string | null | undefined) {
   return nationalityToTurkish(raw) || raw;
 }
 
+export function preferredFootToDisplayName(value: string | null | undefined) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "Bilinmiyor";
+  return PREFERRED_FOOT_TR_MAP[normalizeLookupValue(raw)] ?? raw;
+}
+
+export function positionToDisplayName(value: string | null | undefined) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "Bilinmiyor";
+  return POSITION_TR_MAP[normalizeLookupValue(raw)] ?? raw;
+}
+
 export function localizeFootballAxisValue(
-  type: "club" | "nationality" | string,
+  type: "club" | "nationality" | "league" | "competition" | "position" | "preferredFoot" | "preferred_foot" | string,
   value: string | null | undefined,
 ) {
   if (type === "nationality") return nationalityToDisplayName(value);
+  if (type === "league" || type === "competition") return leagueToDisplayName(value);
+  if (type === "position") return positionToDisplayName(value);
+  if (type === "preferredFoot" || type === "preferred_foot") return preferredFootToDisplayName(value);
   return String(value ?? "").trim() || "Bilinmiyor";
 }
