@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   createPublicMatchId,
+  createPublicMatchPath,
   validateMatchCreate,
 } from "@/lib/halisaha/match";
 import {
@@ -57,7 +58,12 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       id,
-      matchPath: `/halisaha-mac/${id}`,
+      matchPath: createPublicMatchPath({
+        id,
+        matchDate: data.matchDate,
+        matchTime: data.matchTime,
+        location: data.location,
+      }),
     });
   } catch (error) {
     console.error("Halisaha match create endpoint error:", error);
