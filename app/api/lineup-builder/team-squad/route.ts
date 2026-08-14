@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 
+import {
+  nationalityToDisplayName,
+  positionToDisplayName,
+  preferredFootToDisplayName,
+} from "@/lib/football/localization";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 type LineupSlot = {
@@ -140,7 +145,7 @@ export async function GET(request: Request) {
           squadNumber:
             row.squad_number ?? null,
           nationality:
-            rawPlayer.nationality ?? null,
+            nationalityToDisplayName(rawPlayer.nationality),
           age:
             rawPlayer.age === null
               ? null
@@ -150,9 +155,9 @@ export async function GET(request: Request) {
             rawPlayer.position ??
             null,
           subPosition:
-            row.sub_position ??
-            rawPlayer.sub_position ??
-            null,
+            row.sub_position ?? rawPlayer.sub_position
+              ? positionToDisplayName(row.sub_position ?? rawPlayer.sub_position)
+              : null,
           club:
             rawPlayer.current_club_name ??
             null,
@@ -160,7 +165,9 @@ export async function GET(request: Request) {
             rawPlayer.current_competition_id ??
             null,
           preferredFoot:
-            rawPlayer.preferred_foot ?? null,
+            rawPlayer.preferred_foot
+              ? preferredFootToDisplayName(rawPlayer.preferred_foot)
+              : null,
           imageUrl:
             rawPlayer.image_url ?? null,
           popularityScore:
