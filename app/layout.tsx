@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 import PresenceHeartbeat from "@/components/PresenceHeartbeat";
+import HomeProgressionSpotlight from "@/components/HomeProgressionSpotlight";
 import HomeHalisahaPromo from "@/components/halisaha/HomeHalisahaPromo";
 
 export const metadata: Metadata = {
@@ -20,6 +21,7 @@ export default function RootLayout({
     <html lang="tr">
       <body>
         <PresenceHeartbeat />
+        <HomeProgressionSpotlight />
 
         {children}
 
