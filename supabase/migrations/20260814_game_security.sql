@@ -179,7 +179,7 @@ end;
 $$;
 
 -- Attach safely only when a native table exists. These triggers guarantee that
--- a server session is mirrored before any client can submit a finish request.
+-- every newly created server session is mirrored before the API response returns.
 do $$
 begin
   if to_regclass('public.wordle_sessions') is not null then
@@ -210,21 +210,6 @@ begin
     execute 'drop trigger if exists footbattle_security_sync on public.club_clash_sessions';
     execute 'create trigger footbattle_security_sync after insert or update on public.club_clash_sessions for each row execute function public.footbattle_sync_game_security_session(''club_clash'')';
   end if;
-end
-$$;
-
--- Backfill current native sessions so an in-flight game at deploy time is not lost.
--- The trigger will keep new/updated rows synchronized afterwards.
-do $$
-declare
-  r record;
-begin
-  if to_regclass('public.wordle_sessions') is not null then
-    for r in select * from public.wordle_sessions loop perform public.footbattle_sync_game_security_session(); end loop;
-  end if;
-exception when others then
-  -- Backfill is best-effort only; new sessions are protected by triggers.
-  raise notice 'Existing game-session backfill skipped: %', sqlerrm;
 end
 $$;
 
