@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 
+import {
+  nationalityToDisplayName,
+  positionToDisplayName,
+  preferredFootToDisplayName,
+} from "@/lib/football/localization";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const MINIMUM_SEARCH_LENGTH = 3;
@@ -62,29 +67,11 @@ export async function GET(
       });
     }
 
-    /*
-     * Kullanıcının % veya _ ile
-     * PostgreSQL pattern yazmasını engelle.
-     */
     const safeQuery =
       query
         .replace(/%/g, "")
         .replace(/_/g, "");
 
-    /*
-     * KRİTİK:
-     *
-     * Eskiden:
-     * `${safeQuery}%`
-     *
-     * idi ve yalnızca ismin başından arıyordu.
-     *
-     * Artık:
-     * `%${safeQuery}%`
-     *
-     * ile adın/soyadın herhangi bir yerinde
-     * geçen ifadeyi buluyoruz.
-     */
     const {
       data,
       error,
@@ -206,8 +193,7 @@ export async function GET(
               player.name,
 
             nationality:
-              player.nationality ??
-              null,
+              nationalityToDisplayName(player.nationality),
 
             age:
               player.age ===
@@ -222,8 +208,9 @@ export async function GET(
               null,
 
             subPosition:
-              player.sub_position ??
-              null,
+              player.sub_position
+                ? positionToDisplayName(player.sub_position)
+                : null,
 
             club:
               player.current_club_name ??
@@ -234,8 +221,9 @@ export async function GET(
               null,
 
             preferredFoot:
-              player.preferred_foot ??
-              null,
+              player.preferred_foot
+                ? preferredFootToDisplayName(player.preferred_foot)
+                : null,
 
             imageUrl:
               player.image_url ??

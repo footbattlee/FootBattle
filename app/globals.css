@@ -12,10 +12,16 @@
 
 html {
   scroll-behavior: smooth;
+  max-width: 100%;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
+  max-width: 100%;
+  overflow-x: hidden;
   background:
     radial-gradient(
       circle at 15% 20%,
@@ -33,9 +39,46 @@ body {
   font-family: var(--font-geist), Arial, Helvetica, sans-serif;
 }
 
+main,
+section,
+article,
+header,
+footer,
+nav,
+div {
+  min-width: 0;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+  max-width: 100%;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  max-width: 100%;
+}
+
 button,
 a {
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+button:disabled {
+  touch-action: auto;
 }
 
 ::selection {
@@ -136,6 +179,8 @@ a {
 
 .fb-game-card {
   border-radius: var(--fb-card-radius);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* Builder ekranları */
@@ -182,5 +227,35 @@ a {
 
   .fb-game-content {
     padding-top: 18px;
+  }
+
+  /* iOS Safari input focus sırasında sayfayı yakınlaştırmasın. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* Uzun isim, kulüp ve paylaşım linkleri ekranı yatay taşırmasın. */
+  p,
+  span,
+  a,
+  button {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

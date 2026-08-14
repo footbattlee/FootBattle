@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import {
   leagueToDisplayName,
   nationalityToDisplayName,
+  positionToDisplayName,
+  preferredFootToDisplayName,
 } from "@/lib/football/localization";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -63,11 +65,11 @@ export async function GET(request: Request) {
       id: player.player_id,
       fullName: player.name,
       nationality: nationalityToDisplayName(player.nationality),
-      position: player.sub_position ?? player.position ?? "Bilinmiyor",
+      position: positionToDisplayName(player.sub_position ?? player.position),
       club: player.current_club_name ?? "Kulüpsüz",
       league: leagueToDisplayName(player.current_competition_id),
       age: typeof player.age === "number" ? player.age : Number(player.age ?? 0),
-      preferredFoot: player.preferred_foot ?? "Bilinmiyor",
+      preferredFoot: preferredFootToDisplayName(player.preferred_foot),
       imageUrl: player.image_url ?? null,
     }));
 

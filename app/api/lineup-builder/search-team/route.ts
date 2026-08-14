@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { nationalityToDisplayName } from "@/lib/football/localization";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const MINIMUM_SEARCH_LENGTH = 2;
@@ -81,7 +82,9 @@ export async function GET(request: Request) {
         id: Number(team.id),
         name: team.name,
         logoUrl: team.logo_url ?? null,
-        country: team.country ?? null,
+        country: team.country
+          ? nationalityToDisplayName(team.country)
+          : null,
         competitionId:
           team.competition_id ?? null,
       }),

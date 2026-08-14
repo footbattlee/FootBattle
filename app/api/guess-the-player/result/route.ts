@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import {
   leagueToDisplayName,
   nationalityToDisplayName,
+  positionToDisplayName,
+  preferredFootToDisplayName,
 } from "@/lib/football/localization";
 import { getGameSecurityEvents } from "@/lib/game-security/server";
 import { getGameSecurityStatus } from "@/lib/game-security/status";
@@ -48,11 +50,11 @@ export async function POST(request: Request) {
       id: targetPlayer.player_id,
       fullName: targetPlayer.name,
       nationality: nationalityToDisplayName(targetPlayer.nationality),
-      position: targetPlayer.sub_position ?? targetPlayer.position ?? "Bilinmiyor",
+      position: positionToDisplayName(targetPlayer.sub_position ?? targetPlayer.position),
       club: targetPlayer.current_club_name ?? "Kulüpsüz",
       league: leagueToDisplayName(targetPlayer.current_competition_id),
       age: Number(targetPlayer.age ?? 0),
-      preferredFoot: targetPlayer.preferred_foot ?? "Bilinmiyor",
+      preferredFoot: preferredFootToDisplayName(targetPlayer.preferred_foot),
       imageUrl: targetPlayer.image_url ?? null,
     };
 
