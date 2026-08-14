@@ -33,7 +33,55 @@ export function normalizePlayerQuizText(
 }
 
 /* =========================================================
-   YOUTH / RESERVE
+   GEÇERSİZ / KULÜPSÜZ KAYITLAR
+========================================================= */
+
+export function isPlayerQuizInvalidClub(
+  value: unknown,
+) {
+  const name =
+    normalizePlayerQuizText(
+      value,
+    );
+
+  if (!name) {
+    return true;
+  }
+
+  /*
+   * Transfermarkt vb. kaynaklarda gerçek kulüp yerine
+   * statü olarak gelebilen kayıtlar.
+   */
+  return (
+    name ===
+      "without club" ||
+    name ===
+      "no club" ||
+    name ===
+      "without team" ||
+    name ===
+      "no team" ||
+    name ===
+      "unattached" ||
+    name ===
+      "free agent" ||
+    name ===
+      "free agents" ||
+    name ===
+      "retired" ||
+    name ===
+      "career break" ||
+    name ===
+      "career break end" ||
+    name ===
+      "unknown" ||
+    name ===
+      "none"
+  );
+}
+
+/* =========================================================
+   YOUTH / RESERVE / B TEAM
 ========================================================= */
 
 export function isPlayerQuizYouthClub(
@@ -48,17 +96,105 @@ export function isPlayerQuizYouthClub(
     return true;
   }
 
+  if (
+    isPlayerQuizInvalidClub(
+      name,
+    )
+  ) {
+    return true;
+  }
+
   return (
-    /\bu\s?\d{2}\b/.test(name) ||
-    /\byth\b/.test(name) ||
-    /\byouth\b/.test(name) ||
-    /\bacademy\b/.test(name) ||
-    /\bakademi\b/.test(name) ||
-    /\breserve\b/.test(name) ||
-    /\breserves\b/.test(name) ||
-    /\bprimavera\b/.test(name) ||
-    /\bjuvenil\b/.test(name) ||
-    /\bjuniors?\b/.test(name)
+    /*
+     * U15, U17, U19, U21, U23 vb.
+     */
+    /\bu\s?\d{2}\b/.test(
+      name,
+    ) ||
+
+    /*
+     * Youth / academy
+     */
+    /\byth\b/.test(
+      name,
+    ) ||
+    /\byouth\b/.test(
+      name,
+    ) ||
+    /\bacademy\b/.test(
+      name,
+    ) ||
+    /\bakademi\b/.test(
+      name,
+    ) ||
+    /\bprimavera\b/.test(
+      name,
+    ) ||
+    /\bjuvenil\b/.test(
+      name,
+    ) ||
+    /\bjuniors?\b/.test(
+      name,
+    ) ||
+
+    /*
+     * Reserve
+     */
+    /\breserve\b/.test(
+      name,
+    ) ||
+    /\breserves\b/.test(
+      name,
+    ) ||
+
+    /*
+     * B Team / Team B
+     */
+    /\bb team\b/.test(
+      name,
+    ) ||
+    /\bteam b\b/.test(
+      name,
+    ) ||
+
+    /*
+     * Örnek:
+     * Barcelona B
+     * Real Madrid B
+     *
+     * Tek başına son kelime "b" ise reserve kabul et.
+     */
+    /\sb$/.test(
+      name,
+    ) ||
+
+    /*
+     * Bazı kulüpler:
+     * Bayern Munich II
+     * Borussia Dortmund II
+     *
+     * Sadece sondaki "ii" reserve göstergesi olarak alınır.
+     */
+    /\sii$/.test(
+      name,
+    )
+  );
+}
+
+/* =========================================================
+   SENIOR CLUB KONTROLÜ
+========================================================= */
+
+export function isPlayerQuizSeniorClub(
+  value: unknown,
+) {
+  return (
+    !isPlayerQuizInvalidClub(
+      value,
+    ) &&
+    !isPlayerQuizYouthClub(
+      value,
+    )
   );
 }
 
@@ -136,12 +272,14 @@ export function playerQuizClubsAreEquivalent(
   }
 
   const shorter =
-    first.length <= second.length
+    first.length <=
+    second.length
       ? first
       : second;
 
   const longer =
-    first.length > second.length
+    first.length >
+    second.length
       ? first
       : second;
 
@@ -195,12 +333,22 @@ export function buildPlayerQuizSeniorCareer(
   rawClubs: RawPlayerQuizClub[],
 ): SeniorPlayerQuizClub[] {
   /*
-   * Önce altyapıları çıkar.
+   * Gerçek senior kulüp olmayan her şeyi çıkar:
+   *
+   * - Without Club
+   * - Retired
+   * - Free Agent
+   * - U15 / U17 / U19...
+   * - Youth
+   * - Academy
+   * - Reserve
+   * - B Team
+   * - Bayern II vb.
    */
   const seniorClubs =
     rawClubs.filter(
       (club) =>
-        !isPlayerQuizYouthClub(
+        isPlayerQuizSeniorClub(
           club.club_name,
         ),
     );
@@ -233,13 +381,23 @@ export function buildPlayerQuizSeniorCareer(
     originalOrder: number;
   }[] = [];
 
-  for (const club of sorted) {
+  for (
+    const club of
+      sorted
+  ) {
+    const cleanName =
+      club.club_name?.trim();
+
+    if (!cleanName) {
+      continue;
+    }
+
     const alreadyExists =
       uniqueClubs.some(
         (existing) =>
           playerQuizClubsAreEquivalent(
             existing.name,
-            club.club_name,
+            cleanName,
           ),
       );
 
@@ -248,10 +406,13 @@ export function buildPlayerQuizSeniorCareer(
     }
 
     uniqueClubs.push({
-      id: Number(club.id),
+      id:
+        Number(
+          club.id,
+        ),
 
       name:
-        club.club_name,
+        cleanName,
 
       originalOrder:
         Number(
@@ -262,16 +423,16 @@ export function buildPlayerQuizSeniorCareer(
   }
 
   /*
-   * Altyapılar çıktıktan sonra:
+   * Filtreleme sonrası career_order'ı yeniden sırala.
    *
-   * 4 -> Girona
-   * 7 -> Man City
+   * Örnek eski:
+   * 1 Sporting U15
+   * 4 Sporting
+   * 7 Man United
    *
-   * gibi kalmasın.
-   *
-   * Yeniden:
-   * 1 -> Girona
-   * 2 -> Man City
+   * Yeni:
+   * 1 Sporting
+   * 2 Man United
    */
   return uniqueClubs.map(
     (

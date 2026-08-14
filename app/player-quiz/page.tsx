@@ -192,6 +192,10 @@ type DailyChallengeUpdateResponse = {
   ok?: boolean;
   error?: string;
 
+  started?: boolean;
+  alreadyAttempted?: boolean;
+  alreadyCompleted?: boolean;
+
   completedCount?: number;
   required?: number;
   totalGames?: number;
@@ -265,6 +269,103 @@ async function markPlayerQuizDailyChallenge(): Promise<
   } catch (error) {
     console.error(
       "Player Quiz daily challenge request error:",
+      error,
+    );
+
+    return null;
+  }
+}
+
+
+async function startPlayerQuizDailyChallenge(): Promise<
+  DailyChallengeUpdateResponse
+> {
+  const response =
+    await fetch(
+      "/api/daily-challenge",
+      {
+        method:
+          "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body:
+          JSON.stringify({
+            game:
+              "player_quiz",
+
+            action:
+              "start",
+          }),
+      },
+    );
+
+  const result =
+    (await response
+      .json()
+      .catch(
+        () =>
+          null,
+      )) as DailyChallengeUpdateResponse | null;
+
+  if (
+    !response.ok ||
+    !result?.ok
+  ) {
+    throw new Error(
+      result?.error ??
+        "Günlük görev hakkı başlatılamadı.",
+    );
+  }
+
+  return result;
+}
+
+async function getDailyChallengeStatus(): Promise<
+  DailyChallengeUpdateResponse | null
+> {
+  try {
+    const response =
+      await fetch(
+        "/api/daily-challenge",
+        {
+          method:
+            "GET",
+
+          cache:
+            "no-store",
+        },
+      );
+
+    if (
+      response.status ===
+      401
+    ) {
+      return null;
+    }
+
+    const result =
+      (await response
+        .json()
+        .catch(
+          () =>
+            null,
+        )) as DailyChallengeUpdateResponse | null;
+
+    if (
+      !response.ok ||
+      !result?.ok
+    ) {
+      return null;
+    }
+
+    return result;
+  } catch (error) {
+    console.error(
+      "Player Quiz daily challenge status error:",
       error,
     );
 
@@ -743,6 +844,12 @@ export default function PlayerQuizPage() {
             );
           }
 
+          if (
+            dailyMode
+          ) {
+            await startPlayerQuizDailyChallenge();
+          }
+
           const session: GameSession =
             {
               sessionId:
@@ -1204,23 +1311,42 @@ export default function PlayerQuizPage() {
           }
 
           if (
-            result.won &&
             gameSession.daily
           ) {
-            const dailyResult =
-              await markPlayerQuizDailyChallenge();
-
             if (
-              dailyResult
+              result.won
             ) {
-              setDailyChallengeUpdated(
-                true,
-              );
+              const dailyResult =
+                await markPlayerQuizDailyChallenge();
 
-              setDailyChallengeNextGame(
-                dailyResult.nextGame ??
-                  null,
-              );
+              if (
+                dailyResult
+              ) {
+                setDailyChallengeUpdated(
+                  true,
+                );
+
+                setDailyChallengeNextGame(
+                  dailyResult.nextGame ??
+                    null,
+                );
+              }
+            } else {
+              const dailyStatus =
+                await getDailyChallengeStatus();
+
+              if (
+                dailyStatus
+              ) {
+                setDailyChallengeUpdated(
+                  true,
+                );
+
+                setDailyChallengeNextGame(
+                  dailyStatus.nextGame ??
+                    null,
+                );
+              }
             }
           }
 
@@ -2740,8 +2866,6 @@ export default function PlayerQuizPage() {
                 )}
 
                 {gameSession.daily &&
-                  gameStatus ===
-                    "won" &&
                   dailyChallengeUpdated && (
                     <div className="mx-auto mt-4 max-w-lg rounded-2xl border border-yellow-400/20 bg-yellow-400/[0.07] p-4 sm:mt-5">
 
@@ -2750,7 +2874,10 @@ export default function PlayerQuizPage() {
                       </p>
 
                       <p className="mt-2 text-sm font-bold text-slate-200">
-                        Player Quiz günlük görevde tamamlandı.
+                        {gameStatus ===
+                        "won"
+                          ? "Player Quiz tamamlandı."
+                          : "Player Quiz hakkın sona erdi."}
                       </p>
 
                     </div>
@@ -2759,44 +2886,23 @@ export default function PlayerQuizPage() {
                 <div className="mt-4 flex flex-col justify-center gap-2 sm:mt-6 sm:flex-row">
 
                   {gameSession.daily ? (
-                    gameStatus ===
-                    "won" ? (
-                      dailyChallengeNextGame ? (
-                        <Link
-                          href={`${dailyChallengeNextGame.href}?daily=1`}
-                          className="rounded-xl bg-yellow-400 px-5 py-3 text-xs font-black text-[#111827] transition hover:bg-yellow-300 sm:px-6 sm:text-sm"
-                        >
-                          Sıradaki Görev →{" "}
-                          {
-                            dailyChallengeNextGame.label
-                          }
-                        </Link>
-                      ) : (
-                        <Link
-                          href="/"
-                          className="rounded-xl bg-green-500 px-5 py-3 text-xs font-black text-[#07111f] transition hover:bg-green-400 sm:px-6 sm:text-sm"
-                        >
-                          🏆 Günlük Görev Tamamlandı
-                        </Link>
-                      )
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={
-                          newGameLoading ||
-                          resultSaving
-                        }
-                        onClick={() =>
-                          void startNewGame(
-                            true,
-                          )
-                        }
-                        className="rounded-xl bg-yellow-400 px-5 py-3 text-xs font-black text-[#111827] transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6 sm:text-sm"
+                    dailyChallengeNextGame ? (
+                      <Link
+                        href={`${dailyChallengeNextGame.href}?daily=1`}
+                        className="rounded-xl bg-yellow-400 px-5 py-3 text-xs font-black text-[#111827] transition hover:bg-yellow-300 sm:px-6 sm:text-sm"
                       >
-                        {newGameLoading
-                          ? "Günlük oyun hazırlanıyor..."
-                          : "↻ Günlük Görevi Tekrar Dene"}
-                      </button>
+                        Sıradaki Göreve Geç →{" "}
+                        {
+                          dailyChallengeNextGame.label
+                        }
+                      </Link>
+                    ) : (
+                      <Link
+                        href="/"
+                        className="rounded-xl bg-green-500 px-5 py-3 text-xs font-black text-[#07111f] transition hover:bg-green-400 sm:px-6 sm:text-sm"
+                      >
+                        Günlük Görevler → Ana Sayfa
+                      </Link>
                     )
                   ) : (
                     <button

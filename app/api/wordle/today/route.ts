@@ -2,37 +2,10 @@ import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-const MAX_ATTEMPTS = 7;
-const MINIMUM_SEARCH_LENGTH = 3;
-const MINIMUM_POPULARITY_SCORE = 84;
+const MAX_ATTEMPTS = 5;
 
-type CandidatePlayer = {
-  player_id: number;
-
-  nationality: string | null;
-
-  position: string | null;
-
-  sub_position: string | null;
-
-  age: number | string | null;
-
-  current_club_name:
-    | string
-    | null;
-
-  current_competition_id:
-    | string
-    | null;
-
-  preferred_foot:
-    | string
-    | null;
-
-  popularity_score:
-    | number
-    | null;
-};
+const MINIMUM_POPULARITY_SCORE =
+  84;
 
 function getTurkeyDateKey() {
   return new Intl.DateTimeFormat(
@@ -55,17 +28,54 @@ function getTurkeyDateKey() {
   );
 }
 
-function isCompletePlayer(
-  player: CandidatePlayer,
+function getLastName(
+  nameNormalized: string,
 ) {
-  return Boolean(
-    player.nationality &&
-      player.position &&
-      player.age !== null &&
-      player.current_club_name &&
-      player.current_competition_id &&
-      player.preferred_foot,
+  const parts =
+    nameNormalized
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+  return (
+    parts.at(-1) ??
+    ""
   );
+}
+
+function normalizeSurname(
+  nameNormalized: string,
+) {
+  return getLastName(
+    nameNormalized,
+  )
+    .toLocaleUpperCase(
+      "tr-TR",
+    )
+    .replace(
+      /İ/g,
+      "I",
+    )
+    .replace(
+      /Ç/g,
+      "C",
+    )
+    .replace(
+      /Ğ/g,
+      "G",
+    )
+    .replace(
+      /Ö/g,
+      "O",
+    )
+    .replace(
+      /Ş/g,
+      "S",
+    )
+    .replace(
+      /Ü/g,
+      "U",
+    );
 }
 
 export async function GET(
@@ -82,10 +92,19 @@ export async function GET(
         "daily",
       ) === "1";
 
-    let targetPlayer:
-      | CandidatePlayer
+    let selectedPlayer:
+      | {
+          player_id: number;
+          name: string;
+          name_normalized: string;
+          popularity_score:
+            number | null;
+        }
       | null =
       null;
+
+    let answer =
+      "";
 
     /* =====================================================
        1. DAILY MODE
@@ -104,7 +123,7 @@ export async function GET(
       } =
         await supabaseAdmin
           .from(
-            "daily_guess_player",
+            "daily_wordle",
           )
           .select(`
             player_id,
@@ -122,7 +141,7 @@ export async function GET(
 
       if (dailyError) {
         console.error(
-          "Daily Guess The Player okunamadı:",
+          "Daily Wordle okunamadı:",
           dailyError,
         );
 
@@ -131,7 +150,7 @@ export async function GET(
             ok: false,
 
             error:
-              "Bugünün Guess The Player bilgisi okunamadı.",
+              "Bugünün Wordle bilgisi okunamadı.",
           },
           {
             status: 500,
@@ -145,7 +164,7 @@ export async function GET(
             ok: false,
 
             error:
-              "Bugünün Guess The Player oyunu henüz yayınlanmadı.",
+              "Bugünün Wordle oyunu henüz yayınlanmadı.",
           },
           {
             status: 404,
@@ -166,13 +185,8 @@ export async function GET(
           )
           .select(`
             player_id,
-            nationality,
-            position,
-            sub_position,
-            age,
-            current_club_name,
-            current_competition_id,
-            preferred_foot,
+            name,
+            name_normalized,
             popularity_score
           `)
           .eq(
@@ -187,10 +201,12 @@ export async function GET(
 
       if (
         playerError ||
+        !dailyPlayer ||
         !dailyPlayer
+          .name_normalized
       ) {
         console.error(
-          "Daily Guess oyuncusu okunamadı:",
+          "Daily Wordle oyuncusu okunamadı:",
           playerError,
         );
 
@@ -199,7 +215,7 @@ export async function GET(
             ok: false,
 
             error:
-              "Bugünün Guess The Player oyuncusu bulunamadı.",
+              "Bugünün Wordle oyuncusu bulunamadı.",
           },
           {
             status: 404,
@@ -207,17 +223,27 @@ export async function GET(
         );
       }
 
+      const surname =
+        normalizeSurname(
+          dailyPlayer
+            .name_normalized,
+        );
+
       if (
-        !isCompletePlayer(
-          dailyPlayer,
-        )
+        !/^[A-Z]+$/.test(
+          surname,
+        ) ||
+        surname.length <
+          4 ||
+        surname.length >
+          10
       ) {
         return NextResponse.json(
           {
             ok: false,
 
             error:
-              "Admin tarafından seçilen Guess The Player oyuncusunun oyun bilgileri eksik.",
+              "Admin tarafından seçilen Wordle oyuncusunun soyadı Wordle kurallarına uygun değil.",
           },
           {
             status: 422,
@@ -225,8 +251,29 @@ export async function GET(
         );
       }
 
-      targetPlayer =
-        dailyPlayer;
+      selectedPlayer = {
+        player_id:
+          Number(
+            dailyPlayer.player_id,
+          ),
+
+        name:
+          dailyPlayer.name,
+
+        name_normalized:
+          dailyPlayer.name_normalized,
+
+        popularity_score:
+          dailyPlayer.popularity_score ===
+          null
+            ? null
+            : Number(
+                dailyPlayer.popularity_score,
+              ),
+      };
+
+      answer =
+        surname;
     } else {
       /* ===================================================
          2. NORMAL RANDOM MODE
@@ -259,6 +306,11 @@ export async function GET(
           .gte(
             "popularity_score",
             MINIMUM_POPULARITY_SCORE,
+          )
+          .not(
+            "name_normalized",
+            "is",
+            null,
           );
 
       if (
@@ -266,7 +318,7 @@ export async function GET(
         !count
       ) {
         console.error(
-          "Guess the Player oyuncu sayısı okunamadı:",
+          "Wordle oyuncu sayısı okunamadı:",
           countError,
         );
 
@@ -275,7 +327,7 @@ export async function GET(
             ok: false,
 
             error:
-              "Oyuncu havuzu okunamadı.",
+              "Wordle oyuncu havuzu okunamadı.",
           },
           {
             status: 500,
@@ -285,7 +337,7 @@ export async function GET(
 
       for (
         let attempt = 0;
-        attempt < 30;
+        attempt < 25;
         attempt += 1
       ) {
         const randomIndex =
@@ -304,13 +356,8 @@ export async function GET(
             )
             .select(`
               player_id,
-              nationality,
-              position,
-              sub_position,
-              age,
-              current_club_name,
-              current_competition_id,
-              preferred_foot,
+              name,
+              name_normalized,
               popularity_score
             `)
             .eq(
@@ -320,6 +367,11 @@ export async function GET(
             .gte(
               "popularity_score",
               MINIMUM_POPULARITY_SCORE,
+            )
+            .not(
+              "name_normalized",
+              "is",
+              null,
             )
             .order(
               "player_id",
@@ -339,30 +391,76 @@ export async function GET(
         }
 
         if (
-          data &&
-          isCompletePlayer(
-            data,
+          !data
+            ?.name_normalized
+        ) {
+          continue;
+        }
+
+        const surname =
+          normalizeSurname(
+            data.name_normalized,
+          );
+
+        if (
+          !/^[A-Z]+$/.test(
+            surname,
           )
         ) {
-          targetPlayer =
-            data;
-
-          break;
+          continue;
         }
+
+        if (
+          surname.length <
+            4 ||
+          surname.length >
+            10
+        ) {
+          continue;
+        }
+
+        selectedPlayer = {
+          player_id:
+            Number(
+              data.player_id,
+            ),
+
+          name:
+            data.name,
+
+          name_normalized:
+            data.name_normalized,
+
+          popularity_score:
+            data.popularity_score ===
+            null
+              ? null
+              : Number(
+                  data.popularity_score,
+                ),
+        };
+
+        answer =
+          surname;
+
+        break;
       }
     }
 
     /* =====================================================
-       3. TARGET KONTROL
+       3. KONTROL
     ===================================================== */
 
-    if (!targetPlayer) {
+    if (
+      !selectedPlayer ||
+      !answer
+    ) {
       return NextResponse.json(
         {
           ok: false,
 
           error:
-            "Guess the Player için uygun oyuncu seçilemedi.",
+            "Wordle için uygun futbolcu seçilemedi.",
         },
         {
           status: 500,
@@ -383,17 +481,25 @@ export async function GET(
     } =
       await supabaseAdmin
         .from(
-          "guess_player_sessions",
+          "wordle_sessions",
         )
         .insert({
           player_id:
-            targetPlayer.player_id,
+            selectedPlayer
+              .player_id,
+
+          answer_normalized:
+            answer,
+
+          letter_count:
+            answer.length,
 
           max_attempts:
             MAX_ATTEMPTS,
         })
         .select(`
           id,
+          letter_count,
           max_attempts
         `)
         .single();
@@ -403,7 +509,7 @@ export async function GET(
       !session
     ) {
       console.error(
-        "Guess the Player session oluşturma hatası:",
+        "Wordle session oluşturma hatası:",
         sessionError,
       );
 
@@ -412,7 +518,7 @@ export async function GET(
           ok: false,
 
           error:
-            "Yeni oyun oluşturulamadı.",
+            "Yeni Wordle oyunu oluşturulamadı.",
         },
         {
           status: 500,
@@ -438,29 +544,18 @@ export async function GET(
       sessionId:
         session.id,
 
+      letterCount:
+        session.letter_count,
+
       maxAttempts:
         session.max_attempts,
 
-      minimumSearchLength:
-        MINIMUM_SEARCH_LENGTH,
-
       minimumPopularityScore:
         MINIMUM_POPULARITY_SCORE,
-
-      board: {
-        columns: [
-          "nationality",
-          "club",
-          "competition",
-          "position",
-          "age",
-          "preferredFoot",
-        ],
-      },
     });
   } catch (error) {
     console.error(
-      "Guess the Player today endpoint hatası:",
+      "Wordle new game endpoint hatası:",
       error,
     );
 

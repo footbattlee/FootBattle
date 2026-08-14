@@ -8,33 +8,489 @@ import {
   supabaseAdmin,
 } from "@/lib/supabase/server";
 
-const REQUIRED_COMPLETIONS =
-  3;
+const REQUIRED_COMPLETIONS = 3;
+const THREE_OF_FOUR_REWARD = 250;
+const FOUR_OF_FOUR_REWARD = 350;
 
-const THREE_OF_FOUR_REWARD =
-  250;
+type DailyChallengeGame =
+  | "guess_the_player"
+  | "player_quiz"
+  | "tic_tac_toe"
+  | "wordle";
 
-const FOUR_OF_FOUR_REWARD =
-  350;
+type DailyChallengeAction =
+  | "start"
+  | "complete";
+
+type DailyChallengePostBody = {
+  game?: DailyChallengeGame;
+  action?: DailyChallengeAction;
+};
+
+type DailyChallengeProgressRow = {
+  id: number | string;
+  user_id?: string;
+  challenge_date?: string;
+
+  guess_the_player_completed: boolean;
+  player_quiz_completed: boolean;
+  tic_tac_toe_completed: boolean;
+  wordle_completed: boolean;
+
+  guess_the_player_attempted: boolean;
+  player_quiz_attempted: boolean;
+  tic_tac_toe_attempted: boolean;
+  wordle_attempted: boolean;
+
+  reward_claimed: boolean;
+  reward_points_awarded: number;
+
+  created_at?: string;
+};
+
+const GAME_COLUMN_MAP: Record<
+  DailyChallengeGame,
+  keyof DailyChallengeProgressRow
+> = {
+  guess_the_player:
+    "guess_the_player_completed",
+
+  player_quiz:
+    "player_quiz_completed",
+
+  tic_tac_toe:
+    "tic_tac_toe_completed",
+
+  wordle:
+    "wordle_completed",
+};
+
+const GAME_ATTEMPTED_COLUMN_MAP: Record<
+  DailyChallengeGame,
+  keyof DailyChallengeProgressRow
+> = {
+  guess_the_player:
+    "guess_the_player_attempted",
+
+  player_quiz:
+    "player_quiz_attempted",
+
+  tic_tac_toe:
+    "tic_tac_toe_attempted",
+
+  wordle:
+    "wordle_attempted",
+};
+
+const PROGRESS_SELECT = `
+  id,
+  user_id,
+  challenge_date,
+  guess_the_player_completed,
+  player_quiz_completed,
+  tic_tac_toe_completed,
+  wordle_completed,
+  guess_the_player_attempted,
+  player_quiz_attempted,
+  tic_tac_toe_attempted,
+  wordle_attempted,
+  reward_claimed,
+  reward_points_awarded,
+  created_at
+`;
 
 function getTodayDate() {
-  const now =
-    new Date();
+  return new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone:
+        "Europe/Istanbul",
 
-  return now
-    .toISOString()
-    .slice(
-      0,
-      10,
-    );
+      year:
+        "numeric",
+
+      month:
+        "2-digit",
+
+      day:
+        "2-digit",
+    },
+  ).format(
+    new Date(),
+  );
 }
+
+function getCompletedCount(
+  progress: DailyChallengeProgressRow,
+) {
+  return [
+    progress
+      .guess_the_player_completed,
+
+    progress
+      .player_quiz_completed,
+
+    progress
+      .tic_tac_toe_completed,
+
+    progress
+      .wordle_completed,
+  ].filter(
+    Boolean,
+  ).length;
+}
+
+function getTargetReward(
+  completedCount: number,
+) {
+  if (
+    completedCount >= 4
+  ) {
+    return FOUR_OF_FOUR_REWARD;
+  }
+
+  if (
+    completedCount >=
+    REQUIRED_COMPLETIONS
+  ) {
+    return THREE_OF_FOUR_REWARD;
+  }
+
+  return 0;
+}
+
+function getNextGame(
+  progress: DailyChallengeProgressRow,
+) {
+  if (
+    !progress
+      .guess_the_player_attempted
+  ) {
+    return {
+      code:
+        "guess_the_player",
+
+      label:
+        "Guess The Player",
+
+      href:
+        "/guess-the-player",
+    };
+  }
+
+  if (
+    !progress
+      .player_quiz_attempted
+  ) {
+    return {
+      code:
+        "player_quiz",
+
+      label:
+        "Player Quiz",
+
+      href:
+        "/player-quiz",
+    };
+  }
+
+  if (
+    !progress
+      .tic_tac_toe_attempted
+  ) {
+    return {
+      code:
+        "tic_tac_toe",
+
+      label:
+        "Tic Tac Toe",
+
+      href:
+        "/tic-tac-toe",
+    };
+  }
+
+  if (
+    !progress
+      .wordle_attempted
+  ) {
+    return {
+      code:
+        "wordle",
+
+      label:
+        "Wordle",
+
+      href:
+        "/wordle",
+    };
+  }
+
+  return null;
+}
+
+function buildProgressResponse(
+  progress: DailyChallengeProgressRow,
+) {
+  const completedCount =
+    getCompletedCount(
+      progress,
+    );
+
+  return {
+    completedCount,
+
+    challengeCompleted:
+      completedCount >=
+      REQUIRED_COMPLETIONS,
+
+    perfectCompleted:
+      completedCount === 4,
+
+    reward:
+      getTargetReward(
+        completedCount,
+      ),
+
+    rewardClaimed:
+      Boolean(
+        progress
+          .reward_claimed,
+      ),
+
+    rewardPointsAwarded:
+      Number(
+        progress
+          .reward_points_awarded ??
+          0,
+      ),
+
+    progress: {
+      guessThePlayer:
+        Boolean(
+          progress
+            .guess_the_player_completed,
+        ),
+
+      playerQuiz:
+        Boolean(
+          progress
+            .player_quiz_completed,
+        ),
+
+      ticTacToe:
+        Boolean(
+          progress
+            .tic_tac_toe_completed,
+        ),
+
+      wordle:
+        Boolean(
+          progress
+            .wordle_completed,
+        ),
+    },
+
+    attempted: {
+      guessThePlayer:
+        Boolean(
+          progress
+            .guess_the_player_attempted,
+        ),
+
+      playerQuiz:
+        Boolean(
+          progress
+            .player_quiz_attempted,
+        ),
+
+      ticTacToe:
+        Boolean(
+          progress
+            .tic_tac_toe_attempted,
+        ),
+
+      wordle:
+        Boolean(
+          progress
+            .wordle_attempted,
+        ),
+    },
+
+    failed: {
+      guessThePlayer:
+        Boolean(
+          progress
+            .guess_the_player_attempted,
+        ) &&
+        !Boolean(
+          progress
+            .guess_the_player_completed,
+        ),
+
+      playerQuiz:
+        Boolean(
+          progress
+            .player_quiz_attempted,
+        ) &&
+        !Boolean(
+          progress
+            .player_quiz_completed,
+        ),
+
+      ticTacToe:
+        Boolean(
+          progress
+            .tic_tac_toe_attempted,
+        ) &&
+        !Boolean(
+          progress
+            .tic_tac_toe_completed,
+        ),
+
+      wordle:
+        Boolean(
+          progress
+            .wordle_attempted,
+        ) &&
+        !Boolean(
+          progress
+            .wordle_completed,
+        ),
+    },
+
+    nextGame:
+      getNextGame(
+        progress,
+      ),
+  };
+}
+
+async function getOrCreateProgress(
+  userId: string,
+  challengeDate: string,
+): Promise<DailyChallengeProgressRow> {
+  const {
+    data:
+      rawExistingProgress,
+
+    error:
+      progressError,
+  } =
+    await supabaseAdmin
+      .from(
+        "daily_challenge_progress",
+      )
+      .select(
+        PROGRESS_SELECT,
+      )
+      .eq(
+        "user_id",
+        userId,
+      )
+      .eq(
+        "challenge_date",
+        challengeDate,
+      )
+      .maybeSingle();
+
+  if (
+    progressError
+  ) {
+    throw new Error(
+      `Günlük görev bilgileri okunamadı: ${progressError.message}`,
+    );
+  }
+
+  if (
+    rawExistingProgress
+  ) {
+    return rawExistingProgress as unknown as
+      DailyChallengeProgressRow;
+  }
+
+  /*
+   * DB TypeScript tipleri yeni attempted kolonlarını henüz
+   * tanımıyorsa bile bu payload bilinçli olarak any geçiliyor.
+   */
+  const insertPayload = {
+    user_id:
+      userId,
+
+    challenge_date:
+      challengeDate,
+
+    guess_the_player_completed:
+      false,
+
+    player_quiz_completed:
+      false,
+
+    tic_tac_toe_completed:
+      false,
+
+    wordle_completed:
+      false,
+
+    guess_the_player_attempted:
+      false,
+
+    player_quiz_attempted:
+      false,
+
+    tic_tac_toe_attempted:
+      false,
+
+    wordle_attempted:
+      false,
+
+    reward_claimed:
+      false,
+
+    reward_points_awarded:
+      0,
+  } as any;
+
+  const {
+    data:
+      rawCreatedProgress,
+
+    error:
+      createError,
+  } =
+    await supabaseAdmin
+      .from(
+        "daily_challenge_progress",
+      )
+      .insert(
+        insertPayload,
+      )
+      .select(
+        PROGRESS_SELECT,
+      )
+      .single();
+
+  if (
+    createError ||
+    !rawCreatedProgress
+  ) {
+    throw new Error(
+      createError
+        ? `Günlük görev oluşturulamadı: ${createError.message}`
+        : "Günlük görev oluşturulamadı.",
+    );
+  }
+
+  return rawCreatedProgress as unknown as
+    DailyChallengeProgressRow;
+}
+
+/* =========================================================
+   GET
+========================================================= */
 
 export async function GET() {
   try {
-    /* =====================================================
-       1. AUTH
-    ===================================================== */
-
     const authClient =
       await createAuthServerClient();
 
@@ -42,6 +498,7 @@ export async function GET() {
       data: {
         user,
       },
+
       error:
         authError,
     } =
@@ -67,268 +524,19 @@ export async function GET() {
       );
     }
 
-    /* =====================================================
-       2. TODAY
-    ===================================================== */
-
     const challengeDate =
       getTodayDate();
 
-    /* =====================================================
-       3. PROGRESS BUL
-    ===================================================== */
-
-    const {
-      data:
-        existingProgress,
-      error:
-        progressError,
-    } =
-      await supabaseAdmin
-        .from(
-          "daily_challenge_progress",
-        )
-        .select(`
-          id,
-          user_id,
-          challenge_date,
-          guess_the_player_completed,
-          player_quiz_completed,
-          tic_tac_toe_completed,
-          wordle_completed,
-          reward_claimed,
-          created_at
-        `)
-        .eq(
-          "user_id",
-          user.id,
-        )
-        .eq(
-          "challenge_date",
-          challengeDate,
-        )
-        .maybeSingle();
-
-    if (
-      progressError
-    ) {
-      console.error(
-        "Daily challenge progress okunamadı:",
-        progressError,
+    const progress =
+      await getOrCreateProgress(
+        user.id,
+        challengeDate,
       );
 
-      return NextResponse.json(
-        {
-          ok: false,
-
-          error:
-            "Günlük görev bilgileri okunamadı.",
-        },
-        {
-          status: 500,
-        },
+    const summary =
+      buildProgressResponse(
+        progress,
       );
-    }
-
-    /* =====================================================
-       4. YOKSA OLUŞTUR
-    ===================================================== */
-
-    let progress =
-      existingProgress;
-
-    if (
-      !progress
-    ) {
-      const {
-        data:
-          createdProgress,
-        error:
-          createError,
-      } =
-        await supabaseAdmin
-          .from(
-            "daily_challenge_progress",
-          )
-          .insert({
-            user_id:
-              user.id,
-
-            challenge_date:
-              challengeDate,
-
-            guess_the_player_completed:
-              false,
-
-            player_quiz_completed:
-              false,
-
-            tic_tac_toe_completed:
-              false,
-
-            wordle_completed:
-              false,
-
-            reward_claimed:
-              false,
-          })
-          .select(`
-            id,
-            user_id,
-            challenge_date,
-            guess_the_player_completed,
-            player_quiz_completed,
-            tic_tac_toe_completed,
-            wordle_completed,
-            reward_claimed,
-            created_at
-          `)
-          .single();
-
-      if (
-        createError ||
-        !createdProgress
-      ) {
-        console.error(
-          "Daily challenge progress oluşturulamadı:",
-          createError,
-        );
-
-        return NextResponse.json(
-          {
-            ok: false,
-
-            error:
-              "Günlük görev oluşturulamadı.",
-          },
-          {
-            status: 500,
-          },
-        );
-      }
-
-      progress =
-        createdProgress;
-    }
-
-    /* =====================================================
-       5. COMPLETED COUNT
-    ===================================================== */
-
-    const completedCount =
-      [
-        Boolean(
-          progress
-            .guess_the_player_completed,
-        ),
-
-        Boolean(
-          progress
-            .player_quiz_completed,
-        ),
-
-        Boolean(
-          progress
-            .tic_tac_toe_completed,
-        ),
-
-        Boolean(
-          progress
-            .wordle_completed,
-        ),
-      ].filter(
-        Boolean,
-      ).length;
-
-    const challengeCompleted =
-      completedCount >=
-      REQUIRED_COMPLETIONS;
-
-    const perfectCompleted =
-      completedCount ===
-      4;
-
-    const reward =
-      perfectCompleted
-        ? FOUR_OF_FOUR_REWARD
-        : challengeCompleted
-          ? THREE_OF_FOUR_REWARD
-          : 0;
-
-    /* =====================================================
-       6. NEXT GAME
-    ===================================================== */
-
-    let nextGame:
-      | {
-          code: string;
-          label: string;
-          href: string;
-        }
-      | null =
-      null;
-
-    if (
-      !progress
-        .guess_the_player_completed
-    ) {
-      nextGame = {
-        code:
-          "guess_the_player",
-
-        label:
-          "Guess The Player",
-
-        href:
-          "/guess-the-player",
-      };
-    } else if (
-      !progress
-        .player_quiz_completed
-    ) {
-      nextGame = {
-        code:
-          "player_quiz",
-
-        label:
-          "Player Quiz",
-
-        href:
-          "/player-quiz",
-      };
-    } else if (
-      !progress
-        .tic_tac_toe_completed
-    ) {
-      nextGame = {
-        code:
-          "tic_tac_toe",
-
-        label:
-          "Tic Tac Toe",
-
-        href:
-          "/tic-tac-toe",
-      };
-    } else if (
-      !progress
-        .wordle_completed
-    ) {
-      nextGame = {
-        code:
-          "wordle",
-
-        label:
-          "Wordle",
-
-        href:
-          "/wordle",
-      };
-    }
-
-    /* =====================================================
-       7. RESPONSE
-    ===================================================== */
 
     return NextResponse.json({
       ok: true,
@@ -344,51 +552,9 @@ export async function GET() {
       totalGames:
         4,
 
-      completedCount,
-
-      challengeCompleted,
-
-      perfectCompleted,
-
-      reward,
-
-      rewardClaimed:
-        Boolean(
-          progress
-            .reward_claimed,
-        ),
-
-      progress: {
-        guessThePlayer:
-          Boolean(
-            progress
-              .guess_the_player_completed,
-          ),
-
-        playerQuiz:
-          Boolean(
-            progress
-              .player_quiz_completed,
-          ),
-
-        ticTacToe:
-          Boolean(
-            progress
-              .tic_tac_toe_completed,
-          ),
-
-        wordle:
-          Boolean(
-            progress
-              .wordle_completed,
-          ),
-      },
-
-      nextGame,
+      ...summary,
     });
-  } catch (
-    error
-  ) {
+  } catch (error) {
     console.error(
       "Daily challenge GET error:",
       error,
@@ -399,8 +565,7 @@ export async function GET() {
         ok: false,
 
         error:
-          error instanceof
-          Error
+          error instanceof Error
             ? error.message
             : "Günlük görev bilgileri alınamadı.",
       },
@@ -411,52 +576,20 @@ export async function GET() {
   }
 }
 
-type DailyChallengeGame =
-  | "guess_the_player"
-  | "player_quiz"
-  | "tic_tac_toe"
-  | "wordle";
-
-type DailyChallengePostBody = {
-  game?: DailyChallengeGame;
-};
-
-const GAME_COLUMN_MAP: Record<
-  DailyChallengeGame,
-  string
-> = {
-  guess_the_player:
-    "guess_the_player_completed",
-
-  player_quiz:
-    "player_quiz_completed",
-
-  tic_tac_toe:
-    "tic_tac_toe_completed",
-
-  wordle:
-    "wordle_completed",
-};
-
-const DAILY_REWARD_3_OF_4 =
-  250;
-
-const DAILY_REWARD_4_OF_4 =
-  350;
-
 /* =========================================================
    POST
-   Oyunu günlük görevde tamamlandı olarak işaretle
+
+   action = start
+   → günlük oyun hakkını kullanıldı olarak işaretler.
+
+   action = complete
+   → oyunu başarıyla tamamlandı olarak işaretler.
 ========================================================= */
 
 export async function POST(
   request: Request,
 ) {
   try {
-    /* =====================================================
-       1. AUTH
-    ===================================================== */
-
     const authClient =
       await createAuthServerClient();
 
@@ -464,6 +597,7 @@ export async function POST(
       data: {
         user,
       },
+
       error:
         authError,
     } =
@@ -476,6 +610,7 @@ export async function POST(
       return NextResponse.json(
         {
           ok: false,
+
           authenticated:
             false,
 
@@ -488,28 +623,38 @@ export async function POST(
       );
     }
 
-    /* =====================================================
-       2. BODY
-    ===================================================== */
-
     const body =
-      (await request.json()) as DailyChallengePostBody;
+      (await request.json()) as
+        DailyChallengePostBody;
 
     const game =
       body.game;
+
+    const action =
+      body.action ??
+      "complete";
 
     if (
       !game ||
       !GAME_COLUMN_MAP[
         game
-      ]
+      ] ||
+      !GAME_ATTEMPTED_COLUMN_MAP[
+        game
+      ] ||
+      (
+        action !==
+          "start" &&
+        action !==
+          "complete"
+      )
     ) {
       return NextResponse.json(
         {
           ok: false,
 
           error:
-            "Geçersiz günlük görev oyunu.",
+            "Geçersiz günlük görev isteği.",
         },
         {
           status: 400,
@@ -520,126 +665,100 @@ export async function POST(
     const challengeDate =
       getTodayDate();
 
-    /* =====================================================
-       3. BUGÜNKÜ PROGRESS
-    ===================================================== */
-
-    const {
-      data:
-        existingProgress,
-      error:
-        progressError,
-    } =
-      await supabaseAdmin
-        .from(
-          "daily_challenge_progress",
-        )
-        .select(`
-          id,
-          guess_the_player_completed,
-          player_quiz_completed,
-          tic_tac_toe_completed,
-          wordle_completed,
-          reward_claimed,
-          reward_points_awarded
-        `)
-        .eq(
-          "user_id",
-          user.id,
-        )
-        .eq(
-          "challenge_date",
-          challengeDate,
-        )
-        .maybeSingle();
-
-    if (
-      progressError
-    ) {
-      console.error(
-        "Daily challenge POST progress error:",
-        progressError,
-      );
-
-      return NextResponse.json(
-        {
-          ok: false,
-
-          error:
-            "Günlük görev bilgileri okunamadı.",
-        },
-        {
-          status: 500,
-        },
-      );
-    }
-
-    /* =====================================================
-       4. YOKSA KAYIT OLUŞTUR
-    ===================================================== */
-
     let progress =
-      existingProgress;
+      await getOrCreateProgress(
+        user.id,
+        challengeDate,
+      );
+
+    const gameColumn =
+      GAME_COLUMN_MAP[
+        game
+      ];
+
+    const attemptedColumn =
+      GAME_ATTEMPTED_COLUMN_MAP[
+        game
+      ];
+
+    /* =====================================================
+       START
+    ===================================================== */
 
     if (
-      !progress
+      action ===
+      "start"
     ) {
-      const {
-        data:
-          createdProgress,
-        error:
-          createError,
-      } =
-        await supabaseAdmin
-          .from(
-            "daily_challenge_progress",
-          )
-          .insert({
-            user_id:
-              user.id,
-
-            challenge_date:
-              challengeDate,
-
-            guess_the_player_completed:
-              false,
-
-            player_quiz_completed:
-              false,
-
-            tic_tac_toe_completed:
-              false,
-
-            wordle_completed:
-              false,
-
-            reward_claimed:
-              false,
-
-            reward_points_awarded:
-              0,
-          })
-          .select(`
-            id,
-            guess_the_player_completed,
-            player_quiz_completed,
-            tic_tac_toe_completed,
-            wordle_completed,
-            reward_claimed,
-            reward_points_awarded
-          `)
-          .single();
-
       if (
-        createError ||
-        !createdProgress
+        Boolean(
+          progress[
+            attemptedColumn
+          ],
+        )
       ) {
         return NextResponse.json(
           {
             ok: false,
 
+            game,
+
+            alreadyAttempted:
+              true,
+
             error:
-              "Günlük görev kaydı oluşturulamadı.",
+              "Bugünkü bu görev hakkını zaten kullandın.",
+          },
+          {
+            status: 409,
+          },
+        );
+      }
+
+      const updatePayload = {
+        [
+          attemptedColumn
+        ]:
+          true,
+      } as any;
+
+      const {
+        data:
+          rawStartedProgress,
+
+        error:
+          startError,
+      } =
+        await supabaseAdmin
+          .from(
+            "daily_challenge_progress",
+          )
+          .update(
+            updatePayload,
+          )
+          .eq(
+            "id",
+            progress.id,
+          )
+          .select(
+            PROGRESS_SELECT,
+          )
+          .single();
+
+      if (
+        startError ||
+        !rawStartedProgress
+      ) {
+        console.error(
+          "Daily challenge start error:",
+          startError,
+        );
+
+        return NextResponse.json(
+          {
+            ok: false,
+
+            error:
+              "Günlük görev hakkı başlatılamadı.",
           },
           {
             status: 500,
@@ -648,28 +767,39 @@ export async function POST(
       }
 
       progress =
-        createdProgress;
+        rawStartedProgress as unknown as
+          DailyChallengeProgressRow;
+
+      return NextResponse.json({
+        ok: true,
+
+        game,
+
+        started:
+          true,
+
+        alreadyAttempted:
+          false,
+
+        required:
+          REQUIRED_COMPLETIONS,
+
+        totalGames:
+          4,
+
+        ...buildProgressResponse(
+          progress,
+        ),
+      });
     }
 
     /* =====================================================
-       5. BU OYUN ZATEN TAMAMLANDI MI?
+       COMPLETE
     ===================================================== */
-
-    const gameColumn =
-      GAME_COLUMN_MAP[
-        game
-      ];
-
-    const progressRecord =
-      progress as unknown as
-        Record<
-          string,
-          unknown
-        >;
 
     if (
       Boolean(
-        progressRecord[
+        progress[
           gameColumn
         ],
       )
@@ -677,26 +807,45 @@ export async function POST(
       return NextResponse.json({
         ok: true,
 
+        game,
+
         alreadyCompleted:
           true,
 
-        game,
-
         rewardAdded:
           0,
+
+        required:
+          REQUIRED_COMPLETIONS,
+
+        totalGames:
+          4,
+
+        ...buildProgressResponse(
+          progress,
+        ),
 
         message:
           "Bu oyun bugünkü görevde zaten tamamlandı.",
       });
     }
 
-    /* =====================================================
-       6. OYUNU TAMAMLA
-    ===================================================== */
+    const completePayload = {
+      [
+        gameColumn
+      ]:
+        true,
+
+      [
+        attemptedColumn
+      ]:
+        true,
+    } as any;
 
     const {
       data:
-        updatedProgress,
+        rawUpdatedProgress,
+
       error:
         updateError,
     } =
@@ -704,33 +853,24 @@ export async function POST(
         .from(
           "daily_challenge_progress",
         )
-        .update({
-          [
-            gameColumn
-          ]:
-            true,
-        })
+        .update(
+          completePayload,
+        )
         .eq(
           "id",
           progress.id,
         )
-        .select(`
-          id,
-          guess_the_player_completed,
-          player_quiz_completed,
-          tic_tac_toe_completed,
-          wordle_completed,
-          reward_claimed,
-          reward_points_awarded
-        `)
+        .select(
+          PROGRESS_SELECT,
+        )
         .single();
 
     if (
       updateError ||
-      !updatedProgress
+      !rawUpdatedProgress
     ) {
       console.error(
-        "Daily challenge game completion error:",
+        "Daily challenge completion error:",
         updateError,
       );
 
@@ -747,51 +887,27 @@ export async function POST(
       );
     }
 
+    progress =
+      rawUpdatedProgress as unknown as
+        DailyChallengeProgressRow;
+
     /* =====================================================
-       7. TAMAMLANAN OYUN SAYISI
+       REWARD
     ===================================================== */
 
     const completedCount =
-      [
-        updatedProgress
-          .guess_the_player_completed,
+      getCompletedCount(
+        progress,
+      );
 
-        updatedProgress
-          .player_quiz_completed,
-
-        updatedProgress
-          .tic_tac_toe_completed,
-
-        updatedProgress
-          .wordle_completed,
-      ].filter(
-        Boolean,
-      ).length;
-
-    /* =====================================================
-       8. HEDEF ÖDÜL
-    ===================================================== */
-
-    let targetReward =
-      0;
-
-    if (
-      completedCount >=
-      4
-    ) {
-      targetReward =
-        DAILY_REWARD_4_OF_4;
-    } else if (
-      completedCount >=
-      3
-    ) {
-      targetReward =
-        DAILY_REWARD_3_OF_4;
-    }
+    const targetReward =
+      getTargetReward(
+        completedCount,
+      );
 
     const alreadyAwarded =
       Number(
-        updatedProgress
+        progress
           .reward_points_awarded ??
           0,
       );
@@ -803,10 +919,6 @@ export async function POST(
         0,
       );
 
-    /* =====================================================
-       9. PUAN EKLE
-    ===================================================== */
-
     let rewardAdded =
       0;
 
@@ -817,6 +929,7 @@ export async function POST(
       const {
         data:
           profile,
+
         error:
           profileError,
       } =
@@ -903,7 +1016,19 @@ export async function POST(
       rewardAdded =
         rewardToAdd;
 
+      const rewardPayload = {
+        reward_points_awarded:
+          targetReward,
+
+        reward_claimed:
+          completedCount >=
+          REQUIRED_COMPLETIONS,
+      } as any;
+
       const {
+        data:
+          rawRewardProgress,
+
         error:
           rewardUpdateError,
       } =
@@ -911,18 +1036,17 @@ export async function POST(
           .from(
             "daily_challenge_progress",
           )
-          .update({
-            reward_points_awarded:
-              targetReward,
-
-            reward_claimed:
-              completedCount >=
-              3,
-          })
+          .update(
+            rewardPayload,
+          )
           .eq(
             "id",
-            updatedProgress.id,
-          );
+            progress.id,
+          )
+          .select(
+            PROGRESS_SELECT,
+          )
+          .single();
 
       if (
         rewardUpdateError
@@ -931,148 +1055,36 @@ export async function POST(
           "Daily challenge reward status error:",
           rewardUpdateError,
         );
+      } else if (
+        rawRewardProgress
+      ) {
+        progress =
+          rawRewardProgress as unknown as
+            DailyChallengeProgressRow;
       }
     }
-
-    /* =====================================================
-       10. NEXT GAME
-    ===================================================== */
-
-    let nextGame:
-      | {
-          code: string;
-          label: string;
-          href: string;
-        }
-      | null =
-      null;
-
-    if (
-      !updatedProgress
-        .guess_the_player_completed
-    ) {
-      nextGame = {
-        code:
-          "guess_the_player",
-
-        label:
-          "Guess The Player",
-
-        href:
-          "/guess-the-player",
-      };
-    } else if (
-      !updatedProgress
-        .player_quiz_completed
-    ) {
-      nextGame = {
-        code:
-          "player_quiz",
-
-        label:
-          "Player Quiz",
-
-        href:
-          "/player-quiz",
-      };
-    } else if (
-      !updatedProgress
-        .tic_tac_toe_completed
-    ) {
-      nextGame = {
-        code:
-          "tic_tac_toe",
-
-        label:
-          "Tic Tac Toe",
-
-        href:
-          "/tic-tac-toe",
-      };
-    } else if (
-      !updatedProgress
-        .wordle_completed
-    ) {
-      nextGame = {
-        code:
-          "wordle",
-
-        label:
-          "Wordle",
-
-        href:
-          "/wordle",
-      };
-    }
-
-    /* =====================================================
-       11. RESPONSE
-    ===================================================== */
 
     return NextResponse.json({
       ok: true,
 
+      game,
+
       alreadyCompleted:
         false,
 
-      game,
-
-      completedCount,
+      rewardAdded,
 
       required:
-        3,
+        REQUIRED_COMPLETIONS,
 
       totalGames:
         4,
 
-      challengeCompleted:
-        completedCount >=
-        3,
-
-      perfectCompleted:
-        completedCount ===
-        4,
-
-      rewardAdded,
-
-      totalDailyReward:
-        Math.max(
-          alreadyAwarded +
-            rewardAdded,
-          targetReward,
-        ),
-
-      nextGame,
-
-      progress: {
-        guessThePlayer:
-          Boolean(
-            updatedProgress
-              .guess_the_player_completed,
-          ),
-
-        playerQuiz:
-          Boolean(
-            updatedProgress
-              .player_quiz_completed,
-          ),
-
-        ticTacToe:
-          Boolean(
-            updatedProgress
-              .tic_tac_toe_completed,
-          ),
-
-        wordle:
-          Boolean(
-            updatedProgress
-              .wordle_completed,
-          ),
-      },
+      ...buildProgressResponse(
+        progress,
+      ),
     });
-  } catch (
-    error
-  ) {
+  } catch (error) {
     console.error(
       "Daily challenge POST error:",
       error,
@@ -1083,8 +1095,7 @@ export async function POST(
         ok: false,
 
         error:
-          error instanceof
-          Error
+          error instanceof Error
             ? error.message
             : "Günlük görev güncellenemedi.",
       },

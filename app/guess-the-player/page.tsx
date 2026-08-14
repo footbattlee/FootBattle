@@ -113,6 +113,10 @@ type DailyChallengeUpdateResponse = {
   ok?: boolean;
   error?: string;
 
+  started?: boolean;
+  alreadyAttempted?: boolean;
+  alreadyCompleted?: boolean;
+
   nextGame?:
     | DailyChallengeNextGame
     | null;
@@ -254,6 +258,103 @@ async function markGuessThePlayerDailyChallenge(): Promise<
   } catch (error) {
     console.error(
       "Guess The Player daily challenge request error:",
+      error,
+    );
+
+    return null;
+  }
+}
+
+
+async function startGuessThePlayerDailyChallenge(): Promise<
+  DailyChallengeUpdateResponse
+> {
+  const response =
+    await fetch(
+      "/api/daily-challenge",
+      {
+        method:
+          "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body:
+          JSON.stringify({
+            game:
+              "guess_the_player",
+
+            action:
+              "start",
+          }),
+      },
+    );
+
+  const result =
+    (await response
+      .json()
+      .catch(
+        () =>
+          null,
+      )) as DailyChallengeUpdateResponse | null;
+
+  if (
+    !response.ok ||
+    !result?.ok
+  ) {
+    throw new Error(
+      result?.error ??
+        "Günlük görev hakkı başlatılamadı.",
+    );
+  }
+
+  return result;
+}
+
+async function getDailyChallengeStatus(): Promise<
+  DailyChallengeUpdateResponse | null
+> {
+  try {
+    const response =
+      await fetch(
+        "/api/daily-challenge",
+        {
+          method:
+            "GET",
+
+          cache:
+            "no-store",
+        },
+      );
+
+    if (
+      response.status ===
+      401
+    ) {
+      return null;
+    }
+
+    const result =
+      (await response
+        .json()
+        .catch(
+          () =>
+            null,
+        )) as DailyChallengeUpdateResponse | null;
+
+    if (
+      !response.ok ||
+      !result?.ok
+    ) {
+      return null;
+    }
+
+    return result;
+  } catch (error) {
+    console.error(
+      "Guess The Player daily challenge status error:",
       error,
     );
 
@@ -589,6 +690,16 @@ export default function GuessThePlayerPage() {
             );
           }
 
+          /*
+           * Günlük modda oyuncu/session başarıyla hazırlandıktan sonra
+           * tek günlük hakkı kilitle.
+           */
+          if (
+            dailyMode
+          ) {
+            await startGuessThePlayerDailyChallenge();
+          }
+
           setGameSession({
             sessionId:
               result.sessionId,
@@ -880,23 +991,46 @@ export default function GuessThePlayerPage() {
       }
 
       if (
-        result.won &&
         gameSession.daily
       ) {
-        const dailyResult =
-          await markGuessThePlayerDailyChallenge();
-
         if (
-          dailyResult
+          result.won
         ) {
-          setDailyChallengeUpdated(
-            true,
-          );
+          const dailyResult =
+            await markGuessThePlayerDailyChallenge();
 
-          setDailyChallengeNextGame(
-            dailyResult.nextGame ??
-              null,
-          );
+          if (
+            dailyResult
+          ) {
+            setDailyChallengeUpdated(
+              true,
+            );
+
+            setDailyChallengeNextGame(
+              dailyResult.nextGame ??
+                null,
+            );
+          }
+        } else {
+          /*
+           * Hak start aşamasında zaten attempted=true oldu.
+           * Kaybedince completed=false kalır ama zincir sonraki oyuna geçer.
+           */
+          const dailyStatus =
+            await getDailyChallengeStatus();
+
+          if (
+            dailyStatus
+          ) {
+            setDailyChallengeUpdated(
+              true,
+            );
+
+            setDailyChallengeNextGame(
+              dailyStatus.nextGame ??
+                null,
+            );
+          }
         }
       }
 
@@ -2280,8 +2414,6 @@ export default function GuessThePlayerPage() {
               )}
 
               {gameSession.daily &&
-                gameStatus ===
-                  "won" &&
                 dailyChallengeUpdated && (
                   <div className="mx-auto mt-4 max-w-lg rounded-2xl border border-purple-400/20 bg-purple-400/[0.07] p-4">
                     <p className="text-xs font-black uppercase tracking-[0.18em] text-purple-300">
@@ -2289,7 +2421,10 @@ export default function GuessThePlayerPage() {
                     </p>
 
                     <p className="mt-2 text-sm font-bold text-slate-200">
-                      Guess The Player tamamlandı.
+                      {gameStatus ===
+                      "won"
+                        ? "Guess The Player tamamlandı."
+                        : "Guess The Player hakkın sona erdi."}
                     </p>
                   </div>
                 )}
@@ -2297,44 +2432,23 @@ export default function GuessThePlayerPage() {
               <div className="mt-4 flex flex-col justify-center gap-2 sm:mt-6 sm:flex-row">
 
                 {gameSession.daily ? (
-                  gameStatus ===
-                  "won" ? (
-                    dailyChallengeNextGame ? (
-                      <Link
-                        href={`${dailyChallengeNextGame.href}?daily=1`}
-                        className="rounded-xl bg-purple-500 px-5 py-3 text-xs font-black text-white transition hover:bg-purple-400 sm:px-6 sm:text-sm"
-                      >
-                        Sıradaki Görev →{" "}
-                        {
-                          dailyChallengeNextGame.label
-                        }
-                      </Link>
-                    ) : (
-                      <Link
-                        href="/"
-                        className="rounded-xl bg-green-500 px-5 py-3 text-xs font-black text-[#07111f] transition hover:bg-green-400 sm:px-6 sm:text-sm"
-                      >
-                        Günlük Göreve Dön
-                      </Link>
-                    )
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={
-                        newGameLoading ||
-                        resultLoading
-                      }
-                      onClick={() =>
-                        void startNewGame(
-                          true,
-                        )
-                      }
-                      className="rounded-xl bg-purple-500 px-5 py-3 text-xs font-black text-white transition hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6 sm:text-sm"
+                  dailyChallengeNextGame ? (
+                    <Link
+                      href={`${dailyChallengeNextGame.href}?daily=1`}
+                      className="rounded-xl bg-purple-500 px-5 py-3 text-xs font-black text-white transition hover:bg-purple-400 sm:px-6 sm:text-sm"
                     >
-                      {newGameLoading
-                        ? "Günlük oyun hazırlanıyor..."
-                        : "↻ Günlük Görevi Tekrar Dene"}
-                    </button>
+                      Sıradaki Göreve Geç →{" "}
+                      {
+                        dailyChallengeNextGame.label
+                      }
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/"
+                      className="rounded-xl bg-green-500 px-5 py-3 text-xs font-black text-[#07111f] transition hover:bg-green-400 sm:px-6 sm:text-sm"
+                    >
+                      Günlük Görevler → Ana Sayfa
+                    </Link>
                   )
                 ) : (
                   <button

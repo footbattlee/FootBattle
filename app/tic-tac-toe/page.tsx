@@ -142,6 +142,10 @@ type DailyChallengeUpdateResponse = {
   ok?: boolean;
   error?: string;
 
+  started?: boolean;
+  alreadyAttempted?: boolean;
+  alreadyCompleted?: boolean;
+
   nextGame?:
     | DailyChallengeNextGame
     | null;
@@ -284,6 +288,103 @@ async function markTicTacToeDailyChallenge(): Promise<
   } catch (error) {
     console.error(
       "Tic Tac Toe daily challenge request error:",
+      error,
+    );
+
+    return null;
+  }
+}
+
+
+async function startTicTacToeDailyChallenge(): Promise<
+  DailyChallengeUpdateResponse
+> {
+  const response =
+    await fetch(
+      "/api/daily-challenge",
+      {
+        method:
+          "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body:
+          JSON.stringify({
+            game:
+              "tic_tac_toe",
+
+            action:
+              "start",
+          }),
+      },
+    );
+
+  const result =
+    (await response
+      .json()
+      .catch(
+        () =>
+          null,
+      )) as DailyChallengeUpdateResponse | null;
+
+  if (
+    !response.ok ||
+    !result?.ok
+  ) {
+    throw new Error(
+      result?.error ??
+        "Günlük görev hakkı başlatılamadı.",
+    );
+  }
+
+  return result;
+}
+
+async function getDailyChallengeStatus(): Promise<
+  DailyChallengeUpdateResponse | null
+> {
+  try {
+    const response =
+      await fetch(
+        "/api/daily-challenge",
+        {
+          method:
+            "GET",
+
+          cache:
+            "no-store",
+        },
+      );
+
+    if (
+      response.status ===
+      401
+    ) {
+      return null;
+    }
+
+    const result =
+      (await response
+        .json()
+        .catch(
+          () =>
+            null,
+        )) as DailyChallengeUpdateResponse | null;
+
+    if (
+      !response.ok ||
+      !result?.ok
+    ) {
+      return null;
+    }
+
+    return result;
+  } catch (error) {
+    console.error(
+      "Tic Tac Toe daily challenge status error:",
       error,
     );
 
@@ -722,6 +823,13 @@ export default function TicTacToePage() {
                 "Tic Tac Toe hazırlanamadı.",
             );
           }
+          if (
+            isDaily
+          ) {
+            await startTicTacToeDailyChallenge();
+          }
+
+
 
           setSessionId(
             result.session.id,
@@ -1813,7 +1921,9 @@ export default function TicTacToePage() {
                     </p>
 
                     <p className="mt-2 text-sm font-bold text-slate-200">
-                      Tic Tac Toe için 5 doğru hücre şartını tamamladın.
+                      {correctCount >= 5
+                      ? "Tic Tac Toe için 5 doğru hücre şartını tamamladın."
+                      : "Tic Tac Toe hakkın sona erdi."}
                     </p>
                   </div>
                 )}
@@ -1826,26 +1936,18 @@ export default function TicTacToePage() {
                       href={`${dailyChallengeNextGame.href}?daily=1`}
                       className="rounded-2xl bg-green-500 px-6 py-4 font-black text-[#07111f] transition hover:bg-green-400"
                     >
-                      Sıradaki Görev →{" "}
+                      Sıradaki Göreve Geç →{" "}
                       {
                         dailyChallengeNextGame.label
                       }
                     </Link>
                   ) : (
-                    <button
-                      type="button"
-                      disabled={
-                        loading
-                      }
-                      onClick={() =>
-                        void startGame()
-                      }
-                      className="rounded-2xl bg-green-500 px-6 py-4 font-black text-[#07111f] transition hover:bg-green-400 disabled:opacity-50"
+                    <Link
+                      href="/"
+                      className="rounded-2xl bg-green-500 px-6 py-4 font-black text-[#07111f] transition hover:bg-green-400"
                     >
-                      {loading
-                        ? "Hazırlanıyor..."
-                        : "↻ Günlük Görevi Tekrar Dene"}
-                    </button>
+                      Günlük Görevler → Ana Sayfa
+                    </Link>
                   )
                 ) : (
                   <button

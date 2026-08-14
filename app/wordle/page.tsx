@@ -117,6 +117,10 @@ type DailyChallengeUpdateResponse = {
   ok?: boolean;
   error?: string;
 
+  started?: boolean;
+  alreadyAttempted?: boolean;
+  alreadyCompleted?: boolean;
+
   nextGame?:
     | DailyChallengeNextGame
     | null;
@@ -342,6 +346,54 @@ async function markWordleDailyChallenge(): Promise<
 
     return null;
   }
+}
+
+
+async function startWordleDailyChallenge(): Promise<
+  DailyChallengeUpdateResponse
+> {
+  const response =
+    await fetch(
+      "/api/daily-challenge",
+      {
+        method:
+          "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body:
+          JSON.stringify({
+            game:
+              "wordle",
+
+            action:
+              "start",
+          }),
+      },
+    );
+
+  const result =
+    (await response
+      .json()
+      .catch(
+        () =>
+          null,
+      )) as DailyChallengeUpdateResponse | null;
+
+  if (
+    !response.ok ||
+    !result?.ok
+  ) {
+    throw new Error(
+      result?.error ??
+        "Günlük görev hakkı başlatılamadı.",
+    );
+  }
+
+  return result;
 }
 
 /* =========================================================
@@ -1885,23 +1937,12 @@ export default function WordlePage() {
                   {game.daily &&
                     gameStatus ===
                       "lost" && (
-                      <button
-                        type="button"
-                        disabled={
-                          loadingGame ||
-                          resultLoading
-                        }
-                        onClick={() =>
-                          void startNewGame(
-                            true,
-                          )
-                        }
-                        className="rounded-xl bg-green-500 px-5 py-3 text-xs font-black text-[#07111f] transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
+                      <Link
+                        href="/"
+                        className="rounded-xl bg-slate-700 px-5 py-3 text-xs font-black text-white transition hover:bg-slate-600 sm:text-sm"
                       >
-                        {loadingGame
-                          ? "Günlük oyun hazırlanıyor..."
-                          : "↻ Günlük Görevi Tekrar Dene"}
-                      </button>
+                        Günlük Görev Bitti → Ana Sayfa
+                      </Link>
                     )}
 
                   <button
