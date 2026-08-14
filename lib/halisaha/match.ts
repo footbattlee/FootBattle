@@ -21,8 +21,67 @@ export type MatchRsvpRow = {
   created_at: string;
 };
 
+const TURKISH_MONTHS = [
+  "ocak",
+  "subat",
+  "mart",
+  "nisan",
+  "mayis",
+  "haziran",
+  "temmuz",
+  "agustos",
+  "eylul",
+  "ekim",
+  "kasim",
+  "aralik",
+];
+
 export function createPublicMatchId() {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+}
+
+export function slugifyHalisahaText(value: string) {
+  return value
+    .trim()
+    .toLocaleLowerCase("tr-TR")
+    .replace(/ı/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 42);
+}
+
+export function createPublicMatchSlug(input: {
+  id: string;
+  matchDate: string;
+  matchTime: string;
+  location: string;
+}) {
+  const [, monthValue, dayValue] = input.matchDate.split("-").map(Number);
+  const day = Number.isFinite(dayValue) ? String(dayValue) : "mac";
+  const month = TURKISH_MONTHS[(monthValue || 1) - 1] ?? "mac";
+  const location = slugifyHalisahaText(input.location) || "halisaha";
+  const time = input.matchTime.replace(":", "").slice(0, 4) || "saat";
+  return `${day}-${month}-${location}-${time}-${input.id}`;
+}
+
+export function createPublicMatchPath(input: {
+  id: string;
+  matchDate: string;
+  matchTime: string;
+  location: string;
+}) {
+  return `/halisaha-mac/${createPublicMatchSlug(input)}`;
+}
+
+export function extractPublicMatchId(value: string) {
+  const decoded = decodeURIComponent(value).trim();
+  const lastPart = decoded.split("-").filter(Boolean).at(-1) ?? decoded;
+  return /^[a-zA-Z0-9]{12}$/.test(lastPart) ? lastPart : decoded;
 }
 
 export function validateParticipantToken(value: unknown) {
