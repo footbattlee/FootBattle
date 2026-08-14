@@ -14,22 +14,19 @@ export type MatchRow = {
 export type MatchRsvpRow = {
   id: string;
   match_id: string;
+  participant_token: string;
   player_name: string;
-  player_name_key: string;
   status: MatchStatus;
   updated_at: string;
   created_at: string;
 };
 
-export function normalizePlayerName(value: string) {
-  return value
-    .trim()
-    .toLocaleLowerCase("tr-TR")
-    .replace(/\s+/g, " ");
-}
-
 export function createPublicMatchId() {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+}
+
+export function validateParticipantToken(value: unknown) {
+  return typeof value === "string" && /^[a-zA-Z0-9_-]{16,80}$/.test(value);
 }
 
 export function validateMatchCreate(input: unknown):
@@ -86,17 +83,29 @@ export function validateMatchCreate(input: unknown):
 }
 
 export function validateRsvp(input: unknown):
-  | { ok: true; data: { playerName: string; status: MatchStatus } }
+  | {
+      ok: true;
+      data: {
+        participantToken: string;
+        playerName: string;
+        status: MatchStatus;
+      };
+    }
   | { ok: false; error: string } {
   if (!input || typeof input !== "object") {
     return { ok: false, error: "Katılım bilgisi geçersiz." };
   }
 
   const body = input as Record<string, unknown>;
+  const participantToken =
+    typeof body.participantToken === "string" ? body.participantToken.trim() : "";
   const playerName =
     typeof body.playerName === "string" ? body.playerName.trim() : "";
   const status = body.status;
 
+  if (!validateParticipantToken(participantToken)) {
+    return { ok: false, error: "Katılımcı kimliği geçersiz." };
+  }
   if (!playerName || playerName.length > 40) {
     return { ok: false, error: "İsim 1-40 karakter arasında olmalı." };
   }
@@ -104,5 +113,5 @@ export function validateRsvp(input: unknown):
     return { ok: false, error: "Katılım durumu geçersiz." };
   }
 
-  return { ok: true, data: { playerName, status } };
+  return { ok: true, data: { participantToken, playerName, status } };
 }
