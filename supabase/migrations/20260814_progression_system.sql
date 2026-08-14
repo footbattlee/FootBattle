@@ -1,5 +1,8 @@
--- FootBattle progression system
--- Safe to run after the existing game_results/profiles tables exist.
+-- FootBattle XP / level / achievement / streak system.
+-- Source of truth: universal anti-cheat game_sessions ledger.
+
+alter table if exists public.game_sessions
+  add column if not exists progression_processed boolean not null default false;
 
 create table if not exists public.user_progress (
   user_id uuid primary key references public.profiles(id) on delete cascade,
@@ -30,32 +33,26 @@ create table if not exists public.user_achievements (
   primary key (user_id, achievement_code)
 );
 
-create index if not exists user_progress_level_idx
-  on public.user_progress(level desc, xp desc);
-create index if not exists user_achievements_user_idx
-  on public.user_achievements(user_id, unlocked_at desc);
+create index if not exists user_progress_level_idx on public.user_progress(level desc, xp desc);
+create index if not exists user_achievements_user_idx on public.user_achievements(user_id, unlocked_at desc);
+create index if not exists game_sessions_progression_idx
+  on public.game_sessions(progression_processed, status, score_blocked, finished_at desc);
 
 alter table public.user_progress enable row level security;
 alter table public.achievement_definitions enable row level security;
 alter table public.user_achievements enable row level security;
 
 drop policy if exists "progress readable by owner" on public.user_progress;
-create policy "progress readable by owner"
-  on public.user_progress for select
-  to authenticated
-  using (auth.uid() = user_id);
+create policy "progress readable by owner" on public.user_progress
+  for select to authenticated using (auth.uid() = user_id);
 
 drop policy if exists "achievement definitions readable" on public.achievement_definitions;
-create policy "achievement definitions readable"
-  on public.achievement_definitions for select
-  to authenticated, anon
-  using (is_active = true);
+create policy "achievement definitions readable" on public.achievement_definitions
+  for select to authenticated, anon using (is_active = true);
 
 drop policy if exists "achievements readable by owner" on public.user_achievements;
-create policy "achievements readable by owner"
-  on public.user_achievements for select
-  to authenticated
-  using (auth.uid() = user_id);
+create policy "achievements readable by owner" on public.user_achievements
+  for select to authenticated using (auth.uid() = user_id);
 
 insert into public.achievement_definitions(code, title, description, icon, category, sort_order)
 values
@@ -66,8 +63,8 @@ values
   ('games_100', 'Yüzler Kulübü', '100 oyun tamamla.', '💯', 'games', 50),
   ('wins_10', 'Kazanan Alışkanlığı', '10 galibiyete ulaş.', '🥇', 'wins', 60),
   ('wins_25', 'Seri Kazanan', '25 galibiyete ulaş.', '👑', 'wins', 70),
-  ('score_1000', 'Dört Hane', 'Toplam 1.000 puana ulaş.', '✨', 'score', 80),
-  ('score_5000', 'Puan Makinesi', 'Toplam 5.000 puana ulaş.', '🚀', 'score', 90),
+  ('score_1000', 'Dört Hane', 'Toplam 1.000 güvenli puana ulaş.', '✨', 'score', 80),
+  ('score_5000', 'Puan Makinesi', 'Toplam 5.000 güvenli puana ulaş.', '🚀', 'score', 90),
   ('streak_3', 'Üç Gün Üst Üste', '3 günlük oynama serisine ulaş.', '🔥', 'streak', 100),
   ('streak_7', 'Haftayı Kapattın', '7 günlük oynama serisine ulaş.', '🔥', 'streak', 110),
   ('level_5', 'Seviye 5', '5. seviyeye ulaş.', '⭐', 'level', 120),
@@ -81,18 +78,12 @@ on conflict (code) do update set
   is_active = true;
 
 create or replace function public.footbattle_level_for_xp(p_xp bigint)
-returns integer
-language sql
-immutable
-as $$
+returns integer language sql immutable as $$
   select greatest(1, floor(sqrt(greatest(p_xp, 0)::numeric / 250.0))::integer + 1)
 $$;
 
 create or replace function public.footbattle_xp_for_result(p_score integer, p_won boolean)
-returns integer
-language sql
-immutable
-as $$
+returns integer language sql immutable as $$
   select 40
        + least(160, greatest(0, coalesce(p_score, 0)) / 3)
        + case when coalesce(p_won, false) then 60 else 0 end
@@ -113,10 +104,12 @@ declare
 begin
   select count(*),
          count(*) filter (where won = true),
-         coalesce(sum(score), 0)
+         coalesce(sum(server_score), 0)
     into v_games, v_wins, v_score
-    from public.game_results
-   where user_id = p_user_id;
+    from public.game_sessions
+   where user_id = p_user_id
+     and status = 'finished'
+     and score_blocked = false;
 
   select coalesce(level, 1), coalesce(current_streak, 0)
     into v_level, v_streak
@@ -152,27 +145,39 @@ security definer
 set search_path = public
 as $$
 declare
-  v_xp_gain integer;
+  v_claimed uuid;
   v_today date;
   v_existing public.user_progress%rowtype;
   v_next_streak integer;
   v_next_xp bigint;
+  v_xp_gain integer;
 begin
-  if new.user_id is null then
+  if new.user_id is null
+     or new.status <> 'finished'
+     or new.score_blocked = true
+     or new.progression_processed = true then
     return new;
   end if;
 
-  v_today := coalesce(new.play_date, (new.created_at at time zone 'Europe/Istanbul')::date);
-  v_xp_gain := public.footbattle_xp_for_result(new.score, new.won);
+  update public.game_sessions
+     set progression_processed = true,
+         updated_at = now()
+   where id = new.id
+     and progression_processed = false
+  returning id into v_claimed;
 
-  insert into public.user_progress(user_id)
-  values (new.user_id)
+  if v_claimed is null then
+    return new;
+  end if;
+
+  v_today := (coalesce(new.finished_at, new.updated_at, new.started_at, now()) at time zone 'Europe/Istanbul')::date;
+  v_xp_gain := public.footbattle_xp_for_result(coalesce(new.server_score, 0), new.won);
+
+  insert into public.user_progress(user_id) values (new.user_id)
   on conflict (user_id) do nothing;
 
-  select * into v_existing
-    from public.user_progress
-   where user_id = new.user_id
-   for update;
+  select * into v_existing from public.user_progress
+   where user_id = new.user_id for update;
 
   if v_existing.last_play_date is null then
     v_next_streak := 1;
@@ -207,28 +212,30 @@ begin
 end;
 $$;
 
-drop trigger if exists trg_footbattle_progression on public.game_results;
+drop trigger if exists trg_footbattle_progression on public.game_sessions;
 create trigger trg_footbattle_progression
-after insert on public.game_results
+after insert or update on public.game_sessions
 for each row execute function public.footbattle_apply_progression();
 
--- Backfill existing users from historical results. This is idempotent.
+-- Backfill XP from the anti-cheat ledger. Blocked/rejected games never earn XP.
 insert into public.user_progress(user_id, xp, level, current_streak, best_streak, last_play_date)
 select p.id,
-       coalesce(r.xp, 0),
-       public.footbattle_level_for_xp(coalesce(r.xp, 0)),
+       coalesce(s.xp, 0),
+       public.footbattle_level_for_xp(coalesce(s.xp, 0)),
        coalesce(p.current_streak, 0),
        coalesce(p.best_streak, 0),
-       r.last_play_date
+       s.last_play_date
 from public.profiles p
 left join (
   select user_id,
-         sum(public.footbattle_xp_for_result(score, won))::bigint as xp,
-         max(play_date) as last_play_date
-  from public.game_results
-  where user_id is not null
-  group by user_id
-) r on r.user_id = p.id
+         sum(public.footbattle_xp_for_result(coalesce(server_score, 0), won))::bigint as xp,
+         max((coalesce(finished_at, updated_at, started_at) at time zone 'Europe/Istanbul')::date) as last_play_date
+    from public.game_sessions
+   where user_id is not null
+     and status = 'finished'
+     and score_blocked = false
+   group by user_id
+) s on s.user_id = p.id
 on conflict (user_id) do update set
   xp = excluded.xp,
   level = excluded.level,
@@ -236,5 +243,11 @@ on conflict (user_id) do update set
   best_streak = greatest(public.user_progress.best_streak, excluded.best_streak),
   last_play_date = coalesce(excluded.last_play_date, public.user_progress.last_play_date),
   updated_at = now();
+
+update public.game_sessions
+   set progression_processed = true
+ where status = 'finished'
+   and user_id is not null
+   and score_blocked = false;
 
 select public.footbattle_award_achievements(id) from public.profiles;
