@@ -8,6 +8,7 @@ import {
   Copy,
   MapPin,
   Meh,
+  MessageCircle,
   Scale,
   Share2,
   ThumbsDown,
@@ -34,7 +35,13 @@ function getParticipantToken() {
   return next;
 }
 
-export default function MatchRsvpClient({ id }: { id: string }) {
+export default function MatchRsvpClient({
+  id,
+  publicSlug,
+}: {
+  id: string;
+  publicSlug?: string;
+}) {
   const [match, setMatch] = useState<MatchRow | null>(null);
   const [rsvps, setRsvps] = useState<MatchRsvpRow[]>([]);
   const [playerName, setPlayerName] = useState("");
@@ -120,11 +127,23 @@ export default function MatchRsvpClient({ id }: { id: string }) {
     }
   }
 
+  function getShareText() {
+    if (!match) return "⚽ Halısaha maçına geliyor musun?";
+    return [
+      `⚽ ${match.title}`,
+      "",
+      `📅 ${formatDate(match.match_date)}`,
+      `🕘 ${match.match_time.slice(0, 5)}`,
+      `📍 ${match.location || "Konum belirtilmedi"}`,
+      `👥 ${groups.yes.length}/${match.target_players} kişi geliyor`,
+      "",
+      "Katılıyor musun? 👇",
+    ].join("\n");
+  }
+
   async function shareMatch() {
     const url = window.location.href;
-    const text = match
-      ? `⚽ ${match.title} — ${formatDate(match.match_date)} ${match.match_time.slice(0, 5)}. Geliyor musun?`
-      : "Halısaha maçına geliyor musun?";
+    const text = getShareText();
 
     if (navigator.share) {
       try {
@@ -135,7 +154,17 @@ export default function MatchRsvpClient({ id }: { id: string }) {
       }
     }
 
-    await navigator.clipboard.writeText(url);
+    await navigator.clipboard.writeText(`${text}\n${url}`);
+    setMessage("Maç bilgileri ve link panoya kopyalandı!");
+  }
+
+  function shareWhatsApp() {
+    const payload = `${getShareText()}\n${window.location.href}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(payload)}`, "_blank", "noopener,noreferrer");
+  }
+
+  async function copyMatchLink() {
+    await navigator.clipboard.writeText(window.location.href);
     setMessage("Maç linki panoya kopyalandı!");
   }
 
@@ -174,6 +203,9 @@ export default function MatchRsvpClient({ id }: { id: string }) {
 
   const missing = Math.max(0, match.target_players - groups.yes.length);
   const progress = Math.min(100, Math.round((groups.yes.length / match.target_players) * 100));
+  const progressClass = progress >= 80 ? "bg-green-400" : progress >= 50 ? "bg-yellow-400" : "bg-red-400";
+  const progressTextClass = progress >= 80 ? "text-green-400" : progress >= 50 ? "text-yellow-300" : "text-red-300";
+  const routeSlug = publicSlug || id;
 
   return (
     <main className="min-h-screen bg-[#07111f] px-4 py-5 text-white sm:px-6 sm:py-8">
@@ -202,9 +234,9 @@ export default function MatchRsvpClient({ id }: { id: string }) {
                 <p className="text-sm font-bold text-slate-400">Kadro durumu</p>
                 <p className="mt-1 text-3xl font-black">{groups.yes.length}<span className="text-slate-600">/{match.target_players}</span></p>
               </div>
-              <p className={`text-right text-sm font-black ${missing === 0 ? "text-green-400" : "text-yellow-300"}`}>{missing === 0 ? "Kadro tamam 🔥" : `${missing} kişi daha lazım`}</p>
+              <p className={`text-right text-sm font-black ${missing === 0 ? "text-green-400" : progressTextClass}`}>{missing === 0 ? "Kadro tamam 🔥" : `${missing} kişi daha lazım`}</p>
             </div>
-            <div className="mt-3 h-3 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-green-400" style={{ width: `${progress}%` }} /></div>
+            <div className="mt-3 h-3 overflow-hidden rounded-full bg-white/10"><div className={`h-full rounded-full transition-all ${progressClass}`} style={{ width: `${progress}%` }} /></div>
           </div>
         </section>
 
@@ -230,14 +262,19 @@ export default function MatchRsvpClient({ id }: { id: string }) {
           <button type="button" disabled={groups.yes.length < 5} onClick={openSquadBuilder} className="min-h-14 rounded-2xl bg-green-400 px-5 py-4 font-black text-[#07111f] disabled:opacity-40">
             <Users className="mr-2 inline" size={18} /> {groups.yes.length < 5 ? `${5 - groups.yes.length} kişi daha lazım` : "Katılanları Kadroya Aktar"}
           </button>
-          <Link href={`/halisaha-mac/${id}/takimlar`} className={`flex min-h-14 items-center justify-center rounded-2xl border border-yellow-400/30 px-5 py-4 font-black text-yellow-300 ${groups.yes.length < 4 ? "pointer-events-none opacity-40" : ""}`}>
+          <Link href={`/halisaha-mac/${routeSlug}/takimlar`} className={`flex min-h-14 items-center justify-center rounded-2xl border border-yellow-400/30 px-5 py-4 font-black text-yellow-300 ${groups.yes.length < 4 ? "pointer-events-none opacity-40" : ""}`}>
             <Scale className="mr-2" size={18} /> Takımları Dengele
           </Link>
         </section>
 
-        <button type="button" onClick={() => void shareMatch()} className="mb-10 mt-5 flex min-h-13 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#0d1828] px-5 py-4 font-black">
-          <Copy size={18} /> Maç Linkini Paylaş
-        </button>
+        <section className="mb-10 mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
+          <button type="button" onClick={shareWhatsApp} className="flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-5 py-4 font-black text-[#07111f]">
+            <MessageCircle size={19} /> WhatsApp&apos;ta Paylaş
+          </button>
+          <button type="button" onClick={() => void copyMatchLink()} className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#0d1828] px-5 py-4 font-black sm:px-6">
+            <Copy size={18} /> Linki Kopyala
+          </button>
+        </section>
       </div>
     </main>
   );
