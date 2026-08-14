@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 import PresenceHeartbeat from "@/components/PresenceHeartbeat";
+import HomeHalisahaPromo from "@/components/halisaha/HomeHalisahaPromo";
 
 export const metadata: Metadata = {
   title: "FootBattle",
@@ -22,6 +23,7 @@ export default function RootLayout({
 
         {children}
 
+        <HomeHalisahaPromo />
         <Analytics />
       </body>
     </html>
