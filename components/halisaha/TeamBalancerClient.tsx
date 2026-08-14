@@ -5,12 +5,12 @@ import {
   ArrowLeftRight,
   Download,
   LockKeyhole,
+  LockOpen,
   RefreshCcw,
   Scale,
   Share2,
   Shield,
   Swords,
-  Users,
 } from "lucide-react";
 import { toPng } from "html-to-image";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -46,6 +46,11 @@ type PairRule = {
   pair: BalancePair;
 };
 
+type LockedTeams = {
+  playerIds: string[];
+  result: BalancedTeams;
+};
+
 const DEFAULT_SETUP: PlayerSetup = {
   overall: 3,
   keeper: 3,
@@ -63,11 +68,18 @@ const ROLE_LABELS: Record<PlayerRole, string> = {
   attack: "Hücum",
 };
 
-export default function TeamBalancerClient({ id }: { id: string }) {
+export default function TeamBalancerClient({
+  id,
+  publicSlug,
+}: {
+  id: string;
+  publicSlug?: string;
+}) {
   const [match, setMatch] = useState<MatchRow | null>(null);
   const [players, setPlayers] = useState<MatchRsvpRow[]>([]);
   const [setups, setSetups] = useState<SetupMap>({});
   const [result, setResult] = useState<BalancedTeams | null>(null);
+  const [isLocked, setIsLocked] = useState(false);
   const [rules, setRules] = useState<PairRule[]>([]);
   const [pairFirst, setPairFirst] = useState("");
   const [pairSecond, setPairSecond] = useState("");
@@ -103,6 +115,23 @@ export default function TeamBalancerClient({ id }: { id: string }) {
 
         const savedRules = window.localStorage.getItem(`halisaha-rules:${id}`);
         if (savedRules) setRules(JSON.parse(savedRules) as PairRule[]);
+
+        const lockedRaw = window.localStorage.getItem(`halisaha-team-lock:${id}`);
+        if (lockedRaw) {
+          const locked = JSON.parse(lockedRaw) as LockedTeams;
+          const currentIds = yesPlayers.map((player) => player.id).sort();
+          const lockedIds = [...(locked.playerIds ?? [])].sort();
+          if (
+            locked.result &&
+            currentIds.length === lockedIds.length &&
+            currentIds.every((value, index) => value === lockedIds[index])
+          ) {
+            setResult(locked.result);
+            setIsLocked(true);
+          } else {
+            window.localStorage.removeItem(`halisaha-team-lock:${id}`);
+          }
+        }
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Maç yüklenemedi.");
       } finally {
@@ -132,14 +161,16 @@ export default function TeamBalancerClient({ id }: { id: string }) {
     [players, setups],
   );
 
-  const balanceOptions = useMemo<BalanceOptions>(() => {
-    return {
+  const balanceOptions = useMemo<BalanceOptions>(
+    () => ({
       together: rules.filter((rule) => rule.kind === "together").map((rule) => rule.pair),
       apart: rules.filter((rule) => rule.kind === "apart").map((rule) => rule.pair),
-    };
-  }, [rules]);
+    }),
+    [rules],
+  );
 
   function updateSetup(playerId: string, patch: Partial<PlayerSetup>) {
+    if (isLocked) return;
     setSetups((current) => {
       const next = {
         ...current,
@@ -155,6 +186,7 @@ export default function TeamBalancerClient({ id }: { id: string }) {
   }
 
   function runBalance() {
+    if (isLocked) return;
     try {
       setResult(balanceTeams(balancePlayers, balanceOptions));
       setSelectedA("");
@@ -166,7 +198,25 @@ export default function TeamBalancerClient({ id }: { id: string }) {
     }
   }
 
+  function toggleLock() {
+    if (isLocked) {
+      window.localStorage.removeItem(`halisaha-team-lock:${id}`);
+      setIsLocked(false);
+      setMessage("Takım kilidi açıldı. Artık yeniden düzenleyebilirsin.");
+      return;
+    }
+    if (!result) return;
+    const payload: LockedTeams = {
+      playerIds: players.map((player) => player.id),
+      result,
+    };
+    window.localStorage.setItem(`halisaha-team-lock:${id}`, JSON.stringify(payload));
+    setIsLocked(true);
+    setMessage("Takımlar kilitlendi. Bu cihazda yanlışlıkla değişmeyecek.");
+  }
+
   function addRule(kind: PairRule["kind"]) {
+    if (isLocked) return;
     if (!pairFirst || !pairSecond || pairFirst === pairSecond) {
       setMessage("Kural için iki farklı oyuncu seç.");
       return;
@@ -198,6 +248,7 @@ export default function TeamBalancerClient({ id }: { id: string }) {
   }
 
   function removeRule(ruleId: string) {
+    if (isLocked) return;
     const next = rules.filter((rule) => rule.id !== ruleId);
     setRules(next);
     window.localStorage.setItem(`halisaha-rules:${id}`, JSON.stringify(next));
@@ -205,7 +256,7 @@ export default function TeamBalancerClient({ id }: { id: string }) {
   }
 
   function manualSwap() {
-    if (!result || !selectedA || !selectedB) return;
+    if (isLocked || !result || !selectedA || !selectedB) return;
     const playerA = result.teamA.find((player) => player.id === selectedA);
     const playerB = result.teamB.find((player) => player.id === selectedB);
     if (!playerA || !playerB) return;
@@ -223,10 +274,12 @@ export default function TeamBalancerClient({ id }: { id: string }) {
       teamB,
       scoreA: Math.round(teamA.reduce((sum, p) => sum + playerScore(p), 0) * 10) / 10,
       scoreB: Math.round(teamB.reduce((sum, p) => sum + playerScore(p), 0) * 10) / 10,
-      difference: Math.round(Math.abs(
-        teamA.reduce((sum, p) => sum + playerScore(p), 0) -
-          teamB.reduce((sum, p) => sum + playerScore(p), 0),
-      ) * 10) / 10,
+      difference: Math.round(
+        Math.abs(
+          teamA.reduce((sum, p) => sum + playerScore(p), 0) -
+            teamB.reduce((sum, p) => sum + playerScore(p), 0),
+        ) * 10,
+      ) / 10,
       balancePercent: recalculated.balancePercent,
     });
     setSelectedA("");
@@ -301,12 +354,14 @@ export default function TeamBalancerClient({ id }: { id: string }) {
     );
   }
 
+  const routeSlug = publicSlug || id;
+
   return (
     <main className="min-h-screen bg-[#07111f] px-4 py-5 text-white sm:px-6 sm:py-8">
       <div className="mx-auto max-w-5xl">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <Link href={`/halisaha-mac/${id}`} className="text-sm font-bold text-slate-400">
+            <Link href={`/halisaha-mac/${routeSlug}`} className="text-sm font-bold text-slate-400">
               ← Maça dön
             </Link>
             <p className="mt-4 text-xs font-black uppercase tracking-[0.2em] text-green-400">
@@ -317,14 +372,30 @@ export default function TeamBalancerClient({ id }: { id: string }) {
               {match?.title ?? "Halısaha maçı"} · {players.length} oyuncu
             </p>
           </div>
-          <button
-            type="button"
-            onClick={runBalance}
-            disabled={players.length < 4}
-            className="min-h-12 rounded-2xl bg-yellow-400 px-6 py-3 font-black text-[#07111f] disabled:opacity-40"
-          >
-            ⚖️ Takımları Oluştur
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {result ? (
+              <button
+                type="button"
+                onClick={toggleLock}
+                className={`inline-flex min-h-12 items-center gap-2 rounded-2xl px-5 py-3 font-black ${
+                  isLocked
+                    ? "border border-green-400/30 bg-green-400/10 text-green-300"
+                    : "border border-white/10 bg-white/5 text-white"
+                }`}
+              >
+                {isLocked ? <LockOpen size={17} /> : <LockKeyhole size={17} />}
+                {isLocked ? "Kilidi Aç" : "Takımları Kilitle"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={runBalance}
+              disabled={players.length < 4 || isLocked}
+              className="min-h-12 rounded-2xl bg-yellow-400 px-6 py-3 font-black text-[#07111f] disabled:opacity-40"
+            >
+              ⚖️ Takımları Oluştur
+            </button>
+          </div>
         </header>
 
         {error ? (
@@ -337,88 +408,95 @@ export default function TeamBalancerClient({ id }: { id: string }) {
             {message}
           </p>
         ) : null}
-
-        <section className="mt-6 rounded-3xl border border-white/10 bg-[#0d1828] p-4 sm:p-6">
-          <div className="flex items-start gap-3">
-            <Scale className="mt-1 text-yellow-300" size={22} />
-            <div>
-              <h2 className="text-xl font-black">Oyuncuları puanla</h2>
-              <p className="mt-1 text-sm leading-6 text-slate-400">
-                1 zayıf, 5 çok iyi. Pozisyon tercihi ve kaleci kilidi dengelemede hesaba katılır.
-              </p>
-            </div>
+        {isLocked ? (
+          <div className="mt-5 flex items-center gap-3 rounded-2xl border border-green-400/20 bg-green-400/[0.06] p-4 text-sm font-bold text-green-200">
+            <LockKeyhole size={18} /> Takımlar kilitli. Puan, kural, swap ve yeniden dengeleme kapalı.
           </div>
+        ) : null}
 
-          <div className="mt-5 space-y-4">
-            {players.map((player) => {
-              const setup = setups[player.id] ?? DEFAULT_SETUP;
-              return (
-                <article key={player.id} className="rounded-2xl border border-white/10 bg-black/10 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-400 font-black text-[#07111f]">
-                        {player.player_name.slice(0, 1).toUpperCase()}
+        <fieldset disabled={isLocked} className="disabled:opacity-60">
+          <section className="mt-6 rounded-3xl border border-white/10 bg-[#0d1828] p-4 sm:p-6">
+            <div className="flex items-start gap-3">
+              <Scale className="mt-1 text-yellow-300" size={22} />
+              <div>
+                <h2 className="text-xl font-black">Oyuncuları puanla</h2>
+                <p className="mt-1 text-sm leading-6 text-slate-400">
+                  1 zayıf, 5 çok iyi. Pozisyon tercihi ve kaleci kilidi dengelemede hesaba katılır.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              {players.map((player) => {
+                const setup = setups[player.id] ?? DEFAULT_SETUP;
+                return (
+                  <article key={player.id} className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-400 font-black text-[#07111f]">
+                          {player.player_name.slice(0, 1).toUpperCase()}
+                        </div>
+                        <h3 className="font-black">{player.player_name}</h3>
                       </div>
-                      <h3 className="font-black">{player.player_name}</h3>
+                      <button
+                        type="button"
+                        onClick={() => updateSetup(player.id, { keeperLocked: !setup.keeperLocked })}
+                        className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-black ${
+                          setup.keeperLocked
+                            ? "border-yellow-400/40 bg-yellow-400 text-[#07111f]"
+                            : "border-white/10 bg-white/5 text-slate-300"
+                        }`}
+                      >
+                        <LockKeyhole size={15} /> {setup.keeperLocked ? "Kaleci Kilitli" : "Kaleci Kilitle"}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => updateSetup(player.id, { keeperLocked: !setup.keeperLocked })}
-                      className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-black ${
-                        setup.keeperLocked
-                          ? "border-yellow-400/40 bg-yellow-400 text-[#07111f]"
-                          : "border-white/10 bg-white/5 text-slate-300"
-                      }`}
-                    >
-                      <LockKeyhole size={15} /> {setup.keeperLocked ? "Kaleci Kilitli" : "Kaleci Kilitle"}
-                    </button>
-                  </div>
 
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                    <RoleField value={setup.role} onChange={(role) => updateSetup(player.id, { role })} />
-                    <RatingField label="Genel" value={setup.overall} onChange={(value) => updateSetup(player.id, { overall: value })} />
-                    <RatingField label="Kaleci" value={setup.keeper} onChange={(value) => updateSetup(player.id, { keeper: value })} />
-                    <RatingField label="Defans" value={setup.defence} onChange={(value) => updateSetup(player.id, { defence: value })} />
-                    <RatingField label="Hücum" value={setup.attack} onChange={(value) => updateSetup(player.id, { attack: value })} />
-                    <RatingField label="Kondisyon" value={setup.stamina} onChange={(value) => updateSetup(player.id, { stamina: value })} />
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="mt-6 rounded-3xl border border-white/10 bg-[#0d1828] p-4 sm:p-6">
-          <h2 className="text-xl font-black">Takım kuralları <span className="text-sm text-slate-500">(opsiyonel)</span></h2>
-          <p className="mt-1 text-sm text-slate-400">İki oyuncuyu aynı takımda tut veya özellikle ayır.</p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <PlayerSelect value={pairFirst} players={players} placeholder="1. oyuncu" onChange={setPairFirst} />
-            <PlayerSelect value={pairSecond} players={players} placeholder="2. oyuncu" onChange={setPairSecond} />
-          </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <button type="button" onClick={() => addRule("together")} className="min-h-11 rounded-xl bg-green-400 px-4 font-black text-[#07111f]">
-              🤝 Aynı Takımda
-            </button>
-            <button type="button" onClick={() => addRule("apart")} className="min-h-11 rounded-xl bg-red-400 px-4 font-black text-[#07111f]">
-              ↔️ Ayrı Takımlarda
-            </button>
-          </div>
-          {rules.length ? (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {rules.map((rule) => (
-                <button
-                  key={rule.id}
-                  type="button"
-                  onClick={() => removeRule(rule.id)}
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-slate-300"
-                  title="Kuralı kaldır"
-                >
-                  {rule.kind === "together" ? "🤝" : "↔️"} {playerName(players, rule.pair[0])} + {playerName(players, rule.pair[1])} ×
-                </button>
-              ))}
+                    <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                      <RoleField value={setup.role} onChange={(role) => updateSetup(player.id, { role })} />
+                      <RatingField label="Genel" value={setup.overall} onChange={(value) => updateSetup(player.id, { overall: value })} />
+                      <RatingField label="Kaleci" value={setup.keeper} onChange={(value) => updateSetup(player.id, { keeper: value })} />
+                      <RatingField label="Defans" value={setup.defence} onChange={(value) => updateSetup(player.id, { defence: value })} />
+                      <RatingField label="Hücum" value={setup.attack} onChange={(value) => updateSetup(player.id, { attack: value })} />
+                      <RatingField label="Kondisyon" value={setup.stamina} onChange={(value) => updateSetup(player.id, { stamina: value })} />
+                    </div>
+                  </article>
+                );
+              })}
             </div>
-          ) : null}
-        </section>
+          </section>
+
+          <section className="mt-6 rounded-3xl border border-white/10 bg-[#0d1828] p-4 sm:p-6">
+            <h2 className="text-xl font-black">Takım kuralları <span className="text-sm text-slate-500">(opsiyonel)</span></h2>
+            <p className="mt-1 text-sm text-slate-400">İki oyuncuyu aynı takımda tut veya özellikle ayır.</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <PlayerSelect value={pairFirst} players={players} placeholder="1. oyuncu" onChange={setPairFirst} />
+              <PlayerSelect value={pairSecond} players={players} placeholder="2. oyuncu" onChange={setPairSecond} />
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <button type="button" onClick={() => addRule("together")} className="min-h-11 rounded-xl bg-green-400 px-4 font-black text-[#07111f]">
+                🤝 Aynı Takımda
+              </button>
+              <button type="button" onClick={() => addRule("apart")} className="min-h-11 rounded-xl bg-red-400 px-4 font-black text-[#07111f]">
+                ↔️ Ayrı Takımlarda
+              </button>
+            </div>
+            {rules.length ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {rules.map((rule) => (
+                  <button
+                    key={rule.id}
+                    type="button"
+                    onClick={() => removeRule(rule.id)}
+                    className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-slate-300"
+                    title="Kuralı kaldır"
+                  >
+                    {rule.kind === "together" ? "🤝" : "↔️"} {playerName(players, rule.pair[0])} + {playerName(players, rule.pair[1])} ×
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        </fieldset>
 
         {result ? (
           <>
@@ -441,13 +519,13 @@ export default function TeamBalancerClient({ id }: { id: string }) {
             </div>
 
             <section className="mt-4 rounded-3xl border border-green-400/20 bg-green-400/[0.05] p-4 sm:p-5">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <PlayerSelect value={selectedA} players={toRsvp(result.teamA)} placeholder="Sarı takımdan seç" onChange={setSelectedA} />
-                <PlayerSelect value={selectedB} players={toRsvp(result.teamB)} placeholder="Siyah takımdan seç" onChange={setSelectedB} />
+              <div className={`grid gap-3 sm:grid-cols-2 ${isLocked ? "opacity-50" : ""}`}>
+                <PlayerSelect value={selectedA} players={toRsvp(result.teamA)} placeholder="Sarı takımdan seç" onChange={setSelectedA} disabled={isLocked} />
+                <PlayerSelect value={selectedB} players={toRsvp(result.teamB)} placeholder="Siyah takımdan seç" onChange={setSelectedB} disabled={isLocked} />
               </div>
               <button
                 type="button"
-                disabled={!selectedA || !selectedB}
+                disabled={isLocked || !selectedA || !selectedB}
                 onClick={manualSwap}
                 className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 font-black disabled:opacity-40"
               >
@@ -469,7 +547,7 @@ export default function TeamBalancerClient({ id }: { id: string }) {
                 </button>
               </div>
 
-              <button type="button" onClick={runBalance} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-4 text-sm font-black">
+              <button type="button" disabled={isLocked} onClick={runBalance} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-4 text-sm font-black disabled:opacity-40">
                 <RefreshCcw size={16} /> Yeniden Dengele
               </button>
             </section>
@@ -523,9 +601,21 @@ function RoleField({ value, onChange }: { value: PlayerRole; onChange: (value: P
   );
 }
 
-function PlayerSelect({ value, players, placeholder, onChange }: { value: string; players: MatchRsvpRow[]; placeholder: string; onChange: (value: string) => void }) {
+function PlayerSelect({
+  value,
+  players,
+  placeholder,
+  onChange,
+  disabled = false,
+}: {
+  value: string;
+  players: MatchRsvpRow[];
+  placeholder: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
   return (
-    <select value={value} onChange={(event) => onChange(event.target.value)} className="min-h-11 w-full rounded-xl border border-white/10 bg-[#07111f] px-3 font-bold outline-none">
+    <select disabled={disabled} value={value} onChange={(event) => onChange(event.target.value)} className="min-h-11 w-full rounded-xl border border-white/10 bg-[#07111f] px-3 font-bold outline-none disabled:cursor-not-allowed">
       <option value="">{placeholder}</option>
       {players.map((player) => <option key={player.id} value={player.id}>{player.player_name}</option>)}
     </select>
