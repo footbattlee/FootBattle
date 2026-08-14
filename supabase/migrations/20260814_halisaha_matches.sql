@@ -26,5 +26,6 @@ create index if not exists halisaha_match_rsvps_match_id_idx
 alter table public.halisaha_matches enable row level security;
 alter table public.halisaha_match_rsvps enable row level security;
 
--- These tables are accessed only through server-side API routes with the
--- Supabase secret key. No anon/authenticated policies are intentionally added.
+-- RSVP identity is device/browser based. display name is intentionally not unique,
+-- so two players named Emre can independently respond to the same match.
+-- Tables are accessed only through server-side API routes with the Supabase secret key.
