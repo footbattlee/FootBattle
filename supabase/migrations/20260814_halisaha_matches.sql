@@ -12,12 +12,12 @@ create table if not exists public.halisaha_matches (
 create table if not exists public.halisaha_match_rsvps (
   id uuid primary key default gen_random_uuid(),
   match_id text not null references public.halisaha_matches(id) on delete cascade,
+  participant_token text not null check (char_length(participant_token) between 16 and 80),
   player_name text not null check (char_length(player_name) between 1 and 40),
-  player_name_key text not null,
   status text not null check (status in ('yes', 'no', 'maybe')),
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
-  unique (match_id, player_name_key)
+  unique (match_id, participant_token)
 );
 
 create index if not exists halisaha_match_rsvps_match_id_idx
