@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 
-import {
-  normalizePlayerName,
-  validateRsvp,
-} from "@/lib/halisaha/match";
+import { validateRsvp } from "@/lib/halisaha/match";
 import {
   checkRateLimit,
   getRequestFingerprint,
@@ -59,20 +56,19 @@ export async function POST(request: Request, props: RouteProps) {
       );
     }
 
-    const { playerName, status } = validation.data;
-    const playerNameKey = normalizePlayerName(playerName);
+    const { participantToken, playerName, status } = validation.data;
 
     const { error } = await supabaseAdmin
       .from("halisaha_match_rsvps")
       .upsert(
         {
           match_id: id,
+          participant_token: participantToken,
           player_name: playerName,
-          player_name_key: playerNameKey,
           status,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "match_id,player_name_key" },
+        { onConflict: "match_id,participant_token" },
       );
 
     if (error) {
