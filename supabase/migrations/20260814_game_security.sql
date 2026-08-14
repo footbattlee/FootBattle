@@ -27,10 +27,8 @@ create table if not exists public.game_sessions (
 
 create index if not exists game_sessions_user_id_idx
   on public.game_sessions(user_id, started_at desc);
-
 create index if not exists game_sessions_game_code_idx
   on public.game_sessions(game_code, started_at desc);
-
 create index if not exists game_sessions_suspicious_idx
   on public.game_sessions(suspicious, score_blocked, started_at desc);
 
@@ -44,7 +42,6 @@ create table if not exists public.game_session_events (
 
 create index if not exists game_session_events_session_idx
   on public.game_session_events(game_session_id, id);
-
 create index if not exists game_session_events_type_idx
   on public.game_session_events(event_type, created_at desc);
 
@@ -62,13 +59,174 @@ create table if not exists public.game_security_events (
 
 create index if not exists game_security_events_session_idx
   on public.game_security_events(game_session_id, created_at desc);
-
 create index if not exists game_security_events_user_idx
   on public.game_security_events(user_id, created_at desc);
 
 alter table public.game_sessions enable row level security;
 alter table public.game_session_events enable row level security;
 alter table public.game_security_events enable row level security;
+
+-- Mirror all existing native server sessions into the common security ledger.
+-- to_jsonb(NEW) lets one trigger function support different native table schemas.
+create or replace function public.footbattle_sync_game_security_session()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  j jsonb := to_jsonb(new);
+  v_game_code text := tg_argv[0];
+  v_source_id text := j->>'id';
+  v_started_at timestamptz;
+  v_expires_at timestamptz;
+  v_finished_at timestamptz;
+  v_user_id uuid;
+  v_completed boolean := coalesce((j->>'completed')::boolean, false);
+  v_score integer;
+  v_won boolean;
+begin
+  if v_source_id is null or btrim(v_source_id) = '' then
+    return new;
+  end if;
+
+  begin
+    v_started_at := coalesce(
+      nullif(j->>'started_at', '')::timestamptz,
+      nullif(j->>'created_at', '')::timestamptz,
+      now()
+    );
+  exception when others then
+    v_started_at := now();
+  end;
+
+  begin
+    v_expires_at := nullif(j->>'expires_at', '')::timestamptz;
+  exception when others then
+    v_expires_at := null;
+  end;
+
+  begin
+    v_finished_at := coalesce(
+      nullif(j->>'completed_at', '')::timestamptz,
+      case when v_completed then now() else null end
+    );
+  exception when others then
+    v_finished_at := case when v_completed then now() else null end;
+  end;
+
+  begin
+    v_user_id := nullif(j->>'user_id', '')::uuid;
+  exception when others then
+    v_user_id := null;
+  end;
+
+  begin
+    v_score := nullif(j->>'score', '')::integer;
+  exception when others then
+    v_score := null;
+  end;
+
+  begin
+    v_won := nullif(j->>'won', '')::boolean;
+  exception when others then
+    v_won := null;
+  end;
+
+  insert into public.game_sessions (
+    game_code,
+    source_session_id,
+    user_id,
+    mode,
+    status,
+    started_at,
+    expires_at,
+    finished_at,
+    server_score,
+    won,
+    metadata,
+    updated_at
+  ) values (
+    v_game_code,
+    v_source_id,
+    v_user_id,
+    coalesce(nullif(j->>'mode', ''), 'solo'),
+    case when v_completed then 'finished' else 'active' end,
+    v_started_at,
+    v_expires_at,
+    v_finished_at,
+    v_score,
+    v_won,
+    jsonb_build_object('native_table', tg_table_name),
+    now()
+  )
+  on conflict (game_code, source_session_id)
+  do update set
+    user_id = coalesce(public.game_sessions.user_id, excluded.user_id),
+    status = case
+      when public.game_sessions.status = 'rejected' then 'rejected'
+      when excluded.status = 'finished' then 'finished'
+      else public.game_sessions.status
+    end,
+    expires_at = coalesce(excluded.expires_at, public.game_sessions.expires_at),
+    finished_at = coalesce(excluded.finished_at, public.game_sessions.finished_at),
+    server_score = coalesce(excluded.server_score, public.game_sessions.server_score),
+    won = coalesce(excluded.won, public.game_sessions.won),
+    updated_at = now();
+
+  return new;
+end;
+$$;
+
+-- Attach safely only when a native table exists. These triggers guarantee that
+-- a server session is mirrored before any client can submit a finish request.
+do $$
+begin
+  if to_regclass('public.wordle_sessions') is not null then
+    execute 'drop trigger if exists footbattle_security_sync on public.wordle_sessions';
+    execute 'create trigger footbattle_security_sync after insert or update on public.wordle_sessions for each row execute function public.footbattle_sync_game_security_session(''wordle'')';
+  end if;
+  if to_regclass('public.guess_player_sessions') is not null then
+    execute 'drop trigger if exists footbattle_security_sync on public.guess_player_sessions';
+    execute 'create trigger footbattle_security_sync after insert or update on public.guess_player_sessions for each row execute function public.footbattle_sync_game_security_session(''guess_the_player'')';
+  end if;
+  if to_regclass('public.player_quiz_sessions') is not null then
+    execute 'drop trigger if exists footbattle_security_sync on public.player_quiz_sessions';
+    execute 'create trigger footbattle_security_sync after insert or update on public.player_quiz_sessions for each row execute function public.footbattle_sync_game_security_session(''player_quiz'')';
+  end if;
+  if to_regclass('public.career_path_sessions') is not null then
+    execute 'drop trigger if exists footbattle_security_sync on public.career_path_sessions';
+    execute 'create trigger footbattle_security_sync after insert or update on public.career_path_sessions for each row execute function public.footbattle_sync_game_security_session(''career_path'')';
+  end if;
+  if to_regclass('public.tic_tac_toe_sessions') is not null then
+    execute 'drop trigger if exists footbattle_security_sync on public.tic_tac_toe_sessions';
+    execute 'create trigger footbattle_security_sync after insert or update on public.tic_tac_toe_sessions for each row execute function public.footbattle_sync_game_security_session(''tic_tac_toe'')';
+  end if;
+  if to_regclass('public.one_club_one_country_sessions') is not null then
+    execute 'drop trigger if exists footbattle_security_sync on public.one_club_one_country_sessions';
+    execute 'create trigger footbattle_security_sync after insert or update on public.one_club_one_country_sessions for each row execute function public.footbattle_sync_game_security_session(''club_nation'')';
+  end if;
+  if to_regclass('public.club_clash_sessions') is not null then
+    execute 'drop trigger if exists footbattle_security_sync on public.club_clash_sessions';
+    execute 'create trigger footbattle_security_sync after insert or update on public.club_clash_sessions for each row execute function public.footbattle_sync_game_security_session(''club_clash'')';
+  end if;
+end
+$$;
+
+-- Backfill current native sessions so an in-flight game at deploy time is not lost.
+-- The trigger will keep new/updated rows synchronized afterwards.
+do $$
+declare
+  r record;
+begin
+  if to_regclass('public.wordle_sessions') is not null then
+    for r in select * from public.wordle_sessions loop perform public.footbattle_sync_game_security_session(); end loop;
+  end if;
+exception when others then
+  -- Backfill is best-effort only; new sessions are protected by triggers.
+  raise notice 'Existing game-session backfill skipped: %', sqlerrm;
+end
+$$;
 
 -- No anon/authenticated policies on purpose. These tables are accessed only
 -- by server-side routes through the Supabase secret/service-role client.
