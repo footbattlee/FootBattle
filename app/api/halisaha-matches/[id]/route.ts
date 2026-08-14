@@ -19,7 +19,7 @@ export async function GET(_request: Request, props: RouteProps) {
         .maybeSingle(),
       supabaseAdmin
         .from("halisaha_match_rsvps")
-        .select("id,match_id,player_name,player_name_key,status,updated_at,created_at")
+        .select("id,match_id,participant_token,player_name,status,updated_at,created_at")
         .eq("match_id", id)
         .order("created_at", { ascending: true }),
     ]);
