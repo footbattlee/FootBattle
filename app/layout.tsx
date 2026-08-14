@@ -5,7 +5,7 @@ import "./globals.css";
 
 import PresenceHeartbeat from "@/components/PresenceHeartbeat";
 import HomeProgressionSpotlight from "@/components/HomeProgressionSpotlight";
-import HomeHalisahaPromo from "@/components/halisaha/HomeHalisahaPromo";
+import HomeQuickAccess from "@/components/HomeQuickAccess";
 
 export const metadata: Metadata = {
   title: "FootBattle",
@@ -25,7 +25,7 @@ export default function RootLayout({
 
         {children}
 
-        <HomeHalisahaPromo />
+        <HomeQuickAccess />
         <Analytics />
       </body>
     </html>
