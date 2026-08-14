@@ -1,6 +1,46 @@
 -- FootBattle Tic Tac Toe duel storage.
 -- Shared grid, side-specific attempts. Server-side only.
 
+-- Older environments may have a CHECK constraint that lists the allowed
+-- guest_challenges game codes. Replace only game_code CHECK constraints so
+-- Tic Tac Toe can use the existing challenge/join/start infrastructure.
+do $$
+declare
+  constraint_row record;
+begin
+  if to_regclass('public.guest_challenges') is not null then
+    for constraint_row in
+      select c.conname
+        from pg_constraint c
+        join pg_class t on t.oid = c.conrelid
+        join pg_namespace n on n.oid = t.relnamespace
+       where n.nspname = 'public'
+         and t.relname = 'guest_challenges'
+         and c.contype = 'c'
+         and pg_get_constraintdef(c.oid) ilike '%game_code%'
+    loop
+      execute format(
+        'alter table public.guest_challenges drop constraint %I',
+        constraint_row.conname
+      );
+    end loop;
+
+    alter table public.guest_challenges
+      add constraint guest_challenges_game_code_check
+      check (
+        game_code in (
+          'club_clash',
+          'club_nation',
+          'player_quiz',
+          'career_path',
+          'guess_the_player',
+          'tic_tac_toe'
+        )
+      );
+  end if;
+end
+$$;
+
 create table if not exists public.tic_tac_toe_duels (
   id uuid primary key default gen_random_uuid(),
   challenge_id bigint not null unique,
