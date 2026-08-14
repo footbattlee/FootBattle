@@ -54,12 +54,14 @@ export async function GET(request: Request) {
     }
 
     let query = supabaseAdmin
-      .from("game_results")
-      .select("user_id, score, won, created_at")
+      .from("game_sessions")
+      .select("user_id, server_score, won, finished_at")
+      .eq("status", "finished")
+      .eq("score_blocked", false)
       .not("user_id", "is", null);
 
     if (game !== "overall") query = query.eq("game_code", game);
-    if (period === "week") query = query.gte("created_at", getTurkeyWeekStart());
+    if (period === "week") query = query.gte("finished_at", getTurkeyWeekStart());
 
     const { data, error } = await query;
     if (error) throw error;
@@ -68,7 +70,7 @@ export async function GET(request: Request) {
     for (const row of data ?? []) {
       if (!row.user_id) continue;
       const current = totals.get(row.user_id) ?? { score: 0, games: 0, wins: 0 };
-      current.score += Number(row.score ?? 0);
+      current.score += Math.max(0, Number(row.server_score ?? 0));
       current.games += 1;
       if (row.won) current.wins += 1;
       totals.set(row.user_id, current);
