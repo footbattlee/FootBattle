@@ -22,7 +22,7 @@ export async function GET() {
       return NextResponse.json({ ok: true, authenticated: false });
     }
 
-    const [progressResult, profileResult, definitionsResult, unlockedResult] =
+    const [progressResult, sessionsResult, definitionsResult, unlockedResult] =
       await Promise.all([
         supabaseAdmin
           .from("user_progress")
@@ -30,10 +30,11 @@ export async function GET() {
           .eq("user_id", user.id)
           .maybeSingle(),
         supabaseAdmin
-          .from("profiles")
-          .select("total_score, games_played, games_won")
-          .eq("id", user.id)
-          .maybeSingle(),
+          .from("game_sessions")
+          .select("server_score, won")
+          .eq("user_id", user.id)
+          .eq("status", "finished")
+          .eq("score_blocked", false),
         supabaseAdmin
           .from("achievement_definitions")
           .select("code, title, description, icon, category, sort_order")
@@ -47,7 +48,7 @@ export async function GET() {
       ]);
 
     if (progressResult.error) throw progressResult.error;
-    if (profileResult.error) throw profileResult.error;
+    if (sessionsResult.error) throw sessionsResult.error;
     if (definitionsResult.error) throw definitionsResult.error;
     if (unlockedResult.error) throw unlockedResult.error;
 
@@ -63,6 +64,13 @@ export async function GET() {
     const xp = Math.max(0, Number(progress.xp ?? 0));
     const floor = levelFloorXp(level);
     const next = nextLevelXp(level);
+    const sessions = sessionsResult.data ?? [];
+    const totalScore = sessions.reduce(
+      (sum, item) => sum + Math.max(0, Number(item.server_score ?? 0)),
+      0,
+    );
+    const gamesWon = sessions.filter((item) => item.won).length;
+
     const unlockedMap = new Map(
       (unlockedResult.data ?? []).map((item) => [
         item.achievement_code,
@@ -95,9 +103,9 @@ export async function GET() {
         lastPlayDate: progress.last_play_date ?? null,
       },
       stats: {
-        totalScore: Number(profileResult.data?.total_score ?? 0),
-        gamesPlayed: Number(profileResult.data?.games_played ?? 0),
-        gamesWon: Number(profileResult.data?.games_won ?? 0),
+        totalScore,
+        gamesPlayed: sessions.length,
+        gamesWon,
       },
       achievements,
       unlockedCount: achievements.filter((item) => item.unlocked).length,
