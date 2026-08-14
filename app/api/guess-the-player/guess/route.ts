@@ -4,7 +4,10 @@ import {
   leagueToDisplayName,
   nationalityToDisplayName,
 } from "@/lib/football/localization";
-import { recordGameSecurityEvent } from "@/lib/game-security/server";
+import {
+  getGameSecurityEvents,
+  recordGameSecurityEvent,
+} from "@/lib/game-security/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 type ComparisonStatus = "correct" | "wrong" | "higher" | "lower";
@@ -71,17 +74,9 @@ export async function POST(request: Request) {
     if (!sessionId) return NextResponse.json({ ok: false, error: "Oyun oturumu bulunamadı." }, { status: 400 });
     if (!Number.isInteger(playerId) || playerId <= 0) return NextResponse.json({ ok: false, error: "Geçerli bir oyuncu seçmelisin." }, { status: 400 });
 
-    const securityEvent = await recordGameSecurityEvent({
-      request,
-      gameCode: "guess_the_player",
-      sourceSessionId: sessionId,
-      eventType: "guess",
-      payload: { playerId },
-      maxPerMinute: 45,
-    });
-    if (!securityEvent.allowed) {
-      return NextResponse.json({ ok: false, error: "Çok hızlı tahmin gönderiyorsun." }, { status: 429 });
-    }
+    const { events: previousEvents } = await getGameSecurityEvents("guess_the_player", sessionId, "guess");
+    const alreadyGuessed = previousEvents.some((event) => Number(event.payload?.playerId) === playerId);
+    if (alreadyGuessed) return NextResponse.json({ ok: false, error: "Bu oyuncuyu zaten tahmin ettin." }, { status: 409 });
 
     const { data: session, error: sessionError } = await supabaseAdmin
       .from("guess_player_sessions")
@@ -92,15 +87,19 @@ export async function POST(request: Request) {
     if (!session) return NextResponse.json({ ok: false, error: "Oyun bulunamadı." }, { status: 404 });
     if (session.completed) return NextResponse.json({ ok: false, error: "Bu oyun zaten tamamlandı." }, { status: 409 });
 
-    const { count: previousAttemptCount, error: attemptCountError } = await supabaseAdmin
-      .from("guess_player_attempts")
-      .select("id", { count: "exact", head: true })
-      .eq("session_id", sessionId);
-    if (attemptCountError) throw attemptCountError;
-
-    const currentAttemptNumber = Number(previousAttemptCount ?? 0) + 1;
+    const currentAttemptNumber = previousEvents.length + 1;
     const maxAttempts = Number(session.max_attempts ?? 7);
     if (currentAttemptNumber > maxAttempts) return NextResponse.json({ ok: false, error: "Tahmin hakkın kalmadı." }, { status: 409 });
+
+    const securityEvent = await recordGameSecurityEvent({
+      request,
+      gameCode: "guess_the_player",
+      sourceSessionId: sessionId,
+      eventType: "guess",
+      payload: { playerId, attemptNumber: currentAttemptNumber },
+      maxPerMinute: 45,
+    });
+    if (!securityEvent.allowed) return NextResponse.json({ ok: false, error: "Çok hızlı tahmin gönderiyorsun." }, { status: 429 });
 
     const playerSelect = `player_id, name, nationality, position, sub_position, age, current_club_name, current_competition_id, preferred_foot, image_url`;
     const [{ data: guessedPlayer, error: guessedPlayerError }, { data: targetPlayer, error: targetPlayerError }] = await Promise.all([
@@ -111,27 +110,8 @@ export async function POST(request: Request) {
     if (!guessedPlayer) return NextResponse.json({ ok: false, error: "Seçilen oyuncu bulunamadı." }, { status: 404 });
     if (targetPlayerError || !targetPlayer) return NextResponse.json({ ok: false, error: "Hedef oyuncu bilgileri okunamadı." }, { status: 500 });
 
-    const alreadyGuessed = await supabaseAdmin
-      .from("guess_player_attempts")
-      .select("id")
-      .eq("session_id", sessionId)
-      .eq("player_id", playerId)
-      .limit(1)
-      .maybeSingle();
-    if (alreadyGuessed.error) throw alreadyGuessed.error;
-    if (alreadyGuessed.data) return NextResponse.json({ ok: false, error: "Bu oyuncuyu zaten tahmin ettin." }, { status: 409 });
-
     const won = Number(guessedPlayer.player_id) === Number(targetPlayer.player_id);
     const exhaustedAttempts = !won && currentAttemptNumber >= maxAttempts;
-
-    const { error: attemptInsertError } = await supabaseAdmin.from("guess_player_attempts").insert({
-      session_id: sessionId,
-      player_id: playerId,
-      attempt_no: currentAttemptNumber,
-      correct: won,
-    });
-    if (attemptInsertError) throw attemptInsertError;
-
     const guessedPosition = guessedPlayer.sub_position ?? guessedPlayer.position;
     const targetPosition = targetPlayer.sub_position ?? targetPlayer.position;
 
