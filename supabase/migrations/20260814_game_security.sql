@@ -101,10 +101,11 @@ begin
       when 'player_quiz' then 500
       when 'career_path' then 250
       when 'tic_tac_toe' then 140
+      when 'club_clash' then 800
       else null
     end;
 
-    if v_game_code in ('club_nation','club_clash') and (j ? 'correct_count') then
+    if v_game_code = 'club_nation' and (j ? 'correct_count') then
       begin v_expected_score := coalesce((j->>'correct_count')::integer,0) * 20; exception when others then v_expected_score := null; end;
     elsif v_game_code = 'tic_tac_toe' and (j ? 'correct_count') then
       begin
@@ -115,6 +116,7 @@ begin
     if v_score is not null and v_score < 0 then v_points := v_points + 100; end if;
     if v_max_score is not null and v_score is not null and v_score > v_max_score then v_points := v_points + 100; end if;
     if v_expected_score is not null and v_score is not null and v_score <> v_expected_score then v_points := v_points + 100; end if;
+    if v_game_code = 'club_clash' and v_score is not null and mod(v_score, 20) <> 0 then v_points := v_points + 100; end if;
     if v_duration_ms < 400 then v_points := v_points + 60; end if;
   end if;
 
