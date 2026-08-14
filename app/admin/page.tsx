@@ -1,889 +1,127 @@
-"use client";
-
 import Link from "next/link";
-import {
-  CalendarDays,
-  Check,
-  Loader2,
-  RefreshCcw,
-  Search,
-  ShieldCheck,
-  Sparkles,
-  X,
-} from "lucide-react";
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
 
-/* =========================================================
-   TYPES
-========================================================= */
-
-type Player = {
-  id: number;
-  fullName: string;
-  imageUrl: string | null;
-  nationality: string | null;
-  position: string | null;
-  subPosition: string | null;
-  club: string | null;
-  popularityScore: number | null;
-};
-
-type PlayerGameCode =
-  | "guess_the_player"
-  | "player_quiz"
-  | "wordle";
-
-type DailyGameCode =
-  | PlayerGameCode
-  | "tic_tac_toe";
-
-type TicTacToeAxisItem = {
-  index: number;
-  type:
-    | "club"
-    | "nationality";
-  value: string;
-};
-
-type TicTacToeCell = {
-  rowIndex: number;
-  columnIndex: number;
-
-  rowType:
-    | "club"
-    | "nationality";
-
-  rowValue: string;
-
-  columnType:
-    | "club"
-    | "nationality";
-
-  columnValue: string;
-
-  validPlayerIds: number[];
-};
-
-type PlayerDailyGame = {
-  gameCode: PlayerGameCode;
-  label: string;
-  type: "player";
-
-  record:
-    | {
-        playDate: string;
-        playerId: number;
-        isPublished: boolean;
-        createdAt: string;
-        createdBy: string | null;
-        player: Player | null;
-      }
-    | null;
-};
-
-type TicTacToeDailyGame = {
-  gameCode: "tic_tac_toe";
-  label: string;
-  type: "grid";
-
-  record:
-    | {
-        playDate: string;
-        isPublished: boolean;
-        createdAt: string;
-        createdBy: string | null;
-
-        grid: {
-          rows: TicTacToeAxisItem[];
-          columns: TicTacToeAxisItem[];
-          cells: TicTacToeCell[];
-          qualityScore: number | null;
-        };
-      }
-    | null;
-};
-
-type DailyGame =
-  | PlayerDailyGame
-  | TicTacToeDailyGame;
-
-type DailyGamesResponse = {
-  ok?: boolean;
-  error?: string;
-  playDate?: string;
-  games?: DailyGame[];
-};
-
-type PlayerSearchResponse = {
-  ok?: boolean;
-  error?: string;
-  players?: Player[];
-};
-
-type GenericApiResponse = {
-  ok?: boolean;
-  error?: string;
-  message?: string;
-};
-
-/* =========================================================
-   DATE
-========================================================= */
-
-function getTurkeyDateKey() {
-  return new Intl.DateTimeFormat(
-    "en-CA",
-    {
-      timeZone:
-        "Europe/Istanbul",
-
-      year:
-        "numeric",
-
-      month:
-        "2-digit",
-
-      day:
-        "2-digit",
-    },
-  ).format(
-    new Date(),
-  );
-}
-
-/* =========================================================
-   HELPERS
-========================================================= */
-
-function isPlayerGame(
-  game: DailyGame,
-): game is PlayerDailyGame {
-  return (
-    game.type ===
-    "player"
-  );
-}
-
-function getAxisBadge(
-  item: TicTacToeAxisItem,
-) {
-  return item.type ===
-    "club"
-    ? `🏟️ ${item.value}`
-    : `🌍 ${item.value}`;
-}
-
-/* =========================================================
-   PAGE
-========================================================= */
-
-export default function AdminDailyGamesPage() {
-  const [
-    playDate,
-    setPlayDate,
-  ] =
-    useState(
-      getTurkeyDateKey(),
-    );
-
-  const [
-    games,
-    setGames,
-  ] =
-    useState<
-      DailyGame[]
-    >([]);
-
-  const [
-    loading,
-    setLoading,
-  ] =
-    useState(true);
-
-  const [
-    actionLoading,
-    setActionLoading,
-  ] =
-    useState<
-      string | null
-    >(null);
-
-  const [
-    error,
-    setError,
-  ] =
-    useState("");
-
-  const [
-    message,
-    setMessage,
-  ] =
-    useState("");
-
-  const [
-    editingGame,
-    setEditingGame,
-  ] =
-    useState<
-      PlayerGameCode | null
-    >(null);
-
-  const [
-    playerQuery,
-    setPlayerQuery,
-  ] =
-    useState("");
-
-  const [
-    playerResults,
-    setPlayerResults,
-  ] =
-    useState<
-      Player[]
-    >([]);
-
-  const [
-    playerSearchLoading,
-    setPlayerSearchLoading,
-  ] =
-    useState(false);
-
-  /* =======================================================
-     COMPUTED
-  ======================================================= */
-
-  const publishedCount =
-    useMemo(
-      () =>
-        games.filter(
-          (
-            game,
-          ) =>
-            game.record
-              ?.isPublished,
-        ).length,
-      [
-        games,
-      ],
-    );
-
-  const readyCount =
-    useMemo(
-      () =>
-        games.filter(
-          (
-            game,
-          ) =>
-            Boolean(
-              game.record,
-            ),
-        ).length,
-      [
-        games,
-      ],
-    );
-
-  /* =======================================================
-     LOAD
-  ======================================================= */
-
-  useEffect(() => {
-    void loadGames();
-  }, [
-    playDate,
-  ]);
-
-  /* =======================================================
-     PLAYER SEARCH
-  ======================================================= */
-
-  useEffect(() => {
-    if (
-      !editingGame
-    ) {
-      return;
-    }
-
-    const query =
-      playerQuery.trim();
-
-    if (
-      query.length <
-      2
-    ) {
-      setPlayerResults(
-        [],
-      );
-
-      return;
-    }
-
-    const controller =
-      new AbortController();
-
-    const timer =
-      window.setTimeout(
-        async () => {
-          try {
-            setPlayerSearchLoading(
-              true,
-            );
-
-            const response =
-              await fetch(
-                `/api/admin/player-search?q=${encodeURIComponent(
-                  query,
-                )}`,
-                {
-                  cache:
-                    "no-store",
-
-                  signal:
-                    controller.signal,
-                },
-              );
-
-            const result =
-              (await response.json()) as PlayerSearchResponse;
-
-            if (
-              !response.ok ||
-              !result.ok
-            ) {
-              throw new Error(
-                result.error ??
-                  "Oyuncular aranamadı.",
-              );
-            }
-
-            setPlayerResults(
-              result.players ??
-                [],
-            );
-          } catch (
-            searchError
-          ) {
-            if (
-              searchError instanceof
-                DOMException &&
-              searchError.name ===
-                "AbortError"
-            ) {
-              return;
-            }
-
-            setPlayerResults(
-              [],
-            );
-          } finally {
-            setPlayerSearchLoading(
-              false,
-            );
-          }
-        },
-        250,
-      );
-
-    return () => {
-      window.clearTimeout(
-        timer,
-      );
-
-      controller.abort();
-    };
-  }, [
-    editingGame,
-    playerQuery,
-  ]);
-
-  /* =======================================================
-     LOAD GAMES
-  ======================================================= */
-
-  async function loadGames() {
-    try {
-      setLoading(
-        true,
-      );
-
-      setError(
-        "",
-      );
-
-      const response =
-        await fetch(
-          `/api/admin/daily-games?date=${encodeURIComponent(
-            playDate,
-          )}`,
-          {
-            cache:
-              "no-store",
-          },
-        );
-
-      const result =
-        (await response.json()) as DailyGamesResponse;
-
-      if (
-        !response.ok ||
-        !result.ok
-      ) {
-        throw new Error(
-          result.error ??
-            "Günlük oyunlar yüklenemedi.",
-        );
-      }
-
-      setGames(
-        result.games ??
-          [],
-      );
-    } catch (
-      loadError
-    ) {
-      setGames(
-        [],
-      );
-
-      setError(
-        loadError instanceof
-          Error
-          ? loadError.message
-          : "Günlük oyunlar yüklenemedi.",
-      );
-    } finally {
-      setLoading(
-        false,
-      );
-    }
-  }
-
-  /* =======================================================
-     GENERATE
-  ======================================================= */
-
-  async function generate(
-    force: boolean,
-  ) {
-    try {
-      setActionLoading(
-        force
-          ? "regenerate"
-          : "generate",
-      );
-
-      setError(
-        "",
-      );
-
-      setMessage(
-        "",
-      );
-
-      const response =
-        await fetch(
-          "/api/admin/daily-games/generate",
-          {
-            method:
-              "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body:
-              JSON.stringify({
-                playDate,
-                force,
-              }),
-          },
-        );
-
-      const result =
-        (await response.json()) as GenericApiResponse;
-
-      if (
-        !response.ok ||
-        !result.ok
-      ) {
-        throw new Error(
-          result.error ??
-            "Adaylar üretilemedi.",
-        );
-      }
-
-      setMessage(
-        force
-          ? "Tüm günlük oyun adayları ve Tic Tac Toe grid'i yeniden oluşturuldu."
-          : "Eksik günlük oyun adayları oluşturuldu.",
-      );
-
-      await loadGames();
-    } catch (
-      generateError
-    ) {
-      setError(
-        generateError instanceof
-          Error
-          ? generateError.message
-          : "Adaylar üretilemedi.",
-      );
-    } finally {
-      setActionLoading(
-        null,
-      );
-    }
-  }
-
-  /* =======================================================
-     CHANGE PLAYER
-  ======================================================= */
-
-  async function changePlayer(
-    gameCode:
-      PlayerGameCode,
-
-    playerId:
-      number,
-  ) {
-    try {
-      setActionLoading(
-        `update-${gameCode}`,
-      );
-
-      setError(
-        "",
-      );
-
-      setMessage(
-        "",
-      );
-
-      const response =
-        await fetch(
-          "/api/admin/daily-games/update",
-          {
-            method:
-              "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body:
-              JSON.stringify({
-                playDate,
-                gameCode,
-                playerId,
-              }),
-          },
-        );
-
-      const result =
-        (await response.json()) as GenericApiResponse;
-
-      if (
-        !response.ok ||
-        !result.ok
-      ) {
-        throw new Error(
-          result.error ??
-            "Oyuncu değiştirilemedi.",
-        );
-      }
-
-      setEditingGame(
-        null,
-      );
-
-      setPlayerQuery(
-        "",
-      );
-
-      setPlayerResults(
-        [],
-      );
-
-      setMessage(
-        "Oyuncu değiştirildi ve yayın durumu taslağa alındı.",
-      );
-
-      await loadGames();
-    } catch (
-      updateError
-    ) {
-      setError(
-        updateError instanceof
-          Error
-          ? updateError.message
-          : "Oyuncu değiştirilemedi.",
-      );
-    } finally {
-      setActionLoading(
-        null,
-      );
-    }
-  }
-
-  /* =======================================================
-     REGENERATE TIC TAC TOE
-  ======================================================= */
-
-  async function regenerateTicTacToe() {
-    try {
-      setActionLoading(
-        "regenerate-tic-tac-toe",
-      );
-
-      setError(
-        "",
-      );
-
-      setMessage(
-        "",
-      );
-
-      const response =
-        await fetch(
-          "/api/admin/daily-games/tic-tac-toe/regenerate",
-          {
-            method:
-              "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body:
-              JSON.stringify({
-                playDate,
-              }),
-          },
-        );
-
-      const result =
-        (await response.json()) as GenericApiResponse;
-
-      if (
-        !response.ok ||
-        !result.ok
-      ) {
-        throw new Error(
-          result.error ??
-            "Tic Tac Toe grid'i yeniden oluşturulamadı.",
-        );
-      }
-
-      setMessage(
-        result.message ??
-          "Tic Tac Toe grid'i yeniden oluşturuldu ve taslağa alındı.",
-      );
-
-      await loadGames();
-    } catch (
-      regenerateError
-    ) {
-      setError(
-        regenerateError instanceof
-          Error
-          ? regenerateError.message
-          : "Tic Tac Toe grid'i yeniden oluşturulamadı.",
-      );
-    } finally {
-      setActionLoading(
-        null,
-      );
-    }
-  }
-
-  /* =======================================================
-     PUBLISH
-  ======================================================= */
-
-  async function publish(
-    gameCode:
-      DailyGameCode |
-      "all",
-
-    isPublished:
-      boolean,
-  ) {
-    try {
-      setActionLoading(
-        `publish-${gameCode}`,
-      );
-
-      setError(
-        "",
-      );
-
-      setMessage(
-        "",
-      );
-
-      const response =
-        await fetch(
-          "/api/admin/daily-games/publish",
-          {
-            method:
-              "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body:
-              JSON.stringify({
-                playDate,
-                gameCode,
-                isPublished,
-              }),
-          },
-        );
-
-      const result =
-        (await response.json()) as GenericApiResponse;
-
-      if (
-        !response.ok ||
-        !result.ok
-      ) {
-        throw new Error(
-          result.error ??
-            "Yayın durumu güncellenemedi.",
-        );
-      }
-
-      setMessage(
-        isPublished
-          ? gameCode ===
-              "all"
-            ? "Tüm günlük oyunlar yayınlandı."
-            : "Oyun yayınlandı."
-          : "Oyun yayından kaldırıldı.",
-      );
-
-      await loadGames();
-    } catch (
-      publishError
-    ) {
-      setError(
-        publishError instanceof
-          Error
-          ? publishError.message
-          : "Yayın durumu güncellenemedi.",
-      );
-    } finally {
-      setActionLoading(
-        null,
-      );
-    }
-  }
-
-  /* =======================================================
-     PAGE
-  ======================================================= */
-
+const ADMIN_AREAS = [
+  {
+    title: "Günlük Oyunlar",
+    description:
+      "Guess The Player, Player Quiz, Tic Tac Toe ve Wordle için günlük adayları oluştur, değiştir ve yayınla.",
+    href: "/admin/daily-games",
+    icon: "🎮",
+    badge: "AKTİF",
+    accent:
+      "border-green-500/25 bg-green-500/[0.045]",
+  },
+
+  {
+    title: "Oyun Raporları",
+    description:
+      "Oyun başlatma, tamamlama, tekrar oynama, paylaşım ve oyun bazlı kullanım verilerini incele.",
+    href: "/admin/analytics",
+    icon: "📊",
+    badge: "AKTİF",
+    accent:
+      "border-blue-500/20 bg-blue-500/[0.035]",
+  },
+
+  {
+    title: "Kullanıcılar",
+    description:
+      "Kayıtlı kullanıcıları, puanlarını, oyun sayılarını, serilerini ve son aktivitelerini görüntüle.",
+    href: "/admin/users",
+    icon: "👥",
+    badge: "YENİ",
+    accent:
+      "border-purple-500/25 bg-purple-500/[0.04]",
+  },
+
+  {
+    title: "Transfer Quiz",
+    description:
+      "Transfer gündemindeki günlük oyuncuyu seç, içeriği kontrol et ve yayınla.",
+    href: "/admin/transfer-quiz",
+    icon: "🔥",
+    badge: "AKTİF",
+    accent:
+      "border-yellow-400/20 bg-yellow-400/[0.035]",
+  },
+];
+
+export default function AdminPage() {
   return (
     <main className="min-h-screen bg-[#07111f] text-white">
       <div className="mx-auto max-w-7xl px-5 py-8">
 
-        {/* HEADER */}
+        {/* =====================================================
+            HEADER
+        ===================================================== */}
 
-        <header className="flex flex-col gap-6 border-b border-white/10 pb-7 lg:flex-row lg:items-center lg:justify-between">
+        <header className="border-b border-white/10 pb-8">
 
-          <div>
-            <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
 
-              <Link
-                href="/admin"
-                className="inline-flex rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-400 transition hover:text-white"
-              >
-                ← Admin Panel
-              </Link>
+            <div>
 
-              <Link
-                href="/"
-                className="inline-flex rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-500 transition hover:text-white"
-              >
-                Ana Sayfa
-              </Link>
+              <div className="flex flex-wrap gap-2">
 
-            </div>
+                <Link
+                  href="/"
+                  className="inline-flex rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-400 transition hover:border-white/20 hover:text-white"
+                >
+                  ← Ana Sayfa
+                </Link>
 
-            <div className="mt-5 flex items-center gap-3">
+                <Link
+                  href="/admin/analytics"
+                  className="inline-flex rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-400 transition hover:border-white/20 hover:text-white"
+                >
+                  📊 Analytics
+                </Link>
 
-              <ShieldCheck
-                className="text-yellow-300"
-                size={
-                  32
-                }
-              />
-
-              <div>
-
-                <h1 className="text-3xl font-black sm:text-4xl">
-                  Günlük Oyun Yönetimi
-                </h1>
-
-                <p className="mt-1 text-slate-400">
-                  Guess The Player, Player Quiz, Tic Tac Toe ve Wordle adaylarını üret, kontrol et ve yayınla.
-                </p>
+                <Link
+                  href="/admin/users"
+                  className="inline-flex rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-400 transition hover:border-white/20 hover:text-white"
+                >
+                  👥 Kullanıcılar
+                </Link>
 
               </div>
 
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                Hazır
+              <p className="mt-7 text-xs font-black uppercase tracking-[0.24em] text-green-400">
+                FOOTBATTLE
               </p>
 
-              <p className="mt-2 text-2xl font-black">
+              <h1 className="mt-2 text-4xl font-black sm:text-5xl">
+                Admin Panel
+              </h1>
 
-                <span className="text-yellow-300">
-                  {readyCount}
-                </span>
-
-                <span className="text-slate-600">
-                  {" "}
-                  / 4
-                </span>
-
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">
+                Oyunları, günlük içerikleri, kullanıcıları ve
+                kullanım raporlarını tek merkezden yönet.
               </p>
 
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
 
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                Yayında
-              </p>
+              <MiniStat
+                value="4"
+                label="Yönetim Alanı"
+              />
 
-              <p className="mt-2 text-2xl font-black">
+              <MiniStat
+                value="4"
+                label="Daily Oyun"
+              />
 
-                <span className="text-green-400">
-                  {publishedCount}
-                </span>
+              <MiniStat
+                value="📊"
+                label="Analytics"
+              />
 
-                <span className="text-slate-600">
-                  {" "}
-                  / 4
-                </span>
-
-              </p>
+              <MiniStat
+                value="👥"
+                label="Users"
+              />
 
             </div>
 
@@ -891,750 +129,235 @@ export default function AdminDailyGamesPage() {
 
         </header>
 
-        {/* CONTROLS */}
+        {/* =====================================================
+            PRIMARY CARDS
+        ===================================================== */}
 
-        <section className="mt-7 rounded-3xl border border-white/10 bg-[#0d1828] p-5">
+        <section className="mt-8">
 
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
 
-            <label>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-yellow-300">
+              Yönetim Merkezi
+            </p>
 
-              <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-400">
+            <h2 className="mt-2 text-2xl font-black sm:text-3xl">
+              Ne yönetmek istiyorsun?
+            </h2>
 
-                <CalendarDays
-                  size={
-                    17
-                  }
-                />
-
-                Oyun tarihi
-
-              </span>
-
-              <input
-                type="date"
-                value={
-                  playDate
-                }
-                onChange={(
-                  event,
-                ) =>
-                  setPlayDate(
-                    event.target.value,
-                  )
-                }
-                className="rounded-xl border border-white/10 bg-[#07111f] px-4 py-3 outline-none focus:border-yellow-400/50"
-              />
-
-            </label>
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-
-              <button
-                type="button"
-                onClick={() =>
-                  void generate(
-                    false,
-                  )
-                }
-                disabled={
-                  Boolean(
-                    actionLoading,
-                  )
-                }
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-5 py-3 font-black text-[#07111f] disabled:opacity-50"
-              >
-
-                {actionLoading ===
-                "generate" ? (
-                  <Loader2
-                    className="animate-spin"
-                    size={
-                      18
-                    }
-                  />
-                ) : (
-                  <Sparkles
-                    size={
-                      18
-                    }
-                  />
-                )}
-
-                Adayları Oluştur
-
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      "Dört günlük oyun için seçilen adaylar ve Tic Tac Toe grid'i değiştirilecek. Devam edilsin mi?",
-                    )
-                  ) {
-                    void generate(
-                      true,
-                    );
-                  }
-                }}
-                disabled={
-                  Boolean(
-                    actionLoading,
-                  )
-                }
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-400/30 px-5 py-3 font-black text-red-300 disabled:opacity-50"
-              >
-
-                {actionLoading ===
-                "regenerate" ? (
-                  <Loader2
-                    className="animate-spin"
-                    size={
-                      18
-                    }
-                  />
-                ) : (
-                  <RefreshCcw
-                    size={
-                      18
-                    }
-                  />
-                )}
-
-                Tümünü Yeniden Seç
-
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  void publish(
-                    "all",
-                    true,
-                  )
-                }
-                disabled={
-                  Boolean(
-                    actionLoading,
-                  ) ||
-                  games.length !==
-                    4 ||
-                  games.some(
-                    (
-                      game,
-                    ) =>
-                      !game.record,
-                  )
-                }
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-green-400/30 bg-green-400/10 px-5 py-3 font-black text-green-300 disabled:opacity-40"
-              >
-
-                {actionLoading ===
-                "publish-all" ? (
-                  <Loader2
-                    className="animate-spin"
-                    size={
-                      18
-                    }
-                  />
-                ) : (
-                  <Check
-                    size={
-                      18
-                    }
-                  />
-                )}
-
-                Tümünü Yayınla
-
-              </button>
-
-            </div>
+            <p className="mt-2 text-sm text-slate-500">
+              İlgili alana gitmek için kartı seç.
+            </p>
 
           </div>
 
-          {error && (
-            <div className="mt-5 rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300">
-              {error}
-            </div>
-          )}
+          <div className="mt-6 grid gap-5 md:grid-cols-2">
 
-          {message && (
-            <div className="mt-5 rounded-xl border border-green-400/20 bg-green-500/10 px-4 py-3 text-sm font-bold text-green-300">
-              {message}
-            </div>
-          )}
-
-        </section>
-
-        {/* GAME CARDS */}
-
-        {loading ? (
-          <div className="flex min-h-72 items-center justify-center">
-
-            <Loader2
-              className="animate-spin text-yellow-300"
-              size={
-                34
-              }
-            />
-
-          </div>
-        ) : (
-          <section className="mt-7 grid gap-5 md:grid-cols-2">
-
-            {games.map(
+            {ADMIN_AREAS.map(
               (
-                game,
+                area,
               ) => (
-                <article
+                <Link
                   key={
-                    game.gameCode
+                    area.href
                   }
-                  className="rounded-3xl border border-white/10 bg-[#0d1828] p-5"
+                  href={
+                    area.href
+                  }
+                  className={`group relative overflow-hidden rounded-3xl border p-6 transition duration-200 hover:-translate-y-1 hover:border-white/20 ${area.accent}`}
                 >
 
-                  {/* CARD HEADER */}
+                  <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/[0.035] blur-3xl" />
 
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="relative">
 
-                    <div>
+                    <div className="flex items-start justify-between gap-4">
 
-                      <p className="text-xs font-bold uppercase tracking-widest text-yellow-300">
-                        Günlük oyun
-                      </p>
-
-                      <h2 className="mt-1 text-2xl font-black">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-[#07111f] text-2xl">
                         {
-                          game.label
+                          area.icon
                         }
-                      </h2>
+                      </div>
+
+                      <span className="rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-green-400">
+                        {
+                          area.badge
+                        }
+                      </span>
 
                     </div>
 
-                    <span
-                      className={`rounded-full px-3 py-2 text-xs font-black ${
-                        game.record
-                          ?.isPublished
-                          ? "bg-green-500/15 text-green-300"
-                          : "bg-yellow-500/15 text-yellow-300"
-                      }`}
-                    >
-                      {game.record
-                        ?.isPublished
-                        ? "YAYINDA"
-                        : "TASLAK"}
-                    </span>
+                    <h3 className="mt-6 text-2xl font-black">
+                      {
+                        area.title
+                      }
+                    </h3>
+
+                    <p className="mt-3 max-w-xl text-sm leading-6 text-slate-400">
+                      {
+                        area.description
+                      }
+                    </p>
+
+                    <div className="mt-7 flex items-center gap-2 text-sm font-black text-green-400 transition group-hover:gap-3">
+                      Yönet
+                      <span>
+                        →
+                      </span>
+                    </div>
 
                   </div>
 
-                  {/* PLAYER GAME */}
-
-                  {isPlayerGame(
-                    game,
-                  ) ? (
-                    game.record
-                      ?.player ? (
-                      <div className="mt-5 flex items-center gap-4 rounded-2xl border border-white/10 bg-[#07111f] p-4">
-
-                        {game.record
-                          .player
-                          .imageUrl ? (
-                          <img
-                            src={
-                              game
-                                .record
-                                .player
-                                .imageUrl
-                            }
-                            alt=""
-                            className="h-20 w-20 rounded-2xl object-cover object-top"
-                          />
-                        ) : (
-                          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-800 text-2xl font-black">
-                            {game.record.player.fullName.slice(
-                              0,
-                              1,
-                            )}
-                          </div>
-                        )}
-
-                        <div className="min-w-0">
-
-                          <p className="truncate text-xl font-black">
-                            {
-                              game
-                                .record
-                                .player
-                                .fullName
-                            }
-                          </p>
-
-                          <p className="mt-1 truncate text-sm text-slate-400">
-                            {game.record.player.club ??
-                              "Kulüpsüz"}
-                          </p>
-
-                          <p className="mt-1 text-xs text-slate-500">
-
-                            {game.record.player.nationality ??
-                              "—"}
-
-                            {" · "}
-
-                            {game.record.player.subPosition ??
-                              game.record.player.position ??
-                              "Mevki bilinmiyor"}
-
-                          </p>
-
-                        </div>
-
-                      </div>
-                    ) : (
-                      <div className="mt-5 rounded-2xl border border-dashed border-white/10 p-7 text-center text-slate-500">
-                        Bu tarih için aday oluşturulmadı.
-                      </div>
-                    )
-                  ) : game.record ? (
-                    /* TIC TAC TOE GRID */
-
-                    <div className="mt-5 rounded-2xl border border-white/10 bg-[#07111f] p-4">
-
-                      <div className="flex items-center justify-between gap-3">
-
-                        <p className="text-sm font-black">
-                          Günlük Grid
-                        </p>
-
-                        {game.record
-                          .grid
-                          .qualityScore !==
-                          null && (
-                          <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-black text-slate-400">
-                            Kalite:{" "}
-                            {
-                              game
-                                .record
-                                .grid
-                                .qualityScore
-                            }
-                          </span>
-                        )}
-
-                      </div>
-
-                      <div className="mt-4 grid grid-cols-[88px_repeat(3,minmax(0,1fr))] gap-2 text-center">
-
-                        <div />
-
-                        {game.record.grid.columns.map(
-                          (
-                            column,
-                          ) => (
-                            <div
-                              key={`column-${column.index}`}
-                              className="flex min-h-14 items-center justify-center rounded-xl border border-blue-400/15 bg-blue-500/[0.07] px-2 py-2 text-[11px] font-black text-blue-200"
-                            >
-                              {
-                                getAxisBadge(
-                                  column,
-                                )
-                              }
-                            </div>
-                          ),
-                        )}
-
-                        {game.record.grid.rows.map(
-                          (
-                            row,
-                          ) => (
-                            <div
-                              key={`row-${row.index}`}
-                              className="contents"
-                            >
-
-                              <div className="flex min-h-14 items-center justify-center rounded-xl border border-purple-400/15 bg-purple-500/[0.07] px-2 py-2 text-[11px] font-black text-purple-200">
-                                {
-                                  getAxisBadge(
-                                    row,
-                                  )
-                                }
-                              </div>
-
-                              {[0, 1, 2].map(
-                                (
-                                  columnIndex,
-                                ) => {
-                                  const cell =
-                                    game.record?.grid.cells.find(
-                                      (
-                                        currentCell,
-                                      ) =>
-                                        currentCell.rowIndex ===
-                                          row.index &&
-                                        currentCell.columnIndex ===
-                                          columnIndex,
-                                    );
-
-                                  return (
-                                    <div
-                                      key={`${row.index}-${columnIndex}`}
-                                      className="flex min-h-14 items-center justify-center rounded-xl border border-white/10 bg-white/[0.025] text-xs font-black text-slate-500"
-                                    >
-                                      {cell
-                                        ? `${cell.validPlayerIds?.length ?? 0} oyuncu`
-                                        : "—"}
-                                    </div>
-                                  );
-                                },
-                              )}
-
-                            </div>
-                          ),
-                        )}
-
-                      </div>
-
-                      <p className="mt-3 text-[11px] leading-5 text-slate-500">
-                        Hücrelerdeki sayı yalnızca admin kontrolü için eşleşen oyuncu adedini gösterir.
-                      </p>
-
-                    </div>
-                  ) : (
-                    <div className="mt-5 rounded-2xl border border-dashed border-white/10 p-7 text-center text-slate-500">
-                      Bu tarih için Tic Tac Toe grid'i oluşturulmadı.
-                    </div>
-                  )}
-
-                  {/* ACTIONS */}
-
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
-
-                    {isPlayerGame(
-                      game,
-                    ) ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingGame(
-                            game.gameCode,
-                          );
-
-                          setPlayerQuery(
-                            "",
-                          );
-
-                          setPlayerResults(
-                            [],
-                          );
-                        }}
-                        disabled={
-                          !game.record
-                        }
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 font-black disabled:opacity-40"
-                      >
-
-                        <Search
-                          size={
-                            17
-                          }
-                        />
-
-                        Oyuncuyu Değiştir
-
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              "Tic Tac Toe grid'i yeniden üretilecek ve yayın durumu taslağa alınacak. Devam edilsin mi?",
-                            )
-                          ) {
-                            void regenerateTicTacToe();
-                          }
-                        }}
-                        disabled={
-                          Boolean(
-                            actionLoading,
-                          )
-                        }
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3 font-black text-yellow-300 disabled:opacity-40"
-                      >
-
-                        {actionLoading ===
-                        "regenerate-tic-tac-toe" ? (
-                          <Loader2
-                            className="animate-spin"
-                            size={
-                              17
-                            }
-                          />
-                        ) : (
-                          <RefreshCcw
-                            size={
-                              17
-                            }
-                          />
-                        )}
-
-                        Grid'i Yeniden Üret
-
-                      </button>
-                    )}
-
-                    {game.record
-                      ?.isPublished ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void publish(
-                            game.gameCode,
-                            false,
-                          )
-                        }
-                        disabled={
-                          Boolean(
-                            actionLoading,
-                          )
-                        }
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 font-black text-red-300 disabled:opacity-40"
-                      >
-
-                        <X
-                          size={
-                            17
-                          }
-                        />
-
-                        Yayından Kaldır
-
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void publish(
-                            game.gameCode,
-                            true,
-                          )
-                        }
-                        disabled={
-                          !game.record ||
-                          Boolean(
-                            actionLoading,
-                          )
-                        }
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-green-400/30 bg-green-500/10 px-4 py-3 font-black text-green-300 disabled:opacity-40"
-                      >
-
-                        {actionLoading ===
-                        `publish-${game.gameCode}` ? (
-                          <Loader2
-                            className="animate-spin"
-                            size={
-                              17
-                            }
-                          />
-                        ) : (
-                          <Check
-                            size={
-                              17
-                            }
-                          />
-                        )}
-
-                        Yayınla
-
-                      </button>
-                    )}
-
-                  </div>
-
-                </article>
+                </Link>
               ),
             )}
 
-          </section>
-        )}
+          </div>
 
-      </div>
+        </section>
 
-      {/* PLAYER CHANGE MODAL */}
+        {/* =====================================================
+            QUICK ACCESS
+        ===================================================== */}
 
-      {editingGame && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+        <section className="mt-8 rounded-3xl border border-white/10 bg-[#0d1828] p-5 sm:p-6">
 
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-[#0d1828] shadow-2xl">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+            Hızlı Erişim
+          </p>
 
-            <header className="flex items-center justify-between border-b border-white/10 p-5">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 
-              <div>
+            <QuickLink
+              href="/admin/analytics"
+              icon="📈"
+              label="Analytics"
+              description="Oyun kullanım raporları"
+            />
 
-                <h2 className="text-xl font-black">
-                  Oyuncuyu değiştir
-                </h2>
+            <QuickLink
+              href="/admin/daily-games"
+              icon="🎮"
+              label="Daily Games"
+              description="Günün oyunlarını yönet"
+            />
 
-                <p className="mt-1 text-sm text-slate-500">
-                  En az iki harf yazarak oyuncu ara.
-                </p>
+            <QuickLink
+              href="/admin/users"
+              icon="👤"
+              label="Kullanıcılar"
+              description="Kayıtlı kullanıcıları gör"
+            />
 
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingGame(
-                    null,
-                  );
-
-                  setPlayerQuery(
-                    "",
-                  );
-
-                  setPlayerResults(
-                    [],
-                  );
-                }}
-                className="rounded-xl border border-white/10 p-3"
-              >
-
-                <X
-                  size={
-                    20
-                  }
-                />
-
-              </button>
-
-            </header>
-
-            <div className="p-5">
-
-              <div className="relative">
-
-                <Search
-                  size={
-                    18
-                  }
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
-                />
-
-                <input
-                  autoFocus
-                  value={
-                    playerQuery
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setPlayerQuery(
-                      event.target.value,
-                    )
-                  }
-                  placeholder="Örn. Ronaldo"
-                  className="w-full rounded-xl border border-white/10 bg-[#07111f] py-3 pl-11 pr-4 outline-none focus:border-yellow-400/50"
-                />
-
-              </div>
-
-              <div className="mt-4 max-h-[55vh] overflow-y-auto">
-
-                {playerSearchLoading ? (
-                  <div className="flex justify-center py-12">
-
-                    <Loader2 className="animate-spin" />
-
-                  </div>
-                ) : playerQuery.trim().length <
-                  2 ? (
-                  <p className="py-12 text-center text-slate-500">
-                    Oyuncu aramak için en az iki harf yaz.
-                  </p>
-                ) : playerResults.length ===
-                  0 ? (
-                  <p className="py-12 text-center text-slate-500">
-                    Oyuncu bulunamadı.
-                  </p>
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-2">
-
-                    {playerResults.map(
-                      (
-                        player,
-                      ) => (
-                        <button
-                          key={
-                            player.id
-                          }
-                          type="button"
-                          onClick={() =>
-                            void changePlayer(
-                              editingGame,
-                              player.id,
-                            )
-                          }
-                          className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#07111f] p-4 text-left transition hover:border-yellow-400/40"
-                        >
-
-                          {player.imageUrl ? (
-                            <img
-                              src={
-                                player.imageUrl
-                              }
-                              alt=""
-                              className="h-14 w-14 rounded-full object-cover object-top"
-                            />
-                          ) : (
-                            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-800 font-black">
-                              {player.fullName.slice(
-                                0,
-                                1,
-                              )}
-                            </div>
-                          )}
-
-                          <div className="min-w-0">
-
-                            <p className="truncate font-black">
-                              {
-                                player.fullName
-                              }
-                            </p>
-
-                            <p className="mt-1 truncate text-xs text-slate-500">
-
-                              {player.club ??
-                                "Kulüpsüz"}
-
-                              {" · "}
-
-                              {player.nationality ??
-                                "—"}
-
-                            </p>
-
-                          </div>
-
-                        </button>
-                      ),
-                    )}
-
-                  </div>
-                )}
-
-              </div>
-
-            </div>
+            <QuickLink
+              href="/admin/transfer-quiz"
+              icon="🔥"
+              label="Transfer Quiz"
+              description="Transfer içeriğini yönet"
+            />
 
           </div>
 
-        </div>
-      )}
+        </section>
 
+      </div>
     </main>
+  );
+}
+
+/* =========================================================
+   MINI STAT
+========================================================= */
+
+function MiniStat({
+  value,
+  label,
+}: {
+  value:
+    string;
+
+  label:
+    string;
+}) {
+  return (
+    <div className="min-w-[110px] rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-4">
+
+      <p className="text-2xl font-black text-green-400">
+        {
+          value
+        }
+      </p>
+
+      <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-slate-600">
+        {
+          label
+        }
+      </p>
+
+    </div>
+  );
+}
+
+/* =========================================================
+   QUICK LINK
+========================================================= */
+
+function QuickLink({
+  href,
+  icon,
+  label,
+  description,
+}: {
+  href:
+    string;
+
+  icon:
+    string;
+
+  label:
+    string;
+
+  description:
+    string;
+}) {
+  return (
+    <Link
+      href={
+        href
+      }
+      className="group rounded-2xl border border-white/[0.07] bg-[#07111f] p-4 transition hover:border-green-400/20 hover:bg-green-400/[0.025]"
+    >
+
+      <div className="flex items-center gap-3">
+
+        <span className="text-xl">
+          {
+            icon
+          }
+        </span>
+
+        <div className="min-w-0">
+
+          <p className="font-black">
+            {
+              label
+            }
+          </p>
+
+          <p className="mt-1 truncate text-xs text-slate-600">
+            {
+              description
+            }
+          </p>
+
+        </div>
+
+      </div>
+
+      <p className="mt-4 text-xs font-black text-green-400 opacity-70 transition group-hover:opacity-100">
+        Aç →
+      </p>
+
+    </Link>
   );
 }
