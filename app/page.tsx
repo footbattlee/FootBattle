@@ -86,6 +86,12 @@ type DailyChallengeProgress = {
   ticTacToe: boolean;
   wordle: boolean;
 };
+type DailyChallengeAttempted = {
+  guessThePlayer: boolean;
+  playerQuiz: boolean;
+  ticTacToe: boolean;
+  wordle: boolean;
+};
 
 type DailyChallengeNextGame = {
   code: string;
@@ -111,6 +117,7 @@ type DailyChallengeResponse = {
   rewardClaimed?: boolean;
 
   progress?: DailyChallengeProgress;
+  attempted?: DailyChallengeAttempted;
 
   nextGame?:
     | DailyChallengeNextGame
@@ -1783,8 +1790,29 @@ function DailyChallengeCard({
     | DailyChallengeResponse
     | null;
 }) {
+  const [
+    shareMessage,
+    setShareMessage,
+  ] =
+    useState("");
+
   const progress =
     data?.progress ?? {
+      guessThePlayer:
+        false,
+
+      playerQuiz:
+        false,
+
+      ticTacToe:
+        false,
+
+      wordle:
+        false,
+    };
+
+  const attempted =
+    data?.attempted ?? {
       guessThePlayer:
         false,
 
@@ -1814,6 +1842,9 @@ function DailyChallengeCard({
 
       completed:
         progress.guessThePlayer,
+
+      attempted:
+        attempted.guessThePlayer,
     },
 
     {
@@ -1831,6 +1862,9 @@ function DailyChallengeCard({
 
       completed:
         progress.playerQuiz,
+
+      attempted:
+        attempted.playerQuiz,
     },
 
     {
@@ -1848,6 +1882,9 @@ function DailyChallengeCard({
 
       completed:
         progress.ticTacToe,
+
+      attempted:
+        attempted.ticTacToe,
     },
 
     {
@@ -1865,6 +1902,9 @@ function DailyChallengeCard({
 
       completed:
         progress.wordle,
+
+      attempted:
+        attempted.wordle,
     },
   ];
 
@@ -1877,6 +1917,14 @@ function DailyChallengeCard({
         game.completed,
     ).length;
 
+  const attemptedCount =
+    games.filter(
+      (
+        game,
+      ) =>
+        game.attempted,
+    ).length;
+
   const required =
     data?.required ??
     3;
@@ -1885,27 +1933,131 @@ function DailyChallengeCard({
     data?.totalGames ??
     4;
 
+  /*
+   * Progress bar artık "kaç oyuna katıldın?" bilgisini gösteriyor.
+   * Başarı sayısı ayrı olarak üstte completedCount ile gösteriliyor.
+   */
   const progressPercent =
     Math.min(
       100,
       Math.round(
         (
-          completedCount /
+          attemptedCount /
           totalGames
         ) *
           100,
       ),
     );
 
+  /*
+   * Backend nextGame attempted alanına göre dönüyor.
+   * Fallback de aynı mantığı kullanmalı.
+   */
   const nextGame =
     data?.nextGame ??
     games.find(
       (
         game,
       ) =>
-        !game.completed,
+        !game.attempted,
     ) ??
     null;
+
+  const allAttempted =
+    attemptedCount >=
+    totalGames;
+
+  const rewardPoints =
+    completedCount >=
+    4
+      ? 350
+      : completedCount >=
+          required
+        ? 250
+        : 0;
+
+  async function shareDailyResult() {
+    const resultLines =
+      games
+        .map(
+          (
+            game,
+          ) =>
+            `${game.completed ? "✅" : "❌"} ${game.label}`,
+        )
+        .join(
+          "\n",
+        );
+
+    const text =
+      `Bugünün FootBattle'ı: ${completedCount}/${totalGames} ⚽\n\n` +
+      `${resultLines}\n\n` +
+      (
+        rewardPoints >
+        0
+          ? `🏆 Günlük ödül: +${rewardPoints} puan\n\n`
+          : "Bugün bonus puanı kaçırdım 😅\n\n"
+      ) +
+      "Sen kaçta kaç yaptın?";
+
+    try {
+      if (
+        typeof navigator !==
+          "undefined" &&
+        navigator.share
+      ) {
+        await navigator.share({
+          title:
+            "FootBattle Günlük Sonuç",
+
+          text,
+        });
+
+        setShareMessage(
+          "Paylaşım açıldı ✓",
+        );
+
+        return;
+      }
+
+      await navigator.clipboard.writeText(
+        text,
+      );
+
+      setShareMessage(
+        "Sonuç panoya kopyalandı ✓",
+      );
+    } catch (
+      shareError
+    ) {
+      /*
+       * Kullanıcı native paylaşım penceresini kapattıysa
+       * hata göstermeye gerek yok.
+       */
+      if (
+        shareError instanceof
+          DOMException &&
+        shareError.name ===
+          "AbortError"
+      ) {
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(
+          text,
+        );
+
+        setShareMessage(
+          "Sonuç panoya kopyalandı ✓",
+        );
+      } catch {
+        setShareMessage(
+          "Sonuç paylaşılamadı.",
+        );
+      }
+    }
+  }
 
   if (!user) {
     return (
@@ -1924,7 +2076,7 @@ function DailyChallengeCard({
           </h3>
 
           <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
-            4 oyundan 3&apos;ünü tamamla ve 250 bonus puan kazan.
+            4 oyundan 3&apos;ünü kazan ve 250 bonus puan al.
             4/4 yaparsan günlük ödülün 350 puana çıkar.
           </p>
 
@@ -1990,13 +2142,18 @@ function DailyChallengeCard({
             </h3>
 
             <p className="mt-2 text-sm text-slate-400">
-              {completedCount >=
-              4
-                ? "Dört oyunu da tamamladın. Bugünlük görev tertemiz. 🏆"
+              {allAttempted
+                ? completedCount >=
+                    4
+                  ? "Muhteşem. Dört oyunun dördünü de kazandın. 🏆"
+                  : completedCount >=
+                      required
+                    ? `${completedCount}/${totalGames} başarılı. Günlük ödülü kaptın. 🔥`
+                    : `${completedCount}/${totalGames} başarılı. Bugün bonus puanı kaçtı; yarın rövanş var.`
                 : completedCount >=
                     required
-                  ? "Ana ödülü aldın. 4/4 yaparsan ekstra 100 puan daha var."
-                  : `${required}/${totalGames} tamamla → +250 puan`}
+                  ? "Ana ödülü aldın. Kalan oyunları da kazanırsan 4/4 ödülünü kaparsın."
+                  : `${required}/${totalGames} kazan → +250 puan`}
             </p>
 
           </div>
@@ -2011,7 +2168,7 @@ function DailyChallengeCard({
             </p>
 
             <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-slate-500">
-              Tamamlandı
+              Başarılı
             </p>
 
           </div>
@@ -2030,57 +2187,180 @@ function DailyChallengeCard({
 
         </div>
 
+        <div className="mt-2 flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-slate-600">
+
+          <span>
+            {attemptedCount}/{totalGames} oyun oynandı
+          </span>
+
+          <span>
+            {completedCount} galibiyet
+          </span>
+
+        </div>
+
         <div className="mt-5 grid gap-2 sm:grid-cols-2">
 
           {games.map(
             (
               game,
-            ) => (
-              <Link
-                key={
-                  game.code
-                }
-                href={`${game.href}?daily=1`}
-                className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition ${
-                  game.completed
-                    ? "border-green-500/20 bg-green-500/[0.08]"
-                    : "border-white/10 bg-black/15 hover:border-yellow-400/30 hover:bg-yellow-400/[0.04]"
-                }`}
-              >
+            ) => {
+              const failed =
+                game.attempted &&
+                !game.completed;
 
-                <div className="flex min-w-0 items-center gap-3">
+              const cardClass =
+                game.completed
+                  ? "border-green-500/25 bg-green-500/[0.09]"
+                  : failed
+                    ? "border-red-500/25 bg-red-500/[0.08]"
+                    : "border-white/10 bg-black/15 hover:border-yellow-400/30 hover:bg-yellow-400/[0.04]";
 
-                  <span className="text-xl">
-                    {
-                      game.icon
-                    }
+              const statusClass =
+                game.completed
+                  ? "text-green-400"
+                  : failed
+                    ? "text-red-400"
+                    : "text-slate-600";
+
+              const content = (
+                <>
+                  <div className="flex min-w-0 items-center gap-3">
+
+                    <span className="text-xl">
+                      {
+                        game.icon
+                      }
+                    </span>
+
+                    <div className="min-w-0">
+
+                      <span className="block truncate text-sm font-black">
+                        {
+                          game.label
+                        }
+                      </span>
+
+                      {game.completed && (
+                        <span className="mt-0.5 block text-[10px] font-bold text-green-400/70">
+                          Kazandın
+                        </span>
+                      )}
+
+                      {failed && (
+                        <span className="mt-0.5 block text-[10px] font-bold text-red-400/70">
+                          Bu günlük hak kullanıldı
+                        </span>
+                      )}
+
+                    </div>
+
+                  </div>
+
+                  <span
+                    className={`text-base font-black ${statusClass}`}
+                  >
+                    {game.completed
+                      ? "✓"
+                      : failed
+                        ? "✕"
+                        : "○"}
                   </span>
+                </>
+              );
 
-                  <span className="truncate text-sm font-black">
-                    {
-                      game.label
+              /*
+               * Oynanmış günlük oyuna yeniden link vermiyoruz.
+               * Tek hak mantığı UI tarafında da net görünür.
+               */
+              if (
+                game.attempted
+              ) {
+                return (
+                  <div
+                    key={
+                      game.code
                     }
-                  </span>
+                    className={`flex cursor-default items-center justify-between gap-3 rounded-xl border px-4 py-3 ${cardClass}`}
+                  >
+                    {
+                      content
+                    }
+                  </div>
+                );
+              }
 
-                </div>
-
-                <span
-                  className={`text-sm font-black ${
-                    game.completed
-                      ? "text-green-400"
-                      : "text-slate-600"
-                  }`}
+              return (
+                <Link
+                  key={
+                    game.code
+                  }
+                  href={`${game.href}?daily=1`}
+                  className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition ${cardClass}`}
                 >
-                  {game.completed
-                    ? "✓"
-                    : "○"}
-                </span>
-
-              </Link>
-            ),
+                  {
+                    content
+                  }
+                </Link>
+              );
+            },
           )}
 
         </div>
+
+        {allAttempted && (
+          <div className="mt-5 rounded-2xl border border-white/10 bg-black/15 p-4">
+
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+              <div>
+
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                  Bugünün Sonucu
+                </p>
+
+                <p className="mt-1 text-xl font-black">
+                  {completedCount}/{totalGames} başarılı
+                </p>
+
+                <p
+                  className={`mt-1 text-xs font-bold ${
+                    rewardPoints >
+                    0
+                      ? "text-green-300"
+                      : "text-slate-500"
+                  }`}
+                >
+                  {rewardPoints >
+                  0
+                    ? `🏆 +${rewardPoints} günlük bonus puan`
+                    : "Bonus ödülü için en az 3 oyun kazanmalısın."}
+                </p>
+
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  void shareDailyResult()
+                }
+                className="rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-[#07111f] transition hover:bg-yellow-300"
+              >
+                📤 Sonucu Paylaş
+              </button>
+
+            </div>
+
+            {shareMessage && (
+              <p className="mt-3 text-xs font-bold text-green-300">
+                {
+                  shareMessage
+                }
+              </p>
+            )}
+
+          </div>
+        )}
 
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
@@ -2100,17 +2380,26 @@ function DailyChallengeCard({
             <span className="text-sm font-black text-slate-500">
               Görev yükleniyor...
             </span>
-          ) : completedCount >=
-            totalGames ? (
-            <span className="rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-2.5 text-sm font-black text-green-300">
-              🏆 Günlük görev tamamlandı
+          ) : allAttempted ? (
+            <span
+              className={`rounded-xl border px-4 py-2.5 text-sm font-black ${
+                completedCount >=
+                required
+                  ? "border-green-500/20 bg-green-500/10 text-green-300"
+                  : "border-slate-500/20 bg-white/[0.03] text-slate-400"
+              }`}
+            >
+              {completedCount >=
+              required
+                ? "🏁 Günlük görev sonucu hazır"
+                : "🏁 Bugünkü 4 hakkın tamamlandı"}
             </span>
           ) : nextGame ? (
             <Link
               href={`${nextGame.href}?daily=1`}
               className="rounded-xl bg-yellow-400 px-4 py-2.5 text-sm font-black text-[#07111f] transition hover:bg-yellow-300"
             >
-              {completedCount ===
+              {attemptedCount ===
               0
                 ? "Göreve Başla"
                 : "Devam Et"}
@@ -2128,6 +2417,7 @@ function DailyChallengeCard({
     </section>
   );
 }
+
 
 /* =========================================================
    HERO STAT
