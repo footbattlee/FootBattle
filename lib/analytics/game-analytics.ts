@@ -28,6 +28,12 @@ export const GAME_NAMES = {
     "career_path",
 } as const;
 
+export type GameCompletedDetail = {
+  gameName: string;
+  sessionId: string | null;
+  metadata: Record<string, unknown>;
+};
+
 export async function trackGameStarted(
   gameName: string,
   sessionId?: string | null,
@@ -52,6 +58,12 @@ export async function trackGameCompleted(
     unknown
   >,
 ) {
+  const detail: GameCompletedDetail = {
+    gameName,
+    sessionId: sessionId ?? null,
+    metadata: metadata ?? {},
+  };
+
   await trackEvent({
     eventName:
       "game_completed",
@@ -66,6 +78,14 @@ export async function trackGameCompleted(
       metadata ??
       {},
   });
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent<GameCompletedDetail>("footbattle:game-completed", {
+        detail,
+      }),
+    );
+  }
 }
 
 export async function trackPlayAgain(
