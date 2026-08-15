@@ -22,7 +22,7 @@ export function createGameMetadata({
   const canonical = `${SITE_URL}${path}`;
 
   return {
-    title,
+    title: { absolute: title },
     description,
     keywords,
     alternates: {
