@@ -26,6 +26,7 @@ export default function RootLayout({
         {children}
 
         <HomeQuickAccess />
+        {/* Redeploy trigger: keep production aligned with main. */}
         <Analytics />
       </body>
     </html>
