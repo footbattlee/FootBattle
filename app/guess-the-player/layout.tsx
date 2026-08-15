@@ -1,26 +1,15 @@
-import type { Metadata } from "next";
+import { createGameMetadata, GameJsonLd } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title:
-    "Futbolcu Tahmin Oyunu | Guess The Player | FootBattle",
+const title = "Futbolcu Tahmin Oyunu | Guess The Player | FootBattle";
+const description = "Kulüp, yaş, pozisyon, lig ve milliyet ipuçlarıyla gizli futbolcuyu tahmin et. Guess The Player oyununu ücretsiz oyna ve skorunu paylaş.";
 
-  description:
-    "Kulüp, yaş, pozisyon ve milliyet ipuçlarıyla gizli futbolcuyu tahmin et. Play Guess The Player online on FootBattle.",
+export const metadata = createGameMetadata({
+  path: "/guess-the-player",
+  title,
+  description,
+  keywords: ["futbolcu tahmin oyunu", "guess the player", "football guessing game", "futbol quiz", "futbol bilgi oyunu"],
+});
 
-  keywords: [
-    "futbolcu tahmin oyunu",
-    "guess the player",
-    "football quiz",
-    "soccer quiz",
-    "futbol bilgi oyunu",
-    "football guessing game",
-  ],
-};
-
-export default function Layout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return children;
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return <>{children}<GameJsonLd name="Guess The Player" description={description} path="/guess-the-player" /></>;
 }

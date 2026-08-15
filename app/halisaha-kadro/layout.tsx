@@ -1,45 +1,22 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 
-export const metadata: Metadata = {
-  title:
-    "Halısaha Kadro Kurma | Ücretsiz Takım Oluşturucu - FootBattle",
+import { createGameMetadata } from "@/lib/seo";
 
-  description:
-    "Halısaha maçın için kadro oluştur. Oyuncuları ekle, takımları kur ve kadronu arkadaşlarınla paylaş. Ücretsiz halısaha kadro oluşturucu.",
+const title = "Halısaha Kadro Kurma | Ücretsiz Takım Oluşturucu | FootBattle";
+const description = "Halısaha maçın için kadro oluştur. Oyuncuları ekle, takımları kur, dengele ve kadronu arkadaşlarınla tek link üzerinden paylaş.";
 
+export const metadata = createGameMetadata({
+  path: "/halisaha-kadro",
+  title,
+  description,
   keywords: [
     "halısaha kadro",
     "halısaha kadro kurma",
-    "halısaha kadro oluştur",
     "halısaha takım kurma",
-    "halısaha takım oluştur",
-    "halısaha kadro yapma",
     "halısaha kadro oluşturucu",
-    "halısaha takım oluşturucu",
+    "takım dengeleme",
   ],
-
-  alternates: {
-    canonical: "/halisaha-kadro",
-  },
-
-  openGraph: {
-    title:
-      "Halısaha Kadro Oluştur | FootBattle",
-    description:
-      "Oyuncuları ekle, halısaha takımlarını oluştur ve kadronu arkadaşlarınla paylaş.",
-    type: "website",
-    locale: "tr_TR",
-  },
-
-  twitter: {
-    card: "summary_large_image",
-    title:
-      "Halısaha Kadro Oluştur | FootBattle",
-    description:
-      "Halısaha kadronu ücretsiz oluştur ve arkadaşlarınla paylaş.",
-  },
-};
+});
 
 export default function HalisahaKadroLayout({
   children,
