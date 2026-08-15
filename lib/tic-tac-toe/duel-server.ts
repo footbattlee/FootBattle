@@ -2,10 +2,8 @@ import { cookies } from "next/headers";
 
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import {
-  generateTicTacToeGrid,
-  type TicTacToeAxisItem,
-} from "@/lib/tic-tac-toe/grid-generator";
+import { generateBalancedTicTacToeGrid } from "@/lib/tic-tac-toe/balanced-grid-generator";
+import { type TicTacToeAxisItem } from "@/lib/tic-tac-toe/grid-generator";
 
 export const TIC_TAC_TOE_DUEL_DURATION_SECONDS = 120;
 export const TIC_TAC_TOE_SCORE_PER_CORRECT = 10;
@@ -224,7 +222,7 @@ export async function ensureTicTacToeDuel(challenge: DuelChallenge) {
     return duel;
   }
 
-  const grid = await generateTicTacToeGrid();
+  const grid = await generateBalancedTicTacToeGrid();
   if (!grid || grid.rows.length !== 3 || grid.columns.length !== 3 || grid.cells.length !== 9) {
     throw new Error("Düello için geçerli Tic Tac Toe grid'i oluşturulamadı.");
   }
@@ -254,7 +252,6 @@ export async function ensureTicTacToeDuel(challenge: DuelChallenge) {
     .maybeSingle();
 
   if (error) {
-    // A simultaneous request may have created it first.
     if ((error as { code?: string }).code === "23505") {
       const retry = await supabaseAdmin
         .from("tic_tac_toe_duels")
