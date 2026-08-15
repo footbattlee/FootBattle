@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const VALID_GAME_CODES = new Set([
@@ -30,11 +31,37 @@ function getTurkeyWeekStart() {
   return new Date(`${y}-${m}-${d}T00:00:00+03:00`).toISOString();
 }
 
+async function getFriendScopeUserIds() {
+  const auth = await createAuthServerClient();
+  const { data: { user } } = await auth.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabaseAdmin
+    .from("friendships")
+    .select("requester_id, addressee_id, status")
+    .eq("status", "accepted")
+    .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
+
+  if (error) throw error;
+
+  const ids = new Set<string>([user.id]);
+  for (const friendship of data ?? []) {
+    if (friendship.requester_id === user.id && friendship.addressee_id) {
+      ids.add(friendship.addressee_id);
+    } else if (friendship.addressee_id === user.id && friendship.requester_id) {
+      ids.add(friendship.requester_id);
+    }
+  }
+
+  return [...ids];
+}
+
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const game = url.searchParams.get("game")?.trim() || "overall";
     const period = url.searchParams.get("period")?.trim() || "week";
+    const scope = url.searchParams.get("scope")?.trim() || "global";
     const requestedLimit = Number(url.searchParams.get("limit") ?? 10);
     const limit = Number.isFinite(requestedLimit)
       ? Math.min(100, Math.max(1, Math.floor(requestedLimit)))
@@ -46,6 +73,17 @@ export async function GET(request: Request) {
     if (period !== "week" && period !== "all") {
       return NextResponse.json({ ok: false, error: "Geçersiz leaderboard periyodu." }, { status: 400 });
     }
+    if (scope !== "global" && scope !== "friends") {
+      return NextResponse.json({ ok: false, error: "Geçersiz leaderboard kapsamı." }, { status: 400 });
+    }
+
+    let friendScopeIds: string[] | null = null;
+    if (scope === "friends") {
+      friendScopeIds = await getFriendScopeUserIds();
+      if (!friendScopeIds) {
+        return NextResponse.json({ ok: false, authenticated: false, error: "Arkadaş sıralaması için giriş yapmalısın." }, { status: 401 });
+      }
+    }
 
     let query = supabaseAdmin
       .from("game_sessions")
@@ -55,6 +93,7 @@ export async function GET(request: Request) {
       .not("user_id", "is", null);
 
     if (game !== "overall") query = query.eq("game_code", game);
+    if (scope === "friends" && friendScopeIds?.length) query = query.in("user_id", friendScopeIds);
     const weekStart = getTurkeyWeekStart();
     if (period === "week") query = query.gte("finished_at", weekStart);
 
@@ -79,7 +118,7 @@ export async function GET(request: Request) {
 
     const top = ranked.slice(0, limit);
     if (!top.length) {
-      return NextResponse.json({ ok: true, type: game, period, weekStart, leaderboard: [] });
+      return NextResponse.json({ ok: true, type: game, period, scope, weekStart, leaderboard: [] });
     }
 
     const userIds = top.map(([userId]) => userId);
@@ -118,7 +157,7 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json({ ok: true, type: game, period, weekStart, leaderboard });
+    return NextResponse.json({ ok: true, type: game, period, scope, weekStart, leaderboard });
   } catch (error) {
     console.error("Leaderboard endpoint hatası:", error);
     return NextResponse.json(
