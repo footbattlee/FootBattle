@@ -9,6 +9,7 @@ import HomeQuickAccess from "@/components/HomeQuickAccess";
 import HomeTicTacToeDuelEnhancer from "@/components/HomeTicTacToeDuelEnhancer";
 import GlobalShareEnhancer from "@/components/GlobalShareEnhancer";
 import ChallengeQuickShare from "@/components/ChallengeQuickShare";
+import GameResultArena from "@/components/GameResultArena";
 
 export const metadata: Metadata = {
   title: "FootBattle",
@@ -29,6 +30,7 @@ export default function RootLayout({
 
         {children}
 
+        <GameResultArena />
         <ChallengeQuickShare />
         <HomeTicTacToeDuelEnhancer />
         <HomeQuickAccess />
