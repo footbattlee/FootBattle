@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { localizeFootballAxisValue } from "@/lib/football/localization";
-import {
-  generateTicTacToeGrid,
-  type TicTacToeAxisItem,
-} from "@/lib/tic-tac-toe/grid-generator";
+import { generateBalancedTicTacToeGrid } from "@/lib/tic-tac-toe/balanced-grid-generator";
+import { type TicTacToeAxisItem } from "@/lib/tic-tac-toe/grid-generator";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const GAME_DURATION_SECONDS = 120;
@@ -91,7 +89,7 @@ export async function POST(request: Request) {
         })),
       };
     } else {
-      const grid = await generateTicTacToeGrid();
+      const grid = await generateBalancedTicTacToeGrid();
       if (!grid || grid.rows.length !== 3 || grid.columns.length !== 3 || grid.cells.length !== 9) {
         return NextResponse.json({ ok: false, error: "Geçerli TicTacToe grid'i oluşturulamadı." }, { status: 500 });
       }

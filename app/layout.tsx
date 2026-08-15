@@ -6,6 +6,7 @@ import "./globals.css";
 import PresenceHeartbeat from "@/components/PresenceHeartbeat";
 import HomeProgressionSpotlight from "@/components/HomeProgressionSpotlight";
 import HomeQuickAccess from "@/components/HomeQuickAccess";
+import HomeTicTacToeDuelEnhancer from "@/components/HomeTicTacToeDuelEnhancer";
 
 export const metadata: Metadata = {
   title: "FootBattle",
@@ -25,8 +26,8 @@ export default function RootLayout({
 
         {children}
 
+        <HomeTicTacToeDuelEnhancer />
         <HomeQuickAccess />
-        {/* Redeploy trigger: keep production aligned with main. */}
         <Analytics />
       </body>
     </html>
