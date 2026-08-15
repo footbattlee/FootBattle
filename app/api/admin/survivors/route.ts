@@ -3,11 +3,13 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
+type SurvivorKind = "player" | "team";
+
 type SurvivorInput = {
   id?: string;
   title?: string;
   description?: string;
-  kind?: "player" | "team";
+  kind?: SurvivorKind;
   isActive?: boolean;
   entries?: string[];
 };
@@ -41,7 +43,7 @@ async function uniqueSlug(title: string, ignoreId?: string) {
   return `${base}-${Date.now()}`;
 }
 
-async function resolveEntries(kind: "player" | "team", names: string[]) {
+async function resolveEntries(kind: SurvivorKind, names: string[]) {
   const rows: Array<{ slot: number; name: string; image_url: string | null; source_player_id: number | null }> = [];
   for (let index = 0; index < names.length; index += 1) {
     const name = names[index].trim();
@@ -70,7 +72,7 @@ async function resolveEntries(kind: "player" | "team", names: string[]) {
 function validate(input: SurvivorInput | null) {
   const title = input?.title?.trim() ?? "";
   const description = input?.description?.trim() ?? "";
-  const kind = input?.kind === "team" ? "team" : "player";
+  const kind: SurvivorKind = input?.kind === "team" ? "team" : "player";
   const entries = (input?.entries ?? []).map((x) => x.trim()).filter(Boolean);
   if (title.length < 2) return { ok: false as const, error: "Oyun adı zorunlu." };
   if (entries.length !== 16) return { ok: false as const, error: "Survivor tam olarak 16 katılımcı içermeli." };
