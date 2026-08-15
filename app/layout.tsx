@@ -7,6 +7,8 @@ import PresenceHeartbeat from "@/components/PresenceHeartbeat";
 import HomeProgressionSpotlight from "@/components/HomeProgressionSpotlight";
 import HomeQuickAccess from "@/components/HomeQuickAccess";
 import HomeTicTacToeDuelEnhancer from "@/components/HomeTicTacToeDuelEnhancer";
+import GlobalShareEnhancer from "@/components/GlobalShareEnhancer";
+import ChallengeQuickShare from "@/components/ChallengeQuickShare";
 
 export const metadata: Metadata = {
   title: "FootBattle",
@@ -22,10 +24,12 @@ export default function RootLayout({
     <html lang="tr">
       <body>
         <PresenceHeartbeat />
+        <GlobalShareEnhancer />
         <HomeProgressionSpotlight />
 
         {children}
 
+        <ChallengeQuickShare />
         <HomeTicTacToeDuelEnhancer />
         <HomeQuickAccess />
         <Analytics />
