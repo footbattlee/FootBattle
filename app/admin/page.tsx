@@ -14,8 +14,16 @@ const ADMIN_AREAS = [
     description: "Tarih bazlı eşleşmeleri oluştur, oyuncuları değiştir, aktif/pasif yap ve topluluk oylarını takip et.",
     href: "/admin/faceoffs",
     icon: "🔥",
-    badge: "YENİ",
+    badge: "AKTİF",
     accent: "border-orange-400/25 bg-orange-400/[0.045]",
+  },
+  {
+    title: "Survivor",
+    description: "16 katılımcılı eleme turnuvaları oluştur, futbolcu/takım tipini seç, yayınla ve sonuç sayılarını takip et.",
+    href: "/admin/survivors",
+    icon: "👑",
+    badge: "YENİ",
+    accent: "border-yellow-300/25 bg-yellow-300/[0.045]",
   },
   {
     title: "Oyun Raporları",
@@ -53,16 +61,17 @@ export default function AdminPage() {
               <div className="flex flex-wrap gap-2">
                 <Link href="/" className="inline-flex rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-400 transition hover:border-white/20 hover:text-white">← Ana Sayfa</Link>
                 <Link href="/admin/faceoffs" className="inline-flex rounded-xl border border-orange-400/20 bg-orange-400/10 px-4 py-2 text-sm font-semibold text-orange-200">🔥 Günün Kapışması</Link>
+                <Link href="/admin/survivors" className="inline-flex rounded-xl border border-yellow-300/20 bg-yellow-300/10 px-4 py-2 text-sm font-semibold text-yellow-100">👑 Survivor</Link>
                 <Link href="/admin/analytics" className="inline-flex rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-400 transition hover:border-white/20 hover:text-white">📊 Analytics</Link>
                 <Link href="/admin/users" className="inline-flex rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-400 transition hover:border-white/20 hover:text-white">👥 Kullanıcılar</Link>
               </div>
               <p className="mt-7 text-xs font-black uppercase tracking-[0.24em] text-green-400">FOOTBATTLE</p>
               <h1 className="mt-2 text-4xl font-black sm:text-5xl">Admin Panel</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">Oyunları, günlük içerikleri, Günün Kapışması'nı, kullanıcıları ve kullanım raporlarını tek merkezden yönet.</p>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">Oyunları, günlük içerikleri, topluluk modlarını, kullanıcıları ve kullanım raporlarını tek merkezden yönet.</p>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <MiniStat value="5" label="Yönetim Alanı" />
-              <MiniStat value="🔥" label="Kapışma" />
+              <MiniStat value="6" label="Yönetim Alanı" />
+              <MiniStat value="👑" label="Survivor" />
               <MiniStat value="📊" label="Analytics" />
               <MiniStat value="👥" label="Users" />
             </div>
@@ -93,7 +102,8 @@ export default function AdminPage() {
 
         <section className="mt-8 rounded-3xl border border-white/10 bg-[#0d1828] p-5 sm:p-6">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Hızlı Erişim</p>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <QuickLink href="/admin/survivors" icon="👑" label="Survivor" description="16'lı turnuvaları yönet" />
             <QuickLink href="/admin/faceoffs" icon="🔥" label="Günün Kapışması" description="Eşleşmeleri yönet" />
             <QuickLink href="/admin/analytics" icon="📈" label="Analytics" description="Oyun kullanım raporları" />
             <QuickLink href="/admin/daily-games" icon="🎮" label="Daily Games" description="Günün oyunlarını yönet" />

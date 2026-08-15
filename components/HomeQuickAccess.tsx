@@ -29,10 +29,13 @@ export default function HomeQuickAccess() {
   if (pathname !== "/") return null;
 
   return (
-    <div className="fixed bottom-3 left-1/2 z-[70] w-[calc(100%-1rem)] max-w-[900px] -translate-x-1/2 sm:bottom-5 sm:left-5 sm:w-auto sm:max-w-[calc(100vw-2.5rem)] sm:translate-x-0">
+    <div className="fixed bottom-3 left-1/2 z-[70] w-[calc(100%-1rem)] max-w-[980px] -translate-x-1/2 sm:bottom-5 sm:left-5 sm:w-auto sm:max-w-[calc(100vw-2.5rem)] sm:translate-x-0">
       <div className="flex items-center gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-[#081523]/95 p-2 shadow-2xl backdrop-blur-xl">
         <Link href="/gunun-kapismasi" className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-red-400/25 bg-red-400/10 px-3 text-xs font-black text-red-200 sm:px-4 sm:text-sm">
           🔥 Günün Kapışması
+        </Link>
+        <Link href="/survivor" className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-yellow-300/25 bg-yellow-300/10 px-3 text-xs font-black text-yellow-100 sm:px-4 sm:text-sm">
+          👑 Survivor
         </Link>
         <Link href="/halisaha-mac" className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-green-400/20 bg-green-400/10 px-3 text-xs font-black text-green-300 sm:px-4 sm:text-sm">
           ⚽ Halısaha
