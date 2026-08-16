@@ -22,22 +22,24 @@ const ROWS = [
 
 const copy = {
   tr: {
-    home: "← Ana Sayfa", eyebrow: "FootBattle Wordle", title: "Futbolcu Wordle", description: "Gizli futbolcunun soyadını harf ipuçlarıyla bul.",
+    home: "← Ana Sayfa", brand: "FootBattle", eyebrow: "Wordle", title: "Oyuncuyu Bul", description: (n: number) => `Oyuncunun soyadını ${n} tahminde bul.`,
+    unlimited: "SINIRSIZ MOD", unlimitedGame: "Sınırsız oyun", daily: "GÜNLÜK GÖREV", letters: (n: number) => `${n} harf`,
     loading: "Yeni Wordle hazırlanıyor...", failed: "Wordle hazırlanamadı.", first: "😏 Footy: İlk tahminini görelim bakalım.",
-    newGame: "Yeni Oyun", submit: "Gönder", enter: "GİR", del: "SİL", attempts: "Tahmin", score: "Skor",
-    need: (n: number) => `Footy: ${n} harf girmelisin.`, checking: "👀 Footy: Tahminin kontrol ediliyor...",
-    win: "🎉 Footy: Bildin!", lose: "Bu oyuncu seni ters köşe yaptı.", remaining: (n: number) => `${n} hakkın kaldı.`,
+    newGame: "Yeni Oyun", submit: "Gönder", enter: "✓", del: "⌫", attempts: "Tahmin", score: "Skor",
+    need: (n: number) => `😏 Footy: ${n} harf lazım.`, checking: "👀 Footy: Tahminin kontrol ediliyor...",
+    win: "🎉 Footy: Bildin!", lose: "Bu oyuncu seni ters köşe yaptı.", remaining: (n: number) => `👀 Footy: Olmadı. ${n} hakkın kaldı, toparlan.`,
     answer: "Doğru cevap", save: "Sonuç kaydediliyor...", login: "Puanını kaydetmek için giriş yapmalısın.", saved: (s: number) => `${s} puan hesabına eklendi. 🔥`, recorded: "Bu oyunun sonucu zaten kaydedilmiş.",
-    share: "📱 Sonucu Paylaş", copied: "Sonuç kopyalandı ✓", again: "🔄 Yeniden Oyna",
+    share: "📱 Sonucu Paylaş", copied: "Sonuç kopyalandı ✓", again: "🔄 Yeniden Oyna", checkingButton: "Kontrol Ediliyor...", ready: "KONTROL ET", char: "HARF",
   },
   en: {
-    home: "← Home", eyebrow: "FootBattle Wordle", title: "Footballer Wordle", description: "Guess the hidden footballer's surname using letter clues.",
+    home: "← Home", brand: "FootBattle", eyebrow: "Wordle", title: "Find the Player", description: (n: number) => `Guess the player's surname in ${n} attempts.`,
+    unlimited: "UNLIMITED MODE", unlimitedGame: "Unlimited games", daily: "DAILY CHALLENGE", letters: (n: number) => `${n} letters`,
     loading: "Preparing a new Wordle...", failed: "Wordle could not be prepared.", first: "😏 Footy: Let's see your first guess.",
-    newGame: "New Game", submit: "Submit", enter: "ENTER", del: "DEL", attempts: "Guesses", score: "Score",
-    need: (n: number) => `Footy: You need ${n} letters.`, checking: "👀 Footy: Checking your guess...",
-    win: "🎉 Footy: You got it!", lose: "That player caught you out.", remaining: (n: number) => `${n} guesses left.`,
+    newGame: "New Game", submit: "Submit", enter: "✓", del: "⌫", attempts: "Guesses", score: "Score",
+    need: (n: number) => `😏 Footy: You need ${n} letters.`, checking: "👀 Footy: Checking your guess...",
+    win: "🎉 Footy: You got it!", lose: "That player caught you out.", remaining: (n: number) => `👀 Footy: Not quite. ${n} guesses left.`,
     answer: "Correct answer", save: "Saving result...", login: "Sign in to save your score.", saved: (s: number) => `${s} points added to your account. 🔥`, recorded: "This game result was already saved.",
-    share: "📱 Share Result", copied: "Result copied ✓", again: "🔄 Play Again",
+    share: "📱 Share Result", copied: "Result copied ✓", again: "🔄 Play Again", checkingButton: "Checking...", ready: "CHECK", char: "LETTERS",
   },
 } as const;
 
@@ -46,6 +48,13 @@ function tile(status: LetterStatus) {
   if (status === "present") return "border-amber-400 bg-amber-400 text-[#07111f]";
   if (status === "absent") return "border-slate-600 bg-slate-700 text-white";
   return "border-white/15 bg-[#0c1929] text-white";
+}
+
+function keyboardTone(status: LetterStatus) {
+  if (status === "correct") return "border-green-400 bg-green-500 text-[#07111f]";
+  if (status === "present") return "border-amber-400 bg-amber-400 text-[#07111f]";
+  if (status === "absent") return "border-slate-700 bg-slate-800 text-slate-500";
+  return "border-white/10 bg-white/10 text-white";
 }
 
 function symbol(status: LetterStatus) {
@@ -152,30 +161,44 @@ export default function LocalizedWordlePage({ locale }: { locale: Locale }) {
     } catch (reason) { if (!(reason instanceof DOMException && reason.name === "AbortError")) setShareMessage(t.failed); }
   }
 
-  if (loading) return <main className="min-h-screen bg-[#07111f] p-8 text-white"><p className="text-slate-400">{t.loading}</p></main>;
-  if (error || !game) return <main className="min-h-screen bg-[#07111f] p-8 text-white"><p className="text-red-300">{error || t.failed}</p></main>;
+  if (loading) return <main className="flex min-h-[100dvh] items-center justify-center bg-[#07111f] text-white"><p className="text-sm text-slate-400">{t.loading}</p></main>;
+  if (error || !game) return <main className="flex min-h-[100dvh] items-center justify-center bg-[#07111f] p-6 text-white"><p className="text-red-300">{error || t.failed}</p></main>;
 
   const rows = Array.from({ length: game.maxAttempts }, (_, rowIndex) => {
     const saved = guesses[rowIndex];
-    const letters = saved ? saved.evaluation : rowIndex === guesses.length ? Array.from({ length: game.letterCount }, (_, i) => ({ letter: current[i] ?? "", status: "empty" as const })) : Array.from({ length: game.letterCount }, () => ({ letter: "", status: "empty" as const }));
-    return letters;
+    return saved ? saved.evaluation : rowIndex === guesses.length ? Array.from({ length: game.letterCount }, (_, i) => ({ letter: current[i] ?? "", status: "empty" as const })) : Array.from({ length: game.letterCount }, () => ({ letter: "", status: "empty" as const }));
   });
 
   return (
-    <main className="min-h-screen bg-[#07111f] px-4 py-6 text-white sm:py-10">
-      <div className="mx-auto max-w-2xl">
-        <div className="flex items-center justify-between gap-3"><Link href={`/${locale}`} className="text-sm font-black text-slate-400">{t.home}</Link><button onClick={() => { void trackPlayAgain(GAME_NAMES.WORDLE, game.sessionId); void start(false); }} className="rounded-xl border border-white/10 px-4 py-2 text-xs font-black text-green-300">{t.newGame}</button></div>
-        <header className="mt-7 text-center"><p className="text-xs font-black uppercase tracking-[0.24em] text-green-300">{t.eyebrow}</p><h1 className="mt-2 text-4xl font-black sm:text-5xl">{t.title}</h1><p className="mx-auto mt-3 max-w-lg text-sm text-slate-400">{t.description}</p></header>
-        <section className="mt-7 rounded-3xl border border-white/10 bg-[#0d1828] p-4 sm:p-6">
-          <div className="space-y-2">{rows.map((row, ri) => <div key={ri} className="flex justify-center gap-2">{row.map((cell, ci) => <div key={ci} className={`flex h-14 w-14 items-center justify-center rounded-xl border text-xl font-black sm:h-16 sm:w-16 ${tile(cell.status)}`}>{cell.letter}</div>)}</div>)}</div>
-          <p className="mt-5 text-center text-sm font-bold text-slate-300">{message}</p>
-          {answer && <p className="mt-2 text-center text-sm font-black text-yellow-300">{t.answer}: {answer}</p>}
-          {resultMessage && <p className="mt-2 text-center text-xs font-bold text-green-300">{resultMessage}</p>}
-          <div className="mt-5 space-y-2">{ROWS.map((row, ri) => <div key={ri} className="flex justify-center gap-1.5">{row.map((k) => <button key={k} onClick={() => key(k)} className={`min-h-11 rounded-lg border px-2 text-xs font-black sm:px-3 ${k === "ENTER" || k === "DELETE" ? "bg-white/10" : tile(keyboardStatuses[k] ?? "empty")}`}>{k === "ENTER" ? t.enter : k === "DELETE" ? t.del : k}</button>)}</div>)}</div>
-          {status === "playing" && <button onClick={() => void submit()} disabled={submitting} className="mt-5 min-h-12 w-full rounded-xl bg-green-500 font-black text-[#07111f] disabled:opacity-50">{t.submit}</button>}
-          {status !== "playing" && <div className="mt-5 grid gap-2 sm:grid-cols-2"><button onClick={() => void share()} className="min-h-12 rounded-xl bg-green-500 font-black text-[#07111f]">{t.share}</button><button onClick={() => { void trackPlayAgain(GAME_NAMES.WORDLE, game.sessionId); void start(false); }} className="min-h-12 rounded-xl border border-white/10 font-black">{t.again}</button></div>}
-          {shareMessage && <p className="mt-3 text-center text-xs font-bold text-green-300">{shareMessage}</p>}
-        </section>
+    <main className="min-h-[100dvh] bg-[#07111f] pb-[calc(18px+env(safe-area-inset-bottom))] text-white">
+      <div className="mx-auto w-full max-w-[760px] px-3 sm:px-6">
+        <header className="grid min-h-[58px] grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-white/10 sm:min-h-[68px]">
+          <div className="flex justify-start"><Link href={`/${locale}`} className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-400">{t.home}</Link></div>
+          <div className="text-center"><p className="text-sm font-black sm:text-base">{t.brand}</p><p className="text-[10px] text-slate-500 sm:text-[11px]">{t.eyebrow}</p></div>
+          <div className="flex justify-end"><div className="rounded-xl border border-white/10 px-3 py-2 text-xs font-black sm:px-4 sm:text-sm">{guesses.length}/{game.maxAttempts}</div></div>
+        </header>
+
+        <div className="py-3 sm:py-8">
+          <section className="mx-auto w-full rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-4 shadow-2xl shadow-black/20 sm:rounded-[22px] sm:px-6 sm:py-6">
+            <div className="text-center">
+              <span className="inline-block rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-[9px] font-black uppercase tracking-[0.15em] text-green-400 sm:px-4 sm:py-1.5 sm:text-[11px]">{game.daily ? t.daily : t.unlimited}</span>
+              <h1 className="mt-2.5 text-2xl font-black leading-tight sm:mt-4 sm:text-[34px]">{t.title}</h1>
+              <p className="mt-1 text-xs text-slate-400 sm:mt-1.5 sm:text-sm">{t.description(game.maxAttempts)}</p>
+              <div className="mt-2 flex items-center justify-center gap-2 text-[10px] sm:text-[11px]"><span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 font-bold text-slate-400">{t.letters(game.letterCount)}</span><span className="rounded-full border border-green-500/20 bg-green-500/[0.07] px-2.5 py-1 font-bold text-green-400/80">{game.daily ? t.daily : t.unlimitedGame}</span></div>
+            </div>
+
+            <div className="mt-4 space-y-1.5 sm:mt-6 sm:space-y-2">{rows.map((row, ri) => <div key={ri} className="flex justify-center gap-1 sm:gap-1.5">{row.map((cell, ci) => <div key={ci} className={`flex ${game.letterCount >= 9 ? "h-10 w-9" : "h-[44px] w-[39px]"} items-center justify-center rounded-lg border text-base font-black transition sm:h-[52px] sm:w-[46px] sm:rounded-[10px] sm:text-xl ${tile(cell.status)}`}>{cell.letter}</div>)}</div>)}</div>
+
+            <div className="mt-3 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-center sm:mt-5 sm:px-4 sm:py-3"><p className="text-xs leading-5 text-slate-300 sm:text-sm">{message}</p>{answer && <p className="mt-1 text-xs font-black text-yellow-300">{t.answer}: {answer}</p>}{resultMessage && <p className="mt-1 text-[10px] font-bold text-green-300 sm:text-xs">{resultMessage}</p>}</div>
+
+            <div className="mt-3 space-y-1 sm:mt-5 sm:space-y-1.5">{ROWS.map((row, ri) => <div key={ri} className="flex justify-center gap-[3px] sm:gap-1">{row.map((k) => { const special = k === "ENTER" || k === "DELETE"; return <button key={k} onClick={() => key(k)} disabled={status !== "playing" || submitting} className={`flex h-9 items-center justify-center rounded-md border text-[9px] font-black transition sm:h-11 sm:rounded-lg sm:text-xs ${special ? "min-w-[48px] px-1.5 sm:min-w-[70px] sm:px-2" : "w-[27px] sm:w-9"} ${special ? "border-white/10 bg-white/10 text-white" : keyboardTone(keyboardStatuses[k] ?? "empty")} disabled:opacity-60`}>{k === "ENTER" ? t.enter : k === "DELETE" ? t.del : k}</button>; })}</div>)}</div>
+
+            {status === "playing" && <button onClick={() => void submit()} disabled={submitting || current.length !== game.letterCount} className="mt-3 flex h-11 w-full items-center justify-center rounded-xl border border-green-400/30 bg-green-500 text-xs font-black text-[#07111f] transition disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/10 disabled:text-slate-500 sm:mt-4 sm:h-12 sm:text-sm">{submitting ? t.checkingButton : current.length === game.letterCount ? `✓ ${t.ready}` : `${current.length}/${game.letterCount} ${t.char}`}</button>}
+
+            {status !== "playing" && <div className="mt-4 grid gap-2 sm:grid-cols-2"><button onClick={() => void share()} className="min-h-11 rounded-xl bg-green-500 px-4 text-xs font-black text-[#07111f] sm:text-sm">{t.share}</button><button onClick={() => { void trackPlayAgain(GAME_NAMES.WORDLE, game.sessionId); void start(false); }} className="min-h-11 rounded-xl border border-white/10 px-4 text-xs font-black sm:text-sm">{t.again}</button></div>}
+            {shareMessage && <p className="mt-3 text-center text-xs font-bold text-green-300">{shareMessage}</p>}
+          </section>
+        </div>
       </div>
     </main>
   );
