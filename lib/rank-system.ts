@@ -21,16 +21,17 @@ export const RANKS = [
 ] as const;
 
 export type RankCode = (typeof RANKS)[number]["code"];
+type RankDefinition = (typeof RANKS)[number];
 
 export function getRankForLp(lp: number) {
   const safeLp = Math.max(0, Math.floor(lp || 0));
-  let rank = RANKS[0];
+  let rank: RankDefinition = RANKS[0];
   for (const candidate of RANKS) {
     if (safeLp >= candidate.minLp) rank = candidate;
     else break;
   }
   const index = RANKS.findIndex((item) => item.code === rank.code);
-  const next = RANKS[index + 1] ?? null;
+  const next: RankDefinition | null = RANKS[index + 1] ?? null;
   return {
     ...rank,
     lp: safeLp,
@@ -41,6 +42,6 @@ export function getRankForLp(lp: number) {
   };
 }
 
-export function getRankByCode(code?: string | null) {
+export function getRankByCode(code?: string | null): RankDefinition {
   return RANKS.find((rank) => rank.code === code) ?? RANKS[0];
 }
