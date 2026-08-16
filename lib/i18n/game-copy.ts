@@ -99,4 +99,8 @@ export const gameCopy = {
       career: "Career",
     },
   },
-} satisfies Record<Locale, Record<string, unknown>>;
+} as Record<Locale, {
+  common: Record<string, string>;
+  guess: Record<string, string>;
+  career: Record<string, string>;
+}>;
