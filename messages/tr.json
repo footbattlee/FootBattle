@@ -16,8 +16,8 @@
       { "title": "Kariyer Yolu", "description": "Kulüplerden ve kariyer adımlarından oyuncuyu çöz.", "href": "/tr/career-path", "tag": "Kariyer" },
       { "title": "Günün Kapışması", "description": "İki futbolcu, tek seçim. Topluluğun tarafını gör.", "href": "/tr/daily-faceoff", "tag": "Günlük" },
       { "title": "Survivor", "description": "16 futbolcu veya takımdan kendi şampiyonunu çıkar.", "href": "/tr/survivor", "tag": "Turnuva" },
-      { "title": "Tic Tac Toe", "description": "Takım ve ülke kesişimlerinde doğru futbolcuyu bul.", "href": "/tic-tac-toe", "tag": "Düello" },
-      { "title": "Football Wordle", "description": "Gizli futbolcuyu tahminlerle adım adım çöz.", "href": "/wordle", "tag": "Wordle" }
+      { "title": "Tic Tac Toe", "description": "Takım ve ülke kesişimlerinde doğru futbolcuyu bul.", "href": "/tr/tic-tac-toe", "tag": "Grid" },
+      { "title": "Football Wordle", "description": "Gizli futbolcunun soyadını harf ipuçlarıyla adım adım çöz.", "href": "/tr/wordle", "tag": "Wordle" }
     ],
     "features": [
       { "title": "Rekabetçi Rank", "description": "Bronz III'ten GOAT'a kadar LP topla ve sezon sıralamasında yüksel." },
