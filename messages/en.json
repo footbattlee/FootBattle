@@ -16,8 +16,8 @@
       { "title": "Career Path", "description": "Complete a footballer's career by finding the clubs they represented.", "href": "/en/career-path", "tag": "Career" },
       { "title": "Daily Faceoff", "description": "Two footballers, one choice. See which side the community takes.", "href": "/en/daily-faceoff", "tag": "Daily" },
       { "title": "Football Survivor", "description": "Pick your champion from a 16-player or 16-team bracket.", "href": "/en/survivor", "tag": "Bracket" },
-      { "title": "Football Tic Tac Toe", "description": "Find the right player for each club and country intersection.", "href": "/tic-tac-toe", "tag": "Duel" },
-      { "title": "Football Wordle", "description": "Narrow down the hidden footballer guess by guess.", "href": "/wordle", "tag": "Wordle" }
+      { "title": "Football Tic Tac Toe", "description": "Find the right player for each club and country intersection.", "href": "/en/tic-tac-toe", "tag": "Grid" },
+      { "title": "Footballer Wordle", "description": "Narrow down the hidden footballer's surname letter by letter.", "href": "/en/wordle", "tag": "Wordle" }
     ],
     "features": [
       { "title": "Competitive Ranks", "description": "Earn LP from Bronze III all the way to GOAT and climb the seasonal leaderboard." },
