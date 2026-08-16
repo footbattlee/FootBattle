@@ -134,8 +134,6 @@ button:disabled {
   --fb-panel-radius: 20px;
 }
 
-/* Genel sayfa container'ları */
-
 .fb-home-container {
   width: 100%;
   max-width: var(--fb-home-width);
@@ -157,8 +155,6 @@ button:disabled {
   padding-inline: var(--fb-page-padding-x);
 }
 
-/* Ortak üst bar */
-
 .fb-game-header {
   min-height: var(--fb-header-height);
   display: grid;
@@ -168,14 +164,10 @@ button:disabled {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Oyun ana içerik alanı */
-
 .fb-game-content {
   padding-top: 28px;
   padding-bottom: 32px;
 }
-
-/* Ortak kart */
 
 .fb-game-card {
   border-radius: var(--fb-card-radius);
@@ -183,14 +175,10 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
-/* Builder ekranları */
-
 .fb-builder-content {
   padding-top: 22px;
   padding-bottom: 28px;
 }
-
-/* Masaüstünde gereksiz devleşmeyi önle */
 
 @media (min-width: 1280px) {
   .fb-game-title {
@@ -204,8 +192,6 @@ button:disabled {
   }
 }
 
-/* Tablet */
-
 @media (max-width: 900px) {
   :root {
     --fb-page-padding-x: 18px;
@@ -215,8 +201,6 @@ button:disabled {
     grid-template-columns: 1fr auto;
   }
 }
-
-/* Mobil */
 
 @media (max-width: 640px) {
   :root {
@@ -229,19 +213,192 @@ button:disabled {
     padding-top: 18px;
   }
 
-  /* iOS Safari input focus sırasında sayfayı yakınlaştırmasın. */
   input,
   select,
   textarea {
     font-size: 16px;
   }
 
-  /* Uzun isim, kulüp ve paylaşım linkleri ekranı yatay taşırmasın. */
   p,
   span,
   a,
   button {
     overflow-wrap: anywhere;
+  }
+
+  /* Localized routes must keep the original mobile game geometry.
+     i18n is copy/data only; it must not turn games into a second UI. */
+  [data-locale] [data-game] p,
+  [data-locale] [data-game] span,
+  [data-locale] [data-game] a,
+  [data-locale] [data-game] button {
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  [data-locale] [data-game] main {
+    overflow-x: hidden;
+  }
+
+  [data-locale] [data-game] main > div {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    padding-top: 16px !important;
+    padding-bottom: 20px !important;
+  }
+
+  [data-locale] [data-game] header {
+    margin-top: 16px !important;
+  }
+
+  [data-locale] [data-game] header h1 {
+    font-size: 1.5rem !important;
+    line-height: 1.15 !important;
+  }
+
+  [data-locale] [data-game] header p {
+    font-size: 0.75rem !important;
+    line-height: 1.35rem !important;
+  }
+
+  /* Guess the Player: restore the original two-column mobile clue card
+     instead of squeezing the desktop seven-column comparison table. */
+  [data-game="guess-the-player"] section[class*="overflow-x-auto"] {
+    overflow: visible !important;
+    margin-top: 16px !important;
+  }
+
+  [data-game="guess-the-player"] section[class*="overflow-x-auto"] > div {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  [data-game="guess-the-player"] section[class*="overflow-x-auto"] > div > div {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    padding: 10px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.035);
+  }
+
+  [data-game="guess-the-player"] section[class*="overflow-x-auto"] > div > div > div:first-child {
+    grid-column: 1 / -1;
+    min-height: 44px !important;
+    padding: 10px 12px !important;
+  }
+
+  [data-game="guess-the-player"] section[class*="overflow-x-auto"] > div > div > div:not(:first-child) {
+    min-height: 58px;
+    padding: 8px 6px !important;
+  }
+
+  [data-game="guess-the-player"] section[class*="overflow-x-auto"] > div > div > div:not(:first-child) p:first-child {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    font-size: 9px !important;
+    letter-spacing: 0.08em;
+  }
+
+  [data-game="guess-the-player"] section[class*="overflow-x-auto"] > div > div > div:not(:first-child) p:last-child {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    overflow-wrap: break-word;
+    font-size: 11px !important;
+    line-height: 1rem;
+  }
+
+  [data-game="guess-the-player"] section[class*="max-w-2xl"] {
+    margin-top: 16px !important;
+    padding: 12px !important;
+    border-radius: 18px !important;
+  }
+
+  /* Wordle: copy the original mobile dimensions (39x44 tiles and compact
+     keyboard) so long surnames never force the viewport wider than iPhone. */
+  [data-game="wordle"] section {
+    margin-top: 16px !important;
+    padding: 12px !important;
+    border-radius: 18px !important;
+  }
+
+  [data-game="wordle"] section > div:first-child {
+    gap: 6px !important;
+  }
+
+  [data-game="wordle"] section > div:first-child > div {
+    gap: 4px !important;
+  }
+
+  [data-game="wordle"] section > div:first-child > div > div {
+    width: 39px !important;
+    height: 44px !important;
+    min-width: 0 !important;
+    border-radius: 8px !important;
+    font-size: 16px !important;
+  }
+
+  [data-game="wordle"] section button[class*="min-h-11"] {
+    min-width: 0 !important;
+    min-height: 36px !important;
+    height: 36px !important;
+    padding-left: 5px !important;
+    padding-right: 5px !important;
+    font-size: 9px !important;
+    line-height: 1 !important;
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+
+  [data-game="wordle"] section div[class*="justify-center"][class*="gap-1.5"] {
+    gap: 3px !important;
+  }
+
+  /* Tic Tac Toe: the localized version previously kept a desktop 620px
+     minimum width. On mobile the grid must fit the viewport like the old UI. */
+  [data-game="tic-tac-toe"] section[class*="overflow-x-auto"] {
+    overflow: visible !important;
+    padding: 10px !important;
+    border-radius: 18px !important;
+  }
+
+  [data-game="tic-tac-toe"] section[class*="overflow-x-auto"] > div {
+    min-width: 0 !important;
+    width: 100% !important;
+    grid-template-columns: 72px repeat(3, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+  }
+
+  [data-game="tic-tac-toe"] section[class*="overflow-x-auto"] button,
+  [data-game="tic-tac-toe"] section[class*="overflow-x-auto"] [class*="rounded"] {
+    min-width: 0 !important;
+  }
+
+  [data-game="tic-tac-toe"] section[class*="overflow-x-auto"] p,
+  [data-game="tic-tac-toe"] section[class*="overflow-x-auto"] span {
+    font-size: 9px !important;
+    line-height: 0.8rem !important;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  /* Career Path was responsive already, but normalize its oversized localized
+     shell so TR/EN has the same compact rhythm as the original game. */
+  [data-game="career-path"] section {
+    margin-top: 16px !important;
+    padding: 12px !important;
+    border-radius: 18px !important;
+  }
+
+  [data-game="career-path"] section img {
+    width: 72px !important;
+    height: 72px !important;
+  }
+
+  [data-game="career-path"] section h2 {
+    font-size: 1.125rem !important;
   }
 }
 

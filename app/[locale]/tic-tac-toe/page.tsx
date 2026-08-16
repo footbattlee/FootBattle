@@ -21,5 +21,5 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 export default async function TicTacToeLocalePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  return <LocalizedTicTacToePage locale={locale as Locale} />;
+  return <div data-game="tic-tac-toe"><LocalizedTicTacToePage locale={locale as Locale} /></div>;
 }
