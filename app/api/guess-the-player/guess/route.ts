@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 
 import {
+  footballLocaleFromRequest,
   leagueToDisplayName,
   nationalityToDisplayName,
   positionToDisplayName,
   preferredFootToDisplayName,
+  type FootballLocale,
 } from "@/lib/football/localization";
 import {
   getGameSecurityEvents,
@@ -53,22 +55,23 @@ function compareAge(guessedAgeValue: number | string | null, targetAgeValue: num
   return guessedAge < targetAge ? "higher" : "lower";
 }
 
-function mapPlayer(player: PlayerRecord) {
+function mapPlayer(player: PlayerRecord, locale: FootballLocale) {
   return {
     id: player.player_id,
     fullName: player.name,
-    nationality: nationalityToDisplayName(player.nationality),
-    position: positionToDisplayName(player.sub_position ?? player.position),
-    club: player.current_club_name ?? "Kulüpsüz",
-    league: leagueToDisplayName(player.current_competition_id),
+    nationality: nationalityToDisplayName(player.nationality, locale),
+    position: positionToDisplayName(player.sub_position ?? player.position, locale),
+    club: player.current_club_name ?? (locale === "en" ? "Free Agent" : "Kulüpsüz"),
+    league: leagueToDisplayName(player.current_competition_id, locale),
     age: Number(player.age ?? 0),
-    preferredFoot: preferredFootToDisplayName(player.preferred_foot),
+    preferredFoot: preferredFootToDisplayName(player.preferred_foot, locale),
     imageUrl: player.image_url ?? null,
   };
 }
 
 export async function POST(request: Request) {
   try {
+    const locale = footballLocaleFromRequest(request);
     const body = (await request.json()) as GuessRequest;
     const sessionId = body.sessionId?.trim();
     const playerId = Number(body.playerId);
@@ -123,7 +126,7 @@ export async function POST(request: Request) {
       exhaustedAttempts,
       attemptNumber: currentAttemptNumber,
       maxAttempts,
-      player: mapPlayer(guessedPlayer as PlayerRecord),
+      player: mapPlayer(guessedPlayer as PlayerRecord, locale),
       comparison: {
         nationality: compareText(guessedPlayer.nationality, targetPlayer.nationality),
         position: compareText(guessedPosition, targetPosition),
@@ -132,7 +135,7 @@ export async function POST(request: Request) {
         age: compareAge(guessedPlayer.age, targetPlayer.age),
         preferredFoot: compareText(guessedPlayer.preferred_foot, targetPlayer.preferred_foot),
       },
-      targetPlayer: won || exhaustedAttempts ? mapPlayer(targetPlayer as PlayerRecord) : null,
+      targetPlayer: won || exhaustedAttempts ? mapPlayer(targetPlayer as PlayerRecord, locale) : null,
     });
   } catch (error) {
     console.error("Guess the Player guess endpoint hatası:", error);

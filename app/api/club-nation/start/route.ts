@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { nationalityToDisplayName } from "@/lib/football/localization";
+import { footballLocaleFromRequest, nationalityToDisplayName } from "@/lib/football/localization";
 import { checkRateLimit, getRequestFingerprint } from "@/lib/server/simple-rate-limit";
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -76,6 +76,7 @@ async function createQuestion() {
 
 export async function POST(request: Request) {
   try {
+    const locale = footballLocaleFromRequest(request);
     const fingerprint = getRequestFingerprint(request);
     const startLimit = checkRateLimit(`club-nation-start:${fingerprint}`, { limit: 15, windowMs: 60_000 });
     if (!startLimit.allowed) return NextResponse.json({ ok: false, error: "Çok hızlı yeni oyun başlatıyorsun." }, { status: 429 });
@@ -111,7 +112,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: true,
-      game: { code: "club_nation", label: "1 Takım 1 Millet", durationSeconds: GAME_DURATION_SECONDS, scorePerCorrect: SCORE_PER_CORRECT, maxPasses: STARTING_PASSES },
+      game: { code: "club_nation", label: locale === "en" ? "1 Club 1 Nation" : "1 Takım 1 Millet", durationSeconds: GAME_DURATION_SECONDS, scorePerCorrect: SCORE_PER_CORRECT, maxPasses: STARTING_PASSES },
       session: {
         id: session.id,
         startedAt: session.started_at,
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
         questionNo: Number(session.question_no ?? 1),
         usedClubs: Array.isArray(session.used_clubs) ? session.used_clubs : [],
       },
-      question: { club: question.clubName, nationality: nationalityToDisplayName(question.nationality) },
+      question: { club: question.clubName, nationality: nationalityToDisplayName(question.nationality, locale) },
     });
   } catch (error) {
     console.error("1 Takım 1 Millet start endpoint hatası:", error);

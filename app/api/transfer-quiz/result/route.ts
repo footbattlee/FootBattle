@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { nationalityToDisplayName } from "@/lib/football/localization";
+import { footballLocaleFromRequest, nationalityToDisplayName } from "@/lib/football/localization";
 import { finishGameSecuritySession } from "@/lib/game-security/server";
 import {
   buildPlayerQuizSeniorCareer,
@@ -23,6 +23,7 @@ type ResultRequest = {
 
 export async function POST(request: Request) {
   try {
+    const locale = footballLocaleFromRequest(request);
     const authClient = await createAuthServerClient();
     const { data: { user } } = await authClient.auth.getUser();
     const body = (await request.json()) as ResultRequest;
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
     const score = won ? COMPLETION_SCORE : 0;
     const correctAnswers = {
       birthYear: Number(detailResult.data.birth_year),
-      nationality: nationalityToDisplayName(player.nationality),
+      nationality: nationalityToDisplayName(player.nationality, locale),
       clubs: seniorCareer,
     };
 

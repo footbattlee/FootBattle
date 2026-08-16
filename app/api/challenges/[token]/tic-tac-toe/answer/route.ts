@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { nationalityToDisplayName } from "@/lib/football/localization";
+import { footballLocaleFromRequest, nationalityToDisplayName } from "@/lib/football/localization";
 import { recordGameSecurityEvent } from "@/lib/game-security/server";
 import {
   duelRemainingSeconds,
@@ -25,6 +25,7 @@ export async function POST(
   context: { params: Promise<{ token: string }> },
 ) {
   try {
+    const locale = footballLocaleFromRequest(request);
     const { token } = await context.params;
     const access = await requireTicTacToeParticipant(token);
     if (!access.ok) {
@@ -135,7 +136,7 @@ export async function POST(
         correctCount: stats.correctCount,
         wrongCount: stats.wrongCount,
         remainingSeconds: duelRemainingSeconds(duel),
-        message: "Yanlış oyuncu. Hücre boş kaldı.",
+        message: locale === "en" ? "Wrong player. The cell stays empty." : "Yanlış oyuncu. Hücre boş kaldı.",
       });
     }
 
@@ -181,12 +182,14 @@ export async function POST(
         ? {
             id: Number(player.player_id),
             name: player.name,
-            nationality: nationalityToDisplayName(player.nationality),
+            nationality: nationalityToDisplayName(player.nationality, locale),
             currentClubName: player.current_club_name ?? null,
             imageUrl: player.image_url ?? null,
           }
-        : { id: playerId, name: "Oyuncu", nationality: null, currentClubName: null, imageUrl: null },
-      message: stats.correctCount >= 9 ? "9/9! Grid tamamlandı." : "Doğru! +10 puan.",
+        : { id: playerId, name: locale === "en" ? "Player" : "Oyuncu", nationality: null, currentClubName: null, imageUrl: null },
+      message: stats.correctCount >= 9
+        ? (locale === "en" ? "9/9! Grid complete." : "9/9! Grid tamamlandı.")
+        : (locale === "en" ? "Correct! +10 points." : "Doğru! +10 puan."),
     });
   } catch (error) {
     console.error("Tic Tac Toe duel answer error:", error);

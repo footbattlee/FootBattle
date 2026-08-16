@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { localizeFootballAxisValue } from "@/lib/football/localization";
+import { footballLocaleFromRequest, localizeFootballAxisValue, type FootballLocale } from "@/lib/football/localization";
 import { generateBalancedTicTacToeGrid } from "@/lib/tic-tac-toe/balanced-grid-generator";
 import { type TicTacToeAxisItem } from "@/lib/tic-tac-toe/grid-generator";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -44,15 +44,16 @@ function mapAxis(values: TicTacToeAxisItem[]): AxisResponseItem[] {
   return values.map((item, index) => ({ index, type: item.type, value: item.value }));
 }
 
-function displayAxis(items: AxisResponseItem[]) {
+function displayAxis(items: AxisResponseItem[], locale: FootballLocale) {
   return items.map((item) => ({
     ...item,
-    value: localizeFootballAxisValue(item.type, item.value),
+    value: localizeFootballAxisValue(item.type, item.value, locale),
   }));
 }
 
 export async function POST(request: Request) {
   try {
+    const locale = footballLocaleFromRequest(request);
     const url = new URL(request.url);
     const dailyMode = url.searchParams.get("daily") === "1";
     let preparedGrid: PreparedGrid;
@@ -141,12 +142,12 @@ export async function POST(request: Request) {
       ok: true,
       mode: dailyMode ? "daily" : "random",
       daily: dailyMode,
-      game: { code: "tic_tac_toe", label: "Futbol Tic Tac Toe", mode: "solo", durationSeconds: GAME_DURATION_SECONDS, scorePerCorrect: 10, fullGridBonus: 50 },
+      game: { code: "tic_tac_toe", label: locale === "en" ? "Football Tic Tac Toe" : "Futbol Tic Tac Toe", mode: "solo", durationSeconds: GAME_DURATION_SECONDS, scorePerCorrect: 10, fullGridBonus: 50 },
       session: { id: session.id, startedAt: session.created_at, expiresAt, score: 0, correctCount: 0, wrongCount: 0 },
       grid: {
         type: preparedGrid.mode,
-        rows: displayAxis(preparedGrid.rows),
-        columns: displayAxis(preparedGrid.columns),
+        rows: displayAxis(preparedGrid.rows, locale),
+        columns: displayAxis(preparedGrid.columns, locale),
         cells: preparedGrid.cells.map((cell) => ({ rowIndex: cell.rowIndex, columnIndex: cell.columnIndex, answered: false, correct: false, player: null })),
         qualityScore: preparedGrid.qualityScore,
       },

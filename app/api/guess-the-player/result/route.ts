@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import {
+  footballLocaleFromRequest,
   leagueToDisplayName,
   nationalityToDisplayName,
   positionToDisplayName,
@@ -18,6 +19,7 @@ type ResultRequest = { sessionId?: string; playerIds?: number[]; durationSeconds
 
 export async function POST(request: Request) {
   try {
+    const locale = footballLocaleFromRequest(request);
     const authClient = await createAuthServerClient();
     const { data: { user } } = await authClient.auth.getUser();
     const body = (await request.json()) as ResultRequest;
@@ -49,12 +51,12 @@ export async function POST(request: Request) {
     const mappedTargetPlayer = {
       id: targetPlayer.player_id,
       fullName: targetPlayer.name,
-      nationality: nationalityToDisplayName(targetPlayer.nationality),
-      position: positionToDisplayName(targetPlayer.sub_position ?? targetPlayer.position),
-      club: targetPlayer.current_club_name ?? "Kulüpsüz",
-      league: leagueToDisplayName(targetPlayer.current_competition_id),
+      nationality: nationalityToDisplayName(targetPlayer.nationality, locale),
+      position: positionToDisplayName(targetPlayer.sub_position ?? targetPlayer.position, locale),
+      club: targetPlayer.current_club_name ?? (locale === "en" ? "Free Agent" : "Kulüpsüz"),
+      league: leagueToDisplayName(targetPlayer.current_competition_id, locale),
       age: Number(targetPlayer.age ?? 0),
-      preferredFoot: preferredFootToDisplayName(targetPlayer.preferred_foot),
+      preferredFoot: preferredFootToDisplayName(targetPlayer.preferred_foot, locale),
       imageUrl: targetPlayer.image_url ?? null,
     };
 

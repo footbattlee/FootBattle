@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-import { localizeFootballAxisValue } from "@/lib/football/localization";
+import { footballLocaleFromRequest, localizeFootballAxisValue, type FootballLocale } from "@/lib/football/localization";
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -57,17 +57,17 @@ function sanitizeToken(value: unknown) {
     .slice(0, 64);
 }
 
-function mapRound(round: RoundRow) {
+function mapRound(round: RoundRow, locale: FootballLocale) {
   return {
     id: Number(round.id),
     roundNo: Number(round.round_no),
     left: {
       type: round.left_type,
-      value: localizeFootballAxisValue(round.left_type, round.left_value),
+      value: localizeFootballAxisValue(round.left_type, round.left_value, locale),
     },
     right: {
       type: round.right_type,
-      value: localizeFootballAxisValue(round.right_type, round.right_value),
+      value: localizeFootballAxisValue(round.right_type, round.right_value, locale),
     },
     winnerSide: round.winner_side,
     completed: Boolean(round.completed_at),
@@ -97,8 +97,9 @@ function findCurrentRound(rounds: RoundRow[]) {
   return rounds.find((round) => !round.completed_at) ?? null;
 }
 
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   try {
+    const locale = footballLocaleFromRequest(request);
     const { token: rawToken } = await context.params;
     const token = sanitizeToken(rawToken);
 
@@ -210,7 +211,7 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json({
       ok: true,
       role,
-      game: { code: "club_nation", label: "1 Takım 1 Millet", roundCount: ROUND_COUNT, winScore: WIN_SCORE },
+      game: { code: "club_nation", label: locale === "en" ? "1 Club 1 Nation" : "1 Takım 1 Millet", roundCount: ROUND_COUNT, winScore: WIN_SCORE },
       challenge: {
         id: challenge.id,
         status: challenge.status,
@@ -228,10 +229,10 @@ export async function GET(_request: Request, context: RouteContext) {
         totalRounds: ROUND_COUNT,
         remainingRounds: Math.max(0, ROUND_COUNT - completedRoundCount),
       },
-      currentRound: currentRound ? mapRound(currentRound) : null,
+      currentRound: currentRound ? mapRound(currentRound, locale) : null,
       myCurrentAnswer,
       opponentCurrentAnswer,
-      rounds: rounds.map(mapRound),
+      rounds: rounds.map((round) => mapRound(round, locale)),
     });
   } catch (error) {
     console.error("Guest Club Nation state endpoint hatası:", error);

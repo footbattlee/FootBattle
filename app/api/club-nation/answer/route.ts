@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { nationalityToDisplayName } from "@/lib/football/localization";
+import { footballLocaleFromRequest, nationalityToDisplayName, type FootballLocale } from "@/lib/football/localization";
 import { recordGameSecurityEvent } from "@/lib/game-security/server";
 import { nationalitiesAreEquivalent } from "@/lib/player-quiz/nationalities";
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
@@ -15,6 +15,7 @@ type ClubNationPairRow = { club_name: string; duel_tier: string; nationality: st
 function normalizeText(value: string) {
   return value.trim().toLocaleLowerCase("tr-TR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ı/g, "i").replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, " ");
 }
+
 function shuffleArray<T>(values: T[]) {
   const result = [...values];
   for (let index = result.length - 1; index > 0; index -= 1) {
@@ -24,7 +25,7 @@ function shuffleArray<T>(values: T[]) {
   return result;
 }
 
-async function resolvePlayer(playerId: number | null, rawAnswer: string) {
+async function resolvePlayer(playerId: number | null, rawAnswer: string, locale: FootballLocale) {
   if (playerId && Number.isInteger(playerId) && playerId > 0) {
     const { data, error } = await supabaseAdmin.from("guess_players").select("player_id, name, name_normalized, nationality").eq("player_id", playerId).maybeSingle();
     if (error) throw error;
@@ -60,7 +61,11 @@ async function resolvePlayer(playerId: number | null, rawAnswer: string) {
       status: 409,
       ambiguous: true,
       error: "Bu soyadında birden fazla futbolcu bulundu. Listeden seçim yap.",
-      players: surnameMatches.slice(0, 10).map((player) => ({ playerId: player.player_id, name: player.name, nationality: nationalityToDisplayName(player.nationality) })),
+      players: surnameMatches.slice(0, 10).map((player) => ({
+        playerId: player.player_id,
+        name: player.name,
+        nationality: nationalityToDisplayName(player.nationality, locale),
+      })),
     };
   }
   return { ok: false as const, status: 404, error: "Bu isimde futbolcu bulunamadı." };
@@ -109,6 +114,7 @@ async function createQuestion(previousClub?: string, previousNationality?: strin
 
 export async function POST(request: Request) {
   try {
+    const locale = footballLocaleFromRequest(request);
     const body = (await request.json()) as AnswerBody;
     const sessionId = body.sessionId?.trim();
     const playerId = body.playerId ? Number(body.playerId) : null;
@@ -144,7 +150,7 @@ export async function POST(request: Request) {
     });
     if (!eventResult.allowed) return NextResponse.json({ ok: false, error: "Çok hızlı cevap gönderiyorsun." }, { status: 429 });
 
-    const resolved = await resolvePlayer(playerId, rawAnswer);
+    const resolved = await resolvePlayer(playerId, rawAnswer, locale);
     if (!resolved.ok) return NextResponse.json(resolved, { status: resolved.status });
     const selectedPlayer = resolved.player;
     const nationalityCorrect = nationalitiesAreEquivalent(selectedPlayer.nationality, session.nationality);
@@ -172,7 +178,7 @@ export async function POST(request: Request) {
         attemptCount: newAttemptCount,
         passesLeft: Number(session.passes_left ?? 0),
         secondsLeft: Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 1000)),
-        question: { club: session.club_name, nationality: nationalityToDisplayName(session.nationality) },
+        question: { club: session.club_name, nationality: nationalityToDisplayName(session.nationality, locale) },
         answer: { playerId: selectedPlayer.player_id, name: selectedPlayer.name },
         message: "Olmadı! Aynı soruda devam.",
       });
@@ -207,7 +213,7 @@ export async function POST(request: Request) {
       passesLeft: Number(updatedSession.passes_left ?? 0),
       questionNo: Number(updatedSession.question_no ?? newQuestionNo),
       secondsLeft: Math.max(0, Math.ceil((new Date(updatedSession.expires_at).getTime() - Date.now()) / 1000)),
-      question: { club: updatedSession.club_name, nationality: nationalityToDisplayName(updatedSession.nationality) },
+      question: { club: updatedSession.club_name, nationality: nationalityToDisplayName(updatedSession.nationality, locale) },
       answer: { playerId: selectedPlayer.player_id, name: selectedPlayer.name },
       message: `Doğru! +${SCORE_PER_CORRECT} puan`,
     });
