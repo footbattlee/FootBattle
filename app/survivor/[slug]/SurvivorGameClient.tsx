@@ -7,6 +7,7 @@ type Entry = { id: string; slot: number; name: string; imageUrl: string | null }
 type Survivor = { id: string; slug: string; title: string; description: string; kind: "player" | "team"; entries: Entry[] };
 type Match = { left: Entry; right: Entry; winner: Entry };
 type Round = { name: string; matches: Match[] };
+type RankReward = { applied?: boolean; already_processed?: boolean; lp_change?: number; lp_after?: number };
 
 function shuffle<T>(items: T[]) {
   const result = [...items];
@@ -35,6 +36,7 @@ export default function SurvivorGameClient({ slug }: { slug: string }) {
   const [history, setHistory] = useState<Round[]>([]);
   const [champion, setChampion] = useState<Entry | null>(null);
   const [shareUrl, setShareUrl] = useState("");
+  const [rankReward, setRankReward] = useState<RankReward | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sharing, setSharing] = useState(false);
@@ -71,7 +73,10 @@ export default function SurvivorGameClient({ slug }: { slug: string }) {
         body: JSON.stringify({ championId: nextChampion.id, championName: nextChampion.name, bracket: nextHistory }),
       });
       const result = await response.json();
-      if (response.ok && result.ok && result.result?.shareUrl) setShareUrl(result.result.shareUrl);
+      if (response.ok && result.ok) {
+        if (result.result?.shareUrl) setShareUrl(result.result.shareUrl);
+        if (result.rankReward) setRankReward(result.rankReward as RankReward);
+      }
     } catch {
       // Result persistence should never block the local winner screen.
     }
@@ -191,6 +196,18 @@ export default function SurvivorGameClient({ slug }: { slug: string }) {
             )}
             <h2 className="mt-5 text-4xl font-black text-yellow-100 sm:text-5xl">{champion.name}</h2>
             <p className="mt-2 text-sm text-slate-400">15 seçim sonunda senin şampiyonun.</p>
+
+            {rankReward?.applied && (
+              <div className="mt-5 rounded-2xl border border-green-400/25 bg-green-400/[0.08] p-4 text-left">
+                <p className="text-xs font-black uppercase tracking-wider text-green-300">Rank ödülü</p>
+                <p className="mt-1 text-xl font-black">+{Number(rankReward.lp_change ?? 10)} LP · {Number(rankReward.lp_after ?? 0)} LP</p>
+                <p className="mt-1 text-xs text-slate-500">Bu Survivor'ı ilk tamamlayışın için verildi.</p>
+              </div>
+            )}
+            {rankReward?.already_processed && (
+              <p className="mt-4 text-xs font-bold text-slate-500">Bu Survivor'ın rank ödülünü daha önce aldın.</p>
+            )}
+
             <div className="mt-6 grid gap-2 sm:grid-cols-2">
               <button type="button" onClick={() => void share()} disabled={sharing} className="min-h-12 rounded-xl bg-green-500 px-5 font-black text-[#07111f] disabled:opacity-50">{sharing ? "Paylaşım hazırlanıyor..." : "📱 Sonucumu Paylaş"}</button>
               <button type="button" onClick={() => window.location.reload()} className="min-h-12 rounded-xl border border-white/10 bg-white/[0.04] px-5 font-black">🔄 Yeniden Oyna</button>
