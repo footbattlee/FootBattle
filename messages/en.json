@@ -2,11 +2,31 @@
   "locale": "en",
   "home": {
     "eyebrow": "FootBattle Football Arena",
-    "title": "Prove your football knowledge.",
-    "description": "Football games, quizzes, daily faceoffs, Survivor and a competitive rank system in one place.",
-    "primaryCta": "Play Games",
+    "title": "Think you know football? Prove it.",
+    "description": "From player guessing and career paths to daily faceoffs and Survivor brackets, put your football knowledge to the test. Earn LP, climb the ranks and beat your friends.",
+    "primaryCta": "Explore Games",
     "secondaryCta": "Rank Arena",
-    "languageNote": "English experience"
+    "languageNote": "English experience",
+    "gamesTitle": "Step onto the pitch",
+    "gamesSubtitle": "Play solo, challenge friends or join the daily football debates.",
+    "featuresTitle": "More than a quiz site",
+    "featuresSubtitle": "Your FootBattle account keeps progression, competition and friends in one place.",
+    "games": [
+      { "title": "Guess the Player", "description": "Use the clues and identify the footballer in as few guesses as possible.", "href": "/guess-the-player", "tag": "Guessing" },
+      { "title": "Career Path", "description": "Work out the player from clubs and career steps.", "href": "/career-path", "tag": "Career" },
+      { "title": "Daily Faceoff", "description": "Two footballers, one choice. See which side the community takes.", "href": "/gunun-kapismasi", "tag": "Daily" },
+      { "title": "Football Survivor", "description": "Pick your champion from a 16-player or 16-team bracket.", "href": "/survivor", "tag": "Bracket" },
+      { "title": "Football Tic Tac Toe", "description": "Find the right player for each club and country intersection.", "href": "/tic-tac-toe", "tag": "Duel" },
+      { "title": "Football Wordle", "description": "Narrow down the hidden footballer guess by guess.", "href": "/wordle", "tag": "Wordle" }
+    ],
+    "features": [
+      { "title": "Competitive Ranks", "description": "Earn LP from Bronze III all the way to GOAT and climb the seasonal leaderboard." },
+      { "title": "Friend Rivalries", "description": "Add friends, overtake them in LP and grow your crew with invite links." },
+      { "title": "Shareable Results", "description": "Share scores, Survivor champions and faceoff picks in a single tap." }
+    ],
+    "finalTitle": "Your first battle starts here.",
+    "finalDescription": "Play for free, build your profile and prove your football knowledge through the ranks.",
+    "finalCta": "Enter FootBattle"
   },
   "language": {
     "tr": "Türkçe",
