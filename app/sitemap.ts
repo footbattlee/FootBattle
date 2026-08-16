@@ -10,7 +10,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "daily" | "weekly";
     priority: number;
   }> = [
-    { path: "", changeFrequency: "daily", priority: 1 },
+    // Turkish SEO/content landing pages that do not yet have localized duplicates.
+    { path: "", changeFrequency: "daily", priority: 0.8 },
     { path: "/futbol-oyunlari", changeFrequency: "weekly", priority: 0.95 },
     { path: "/futbolcu-tahmin-oyunu", changeFrequency: "weekly", priority: 0.9 },
     { path: "/futbol-bilgi-yarismasi", changeFrequency: "weekly", priority: 0.9 },
@@ -19,20 +20,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/super-lig-efsaneleri", changeFrequency: "weekly", priority: 0.85 },
     { path: "/en-iyi-turk-futbolcular", changeFrequency: "weekly", priority: 0.8 },
     { path: "/halisaha-kadro-kurma", changeFrequency: "weekly", priority: 0.9 },
-    { path: "/guess-the-player", changeFrequency: "daily", priority: 0.95 },
-    { path: "/player-quiz", changeFrequency: "daily", priority: 0.95 },
-    { path: "/wordle", changeFrequency: "daily", priority: 0.95 },
-    { path: "/career-path", changeFrequency: "daily", priority: 0.9 },
+    { path: "/player-quiz", changeFrequency: "daily", priority: 0.9 },
     { path: "/club-nation", changeFrequency: "daily", priority: 0.9 },
-    { path: "/tic-tac-toe", changeFrequency: "daily", priority: 0.95 },
     { path: "/transfer-quiz", changeFrequency: "daily", priority: 0.9 },
-    { path: "/gunun-kapismasi", changeFrequency: "daily", priority: 1 },
-    { path: "/survivor", changeFrequency: "daily", priority: 0.95 },
     { path: "/halisaha-kadro", changeFrequency: "weekly", priority: 0.9 },
     { path: "/halisaha-mac", changeFrequency: "weekly", priority: 0.8 },
     { path: "/takim-kadro", changeFrequency: "weekly", priority: 0.85 },
     { path: "/leaderboard", changeFrequency: "daily", priority: 0.7 },
 
+    // Canonical localized core experience.
     { path: "/tr", changeFrequency: "daily", priority: 1 },
     { path: "/en", changeFrequency: "daily", priority: 1 },
     { path: "/tr/guess-the-player", changeFrequency: "daily", priority: 0.95 },
@@ -73,12 +69,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     const survivorPages: MetadataRoute.Sitemap = (survivorSets ?? []).flatMap((set) => [
       {
-        url: `${SITE_URL}/survivor/${set.slug}`,
-        lastModified: set.updated_at ? new Date(set.updated_at) : undefined,
-        changeFrequency: "weekly" as const,
-        priority: 0.9,
-      },
-      {
         url: `${SITE_URL}/tr/survivor/${set.slug}`,
         lastModified: set.updated_at ? new Date(set.updated_at) : undefined,
         changeFrequency: "weekly" as const,
@@ -96,7 +86,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const slug = faceoffSlug(faceoff);
       const lastModified = faceoff.updated_at ? new Date(faceoff.updated_at) : undefined;
       return [
-        { url: `${SITE_URL}/gunun-kapismasi/${slug}`, lastModified, changeFrequency: "weekly" as const, priority: 0.85 },
         { url: `${SITE_URL}/tr/daily-faceoff/${slug}`, lastModified, changeFrequency: "weekly" as const, priority: 0.85 },
         { url: `${SITE_URL}/en/daily-faceoff/${slug}`, lastModified, changeFrequency: "weekly" as const, priority: 0.85 },
       ];
