@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { faceoffSlug } from "@/lib/faceoff-seo";
+
 type Choice = "left" | "right";
 type FaceoffResponse = {
   ok?: boolean;
@@ -90,7 +92,12 @@ export default function GununKapismasiPage() {
     if (!data?.faceoff || !data.results) return;
     const picked = data.choice === "left" ? data.faceoff.left : data.faceoff.right;
     const text = `⚔️ FootBattle Günün Kapışması\n${data.faceoff.left} 🆚 ${data.faceoff.right}\n\nBen ${picked} dedim. Sen kimi seçiyorsun?`;
-    const url = `${window.location.origin}/gunun-kapismasi?utm_source=share&utm_medium=faceoff&utm_campaign=gunun_kapismasi`;
+    const slug = faceoffSlug({
+      match_date: data.faceoff.date,
+      left_name: data.faceoff.left,
+      right_name: data.faceoff.right,
+    });
+    const url = `${window.location.origin}/gunun-kapismasi/${slug}?utm_source=share&utm_medium=faceoff&utm_campaign=gunun_kapismasi`;
     try {
       if (navigator.share) {
         await navigator.share({ title: "Günün Kapışması", text, url });

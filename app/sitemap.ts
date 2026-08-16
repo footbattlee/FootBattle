@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 
+import { faceoffSlug } from "@/lib/faceoff-seo";
 import { SITE_URL } from "@/lib/seo";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -40,11 +41,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   try {
-    const { data: survivorSets } = await supabaseAdmin
-      .from("survivor_sets")
-      .select("slug, updated_at")
-      .eq("is_active", true)
-      .order("updated_at", { ascending: false });
+    const [{ data: survivorSets }, { data: faceoffs }] = await Promise.all([
+      supabaseAdmin
+        .from("survivor_sets")
+        .select("slug, updated_at")
+        .eq("is_active", true)
+        .order("updated_at", { ascending: false }),
+      supabaseAdmin
+        .from("daily_faceoffs")
+        .select("match_date, left_name, right_name, updated_at")
+        .eq("is_active", true)
+        .order("match_date", { ascending: false }),
+    ]);
 
     const survivorPages: MetadataRoute.Sitemap = (survivorSets ?? []).map((set) => ({
       url: `${SITE_URL}/survivor/${set.slug}`,
@@ -53,7 +61,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     }));
 
-    return [...staticPages, ...survivorPages];
+    const faceoffPages: MetadataRoute.Sitemap = (faceoffs ?? []).map((faceoff) => ({
+      url: `${SITE_URL}/gunun-kapismasi/${faceoffSlug(faceoff)}`,
+      lastModified: faceoff.updated_at ? new Date(faceoff.updated_at) : undefined,
+      changeFrequency: "weekly",
+      priority: 0.85,
+    }));
+
+    return [...staticPages, ...survivorPages, ...faceoffPages];
   } catch {
     return staticPages;
   }
