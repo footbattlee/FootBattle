@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 
+import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 type MatchEntry = { id: string; name: string; imageUrl?: string | null };
@@ -42,6 +43,23 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
   });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
+  let rankReward: Record<string, unknown> | null = null;
+  try {
+    const auth = await createAuthServerClient();
+    const { data: { user } } = await auth.auth.getUser();
+    if (user) {
+      const { data } = await supabaseAdmin.rpc("footbattle_apply_rank_event", {
+        p_user_id: user.id,
+        p_event_key: `survivor:${set.id}:${user.id}`,
+        p_game_code: "survivor",
+        p_lp_change: 10,
+      });
+      rankReward = (data as Record<string, unknown> | null) ?? null;
+    }
+  } catch (rankError) {
+    console.error("Survivor LP award error:", rankError);
+  }
+
   return NextResponse.json({
     ok: true,
     result: {
@@ -50,5 +68,6 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
       shareUrl: `/survivor/result/${shareToken}`,
       title: set.title,
     },
+    rankReward,
   });
 }
