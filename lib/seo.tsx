@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
 
+const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
+
+// playfootbattle.com is the canonical production origin. Keep previews and any
+// stale Vercel env value from leaking foot-battle.vercel.app into SEO metadata.
 export const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-  "https://foot-battle.vercel.app";
+  configuredSiteUrl && !configuredSiteUrl.endsWith("vercel.app")
+    ? configuredSiteUrl
+    : "https://playfootbattle.com";
 
 export const DEFAULT_OG_IMAGE = "/footbattle-logo.png";
 
