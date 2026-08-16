@@ -85,6 +85,41 @@ export async function GET(request: Request) {
           const current = getRankForLp(Number(rankRow.lp ?? 0));
           const before = history ? getRankByCode(history.rank_before) : current;
           const after = history ? getRankByCode(history.rank_after) : current;
+          let overtakenFriend: { name: string; lp: number } | null = null;
+
+          if (history && Number(history.lp_change) > 0) {
+            const { data: friendships } = await supabaseAdmin
+              .from("friendships")
+              .select("requester_id, addressee_id")
+              .eq("status", "accepted")
+              .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
+
+            const friendIds = (friendships ?? []).map((item) => item.requester_id === user.id ? item.addressee_id : item.requester_id).filter(Boolean);
+            if (friendIds.length) {
+              const { data: friendRanks } = await supabaseAdmin
+                .from("user_rank_progress")
+                .select("user_id, lp")
+                .eq("season_id", season.id)
+                .in("user_id", friendIds);
+
+              const crossed = (friendRanks ?? [])
+                .filter((item) => Number(history.lp_before) <= Number(item.lp ?? 0) && Number(history.lp_after) > Number(item.lp ?? 0))
+                .sort((a, b) => Number(b.lp ?? 0) - Number(a.lp ?? 0))[0];
+
+              if (crossed) {
+                const { data: friendProfile } = await supabaseAdmin
+                  .from("profiles")
+                  .select("display_name, username")
+                  .eq("id", crossed.user_id)
+                  .maybeSingle();
+                overtakenFriend = {
+                  name: friendProfile?.display_name ?? friendProfile?.username ?? "arkadaşını",
+                  lp: Number(crossed.lp ?? 0),
+                };
+              }
+            }
+          }
+
           rank = {
             seasonTitle: season.title, lp: current.lp, peakLp: Number(rankRow.peak_lp ?? 0), rankCode: current.code,
             rankName: current.name, icon: current.icon, progressPercent: current.progressPercent,
@@ -92,6 +127,7 @@ export async function GET(request: Request) {
             lpChange: Number(history?.lp_change ?? 0), rankBefore: before.name, rankAfter: after.name,
             promoted: Boolean(history && history.rank_before !== history.rank_after && Number(history.lp_change) > 0),
             demoted: Boolean(history && history.rank_before !== history.rank_after && Number(history.lp_change) < 0),
+            overtakenFriend,
           };
         }
       }
