@@ -11,6 +11,15 @@ export const SITE_URL =
 
 export const DEFAULT_OG_IMAGE = "/footbattle-logo.png";
 
+export function localizedAlternates(path: string) {
+  const suffix = path.startsWith("/") ? path : `/${path}`;
+  return {
+    tr: `${SITE_URL}/tr${suffix}`,
+    en: `${SITE_URL}/en${suffix}`,
+    "x-default": `${SITE_URL}/en${suffix}`,
+  };
+}
+
 type GameSeoConfig = {
   path: string;
   title: string;
@@ -56,6 +65,34 @@ export function createGameMetadata({
   };
 }
 
+export function SiteJsonLd() {
+  const organization = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": `${SITE_URL}/#organization`,
+    name: "FootBattle",
+    url: SITE_URL,
+    logo: `${SITE_URL}/footbattle-logo.png`,
+  };
+
+  const website = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": `${SITE_URL}/#website`,
+    url: SITE_URL,
+    name: "FootBattle",
+    publisher: { "@id": `${SITE_URL}/#organization` },
+    inLanguage: ["tr-TR", "en"],
+  };
+
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organization) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(website) }} />
+    </>
+  );
+}
+
 export function GameJsonLd({
   name,
   description,
@@ -75,9 +112,7 @@ export function GameJsonLd({
     applicationCategory: "Game",
     genre: ["Football", "Sports", "Quiz"],
     publisher: {
-      "@type": "Organization",
-      name: "FootBattle",
-      url: SITE_URL,
+      "@id": `${SITE_URL}/#organization`,
     },
   };
 

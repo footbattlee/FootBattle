@@ -19,9 +19,44 @@ type CampaignAttribution = {
   medium?: string | null;
   campaign?: string | null;
   content?: string | null;
+  term?: string | null;
+  landingPath?: string | null;
+  referrer?: string | null;
+  capturedAt?: string | null;
 };
 
-function readCampaignAttribution(): CampaignAttribution | null {
+type AttributionEnvelope = {
+  firstTouch: CampaignAttribution | null;
+  lastTouch: CampaignAttribution | null;
+};
+
+const LEGACY_KEY = "footbattle_campaign_attribution";
+const FIRST_TOUCH_KEY = "footbattle_campaign_first_touch";
+const LAST_TOUCH_KEY = "footbattle_campaign_last_touch";
+
+function parseStored(value: string | null): CampaignAttribution | null {
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as CampaignAttribution;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeTouch(input: CampaignAttribution): CampaignAttribution {
+  const next = { ...input };
+  if (next.source === "share") {
+    next.content = next.content || (next.medium && next.medium !== "organic" ? next.medium : null);
+    next.medium = "organic";
+    next.campaign = next.campaign || "game_share";
+  }
+  if (next.source === "reddit" && next.campaign === "reddit_launch") {
+    next.campaign = "global_launch";
+  }
+  return next;
+}
+
+function readCampaignAttribution(): AttributionEnvelope | null {
   if (typeof window === "undefined") return null;
 
   try {
@@ -30,15 +65,43 @@ function readCampaignAttribution(): CampaignAttribution | null {
     const medium = search.get("utm_medium");
     const campaign = search.get("utm_campaign");
     const content = search.get("utm_content");
+    const term = search.get("utm_term");
+    const hasCampaign = Boolean(source || medium || campaign || content || term);
 
-    if (source || medium || campaign || content) {
-      const attribution = { source, medium, campaign, content };
-      window.localStorage.setItem("footbattle_campaign_attribution", JSON.stringify(attribution));
-      return attribution;
+    let firstTouch = parseStored(window.localStorage.getItem(FIRST_TOUCH_KEY));
+    let lastTouch = parseStored(window.localStorage.getItem(LAST_TOUCH_KEY));
+
+    const legacy = parseStored(window.localStorage.getItem(LEGACY_KEY));
+    if (!firstTouch && legacy) {
+      firstTouch = normalizeTouch(legacy);
+      window.localStorage.setItem(FIRST_TOUCH_KEY, JSON.stringify(firstTouch));
+    }
+    if (!lastTouch && legacy) lastTouch = normalizeTouch(legacy);
+
+    if (hasCampaign) {
+      const current = normalizeTouch({
+        source,
+        medium,
+        campaign,
+        content,
+        term,
+        landingPath: window.location.pathname,
+        referrer: document.referrer || null,
+        capturedAt: new Date().toISOString(),
+      });
+
+      if (!firstTouch) {
+        firstTouch = current;
+        window.localStorage.setItem(FIRST_TOUCH_KEY, JSON.stringify(current));
+      }
+
+      lastTouch = current;
+      window.localStorage.setItem(LAST_TOUCH_KEY, JSON.stringify(current));
+      window.localStorage.setItem(LEGACY_KEY, JSON.stringify(current));
     }
 
-    const stored = window.localStorage.getItem("footbattle_campaign_attribution");
-    return stored ? (JSON.parse(stored) as CampaignAttribution) : null;
+    if (!firstTouch && !lastTouch) return null;
+    return { firstTouch, lastTouch };
   } catch {
     return null;
   }
