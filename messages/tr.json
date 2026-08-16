@@ -1,0 +1,35 @@
+{
+  "locale": "tr",
+  "home": {
+    "eyebrow": "FootBattle Futbol Arenası",
+    "title": "Futbolu biliyorsan, kanıtla.",
+    "description": "Futbolcu tahminlerinden kariyer yollarına, günlük kapışmalardan Survivor'a kadar futbol bilginle kapış. LP topla, rank atla ve arkadaşlarını geç.",
+    "primaryCta": "Oyunları Keşfet",
+    "secondaryCta": "Rank Arenası",
+    "languageNote": "Türkçe deneyim",
+    "gamesTitle": "Sahaya çık",
+    "gamesSubtitle": "Tek başına oyna, arkadaşınla kapış veya günlük seçimlere katıl.",
+    "featuresTitle": "Sadece quiz değil",
+    "featuresSubtitle": "FootBattle hesabın ilerlemeni, rekabetini ve arkadaşlarını tek yerde toplar.",
+    "games": [
+      { "title": "Futbolcuyu Tahmin Et", "description": "İpuçlarından futbolcuyu mümkün olan en az tahminde bul.", "href": "/tr/guess-the-player", "tag": "Tahmin" },
+      { "title": "Kariyer Yolu", "description": "Kulüplerden ve kariyer adımlarından oyuncuyu çöz.", "href": "/tr/career-path", "tag": "Kariyer" },
+      { "title": "Günün Kapışması", "description": "İki futbolcu, tek seçim. Topluluğun tarafını gör.", "href": "/tr/daily-faceoff", "tag": "Günlük" },
+      { "title": "Survivor", "description": "16 futbolcu veya takımdan kendi şampiyonunu çıkar.", "href": "/tr/survivor", "tag": "Turnuva" },
+      { "title": "Tic Tac Toe", "description": "Takım ve ülke kesişimlerinde doğru futbolcuyu bul.", "href": "/tr/tic-tac-toe", "tag": "Grid" },
+      { "title": "Football Wordle", "description": "Gizli futbolcunun soyadını harf ipuçlarıyla adım adım çöz.", "href": "/tr/wordle", "tag": "Wordle" }
+    ],
+    "features": [
+      { "title": "Rekabetçi Rank", "description": "Bronz III'ten GOAT'a kadar LP topla ve sezon sıralamasında yüksel." },
+      { "title": "Arkadaş Rekabeti", "description": "Arkadaş ekle, onları LP sıralamasında geç ve davetlerle birlikte büyü." },
+      { "title": "Paylaşılabilir Sonuçlar", "description": "Skorlarını, şampiyonlarını ve kapışma seçimlerini tek dokunuşla paylaş." }
+    ],
+    "finalTitle": "Hazırsan ilk maç burada.",
+    "finalDescription": "Ücretsiz oyna, hesabını geliştir ve futbol bilgini rank ile kanıtla.",
+    "finalCta": "FootBattle'a Gir"
+  },
+  "language": {
+    "tr": "Türkçe",
+    "en": "English"
+  }
+}
