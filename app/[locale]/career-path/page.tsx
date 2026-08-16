@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import LocalizedCareerPath from "@/components/i18n/LocalizedCareerPath";
 import { isLocale, type Locale } from "@/lib/i18n/config";
-import { SITE_URL } from "@/lib/seo";
+import { SITE_URL, localizedAlternates } from "@/lib/seo";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     description: en ? "Complete a footballer's career path by naming the clubs they played for." : "Futbolcunun kariyer yolunu forma giydiği kulüpleri bularak tamamla.",
     alternates: {
       canonical: `${SITE_URL}/${locale}/career-path`,
-      languages: { tr: `${SITE_URL}/tr/career-path`, en: `${SITE_URL}/en/career-path` },
+      languages: localizedAlternates("/career-path"),
     },
   };
 }
