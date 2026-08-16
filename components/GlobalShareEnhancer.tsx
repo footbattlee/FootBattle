@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { createGlobalFootBattleShareCard } from "@/lib/global-share-card";
+
 const FOOTBATTLE_URL_PATTERN = /https?:\/\/[^\s]*foot-battle\.vercel\.app|https?:\/\/footbattle[^\s]*/i;
 
 function buildShareUrl() {
@@ -10,16 +12,12 @@ function buildShareUrl() {
   const url = new URL(window.location.origin + window.location.pathname);
   url.searchParams.set("utm_source", "share");
   url.searchParams.set("utm_medium", "organic");
-  url.searchParams.set("utm_campaign", "footbattle_result");
+  url.searchParams.set("utm_campaign", "footbattle_result_v2");
   return url.toString();
 }
 
 function shouldEnhanceText(text: unknown) {
-  return (
-    typeof text === "string" &&
-    /footbattle/i.test(text) &&
-    !FOOTBATTLE_URL_PATTERN.test(text)
-  );
+  return typeof text === "string" && /footbattle/i.test(text);
 }
 
 function withFootBattleLink(text: string) {
@@ -40,46 +38,42 @@ export default function GlobalShareEnhancer() {
       try {
         navigator.share = async (data: ShareData) => {
           const nextData: ShareData = { ...data };
-
           if (shouldEnhanceText(nextData.text)) {
             nextData.text = withFootBattleLink(String(nextData.text));
             if (!nextData.url) nextData.url = buildShareUrl();
-          }
 
+            try {
+              const card = await createGlobalFootBattleShareCard(nextData);
+              if (card && navigator.canShare?.({ files: [card] })) {
+                nextData.files = [card];
+              }
+            } catch {
+              // PNG card is enhancement-only. Text/link sharing remains available.
+            }
+          }
           return originalShare(nextData);
         };
       } catch {
-        // Bazı tarayıcılarda navigator.share salt okunur olabilir.
+        // Some browsers expose navigator.share as read-only.
       }
     }
 
     if (clipboard && originalWriteText) {
       try {
         clipboard.writeText = async (text: string) => {
-          return originalWriteText(
-            shouldEnhanceText(text) ? withFootBattleLink(text) : text,
-          );
+          return originalWriteText(shouldEnhanceText(text) ? withFootBattleLink(text) : text);
         };
       } catch {
-        // Clipboard metodu salt okunursa mevcut davranışı koru.
+        // Clipboard method may be read-only.
       }
     }
 
     return () => {
       if (originalShare) {
-        try {
-          navigator.share = originalShare;
-        } catch {
-          // noop
-        }
+        try { navigator.share = originalShare; } catch { /* noop */ }
       }
-
       if (clipboard && originalWriteText) {
-        try {
-          clipboard.writeText = originalWriteText;
-        } catch {
-          // noop
-        }
+        try { clipboard.writeText = originalWriteText; } catch { /* noop */ }
       }
     };
   }, []);
