@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo } from "react";
+import { CAMPAIGNS, campaignSearchParams } from "@/lib/analytics/campaign";
 import { trackEvent } from "@/lib/analytics/track-event";
 
 const games = [
@@ -12,15 +13,15 @@ const games = [
 ] as const;
 
 function campaignParams() {
-  if (typeof window === "undefined") return new URLSearchParams();
+  if (typeof window === "undefined") return campaignSearchParams(CAMPAIGNS.redditLaunch);
   const current = new URLSearchParams(window.location.search);
-  const params = new URLSearchParams();
-  params.set("utm_source", current.get("utm_source") || "reddit");
-  params.set("utm_medium", current.get("utm_medium") || "social");
-  params.set("utm_campaign", current.get("utm_campaign") || "reddit_launch");
-  const content = current.get("utm_content");
-  if (content) params.set("utm_content", content);
-  return params;
+  return campaignSearchParams({
+    source: current.get("utm_source") || CAMPAIGNS.redditLaunch.source,
+    medium: current.get("utm_medium") || CAMPAIGNS.redditLaunch.medium,
+    campaign: current.get("utm_campaign") || CAMPAIGNS.redditLaunch.campaign,
+    content: current.get("utm_content"),
+    term: current.get("utm_term"),
+  });
 }
 
 export default function RedditLandingClient() {
@@ -40,6 +41,7 @@ export default function RedditLandingClient() {
         medium: params.get("utm_medium"),
         campaign: params.get("utm_campaign"),
         content: params.get("utm_content"),
+        term: params.get("utm_term"),
         referrer: document.referrer || null,
       },
     });
