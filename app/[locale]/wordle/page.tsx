@@ -21,5 +21,5 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 export default async function WordleLocalePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  return <LocalizedWordlePage locale={locale as Locale} />;
+  return <div data-game="wordle"><LocalizedWordlePage locale={locale as Locale} /></div>;
 }
