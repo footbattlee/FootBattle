@@ -4,7 +4,8 @@ import { useEffect } from "react";
 
 import { createGlobalFootBattleShareCard } from "@/lib/global-share-card";
 
-const FOOTBATTLE_URL_PATTERN = /https?:\/\/[^\s]*foot-battle\.vercel\.app|https?:\/\/footbattle[^\s]*/i;
+const FOOTBATTLE_URL_PATTERN =
+  /https?:\/\/(?:[^\s/]+\.)?(?:playfootbattle\.com|foot-battle\.vercel\.app)(?:\/[^\s]*)?/i;
 
 function buildShareUrl() {
   if (typeof window === "undefined") return "";
