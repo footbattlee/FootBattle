@@ -63,7 +63,7 @@ export default function LocalizedTicTacToePage({ locale }: { locale: Locale }) {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [searching, setSearching] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState(t.pickCell);
+  const [message, setMessage] = useState<string>(t.pickCell);
   const expiresAt = useRef<number | null>(null);
   const finishCalled = useRef(false);
 
