@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { GAME_NAMES, trackGameCompleted, trackGameStarted } from "@/lib/analytics/game-analytics";
+import {
+  leagueToDisplayName,
+  nationalityToDisplayName,
+  positionToDisplayName,
+  preferredFootToDisplayName,
+} from "@/lib/football/localization";
 import type { Locale } from "@/lib/i18n/config";
 import { gameCopy } from "@/lib/i18n/game-copy";
 
@@ -20,8 +26,8 @@ function tone(status: Status) {
 }
 
 function arrow(status: Status) {
-  if (status === "higher") return " ↑";
-  if (status === "lower") return " ↓";
+  if (status === "higher") return "↑";
+  if (status === "lower") return "↓";
   return "";
 }
 
@@ -41,6 +47,14 @@ export default function LocalizedGuessThePlayer({ locale }: { locale: Locale }) 
   const [resultMessage, setResultMessage] = useState("");
 
   const guessedIds = useMemo(() => new Set(guesses.map((item) => item.player.id)), [guesses]);
+
+  const display = useCallback((player: Player) => ({
+    ...player,
+    nationality: nationalityToDisplayName(player.nationality, locale),
+    position: positionToDisplayName(player.position, locale),
+    league: leagueToDisplayName(player.league, locale),
+    preferredFoot: preferredFootToDisplayName(player.preferredFoot, locale),
+  }), [locale]);
 
   const start = useCallback(async () => {
     setLoading(true); setError(""); setQuery(""); setResults([]); setSelected(null); setGuesses([]); setStatus("playing"); setAnswer(null); setResultMessage(""); setMessage(t.guess.firstMessage);
@@ -72,6 +86,14 @@ export default function LocalizedGuessThePlayer({ locale }: { locale: Locale }) 
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [guessedIds, query, selected, session, status]);
 
+  function scrollToGuess(guessNumber: number) {
+    const element = document.getElementById(`mobile-guess-${guessNumber}`);
+    if (!element) return;
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+    element.classList.add("ring-2", "ring-green-400/70");
+    window.setTimeout(() => element.classList.remove("ring-2", "ring-green-400/70"), 900);
+  }
+
   async function saveResult(completed: Guess[]) {
     if (!session) return;
     try {
@@ -82,7 +104,7 @@ export default function LocalizedGuessThePlayer({ locale }: { locale: Locale }) 
       if (data.targetPlayer) setAnswer(data.targetPlayer as Player);
       setResultMessage(data.authenticated ? (data.won ? `${Number(data.score ?? 0)} ${locale === "en" ? "points added to your account" : "puan hesabına eklendi"}. 🔥` : locale === "en" ? "Result saved." : "Sonucun kaydedildi.") : t.common.loginSave);
       void trackGameCompleted(GAME_NAMES.GUESS_THE_PLAYER, session.sessionId, { won: Boolean(data.won), score: Number(data.score ?? 0), attemptCount: Number(data.attemptCount ?? completed.length), durationSeconds: data.durationSeconds ?? null });
-    } catch { /* the game remains playable even if persistence fails */ }
+    } catch { /* persistence must not block gameplay */ }
   }
 
   async function submit() {
@@ -124,7 +146,48 @@ export default function LocalizedGuessThePlayer({ locale }: { locale: Locale }) 
 
         {answer && <section className="mx-auto mt-5 max-w-2xl rounded-2xl border border-yellow-300/20 bg-yellow-300/[0.05] p-4 text-center"><p className="text-xs font-black uppercase tracking-wider text-yellow-300">{t.guess.answer}</p><p className="mt-1 text-2xl font-black">{answer.fullName}</p></section>}
 
-        {guesses.length > 0 && <section className="mt-7 overflow-x-auto"><div className="min-w-[850px] space-y-2">{guesses.map((guess, index) => <div key={`${guess.player.id}-${index}`} className="grid grid-cols-[180px_repeat(6,1fr)] gap-2"><div className="rounded-xl border border-white/10 bg-[#0d1828] px-3 py-3 text-sm font-black">{guess.player.fullName}</div><Cell label={t.guess.nationality} value={guess.player.nationality} status={guess.comparison.nationality}/><Cell label={t.guess.position} value={guess.player.position} status={guess.comparison.position}/><Cell label={t.guess.club} value={guess.player.club} status={guess.comparison.club}/><Cell label={t.guess.league} value={guess.player.league} status={guess.comparison.league}/><Cell label={t.guess.age} value={`${guess.player.age}${arrow(guess.comparison.age)}`} status={guess.comparison.age}/><Cell label={t.guess.foot} value={guess.player.preferredFoot} status={guess.comparison.preferredFoot}/></div>)}</div></section>}
+        <section className="mt-5 md:hidden">
+          <div className="flex items-end justify-between gap-3">
+            <div><p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-600">{locale === "en" ? "Guesses" : "Tahminler"}</p><p className="mt-0.5 text-xs font-black text-slate-300">{guesses.length}/{session?.maxAttempts ?? 7} {locale === "en" ? "used" : "kullanıldı"}</p></div>
+            {guesses.length > 0 && <p className="text-[9px] text-slate-600">{locale === "en" ? "Tap a number to jump" : "Numaraya dokun → tahmine git"}</p>}
+          </div>
+          <div className="mt-2.5 grid grid-cols-7 gap-1.5">
+            {Array.from({ length: session?.maxAttempts ?? 7 }).map((_, index) => {
+              const guessNumber = index + 1;
+              const completed = guessNumber <= guesses.length;
+              const latest = guessNumber === guesses.length && guesses.length > 0;
+              return <button key={guessNumber} type="button" disabled={!completed} onClick={() => scrollToGuess(guessNumber)} className={`flex h-8 items-center justify-center rounded-lg border text-[10px] font-black transition ${latest ? "border-green-400 bg-green-500 text-[#07111f]" : completed ? "border-green-500/30 bg-green-500/10 text-green-300" : "cursor-default border-white/[0.06] bg-white/[0.02] text-slate-700"}`}>{guessNumber}</button>;
+            })}
+          </div>
+
+          {guesses.length === 0 && <div className="mt-3 rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-5 text-center"><p className="text-xl">👀</p><p className="mt-2 text-xs font-black text-slate-300">{locale === "en" ? "Waiting for your first guess" : "İlk tahminini bekliyoruz"}</p></div>}
+
+          <div className="mt-3 space-y-3">
+            {[...guesses].reverse().map((guess, reversedIndex) => {
+              const originalIndex = guesses.length - 1 - reversedIndex;
+              const guessNumber = originalIndex + 1;
+              const player = display(guess.player);
+              const playerIsCorrect = Object.values(guess.comparison).every((value) => value === "correct");
+              return <article id={`mobile-guess-${guessNumber}`} key={`${guess.player.id}-${originalIndex}`} className={`scroll-mt-24 overflow-hidden rounded-2xl border transition-all duration-300 ${playerIsCorrect ? "border-green-400/30 bg-green-500/[0.07]" : "border-white/10 bg-white/[0.035]"}`}>
+                <div className="flex items-center gap-3 border-b border-white/[0.07] p-3">
+                  {player.imageUrl ? <img src={player.imageUrl} alt={player.fullName} className="h-11 w-11 shrink-0 rounded-xl border border-white/10 bg-white/5 object-cover" /> : <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-lg">⚽</div>}
+                  <div className="min-w-0 flex-1"><p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-600">{locale === "en" ? `Guess ${guessNumber}` : `Tahmin ${guessNumber}`}</p><p className="mt-0.5 truncate text-sm font-black text-white">{player.fullName}</p></div>
+                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-[9px] font-black ${playerIsCorrect ? "bg-green-500/15 text-green-300" : "bg-red-500/10 text-red-300"}`}>{playerIsCorrect ? (locale === "en" ? "✓ RIGHT" : "✓ DOĞRU") : (locale === "en" ? "WRONG" : "YANLIŞ")}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 p-2.5">
+                  <MobileCell icon="🌍" label={t.guess.nationality} value={player.nationality} status={guess.comparison.nationality}/>
+                  <MobileCell icon="🎯" label={t.guess.position} value={player.position} status={guess.comparison.position}/>
+                  <MobileCell icon="🏟️" label={t.guess.club} value={player.club} status={guess.comparison.club}/>
+                  <MobileCell icon="🏆" label={t.guess.league} value={player.league} status={guess.comparison.league}/>
+                  <MobileCell icon="🎂" label={t.guess.age} value={String(player.age)} suffix={arrow(guess.comparison.age)} status={guess.comparison.age}/>
+                  <MobileCell icon="🦶" label={t.guess.foot} value={player.preferredFoot} status={guess.comparison.preferredFoot}/>
+                </div>
+              </article>;
+            })}
+          </div>
+        </section>
+
+        {guesses.length > 0 && <section className="mt-7 hidden overflow-x-auto md:block"><div className="min-w-[850px] space-y-2">{guesses.map((guess, index) => { const player = display(guess.player); return <div key={`${guess.player.id}-${index}`} className="grid grid-cols-[180px_repeat(6,1fr)] gap-2"><div className="rounded-xl border border-white/10 bg-[#0d1828] px-3 py-3 text-sm font-black">{player.fullName}</div><Cell label={t.guess.nationality} value={player.nationality} status={guess.comparison.nationality}/><Cell label={t.guess.position} value={player.position} status={guess.comparison.position}/><Cell label={t.guess.club} value={player.club} status={guess.comparison.club}/><Cell label={t.guess.league} value={player.league} status={guess.comparison.league}/><Cell label={t.guess.age} value={`${player.age} ${arrow(guess.comparison.age)}`} status={guess.comparison.age}/><Cell label={t.guess.foot} value={player.preferredFoot} status={guess.comparison.preferredFoot}/></div>; })}</div></section>}
       </>}
     </div>
   </main>;
@@ -132,4 +195,8 @@ export default function LocalizedGuessThePlayer({ locale }: { locale: Locale }) 
 
 function Cell({ label, value, status }: { label: string; value: string; status: Status }) {
   return <div className={`rounded-xl border px-2 py-2 text-center ${tone(status)}`}><p className="text-[9px] font-black uppercase opacity-60">{label}</p><p className="mt-1 truncate text-xs font-black">{value || "-"}</p></div>;
+}
+
+function MobileCell({ icon, label, value, status, suffix = "" }: { icon: string; label: string; value: string; status: Status; suffix?: string }) {
+  return <div className={`rounded-xl border p-2.5 ${tone(status)}`}><p className="text-[9px] font-black uppercase tracking-[0.08em] opacity-60">{icon} {label}</p><p className="mt-1 text-xs font-black leading-4">{value || "-"} {suffix}</p></div>;
 }
