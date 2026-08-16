@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { localizeFootballAxisValue, nationalityToDisplayName } from "@/lib/football/localization";
+import { footballLocaleFromRequest, localizeFootballAxisValue, nationalityToDisplayName } from "@/lib/football/localization";
 import {
   ensureTicTacToeDuel,
   getDuelAttempts,
@@ -13,10 +13,11 @@ import {
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ token: string }> },
 ) {
   try {
+    const locale = footballLocaleFromRequest(request);
     const { token } = await context.params;
     const access = await requireTicTacToeParticipant(token);
     if (!access.ok) {
@@ -55,7 +56,7 @@ export async function GET(
         {
           id: Number(player.player_id),
           name: player.name,
-          nationality: nationalityToDisplayName(player.nationality),
+          nationality: nationalityToDisplayName(player.nationality, locale),
           currentClubName: player.current_club_name ?? null,
           imageUrl: player.image_url ?? null,
         },
@@ -67,7 +68,7 @@ export async function GET(
       columnIndex: Number(attempt.column_index),
       player: playerMap.get(Number(attempt.player_id)) ?? {
         id: Number(attempt.player_id),
-        name: "Oyuncu",
+        name: locale === "en" ? "Player" : "Oyuncu",
         nationality: null,
         currentClubName: null,
         imageUrl: null,
@@ -92,7 +93,7 @@ export async function GET(
       remainingSeconds: completed ? 0 : duelRemainingSeconds(duel),
       game: {
         code: "tic_tac_toe",
-        label: "Futbol Tic Tac Toe Düello",
+        label: locale === "en" ? "Football Tic Tac Toe Duel" : "Futbol Tic Tac Toe Düello",
         durationSeconds: Number(duel.duration_seconds),
         scorePerCorrect: 10,
         fullGridBonus: 50,
@@ -102,11 +103,11 @@ export async function GET(
         token: challenge.invite_token,
         status: challenge.status,
         challenger: {
-          name: challenge.challenger_name ?? "FootBattle Oyuncusu",
+          name: challenge.challenger_name ?? (locale === "en" ? "FootBattle Player" : "FootBattle Oyuncusu"),
           score: Number(challenge.challenger_score ?? 0),
         },
         opponent: {
-          name: challenge.opponent_name ?? "FootBattle Oyuncusu",
+          name: challenge.opponent_name ?? (locale === "en" ? "FootBattle Player" : "FootBattle Oyuncusu"),
           score: Number(challenge.opponent_score ?? 0),
         },
       },
@@ -114,12 +115,12 @@ export async function GET(
         rows: duel.rows.map((item, index) => ({
           index,
           type: item.type,
-          value: localizeFootballAxisValue(item.type, item.value),
+          value: localizeFootballAxisValue(item.type, item.value, locale),
         })),
         columns: duel.columns.map((item, index) => ({
           index,
           type: item.type,
-          value: localizeFootballAxisValue(item.type, item.value),
+          value: localizeFootballAxisValue(item.type, item.value, locale),
         })),
         cells: myCells,
       },
