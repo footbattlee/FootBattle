@@ -66,7 +66,7 @@ export default function LocalizedWordlePage({ locale }: { locale: Locale }) {
   const [guesses, setGuesses] = useState<EvaluatedGuess[]>([]);
   const [current, setCurrent] = useState("");
   const [status, setStatus] = useState<"playing" | "won" | "lost">("playing");
-  const [message, setMessage] = useState(t.first);
+  const [message, setMessage] = useState<string>(t.first);
   const [submitting, setSubmitting] = useState(false);
   const [answer, setAnswer] = useState<string | null>(null);
   const [resultMessage, setResultMessage] = useState("");
