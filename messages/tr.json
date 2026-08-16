@@ -14,8 +14,8 @@
     "games": [
       { "title": "Futbolcuyu Tahmin Et", "description": "İpuçlarından futbolcuyu mümkün olan en az tahminde bul.", "href": "/tr/guess-the-player", "tag": "Tahmin" },
       { "title": "Kariyer Yolu", "description": "Kulüplerden ve kariyer adımlarından oyuncuyu çöz.", "href": "/tr/career-path", "tag": "Kariyer" },
-      { "title": "Günün Kapışması", "description": "İki futbolcu, tek seçim. Topluluğun tarafını gör.", "href": "/gunun-kapismasi", "tag": "Günlük" },
-      { "title": "Survivor", "description": "16 futbolcu veya takımdan kendi şampiyonunu çıkar.", "href": "/survivor", "tag": "Turnuva" },
+      { "title": "Günün Kapışması", "description": "İki futbolcu, tek seçim. Topluluğun tarafını gör.", "href": "/tr/daily-faceoff", "tag": "Günlük" },
+      { "title": "Survivor", "description": "16 futbolcu veya takımdan kendi şampiyonunu çıkar.", "href": "/tr/survivor", "tag": "Turnuva" },
       { "title": "Tic Tac Toe", "description": "Takım ve ülke kesişimlerinde doğru futbolcuyu bul.", "href": "/tic-tac-toe", "tag": "Düello" },
       { "title": "Football Wordle", "description": "Gizli futbolcuyu tahminlerle adım adım çöz.", "href": "/wordle", "tag": "Wordle" }
     ],
