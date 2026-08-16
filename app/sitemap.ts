@@ -1,8 +1,9 @@
 import type { MetadataRoute } from "next";
 
 import { SITE_URL } from "@/lib/seo";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const pages: Array<{
     path: string;
     changeFrequency: "daily" | "weekly";
@@ -32,9 +33,28 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/leaderboard", changeFrequency: "daily", priority: 0.7 },
   ];
 
-  return pages.map((page) => ({
+  const staticPages: MetadataRoute.Sitemap = pages.map((page) => ({
     url: `${SITE_URL}${page.path}`,
     changeFrequency: page.changeFrequency,
     priority: page.priority,
   }));
+
+  try {
+    const { data: survivorSets } = await supabaseAdmin
+      .from("survivor_sets")
+      .select("slug, updated_at")
+      .eq("is_active", true)
+      .order("updated_at", { ascending: false });
+
+    const survivorPages: MetadataRoute.Sitemap = (survivorSets ?? []).map((set) => ({
+      url: `${SITE_URL}/survivor/${set.slug}`,
+      lastModified: set.updated_at ? new Date(set.updated_at) : undefined,
+      changeFrequency: "weekly",
+      priority: 0.9,
+    }));
+
+    return [...staticPages, ...survivorPages];
+  } catch {
+    return staticPages;
+  }
 }
