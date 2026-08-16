@@ -12,6 +12,7 @@ import ChallengeQuickShare from "@/components/ChallengeQuickShare";
 import GameResultArena from "@/components/GameResultArena";
 import RankResultToast from "@/components/RankResultToast";
 import ReferralClaimObserver from "@/components/ReferralClaimObserver";
+import FootballLocaleBridge from "@/components/FootballLocaleBridge";
 import { SITE_URL, SiteJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="tr">
       <body>
         <SiteJsonLd />
+        <FootballLocaleBridge />
         <PresenceHeartbeat />
         <ReferralClaimObserver />
         <GlobalShareEnhancer />
