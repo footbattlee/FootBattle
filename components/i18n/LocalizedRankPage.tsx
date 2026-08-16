@@ -29,9 +29,8 @@ type ResponseData = {
   me?: Entry | null;
 };
 
-const majorRanks = ["bronze_3", "silver_3", "gold_3", "platinum_3", "diamond_3", "legend_3", "goat"]
-  .map((code) => RANKS.find((rank) => rank.code === code))
-  .filter(Boolean) as typeof RANKS;
+const majorRankCodes = ["bronze_3", "silver_3", "gold_3", "platinum_3", "diamond_3", "legend_3", "goat"] as const;
+const majorRanks = majorRankCodes.map((code) => RANKS.find((rank) => rank.code === code)!);
 
 const copy = {
   tr: {
@@ -47,6 +46,17 @@ const copy = {
     board: "Season LP Leaderboard", loading: "Loading...", error: "Rank leaderboard could not be loaded.", games: "games", win: "W", loss: "L",
   },
 } as const;
+
+function rankName(name: string, locale: Locale) {
+  if (locale === "tr") return name;
+  return name
+    .replace("Bronz", "Bronze")
+    .replace("Gümüş", "Silver")
+    .replace("Altın", "Gold")
+    .replace("Platin", "Platinum")
+    .replace("Elmas", "Diamond")
+    .replace("Efsane", "Legend");
+}
 
 export default function LocalizedRankPage({ locale }: { locale: Locale }) {
   const t = copy[locale];
@@ -79,8 +89,8 @@ export default function LocalizedRankPage({ locale }: { locale: Locale }) {
         <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
           {majorRanks.map((rank) => (
             <div key={rank.code} className="rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-center">
-              <Image src={rank.icon} alt={rank.name} width={110} height={110} className="mx-auto h-24 w-24 object-contain" />
-              <p className="mt-2 text-sm font-black">{rank.name.replace(" III", "")}</p>
+              <Image src={rank.icon} alt={rankName(rank.name, locale)} width={110} height={110} className="mx-auto h-24 w-24 object-contain" />
+              <p className="mt-2 text-sm font-black">{rankName(rank.name.replace(" III", ""), locale)}</p>
               <p className="mt-1 text-[11px] font-bold text-slate-500">{nf.format(rank.minLp)} LP</p>
             </div>
           ))}
@@ -89,12 +99,12 @@ export default function LocalizedRankPage({ locale }: { locale: Locale }) {
         {data?.me && (
           <section className="mt-6 rounded-3xl border border-green-400/25 bg-green-400/[0.06] p-5">
             <div className="flex items-center gap-4">
-              <Image src={data.me.rankIcon} alt={data.me.rankName} width={92} height={92} className="h-20 w-20 object-contain" />
+              <Image src={data.me.rankIcon} alt={rankName(data.me.rankName, locale)} width={92} height={92} className="h-20 w-20 object-contain" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-black uppercase tracking-wider text-green-300">{t.yours}</p>
-                <div className="mt-1 flex flex-wrap items-end gap-x-3"><h2 className="text-2xl font-black">{data.me.rankName}</h2><span className="font-black text-yellow-300">{nf.format(data.me.lp)} LP</span></div>
+                <div className="mt-1 flex flex-wrap items-end gap-x-3"><h2 className="text-2xl font-black">{rankName(data.me.rankName, locale)}</h2><span className="font-black text-yellow-300">{nf.format(data.me.lp)} LP</span></div>
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-green-400" style={{ width: `${data.me.progressPercent}%` }} /></div>
-                <p className="mt-2 text-xs text-slate-500">{data.me.nextRankName ? `${t.next}: ${data.me.nextRankName} · ${nf.format(data.me.nextRankLp ?? 0)} LP` : t.top}</p>
+                <p className="mt-2 text-xs text-slate-500">{data.me.nextRankName ? `${t.next}: ${rankName(data.me.nextRankName, locale)} · ${nf.format(data.me.nextRankLp ?? 0)} LP` : t.top}</p>
               </div>
             </div>
           </section>
@@ -107,8 +117,8 @@ export default function LocalizedRankPage({ locale }: { locale: Locale }) {
               {(data.leaderboard ?? []).map((entry) => (
                 <div key={entry.userId} className="grid grid-cols-[42px_56px_minmax(0,1fr)_auto] items-center gap-2 px-4 py-3 sm:gap-4 sm:px-6">
                   <div className="text-center font-black">#{entry.position}</div>
-                  <Image src={entry.rankIcon} alt={entry.rankName} width={56} height={56} className="h-14 w-14 object-contain" />
-                  <div className="min-w-0"><p className="truncate font-black">{entry.displayName}</p><p className="truncate text-xs text-slate-500">{entry.rankName} · {entry.gamesPlayed} {t.games} · {entry.wins}{t.win}/{entry.losses}{t.loss}</p></div>
+                  <Image src={entry.rankIcon} alt={rankName(entry.rankName, locale)} width={56} height={56} className="h-14 w-14 object-contain" />
+                  <div className="min-w-0"><p className="truncate font-black">{entry.displayName}</p><p className="truncate text-xs text-slate-500">{rankName(entry.rankName, locale)} · {entry.gamesPlayed} {t.games} · {entry.wins}{t.win}/{entry.losses}{t.loss}</p></div>
                   <div className="text-right"><p className="font-black text-yellow-300">{nf.format(entry.lp)}</p><p className="text-[10px] font-black text-slate-600">LP</p></div>
                 </div>
               ))}
