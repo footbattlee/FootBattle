@@ -2,8 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/supabase/server";
 
+function resolveLocale(request: NextRequest) {
+  const explicit = request.nextUrl.searchParams.get("locale");
+  if (explicit === "en" || explicit === "tr") return explicit;
+  const referer = request.headers.get("referer") ?? "";
+  return /\/en(?:\/|$)/.test(referer) ? "en" : "tr";
+}
+
 export async function GET(request: NextRequest) {
-  const locale = request.nextUrl.searchParams.get("locale") === "en" ? "en" : "tr";
+  const locale = resolveLocale(request);
   const { data: sets, error } = await supabaseAdmin
     .from("survivor_sets")
     .select("id, slug, title, description, title_tr, title_en, description_tr, description_en, kind, created_at")
