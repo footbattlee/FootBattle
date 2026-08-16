@@ -114,7 +114,7 @@ export default async function LocaleHomePage({
 
           {locale === "en" && (
             <p className="mt-4 rounded-2xl border border-blue-400/15 bg-blue-400/[0.05] px-4 py-3 text-xs leading-5 text-blue-200/80">
-              English game interfaces are being rolled out next. The international home and language routing are already active here.
+              Guess the Player, Career Path, Daily Faceoff and Football Survivor are now available in English. More game translations are coming next.
             </p>
           )}
         </section>
@@ -141,7 +141,7 @@ export default async function LocaleHomePage({
           <h2 className="text-3xl font-black sm:text-4xl">{dictionary.home.finalTitle}</h2>
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-400">{dictionary.home.finalDescription}</p>
           <Link
-            href="/"
+            href={`/${locale}`}
             className="mt-7 inline-flex min-h-12 items-center justify-center rounded-xl bg-green-500 px-7 text-sm font-black text-[#07111f] transition hover:bg-green-400"
           >
             {dictionary.home.finalCta} →
