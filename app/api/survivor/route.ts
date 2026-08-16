@@ -1,11 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const locale = request.nextUrl.searchParams.get("locale") === "en" ? "en" : "tr";
   const { data: sets, error } = await supabaseAdmin
     .from("survivor_sets")
-    .select("id, slug, title, description, kind, created_at")
+    .select("id, slug, title, description, title_tr, title_en, description_tr, description_en, kind, created_at")
     .eq("is_active", true)
     .order("created_at", { ascending: false });
 
@@ -24,14 +25,18 @@ export async function GET() {
 
   return NextResponse.json({
     ok: true,
-    items: (sets ?? []).map((set) => ({
-      id: set.id,
-      slug: set.slug,
-      title: set.title,
-      description: set.description,
-      kind: set.kind,
-      completions: counts.get(set.id) ?? 0,
-      preview: (entries ?? []).filter((entry) => entry.set_id === set.id).slice(0, 4).map((entry) => ({ name: entry.name, imageUrl: entry.image_url })),
-    })),
+    items: (sets ?? []).map((set) => {
+      const titleTr = set.title_tr || set.title;
+      const descriptionTr = set.description_tr ?? set.description ?? "";
+      return {
+        id: set.id,
+        slug: set.slug,
+        title: locale === "en" ? (set.title_en || titleTr) : titleTr,
+        description: locale === "en" ? (set.description_en || descriptionTr) : descriptionTr,
+        kind: set.kind,
+        completions: counts.get(set.id) ?? 0,
+        preview: (entries ?? []).filter((entry) => entry.set_id === set.id).slice(0, 4).map((entry) => ({ name: entry.name, imageUrl: entry.image_url })),
+      };
+    }),
   });
 }
