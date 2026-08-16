@@ -9,6 +9,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: number;
   }> = [
     { path: "", changeFrequency: "daily", priority: 1 },
+    { path: "/futbol-oyunlari", changeFrequency: "weekly", priority: 0.95 },
+    { path: "/futbolcu-tahmin-oyunu", changeFrequency: "weekly", priority: 0.9 },
+    { path: "/futbol-bilgi-yarismasi", changeFrequency: "weekly", priority: 0.9 },
+    { path: "/football-wordle", changeFrequency: "weekly", priority: 0.9 },
+    { path: "/messi-mi-ronaldo-mu", changeFrequency: "weekly", priority: 0.85 },
+    { path: "/super-lig-efsaneleri", changeFrequency: "weekly", priority: 0.85 },
+    { path: "/en-iyi-turk-futbolcular", changeFrequency: "weekly", priority: 0.8 },
+    { path: "/halisaha-kadro-kurma", changeFrequency: "weekly", priority: 0.9 },
     { path: "/guess-the-player", changeFrequency: "daily", priority: 0.95 },
     { path: "/player-quiz", changeFrequency: "daily", priority: 0.95 },
     { path: "/wordle", changeFrequency: "daily", priority: 0.95 },
