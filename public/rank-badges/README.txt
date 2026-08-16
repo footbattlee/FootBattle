@@ -1,0 +1,1 @@
+Rank badge assets are generated from the approved FootBattle rank concept. Binary PNG assets are uploaded separately.
