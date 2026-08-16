@@ -1,0 +1,15 @@
+{
+  "locale": "tr",
+  "home": {
+    "eyebrow": "FootBattle Futbol Arenası",
+    "title": "Futbol bilgini kanıtla.",
+    "description": "Futbol oyunları, quizler, günlük kapışmalar, Survivor ve rekabetçi rank sistemi tek yerde.",
+    "primaryCta": "Oyunlara Git",
+    "secondaryCta": "Rank Arenası",
+    "languageNote": "Türkçe deneyim"
+  },
+  "language": {
+    "tr": "Türkçe",
+    "en": "English"
+  }
+}
