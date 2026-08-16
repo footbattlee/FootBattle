@@ -20,6 +20,7 @@ type RankSummary = {
     demoted?: boolean;
     rankBefore?: string;
     rankAfter?: string;
+    overtakenFriend?: { name: string; lp: number } | null;
   } | null;
 };
 
@@ -43,7 +44,7 @@ export default function RankResultToast() {
             if (!data.ok || !data.ready || !data.rank) return;
             setRank(data.rank);
             setVisible(true);
-            window.setTimeout(() => setVisible(false), 6500);
+            window.setTimeout(() => setVisible(false), 7000);
           })
           .catch(() => undefined);
       }, 1100);
@@ -54,6 +55,8 @@ export default function RankResultToast() {
 
   if (!visible || !rank) return null;
   const change = Number(rank.lpChange ?? 0);
+  const targetLp = rank.nextRankLp ?? rank.lp;
+
   return (
     <aside className="fixed bottom-4 right-3 z-[140] w-[calc(100%-24px)] max-w-sm overflow-hidden rounded-2xl border border-yellow-400/25 bg-[#081523]/95 p-4 text-white shadow-2xl backdrop-blur sm:bottom-6 sm:right-6" role="status">
       <button type="button" onClick={() => setVisible(false)} className="absolute right-3 top-2 text-slate-500 hover:text-white">×</button>
@@ -61,9 +64,10 @@ export default function RankResultToast() {
         <Image src={rank.icon} alt={rank.rankName} width={76} height={76} className="h-16 w-16 object-contain" />
         <div className="min-w-0 flex-1">
           <p className={`text-xs font-black uppercase tracking-wider ${change >= 0 ? "text-green-300" : "text-red-300"}`}>{change >= 0 ? `+${change}` : change} LP</p>
-          <p className="mt-0.5 truncate text-lg font-black">{rank.rankName} · {rank.lp} LP</p>
+          <p className="mt-0.5 truncate text-lg font-black">{rank.rankName} · {rank.lp}{rank.nextRankLp ? ` / ${targetLp}` : ""} LP</p>
           {rank.promoted && <p className="mt-1 text-xs font-black text-yellow-300">🎉 Rank atladın: {rank.rankBefore} → {rank.rankAfter}</p>}
           {rank.demoted && <p className="mt-1 text-xs font-black text-red-300">Rank düştü: {rank.rankBefore} → {rank.rankAfter}</p>}
+          {rank.overtakenFriend && <p className="mt-1 text-xs font-black text-cyan-300">👥 {rank.overtakenFriend.name} adlı arkadaşını geçtin!</p>}
         </div>
       </div>
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-yellow-400" style={{ width: `${rank.progressPercent}%` }} /></div>
