@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { nationalityToDisplayName } from "@/lib/football/localization";
+import { footballLocaleFromRequest, nationalityToDisplayName } from "@/lib/football/localization";
 import { getGameSecurityStatus } from "@/lib/game-security/status";
 import {
   buildPlayerQuizSeniorCareer,
@@ -23,6 +23,7 @@ type ResultRequest = {
 
 export async function POST(request: Request) {
   try {
+    const locale = footballLocaleFromRequest(request);
     const authClient = await createAuthServerClient();
     const { data: { user }, error: userError } = await authClient.auth.getUser();
     if (userError || !user) return NextResponse.json({ ok: false, error: "Sonucu kaydetmek için giriş yapmalısın." }, { status: 401 });
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
     const score = won ? COMPLETION_SCORE : 0;
     const correctAnswers = {
       birthYear: Number(detailResult.data.birth_year),
-      nationality: nationalityToDisplayName(player.nationality),
+      nationality: nationalityToDisplayName(player.nationality, locale),
       clubs: seniorCareer,
     };
 
