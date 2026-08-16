@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import LocalizedGuessThePlayer from "@/components/i18n/LocalizedGuessThePlayer";
 import { isLocale, type Locale } from "@/lib/i18n/config";
-import { SITE_URL } from "@/lib/seo";
+import { SITE_URL, localizedAlternates } from "@/lib/seo";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     description: en ? "Guess the hidden footballer using country, club, league, position, age and foot clues." : "Ülke, takım, lig, pozisyon, yaş ve ayak ipuçlarıyla gizli futbolcuyu tahmin et.",
     alternates: {
       canonical: `${SITE_URL}/${locale}/guess-the-player`,
-      languages: { tr: `${SITE_URL}/tr/guess-the-player`, en: `${SITE_URL}/en/guess-the-player` },
+      languages: localizedAlternates("/guess-the-player"),
     },
   };
 }
