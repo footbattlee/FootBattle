@@ -168,7 +168,12 @@ export function footballLocaleFromRequest(request: Request): FootballLocale {
 
     const referer = request.headers.get("referer");
     if (referer) {
-      const pathname = new URL(referer).pathname;
+      const refererUrl = new URL(referer);
+      const refererExplicit = refererUrl.searchParams.get("lang") ?? refererUrl.searchParams.get("locale");
+      if (refererExplicit === "en") return "en";
+      if (refererExplicit === "tr") return "tr";
+
+      const pathname = refererUrl.pathname;
       if (pathname === "/en" || pathname.startsWith("/en/")) return "en";
       if (pathname === "/tr" || pathname.startsWith("/tr/")) return "tr";
     }
