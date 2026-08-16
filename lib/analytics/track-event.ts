@@ -43,6 +43,19 @@ function parseStored(value: string | null): CampaignAttribution | null {
   }
 }
 
+function normalizeTouch(input: CampaignAttribution): CampaignAttribution {
+  const next = { ...input };
+  if (next.source === "share") {
+    next.content = next.content || (next.medium && next.medium !== "organic" ? next.medium : null);
+    next.medium = "organic";
+    next.campaign = next.campaign || "game_share";
+  }
+  if (next.source === "reddit" && next.campaign === "reddit_launch") {
+    next.campaign = "global_launch";
+  }
+  return next;
+}
+
 function readCampaignAttribution(): AttributionEnvelope | null {
   if (typeof window === "undefined") return null;
 
@@ -58,16 +71,15 @@ function readCampaignAttribution(): AttributionEnvelope | null {
     let firstTouch = parseStored(window.localStorage.getItem(FIRST_TOUCH_KEY));
     let lastTouch = parseStored(window.localStorage.getItem(LAST_TOUCH_KEY));
 
-    // Backward compatible migration from the original single-touch key.
     const legacy = parseStored(window.localStorage.getItem(LEGACY_KEY));
     if (!firstTouch && legacy) {
-      firstTouch = legacy;
-      window.localStorage.setItem(FIRST_TOUCH_KEY, JSON.stringify(legacy));
+      firstTouch = normalizeTouch(legacy);
+      window.localStorage.setItem(FIRST_TOUCH_KEY, JSON.stringify(firstTouch));
     }
-    if (!lastTouch && legacy) lastTouch = legacy;
+    if (!lastTouch && legacy) lastTouch = normalizeTouch(legacy);
 
     if (hasCampaign) {
-      const current: CampaignAttribution = {
+      const current = normalizeTouch({
         source,
         medium,
         campaign,
@@ -76,7 +88,7 @@ function readCampaignAttribution(): AttributionEnvelope | null {
         landingPath: window.location.pathname,
         referrer: document.referrer || null,
         capturedAt: new Date().toISOString(),
-      };
+      });
 
       if (!firstTouch) {
         firstTouch = current;
