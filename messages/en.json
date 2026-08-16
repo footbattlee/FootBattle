@@ -1,0 +1,15 @@
+{
+  "locale": "en",
+  "home": {
+    "eyebrow": "FootBattle Football Arena",
+    "title": "Prove your football knowledge.",
+    "description": "Football games, quizzes, daily faceoffs, Survivor and a competitive rank system in one place.",
+    "primaryCta": "Play Games",
+    "secondaryCta": "Rank Arena",
+    "languageNote": "English experience"
+  },
+  "language": {
+    "tr": "Türkçe",
+    "en": "English"
+  }
+}
