@@ -5,31 +5,47 @@ import { SITE_URL } from "@/lib/seo";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 type Params = Promise<{ locale: string; slug: string }>;
+type Locale = "tr" | "en";
 
 type SurvivorSet = {
   id: string;
   title: string;
   description: string;
+  title_tr: string | null;
+  title_en: string | null;
+  description_tr: string | null;
+  description_en: string | null;
   kind: "player" | "team";
 };
 
 async function getSet(slug: string) {
   const { data } = await supabaseAdmin
     .from("survivor_sets")
-    .select("id, title, description, kind")
+    .select("id, title, description, title_tr, title_en, description_tr, description_en, kind")
     .eq("slug", slug)
     .eq("is_active", true)
     .maybeSingle<SurvivorSet>();
   return data ?? null;
 }
 
+function localizeSet(set: SurvivorSet, locale: Locale) {
+  const titleTr = set.title_tr?.trim() || set.title;
+  const descriptionTr = set.description_tr?.trim() || set.description || "";
+  return {
+    ...set,
+    title: locale === "en" ? (set.title_en?.trim() || titleTr) : titleTr,
+    description: locale === "en" ? (set.description_en?.trim() || descriptionTr) : descriptionTr,
+  };
+}
+
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { locale, slug } = await params;
-  const normalized = locale === "en" ? "en" : locale === "tr" ? "tr" : null;
+  const normalized: Locale | null = locale === "en" ? "en" : locale === "tr" ? "tr" : null;
   if (!normalized) return {};
-  const set = await getSet(slug);
-  if (!set) return { title: normalized === "en" ? "Survivor Not Found | FootBattle" : "Survivor Bulunamadı | FootBattle", robots: { index: false, follow: false } };
+  const rawSet = await getSet(slug);
+  if (!rawSet) return { title: normalized === "en" ? "Survivor Not Found | FootBattle" : "Survivor Bulunamadı | FootBattle", robots: { index: false, follow: false } };
 
+  const set = localizeSet(rawSet, normalized);
   const en = normalized === "en";
   const description = set.description?.trim() || (en
     ? `${set.title}: choose between 16 ${set.kind === "team" ? "teams" : "players"}, advance your winners through a fixed knockout bracket and crown your champion.`
