@@ -159,6 +159,12 @@ function normalizeLookupValue(value: string | null | undefined) {
   return String(value ?? "").trim().toLocaleLowerCase("en-US");
 }
 
+function cookieLocale(request: Request): FootballLocale | null {
+  const cookie = request.headers.get("cookie") ?? "";
+  const match = cookie.match(/(?:^|;\s*)footbattle_locale=(tr|en)(?:;|$)/);
+  return match?.[1] === "en" ? "en" : match?.[1] === "tr" ? "tr" : null;
+}
+
 export function footballLocaleFromRequest(request: Request): FootballLocale {
   try {
     const url = new URL(request.url);
@@ -177,8 +183,12 @@ export function footballLocaleFromRequest(request: Request): FootballLocale {
       if (pathname === "/en" || pathname.startsWith("/en/")) return "en";
       if (pathname === "/tr" || pathname.startsWith("/tr/")) return "tr";
     }
+
+    const persisted = cookieLocale(request);
+    if (persisted) return persisted;
   } catch {
-    // Root/non-localized oyunlar Türkçe davranışını korur.
+    const persisted = cookieLocale(request);
+    if (persisted) return persisted;
   }
   return "tr";
 }
