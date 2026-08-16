@@ -10,6 +10,7 @@ import HomeTicTacToeDuelEnhancer from "@/components/HomeTicTacToeDuelEnhancer";
 import GlobalShareEnhancer from "@/components/GlobalShareEnhancer";
 import ChallengeQuickShare from "@/components/ChallengeQuickShare";
 import GameResultArena from "@/components/GameResultArena";
+import ReferralClaimObserver from "@/components/ReferralClaimObserver";
 import { SITE_URL } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -76,6 +77,7 @@ export default function RootLayout({
     <html lang="tr">
       <body>
         <PresenceHeartbeat />
+        <ReferralClaimObserver />
         <GlobalShareEnhancer />
         <HomeProgressionSpotlight />
 
