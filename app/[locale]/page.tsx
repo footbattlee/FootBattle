@@ -54,14 +54,14 @@ export default async function LocaleHomePage({
               </Link>
             ))}
           </div>
-          {locale === "en" && <p className="mt-4 rounded-2xl border border-blue-400/15 bg-blue-400/[0.05] px-4 py-3 text-xs leading-5 text-blue-200/80">Guess the Player, Career Path, Daily Faceoff, Football Survivor, Rank Arena and Profile/Friends are now available in English. More game translations are coming next.</p>}
+          {locale === "en" && <p className="mt-4 rounded-2xl border border-green-400/15 bg-green-400/[0.05] px-4 py-3 text-xs leading-5 text-green-200/80">The full core experience is now available in English: Guess the Player, Career Path, Daily Faceoff, Football Survivor, Tic Tac Toe, Wordle, Rank Arena and Profile/Friends.</p>}
         </section>
 
         <section className="border-t border-white/10 py-12 sm:py-16">
           <div className="text-center"><p className="text-xs font-black uppercase tracking-[0.22em] text-yellow-300">FootBattle Account</p><h2 className="mt-2 text-3xl font-black sm:text-4xl">{dictionary.home.featuresTitle}</h2><p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-400">{dictionary.home.featuresSubtitle}</p></div>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
             {dictionary.home.features.map((feature, index) => (
-              <Link key={feature.title} href={index === 0 ? `/${locale}/rank` : index === 1 ? `/${locale}/profile` : `/${locale}/profile`} className="rounded-3xl border border-white/10 bg-[#0b1726] p-6 transition hover:border-green-400/25">
+              <Link key={feature.title} href={index === 0 ? `/${locale}/rank` : `/${locale}/profile`} className="rounded-3xl border border-white/10 bg-[#0b1726] p-6 transition hover:border-green-400/25">
                 <span className="text-2xl">{index === 0 ? "🏆" : index === 1 ? "👥" : "📱"}</span><h3 className="mt-4 text-lg font-black">{feature.title}</h3><p className="mt-2 text-sm leading-6 text-slate-400">{feature.description}</p>
               </Link>
             ))}
