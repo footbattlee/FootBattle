@@ -23,7 +23,7 @@ export default function LocalizedSurvivorCatalogPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/survivor", { cache: "no-store" })
+    fetch(`/api/survivor?locale=${locale}`, { cache: "no-store" })
       .then(async (response) => {
         const result = await response.json();
         if (!response.ok || !result.ok) throw new Error(result.error ?? (en ? "Survivor list could not be loaded." : "Survivor listesi alınamadı."));
@@ -31,7 +31,7 @@ export default function LocalizedSurvivorCatalogPage() {
       })
       .catch((reason) => setError(reason instanceof Error ? reason.message : (en ? "Survivor list could not be loaded." : "Survivor listesi alınamadı.")))
       .finally(() => setLoading(false));
-  }, [en]);
+  }, [en, locale]);
 
   return (
     <main className="min-h-screen bg-[#07111f] text-white">
