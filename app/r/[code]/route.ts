@@ -14,7 +14,7 @@ export async function GET(request: Request, { params }: { params: Params }) {
 
   const { data } = await supabaseAdmin
     .from("referral_codes")
-    .select("user_id")
+    .select("user_id, click_count")
     .eq("code", code)
     .maybeSingle();
 
@@ -22,17 +22,7 @@ export async function GET(request: Request, { params }: { params: Params }) {
 
   await supabaseAdmin
     .from("referral_codes")
-    .update({ click_count: supabaseAdmin.rpc ? undefined : undefined })
-    .eq("code", code);
-
-  const { data: current } = await supabaseAdmin
-    .from("referral_codes")
-    .select("click_count")
-    .eq("code", code)
-    .single();
-  await supabaseAdmin
-    .from("referral_codes")
-    .update({ click_count: (current?.click_count ?? 0) + 1, updated_at: new Date().toISOString() })
+    .update({ click_count: (data.click_count ?? 0) + 1, updated_at: new Date().toISOString() })
     .eq("code", code);
 
   const response = NextResponse.redirect(new URL("/?ref=invite", url.origin));
