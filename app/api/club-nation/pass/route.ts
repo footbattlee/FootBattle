@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { nationalityToDisplayName } from "@/lib/football/localization";
+import { footballLocaleFromRequest, nationalityToDisplayName } from "@/lib/football/localization";
 import { recordGameSecurityEvent } from "@/lib/game-security/server";
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -61,6 +61,7 @@ async function createQuestion(previousClub?: string, previousNationality?: strin
 
 export async function POST(request: Request) {
   try {
+    const locale = footballLocaleFromRequest(request);
     const body = (await request.json()) as PassBody;
     const sessionId = body.sessionId?.trim();
     if (!sessionId) return NextResponse.json({ ok: false, error: "Oyun oturumu bulunamadı." }, { status: 400 });
@@ -129,7 +130,7 @@ export async function POST(request: Request) {
       passesLeft: Number(latest.passes_left ?? 0),
       questionNo: Number(latest.question_no ?? 1),
       secondsLeft: Math.max(0, Math.ceil((new Date(latest.expires_at).getTime() - Date.now()) / 1000)),
-      question: { club: latest.club_name, nationality: nationalityToDisplayName(latest.nationality) },
+      question: { club: latest.club_name, nationality: nationalityToDisplayName(latest.nationality, locale) },
       message: updatedSession ? "Pas geçildi." : "Pas isteği zaten işlendi.",
     });
   } catch (error) {
