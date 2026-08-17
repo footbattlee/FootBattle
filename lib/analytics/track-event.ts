@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/client";
 export type AnalyticsEventName =
   | "game_started"
   | "game_completed"
-  | "game_surrendered"
   | "play_again"
   | "shared";
 
