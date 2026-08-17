@@ -13,6 +13,7 @@ import GameResultArena from "@/components/GameResultArena";
 import RankResultToast from "@/components/RankResultToast";
 import ReferralClaimObserver from "@/components/ReferralClaimObserver";
 import FootballLocaleBridge from "@/components/FootballLocaleBridge";
+import GlobalSurrenderButton from "@/components/GlobalSurrenderButton";
 import { SITE_URL, SiteJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -28,10 +29,54 @@ export const metadata: Metadata = {
   category: "games",
 };
 
+const sessionCaptureScript = String.raw`
+(function () {
+  if (typeof window === "undefined" || window.__footbattleFetchWrapped) return;
+  window.__footbattleFetchWrapped = true;
+
+  var originalFetch = window.fetch.bind(window);
+
+  window.fetch = async function () {
+    var response = await originalFetch.apply(window, arguments);
+
+    try {
+      var request = arguments[0];
+      var url = typeof request === "string" ? request : request && request.url ? request.url : "";
+      var key = null;
+      var extractor = null;
+
+      if (url.indexOf("/api/guess-the-player/today") !== -1) {
+        key = "fb:session:guess_the_player";
+        extractor = function (json) { return json && json.sessionId; };
+      } else if (url.indexOf("/api/player-quiz/today") !== -1) {
+        key = "fb:session:player_quiz";
+        extractor = function (json) { return json && json.sessionId; };
+      } else if (url.indexOf("/api/wordle/today") !== -1) {
+        key = "fb:session:wordle";
+        extractor = function (json) { return json && json.sessionId; };
+      } else if (url.indexOf("/api/tic-tac-toe/start") !== -1) {
+        key = "fb:session:tic_tac_toe";
+        extractor = function (json) { return json && json.session && json.session.id; };
+      }
+
+      if (key && extractor && response.ok) {
+        response.clone().json().then(function (json) {
+          var sessionId = extractor(json);
+          if (sessionId) window.sessionStorage.setItem(key, String(sessionId));
+        }).catch(function () {});
+      }
+    } catch (_) {}
+
+    return response;
+  };
+})();
+`;
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="tr">
       <body>
+        <script dangerouslySetInnerHTML={{ __html: sessionCaptureScript }} />
         <SiteJsonLd />
         <FootballLocaleBridge />
         <PresenceHeartbeat />
@@ -39,6 +84,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <GlobalShareEnhancer />
         <HomeProgressionSpotlight />
         {children}
+        <GlobalSurrenderButton />
         <GameResultArena />
         <RankResultToast />
         <ChallengeQuickShare />
