@@ -4,7 +4,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { trackGameCompleted } from "@/lib/analytics/game-analytics";
-import { trackEvent } from "@/lib/analytics/track-event";
 
 type SupportedGame =
   | "guess_the_player"
@@ -106,16 +105,10 @@ export default function GlobalSurrenderButton() {
 
       window.sessionStorage.removeItem(config.storageKey);
 
-      void trackEvent({
-        eventName: "game_surrendered",
-        gameName: game,
-        sessionId,
-        metadata: { daily },
-      });
-
       void trackGameCompleted(game, sessionId, {
         won: false,
         surrendered: true,
+        daily,
         score: Number(json.score ?? 0),
       });
 
