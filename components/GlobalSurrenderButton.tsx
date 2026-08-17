@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { trackGameCompleted } from "@/lib/analytics/game-analytics";
 
 type SupportedGame = "guess_the_player" | "player_quiz" | "tic_tac_toe" | "wordle";
 type SurrenderResponse = { ok?: boolean; error?: string; score?: number; answerTitle?: string | null; answerDetail?: string | null; nextHref?: string | null; nextLabel?: string | null };
@@ -50,6 +51,12 @@ export default function GlobalSurrenderButton() {
       const json = (await response.json().catch(() => null)) as SurrenderResponse | null;
       if (!response.ok || !json?.ok) throw new Error(json?.error ?? "Oyun sonlandırılamadı.");
       window.sessionStorage.removeItem(config.storageKey);
+      void trackGameCompleted(game, sessionId, {
+        won: false,
+        surrendered: true,
+        daily,
+        score: Number(json.score ?? 0),
+      });
       setResult(json);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Oyun sonlandırılamadı.");
