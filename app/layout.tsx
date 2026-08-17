@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Analytics } from "@vercel/analytics/next";
 
 import "./globals.css";
@@ -84,7 +85,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <GlobalShareEnhancer />
         <HomeProgressionSpotlight />
         {children}
-        <GlobalSurrenderButton />
+        <Suspense fallback={null}>
+          <GlobalSurrenderButton />
+        </Suspense>
         <GameResultArena />
         <RankResultToast />
         <ChallengeQuickShare />
