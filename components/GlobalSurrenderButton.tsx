@@ -50,6 +50,22 @@ export default function GlobalSurrenderButton() {
       const json = (await response.json().catch(() => null)) as SurrenderResponse | null;
       if (!response.ok || !json?.ok) throw new Error(json?.error ?? "Oyun sonlandırılamadı.");
       window.sessionStorage.removeItem(config.storageKey);
+
+      void fetch("/api/analytics/game-completed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gameName: game,
+          sessionId,
+          metadata: {
+            won: false,
+            surrendered: true,
+            daily,
+            score: Number(json.score ?? 0),
+          },
+        }),
+      }).catch(() => {});
+
       setResult(json);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Oyun sonlandırılamadı.");
