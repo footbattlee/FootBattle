@@ -62,7 +62,25 @@ export async function POST(request: Request) {
 
     if (session.result_applied) {
       const security = await getGameSecurityStatus("guess_the_player", sessionId).catch(() => null);
-      return NextResponse.json({ ok: true, alreadyRecorded: true, won: session.won, score: session.score ?? 0, attemptCount: session.attempt_count ?? playerIds.length, targetPlayer: mappedTargetPlayer, authenticated: Boolean(user), scoreEligible: !security?.scoreBlocked, security });
+
+      /*
+       * Sonuç daha önce kaydedilmiş olsa bile client tarafındaki günlük görev
+       * senkronizasyonunun devam etmesi gerekiyor. Bu nedenle frontend'in
+       * erken return etmesine sebep olan alreadyRecorded=true dönmüyoruz.
+       * Puan/profil tarafında tekrar işlem yapılmadığı için idempotent kalır.
+       */
+      return NextResponse.json({
+        ok: true,
+        alreadyRecorded: false,
+        replayedResult: true,
+        won: session.won,
+        score: session.score ?? 0,
+        attemptCount: session.attempt_count ?? playerIds.length,
+        targetPlayer: mappedTargetPlayer,
+        authenticated: false,
+        scoreEligible: !security?.scoreBlocked,
+        security,
+      });
     }
 
     const { events } = await getGameSecurityEvents("guess_the_player", sessionId, "guess");
@@ -87,7 +105,20 @@ export async function POST(request: Request) {
     if (completeError) throw completeError;
 
     const security = await getGameSecurityStatus("guess_the_player", sessionId).catch(() => null);
-    if (!completedSession) return NextResponse.json({ ok: true, alreadyRecorded: true, won, score, attemptCount: playerIds.length, targetPlayer: mappedTargetPlayer, authenticated: Boolean(user), scoreEligible: !security?.scoreBlocked, security });
+    if (!completedSession) {
+      return NextResponse.json({
+        ok: true,
+        alreadyRecorded: false,
+        replayedResult: true,
+        won,
+        score,
+        attemptCount: playerIds.length,
+        targetPlayer: mappedTargetPlayer,
+        authenticated: false,
+        scoreEligible: !security?.scoreBlocked,
+        security,
+      });
+    }
 
     if (!user) {
       return NextResponse.json({ ok: true, won, score, awardedScore: 0, scoreEligible: false, attemptCount: playerIds.length, alreadyRecorded: false, targetPlayer: mappedTargetPlayer, authenticated: false, durationSeconds: typeof body.durationSeconds === "number" ? Math.max(0, Math.floor(body.durationSeconds)) : null, security });
