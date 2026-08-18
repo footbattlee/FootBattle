@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Suspense } from "react";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -78,6 +79,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="tr">
       <body>
+        <Script
+          id="adsense-script"
+          async
+          strategy="afterInteractive"
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2192914861529531"
+          crossOrigin="anonymous"
+        />
         <script dangerouslySetInnerHTML={{ __html: sessionCaptureScript }} />
         <SiteJsonLd />
         <FootballLocaleBridge />
