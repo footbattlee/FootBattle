@@ -56,7 +56,7 @@ export default function HomeProgressionSpotlight() {
 
   if (!data?.authenticated || !data.progress) {
     return (
-      <div className="border-b border-green-400/10 bg-gradient-to-r from-green-400/[0.07] via-[#081523] to-yellow-400/[0.05] text-white">
+      <div className="border-b border-green-400/10 bg-gradient-to-r from-green-400/[0.07] via-[#081523] to-yellow-400/[0.05] text-white xl:hidden">
         <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 py-2.5 text-xs sm:justify-between sm:px-6">
           <p className="font-bold text-slate-300"><span className="mr-2 text-green-300">⚡ {tr ? "Arena sistemi aktif" : "Arena system is live"}</span> {tr ? "Oyna, XP kazan, seviye atla ve rozet topla." : "Play, earn XP, level up and collect badges."}</p>
           <div className="flex items-center gap-4 font-black">
@@ -70,7 +70,7 @@ export default function HomeProgressionSpotlight() {
 
   const progress = data.progress;
   return (
-    <div className="border-b border-green-400/15 bg-gradient-to-r from-green-400/[0.09] via-[#081523] to-purple-500/[0.07] text-white">
+    <div className="border-b border-green-400/15 bg-gradient-to-r from-green-400/[0.09] via-[#081523] to-purple-500/[0.07] text-white xl:hidden">
       <div className="mx-auto grid max-w-[1240px] gap-3 px-4 py-3 sm:px-6 md:grid-cols-[auto_minmax(180px,1fr)_auto] md:items-center md:gap-5">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-green-400/25 bg-green-400/15 text-sm font-black text-green-200">L{progress.level}</div>
