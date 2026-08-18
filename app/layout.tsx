@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { Suspense } from "react";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -30,6 +29,9 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: "FootBattle | Futbol Oyunları Arenası", description: "Futbol oyunları, quizler, düellolar ve günlük kapışmalar.", images: ["/footbattle-logo.png"] },
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 } },
   category: "games",
+  other: {
+    "google-adsense-account": "ca-pub-2192914861529531",
+  },
 };
 
 const sessionCaptureScript = String.raw`
@@ -78,14 +80,14 @@ const sessionCaptureScript = String.raw`
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="tr">
-      <body>
-        <Script
-          id="adsense-script"
+      <head>
+        <script
           async
-          strategy="afterInteractive"
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2192914861529531"
           crossOrigin="anonymous"
         />
+      </head>
+      <body>
         <script dangerouslySetInnerHTML={{ __html: sessionCaptureScript }} />
         <SiteJsonLd />
         <FootballLocaleBridge />
