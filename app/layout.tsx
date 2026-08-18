@@ -15,6 +15,7 @@ import RankResultToast from "@/components/RankResultToast";
 import ReferralClaimObserver from "@/components/ReferralClaimObserver";
 import FootballLocaleBridge from "@/components/FootballLocaleBridge";
 import GlobalSurrenderButton from "@/components/GlobalSurrenderButton";
+import WordlePhysicalKeyboard from "@/components/WordlePhysicalKeyboard";
 import { SITE_URL, SiteJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -85,6 +86,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <GlobalShareEnhancer />
         <HomeProgressionSpotlight />
         {children}
+        <WordlePhysicalKeyboard />
         <Suspense fallback={null}>
           <GlobalSurrenderButton />
         </Suspense>
