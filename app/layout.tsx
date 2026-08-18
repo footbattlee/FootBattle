@@ -17,6 +17,7 @@ import FootballLocaleBridge from "@/components/FootballLocaleBridge";
 import GlobalSurrenderButton from "@/components/GlobalSurrenderButton";
 import WordlePhysicalKeyboard from "@/components/WordlePhysicalKeyboard";
 import GlobalLegalFooter from "@/components/GlobalLegalFooter";
+import AdminBackButton from "@/components/AdminBackButton";
 import { SITE_URL, SiteJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -97,6 +98,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <GlobalShareEnhancer />
         <HomeProgressionSpotlight />
         {children}
+        <AdminBackButton />
         <GlobalLegalFooter />
         <WordlePhysicalKeyboard />
         <Suspense fallback={null}>
