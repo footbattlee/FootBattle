@@ -36,14 +36,14 @@ export default function HomeQuickAccess() {
 
   return (
     <>
-      {/* Desktop ana menü: logo satırına taşındı. */}
+      {/* Desktop ana menü: logo satırında. */}
       <div className="pointer-events-none fixed left-1/2 top-[17px] z-[80] hidden -translate-x-1/2 xl:block">
         <nav className="pointer-events-auto flex items-center gap-1 rounded-2xl border border-white/10 bg-[#081523]/92 p-1.5 shadow-xl shadow-black/20 backdrop-blur-xl">
           <Link
-            href={`/${locale}/rank`}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-black text-yellow-200 transition hover:bg-yellow-400/10"
+            href="/halisaha-mac"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-black text-green-200 transition hover:bg-green-400/10"
           >
-            🏆 {tr ? "Rank Arenası" : "Rank Arena"}
+            ⚽ {tr ? "Halısaha" : "Pickup Match"}
           </Link>
           <Link
             href={`/${locale}/daily-faceoff`}
