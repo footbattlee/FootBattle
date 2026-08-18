@@ -27,6 +27,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/halisaha-mac", changeFrequency: "weekly", priority: 0.8 },
     { path: "/takim-kadro", changeFrequency: "weekly", priority: 0.85 },
     { path: "/leaderboard", changeFrequency: "daily", priority: 0.7 },
+    { path: "/about", changeFrequency: "weekly", priority: 0.5 },
+    { path: "/contact", changeFrequency: "weekly", priority: 0.5 },
+    { path: "/privacy", changeFrequency: "weekly", priority: 0.4 },
+    { path: "/terms", changeFrequency: "weekly", priority: 0.4 },
 
     // Canonical localized core experience.
     { path: "/tr", changeFrequency: "daily", priority: 1 },
