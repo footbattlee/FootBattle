@@ -16,6 +16,7 @@ import ReferralClaimObserver from "@/components/ReferralClaimObserver";
 import FootballLocaleBridge from "@/components/FootballLocaleBridge";
 import GlobalSurrenderButton from "@/components/GlobalSurrenderButton";
 import WordlePhysicalKeyboard from "@/components/WordlePhysicalKeyboard";
+import GlobalLegalFooter from "@/components/GlobalLegalFooter";
 import { SITE_URL, SiteJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -96,6 +97,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <GlobalShareEnhancer />
         <HomeProgressionSpotlight />
         {children}
+        <GlobalLegalFooter />
         <WordlePhysicalKeyboard />
         <Suspense fallback={null}>
           <GlobalSurrenderButton />
