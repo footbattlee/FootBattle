@@ -86,19 +86,19 @@ export default function HomeQuickAccess() {
         </div>
       </div>
 
-      {/* Desktop alt hızlı erişim: yardımcı araçlar. */}
-      <div className="fixed bottom-5 left-5 z-[70] hidden xl:block">
-        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#081523]/95 p-2 shadow-2xl backdrop-blur-xl">
-          <Link href="/takim-kadro" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-4 text-sm font-black text-yellow-200">👑 {tr ? "Kadro Kur" : "Build Squad"}</Link>
-          <Link href="/halisaha-kadro" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-green-400/20 bg-green-400/10 px-4 text-sm font-black text-green-300">⚽ {tr ? "Halısaha" : "Pickup Squad"}</Link>
-          <Link href="/halisaha-mac" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-4 text-sm font-black text-yellow-200">📅 {tr ? "Maç Planla" : "Plan Match"}</Link>
-          <Link href={`/${locale}/friends`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 text-sm font-black text-cyan-200">👥 {tr ? "Arkadaşlar" : "Friends"}</Link>
-          {isAdmin && <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-purple-400/20 bg-purple-400/10 px-4 text-sm font-black text-purple-200">🛠️ Admin</Link>}
+      {/* Desktop alt hızlı erişimde yalnızca Admin kalsın. */}
+      {isAdmin && (
+        <div className="fixed bottom-5 left-5 z-[70] hidden xl:block">
+          <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-purple-400/20 bg-[#081523]/95 px-4 text-sm font-black text-purple-200 shadow-2xl backdrop-blur-xl">🛠️ Admin</Link>
         </div>
-      </div>
+      )}
 
-      {/* UnifiedHomePage'in eski desktop nav'ini gizle; mobil davranışı değişmez. */}
+      {/* UnifiedHomePage'in eski desktop nav'ini ve artık gereksiz coming-soon bölümünü gizle. */}
       <style jsx global>{`
+        main > section:last-of-type {
+          display: none !important;
+        }
+
         @media (min-width: 1280px) {
           main > header nav {
             display: none !important;
