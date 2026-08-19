@@ -16,6 +16,8 @@ const TURKISH_CLUB_PATTERNS = [
   "Balıkesirspor", "Osmanlispor", "Osmanlıspor", "Ankaraspor", "Hacettepe"
 ];
 
+const TURKISH_COMPETITION_IDS = ["TR1"];
+
 function readReferrer(request: Request) {
   return request.headers.get("referer") ?? "";
 }
@@ -45,14 +47,30 @@ export async function getSuperLigCareerPlayerIds() {
     .map((club) => `club_name.ilike.%${club.replace(/,/g, "")}%`)
     .join(",");
 
-  const { data, error } = await supabaseAdmin
-    .from("player_quiz_clubs")
-    .select("player_id")
-    .or(filters)
-    .limit(10000);
+  const [{ data: careerData, error: careerError }, { data: currentLeagueData, error: currentLeagueError }] = await Promise.all([
+    supabaseAdmin
+      .from("player_quiz_clubs")
+      .select("player_id")
+      .or(filters)
+      .limit(10000),
+    supabaseAdmin
+      .from("guess_players")
+      .select("player_id")
+      .eq("is_playable", 1)
+      .in("current_competition_id", TURKISH_COMPETITION_IDS)
+      .limit(10000),
+  ]);
 
-  if (error) throw error;
-  return Array.from(new Set((data ?? []).map((row) => Number(row.player_id)).filter(Number.isFinite)));
+  if (careerError) throw careerError;
+  if (currentLeagueError) throw currentLeagueError;
+
+  return Array.from(
+    new Set(
+      [...(careerData ?? []), ...(currentLeagueData ?? [])]
+        .map((row) => Number(row.player_id))
+        .filter(Number.isFinite),
+    ),
+  );
 }
 
 export async function filterSuperLigPlayerIdsByDifficulty(playerIds: number[], difficulty: SuperLigDifficulty) {
