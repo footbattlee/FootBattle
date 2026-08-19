@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-type SurvivorKind = "player" | "team";
+type SurvivorKind = "player" | "team" | "custom";
+type SurvivorEntryInput = string | { name?: string; imageUrl?: string | null };
 type SurvivorInput = {
   id?: string;
   title?: string;
@@ -14,8 +15,10 @@ type SurvivorInput = {
   descriptionEn?: string;
   kind?: SurvivorKind;
   isActive?: boolean;
-  entries?: string[];
+  entries?: SurvivorEntryInput[];
 };
+
+type ParsedEntry = { name: string; imageUrl: string | null };
 
 function slugify(value: string) {
   return value.toLocaleLowerCase("tr-TR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ı/g, "i").replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ş/g, "s").replace(/ö/g, "o").replace(/ç/g, "c").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 70) || "survivor";
@@ -34,15 +37,19 @@ async function uniqueSlug(title: string, ignoreId?: string) {
   return `${base}-${Date.now()}`;
 }
 
-async function resolveEntries(kind: SurvivorKind, names: string[]) {
+async function resolveEntries(kind: SurvivorKind, entries: ParsedEntry[]) {
   const rows: Array<{ slot: number; name: string; image_url: string | null; source_player_id: number | null }> = [];
-  for (let index = 0; index < names.length; index += 1) {
-    const name = names[index].trim();
-    let imageUrl: string | null = null;
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index];
+    const name = entry.name.trim();
+    let imageUrl: string | null = entry.imageUrl || null;
     let sourcePlayerId: number | null = null;
     if (kind === "player") {
       const { data } = await supabaseAdmin.from("guess_players").select("player_id, name, image_url").ilike("name", name).order("popularity_score", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
-      if (data) { imageUrl = data.image_url ?? null; sourcePlayerId = Number(data.player_id); }
+      if (data) {
+        if (!imageUrl) imageUrl = data.image_url ?? null;
+        sourcePlayerId = Number(data.player_id);
+      }
     }
     rows.push({ slot: index + 1, name, image_url: imageUrl, source_player_id: sourcePlayerId });
   }
@@ -54,11 +61,14 @@ function validate(input: SurvivorInput | null) {
   const titleEn = input?.titleEn?.trim() || "";
   const descriptionTr = input?.descriptionTr?.trim() || input?.description?.trim() || "";
   const descriptionEn = input?.descriptionEn?.trim() || "";
-  const kind: SurvivorKind = input?.kind === "team" ? "team" : "player";
-  const entries = (input?.entries ?? []).map((x) => x.trim()).filter(Boolean);
+  const kind: SurvivorKind = input?.kind === "team" ? "team" : input?.kind === "custom" ? "custom" : "player";
+  const entries: ParsedEntry[] = (input?.entries ?? []).map((entry) => {
+    if (typeof entry === "string") return { name: entry.trim(), imageUrl: null };
+    return { name: entry?.name?.trim() || "", imageUrl: entry?.imageUrl?.trim() || null };
+  }).filter((entry) => Boolean(entry.name));
   if (titleTr.length < 2) return { ok: false as const, error: "Türkçe oyun adı zorunlu." };
   if (entries.length !== 16) return { ok: false as const, error: "Survivor tam olarak 16 katılımcı içermeli." };
-  if (new Set(entries.map((x) => x.toLocaleLowerCase("tr-TR"))).size !== 16) return { ok: false as const, error: "Aynı katılımcı iki kez kullanılamaz." };
+  if (new Set(entries.map((x) => x.name.toLocaleLowerCase("tr-TR"))).size !== 16) return { ok: false as const, error: "Aynı katılımcı iki kez kullanılamaz." };
   return { ok: true as const, titleTr, titleEn, descriptionTr, descriptionEn, kind, entries };
 }
 
