@@ -26,12 +26,16 @@ function normalize(value: string) {
   return value
     .trim()
     .toLocaleLowerCase("tr-TR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/ı/g, "i")
-    .replace(/ç/g, "c")
-    .replace(/ğ/g, "g")
-    .replace(/ö/g, "o")
-    .replace(/ş/g, "s")
-    .replace(/ü/g, "u")
+    .replace(/đ/g, "d")
+    .replace(/ð/g, "d")
+    .replace(/ł/g, "l")
+    .replace(/ø/g, "o")
+    .replace(/æ/g, "ae")
+    .replace(/œ/g, "oe")
+    .replace(/ß/g, "ss")
     .replace(/[^a-z0-9\s'-]/g, "")
     .replace(/\s+/g, " ");
 }
@@ -78,10 +82,11 @@ function isExactNameOrToken(button: HTMLButtonElement, typed: string) {
   if (!text || !typed) return false;
   if (text === typed) return true;
 
-  // Oyuncu/takım butonlarında görünen tam adın herhangi bir kelimesi tam olarak
-  // yazıldıysa (örn. "Icardi" -> "Mauro Icardi") bunu kesin eşleşme kabul et.
   const tokens = text.split(" ").filter(Boolean);
-  return tokens.includes(typed);
+  if (tokens.includes(typed)) return true;
+
+  // Çok kelimeli girişlerde de kelime sınırlarına göre tam eşleşmeyi kabul et.
+  return (` ${text} `).includes(` ${typed} `);
 }
 
 function getUniqueExactResult(input: HTMLInputElement, buttons: HTMLButtonElement[]) {
@@ -106,14 +111,14 @@ function getSubmitButton(input: HTMLInputElement) {
     candidates.find((button) => {
       if (button.disabled || !isVisible(button) || button.closest("div.absolute")) return false;
       const text = normalize(button.textContent ?? "");
-      if (/pas|pass|vazgeç|cancel|geri|back|yenile|refresh|tekrar/.test(text)) return false;
+      if (/pas|pass|vazgec|cancel|geri|back|yenile|refresh|tekrar/.test(text)) return false;
       const classes = button.className || "";
       const likelyPrimary =
         classes.includes("bg-green") ||
         classes.includes("bg-yellow") ||
         classes.includes("bg-blue") ||
         classes.includes("w-full");
-      const likelyAction = /tahmin|guess|kontrol|check|gönder|submit|cevap|answer|seç|select|onay|confirm/.test(text);
+      const likelyAction = /tahmin|guess|kontrol|check|gonder|submit|cevap|answer|sec|select|onay|confirm/.test(text);
       return likelyPrimary && likelyAction;
     }) ?? null
   );
@@ -174,8 +179,9 @@ export default function GuessThePlayerSearchEnhancer() {
       const exact = getUniqueExactResult(input, resultButtons);
       const selectable = highlighted ?? exact;
 
-      // Kısmi metin tek sonuca düşse bile otomatik seçme yok. Örn. "osi" yazmak
-      // "Josip Brekalo"yu otomatik tahmin etmemeli. Dropdown açık kalır.
+      // Kısmi metin (örn. "osi") hiçbir zaman otomatik seçim yapmaz.
+      // Tam ad veya tam ad/soyad kelimesi eşleşirse ("Icardi", "Dzeko") ve bu eşleşme
+      // dropdown içinde tekse Enter seçer ve tahmini yollar.
       if (selectable) {
         selectable.click();
         clearHighlight(resultButtons);
@@ -185,8 +191,8 @@ export default function GuessThePlayerSearchEnhancer() {
         return;
       }
 
-      // Dropdown kapalıysa ve oyun daha önce bir oyuncu/takım seçmişse ana aksiyon
-      // butonu aktiftir; ikinci Enter doğrudan tahmini gönderir.
+      // Kullanıcı daha önce dropdown'dan bir değer seçmişse, sonuç listesi kapanır ve
+      // ana buton aktif olur. Bu durumda Enter doğrudan tahmini gönderir.
       if (resultButtons.length === 0) {
         getSubmitButton(input)?.click();
       }
