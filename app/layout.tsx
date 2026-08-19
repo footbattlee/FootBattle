@@ -8,6 +8,7 @@ import PresenceHeartbeat from "@/components/PresenceHeartbeat";
 import HomeProgressionSpotlight from "@/components/HomeProgressionSpotlight";
 import HomeQuickAccess from "@/components/HomeQuickAccess";
 import HomeTicTacToeDuelEnhancer from "@/components/HomeTicTacToeDuelEnhancer";
+import HomeSuperLigAndMobileOrder from "@/components/HomeSuperLigAndMobileOrder";
 import GlobalShareEnhancer from "@/components/GlobalShareEnhancer";
 import ChallengeQuickShare from "@/components/ChallengeQuickShare";
 import GameResultArena from "@/components/GameResultArena";
@@ -98,6 +99,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <GlobalShareEnhancer />
         <HomeProgressionSpotlight />
         {children}
+        <HomeSuperLigAndMobileOrder />
         <AdminBackButton />
         <GlobalLegalFooter />
         <WordlePhysicalKeyboard />
