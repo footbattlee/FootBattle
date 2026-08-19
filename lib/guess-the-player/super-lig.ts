@@ -2,21 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 
 export type SuperLigDifficulty = "easy" | "medium" | "hard" | "mixed";
 
-const TURKISH_CLUB_PATTERNS = [
-  "Galatasaray", "Fenerbahce", "Fenerbahçe", "Besiktas", "Beşiktaş", "Trabzonspor",
-  "Basaksehir", "Başakşehir", "Bursaspor", "Goztepe", "Göztepe", "Samsunspor",
-  "Konyaspor", "Sivasspor", "Kayserispor", "Antalyaspor", "Alanyaspor", "Kasimpasa",
-  "Kasımpaşa", "Gaziantep", "Genclerbirligi", "Gençlerbirliği", "Ankaragucu", "Ankaragücü",
-  "Adana Demirspor", "Rizespor", "Çaykur Rizespor", "Karagumruk", "Karagümrük",
-  "Eskisehirspor", "Eskişehirspor", "Kocaelispor", "Sakaryaspor", "Denizlispor",
-  "Malatyaspor", "Yeni Malatyaspor", "Akhisar", "Akhisarspor", "Manisaspor",
-  "Mersin Idmanyurdu", "Mersin İdmanyurdu", "Istanbulspor", "İstanbulspor", "Altay",
-  "Erzurumspor", "Hatayspor", "Pendikspor", "Umraniyespor", "Ümraniyespor",
-  "Boluspor", "Adanaspor", "Orduspor", "Elazigspor", "Elazığspor", "Balikesirspor",
-  "Balıkesirspor", "Osmanlispor", "Osmanlıspor", "Ankaraspor", "Hacettepe"
-];
-
-const TURKISH_COMPETITION_IDS = ["TR1"];
+const TURKISH_COMPETITION_ID = "TR1";
 
 function readReferrer(request: Request) {
   return request.headers.get("referer") ?? "";
@@ -42,35 +28,18 @@ export function getPopularityBounds(difficulty: SuperLigDifficulty) {
   return { min: 50, max: 100 };
 }
 
+// Adı geriye dönük uyumluluk için korunuyor. Artık sadece şu anda Süper Lig'de
+// (TR1) oynayan aktif oyuncuları döndürüyor; eski Süper Lig kariyeri yeterli değil.
 export async function getSuperLigCareerPlayerIds() {
-  const filters = TURKISH_CLUB_PATTERNS
-    .map((club) => `club_name.ilike.%${club.replace(/,/g, "")}%`)
-    .join(",");
+  const { data, error } = await supabaseAdmin
+    .from("guess_players")
+    .select("player_id")
+    .eq("is_playable", 1)
+    .eq("current_competition_id", TURKISH_COMPETITION_ID)
+    .limit(10000);
 
-  const [{ data: careerData, error: careerError }, { data: currentLeagueData, error: currentLeagueError }] = await Promise.all([
-    supabaseAdmin
-      .from("player_quiz_clubs")
-      .select("player_id")
-      .or(filters)
-      .limit(10000),
-    supabaseAdmin
-      .from("guess_players")
-      .select("player_id")
-      .eq("is_playable", 1)
-      .in("current_competition_id", TURKISH_COMPETITION_IDS)
-      .limit(10000),
-  ]);
-
-  if (careerError) throw careerError;
-  if (currentLeagueError) throw currentLeagueError;
-
-  return Array.from(
-    new Set(
-      [...(careerData ?? []), ...(currentLeagueData ?? [])]
-        .map((row) => Number(row.player_id))
-        .filter(Number.isFinite),
-    ),
-  );
+  if (error) throw error;
+  return Array.from(new Set((data ?? []).map((row) => Number(row.player_id)).filter(Number.isFinite)));
 }
 
 export async function filterSuperLigPlayerIdsByDifficulty(playerIds: number[], difficulty: SuperLigDifficulty) {
@@ -85,6 +54,7 @@ export async function filterSuperLigPlayerIdsByDifficulty(playerIds: number[], d
       .select("player_id")
       .in("player_id", batch)
       .eq("is_playable", 1)
+      .eq("current_competition_id", TURKISH_COMPETITION_ID)
       .gte("popularity_score", min)
       .lte("popularity_score", max);
     if (error) throw error;
