@@ -2,53 +2,153 @@
 
 import { useEffect } from "react";
 
-function getGameRoot() {
-  return document.querySelector<HTMLElement>(
-    '[data-game="guess-the-player"], [data-game="guess-the-player-super-lig"]',
+const SEARCH_GAME_PATHS = [
+  "/guess-the-player",
+  "/player-quiz",
+  "/career-path",
+  "/club-clash",
+  "/club-nation",
+  "/transfer-quiz",
+  "/tic-tac-toe",
+];
+
+function isSupportedGamePage() {
+  return SEARCH_GAME_PATHS.some((path) => window.location.pathname.includes(path));
+}
+
+function isTextInput(element: EventTarget | null): element is HTMLInputElement {
+  if (!(element instanceof HTMLInputElement)) return false;
+  const type = (element.type || "text").toLowerCase();
+  return type === "text" || type === "search" || type === "number";
+}
+
+function normalize(value: string) {
+  return value
+    .trim()
+    .toLocaleLowerCase("tr-TR")
+    .replace(/ı/g, "i")
+    .replace(/ç/g, "c")
+    .replace(/ğ/g, "g")
+    .replace(/ö/g, "o")
+    .replace(/ş/g, "s")
+    .replace(/ü/g, "u")
+    .replace(/\s+/g, " ");
+}
+
+function isVisible(element: HTMLElement) {
+  const style = window.getComputedStyle(element);
+  const rect = element.getBoundingClientRect();
+  return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+}
+
+function getSearchArea(input: HTMLInputElement) {
+  return (
+    input.closest<HTMLElement>("form") ??
+    input.closest<HTMLElement>("section") ??
+    input.closest<HTMLElement>("article") ??
+    input.parentElement
   );
 }
 
-function getSearchInput(root: HTMLElement) {
-  const inputs = Array.from(root.querySelectorAll<HTMLInputElement>("input"));
-  return inputs.find((input) => input.type === "text" || input.type === "search" || !input.type) ?? inputs[0] ?? null;
-}
-
 function getResultButtons(input: HTMLInputElement) {
-  const wrapper = input.parentElement;
-  if (!wrapper) return [];
-  return Array.from(wrapper.querySelectorAll<HTMLButtonElement>("div.absolute button"));
+  const parent = input.parentElement;
+  const area = getSearchArea(input);
+  const roots = [parent, area].filter(Boolean) as HTMLElement[];
+  const seen = new Set<HTMLButtonElement>();
+  const buttons: HTMLButtonElement[] = [];
+
+  for (const root of roots) {
+    const candidates = root.querySelectorAll<HTMLButtonElement>(
+      "div.absolute button, div[role='listbox'] button, [role='option'], ul button, [data-search-results] button",
+    );
+    for (const candidate of Array.from(candidates)) {
+      if (!(candidate instanceof HTMLButtonElement)) continue;
+      if (candidate.disabled || !isVisible(candidate) || seen.has(candidate)) continue;
+      seen.add(candidate);
+      buttons.push(candidate);
+    }
+  }
+
+  return buttons;
 }
 
-function getSubmitButton(input: HTMLInputElement) {
-  const section = input.closest("section");
-  if (!section) return null;
+function getExactResult(input: HTMLInputElement, buttons: HTMLButtonElement[]) {
+  const typed = normalize(input.value);
+  if (!typed) return null;
 
   return (
-    Array.from(section.querySelectorAll<HTMLButtonElement>("button")).find((button) => {
-      if (button.disabled) return false;
-      if (button.closest("div.absolute")) return false;
-      const classes = button.className || "";
-      return classes.includes("bg-green-500") && classes.includes("w-full");
+    buttons.find((button) => {
+      const text = normalize(button.textContent ?? "");
+      return text === typed || text.startsWith(`${typed} `) || text.startsWith(`${typed}\n`);
     }) ?? null
   );
 }
 
+function getSubmitButton(input: HTMLInputElement) {
+  const area = getSearchArea(input);
+  if (!area) return null;
+
+  const candidates = Array.from(area.querySelectorAll<HTMLButtonElement>("button"));
+
+  const explicitSubmit = candidates.find(
+    (button) => !button.disabled && button.type === "submit" && !button.closest("div.absolute"),
+  );
+  if (explicitSubmit) return explicitSubmit;
+
+  const primary = candidates.find((button) => {
+    if (button.disabled || !isVisible(button) || button.closest("div.absolute")) return false;
+    const text = normalize(button.textContent ?? "");
+    if (/pas|pass|vazgeç|cancel|geri|back|yenile|refresh|tekrar/.test(text)) return false;
+    const classes = button.className || "";
+    const likelyPrimary =
+      classes.includes("bg-green") ||
+      classes.includes("bg-yellow") ||
+      classes.includes("bg-blue") ||
+      classes.includes("w-full");
+    const likelyAction = /tahmin|guess|kontrol|check|gönder|submit|cevap|answer|seç|select|onay|confirm/.test(text);
+    return likelyPrimary && likelyAction;
+  });
+
+  return primary ?? null;
+}
+
+function setHighlighted(buttons: HTMLButtonElement[], index: number) {
+  buttons.forEach((button, buttonIndex) => {
+    if (buttonIndex === index) {
+      button.dataset.keyboardActive = "1";
+      button.style.outline = "2px solid rgba(74, 222, 128, .8)";
+      button.style.outlineOffset = "-2px";
+      button.scrollIntoView({ block: "nearest" });
+    } else {
+      delete button.dataset.keyboardActive;
+      button.style.outline = "";
+      button.style.outlineOffset = "";
+    }
+  });
+}
+
+function clearHighlight(buttons: HTMLButtonElement[]) {
+  buttons.forEach((button) => {
+    delete button.dataset.keyboardActive;
+    button.style.outline = "";
+    button.style.outlineOffset = "";
+  });
+}
+
 export default function GuessThePlayerSearchEnhancer() {
   useEffect(() => {
-    if (!window.location.pathname.includes("/guess-the-player")) return;
+    if (!isSupportedGamePage()) return;
 
-    let autoSelecting = false;
     let scheduled = 0;
+    let autoSelecting = false;
 
-    const enhance = () => {
+    const autoSelectSingleResult = (input?: HTMLInputElement | null) => {
       window.clearTimeout(scheduled);
       scheduled = window.setTimeout(() => {
-        const root = getGameRoot();
-        if (!root) return;
-        const input = getSearchInput(root);
-        if (!input || input.value.trim().length < 3 || autoSelecting) return;
+        const activeInput = input ?? (document.activeElement instanceof HTMLInputElement ? document.activeElement : null);
+        if (!activeInput || !isTextInput(activeInput) || activeInput.value.trim().length < 2 || autoSelecting) return;
 
-        const resultButtons = getResultButtons(input);
+        const resultButtons = getResultButtons(activeInput);
         if (resultButtons.length !== 1) return;
 
         autoSelecting = true;
@@ -56,45 +156,62 @@ export default function GuessThePlayerSearchEnhancer() {
         window.setTimeout(() => {
           autoSelecting = false;
         }, 120);
-      }, 40);
+      }, 45);
     };
 
-    const observer = new MutationObserver(enhance);
+    const observer = new MutationObserver(() => autoSelectSingleResult());
     observer.observe(document.body, { childList: true, subtree: true });
 
     const onInput = (event: Event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLInputElement)) return;
-      const root = getGameRoot();
-      if (!root || !root.contains(target)) return;
-      enhance();
+      if (!isTextInput(event.target)) return;
+      autoSelectSingleResult(event.target);
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Enter") return;
-      const target = event.target;
-      if (!(target instanceof HTMLInputElement)) return;
+      if (!isTextInput(event.target)) return;
+      const input = event.target;
+      const resultButtons = getResultButtons(input);
 
-      const root = getGameRoot();
-      if (!root || !root.contains(target)) return;
-
-      event.preventDefault();
-
-      const resultButtons = getResultButtons(target);
-      if (resultButtons.length === 1) {
-        resultButtons[0].click();
-        window.setTimeout(() => {
-          getSubmitButton(target)?.click();
-        }, 80);
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        if (!resultButtons.length) return;
+        event.preventDefault();
+        const current = resultButtons.findIndex((button) => button.dataset.keyboardActive === "1");
+        let next = 0;
+        if (event.key === "ArrowDown") next = current < 0 ? 0 : (current + 1) % resultButtons.length;
+        else next = current < 0 ? resultButtons.length - 1 : (current - 1 + resultButtons.length) % resultButtons.length;
+        setHighlighted(resultButtons, next);
         return;
       }
 
-      getSubmitButton(target)?.click();
+      if (event.key === "Escape") {
+        clearHighlight(resultButtons);
+        return;
+      }
+
+      if (event.key !== "Enter") return;
+
+      event.preventDefault();
+
+      const highlighted = resultButtons.find((button) => button.dataset.keyboardActive === "1");
+      const exact = getExactResult(input, resultButtons);
+      const selectable = highlighted ?? exact ?? (resultButtons.length === 1 ? resultButtons[0] : null);
+
+      if (selectable) {
+        selectable.click();
+        clearHighlight(resultButtons);
+        window.setTimeout(() => {
+          getSubmitButton(input)?.click();
+        }, 90);
+        return;
+      }
+
+      // If the game has already selected a value, its main action button is enabled.
+      // Enter should submit directly without forcing the user to touch the dropdown again.
+      getSubmitButton(input)?.click();
     };
 
     document.addEventListener("input", onInput, true);
     document.addEventListener("keydown", onKeyDown, true);
-    enhance();
 
     return () => {
       observer.disconnect();
