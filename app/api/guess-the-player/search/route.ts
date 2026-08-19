@@ -7,16 +7,14 @@ import {
   preferredFootToDisplayName,
 } from "@/lib/football/localization";
 import {
-  filterSuperLigPlayerIdsByDifficulty,
   getSuperLigCareerPlayerIds,
-  getSuperLigDifficulty,
   isSuperLigGuessRequest,
 } from "@/lib/guess-the-player/super-lig";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const MINIMUM_SEARCH_LENGTH = 3;
 const MAXIMUM_RESULTS = 10;
-const SUPER_LIG_CANDIDATE_LIMIT = 100;
+const CANDIDATE_LIMIT = 100;
 
 function normalizeSearchText(value: string) {
   return value
@@ -32,6 +30,17 @@ function normalizeSearchText(value: string) {
     .replace(/\s+/g, " ");
 }
 
+function nameRank(name: string, query: string) {
+  const normalized = normalizeSearchText(name);
+  const tokens = normalized.split(" ").filter(Boolean);
+
+  if (normalized === query) return 0;
+  if (tokens.includes(query)) return 1;
+  if (tokens.some((token) => token.startsWith(query))) return 2;
+  if (normalized.startsWith(query)) return 3;
+  return 4;
+}
+
 export async function GET(request: Request) {
   try {
     const requestUrl = new URL(request.url);
@@ -45,9 +54,6 @@ export async function GET(request: Request) {
     const safeQuery = query.replace(/%/g, "").replace(/_/g, "");
     const superLigMode = isSuperLigGuessRequest(request);
 
-    // Önce isimle eşleşen küçük aday havuzunu çekiyoruz. Eski yaklaşımda
-    // Süper Lig oyuncu ID'lerinin ilk 1500 kaydıyla `.in(...)` yapıldığı için
-    // Osimhen gibi geç sıradaki oyuncular mobil/desktop aramasında görünmeyebiliyordu.
     const { data: candidateRows, error: candidateError } = await supabaseAdmin
       .from("guess_players")
       .select(`
@@ -66,7 +72,7 @@ export async function GET(request: Request) {
       .eq("is_playable", 1)
       .ilike("name_normalized", `%${safeQuery}%`)
       .order("popularity_score", { ascending: false, nullsFirst: false })
-      .limit(superLigMode ? SUPER_LIG_CANDIDATE_LIMIT : MAXIMUM_RESULTS);
+      .limit(CANDIDATE_LIMIT);
 
     if (candidateError) {
       console.error("Guess the Player oyuncu araması başarısız:", candidateError);
@@ -76,13 +82,20 @@ export async function GET(request: Request) {
     let rows = candidateRows ?? [];
 
     if (superLigMode && rows.length > 0) {
+      // Zorluk yalnızca gizli futbolcunun seçimini belirler. Kullanıcı tahmin ederken
+      // Süper Lig geçmişi olan tüm oyuncular arasından arama yapabilmeli.
       const careerIds = await getSuperLigCareerPlayerIds();
-      const eligibleIds = await filterSuperLigPlayerIdsByDifficulty(careerIds, getSuperLigDifficulty(request));
-      const allowed = new Set(eligibleIds);
-      rows = rows.filter((player) => allowed.has(Number(player.player_id))).slice(0, MAXIMUM_RESULTS);
-    } else {
-      rows = rows.slice(0, MAXIMUM_RESULTS);
+      const allowed = new Set(careerIds);
+      rows = rows.filter((player) => allowed.has(Number(player.player_id)));
     }
+
+    rows = rows
+      .sort((a, b) => {
+        const rankDiff = nameRank(a.name ?? "", query) - nameRank(b.name ?? "", query);
+        if (rankDiff !== 0) return rankDiff;
+        return Number(b.popularity_score ?? 0) - Number(a.popularity_score ?? 0);
+      })
+      .slice(0, MAXIMUM_RESULTS);
 
     const players = rows.map((player) => ({
       id: player.player_id,
