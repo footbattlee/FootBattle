@@ -41,6 +41,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/en", changeFrequency: "daily", priority: 1 },
     { path: "/tr/guess-the-player", changeFrequency: "daily", priority: 0.95 },
     { path: "/en/guess-the-player", changeFrequency: "daily", priority: 0.95 },
+    { path: "/tr/guess-the-player/super-lig", changeFrequency: "daily", priority: 0.98 },
+    { path: "/en/guess-the-player/super-lig", changeFrequency: "daily", priority: 0.92 },
     { path: "/tr/career-path", changeFrequency: "daily", priority: 0.9 },
     { path: "/en/career-path", changeFrequency: "daily", priority: 0.9 },
     { path: "/tr/daily-faceoff", changeFrequency: "daily", priority: 1 },
