@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { matchesBothConstraints } from "@/lib/challenges/player-matcher";
 import { nationalityToDisplayName } from "@/lib/football/localization";
 import { recordGameSecurityEvent } from "@/lib/game-security/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -25,16 +26,15 @@ type CellRow = {
   session_id: string;
   row_index: number;
   column_index: number;
+  row_type: "club" | "nationality";
+  row_value: string;
+  column_type: "club" | "nationality";
+  column_value: string;
   valid_player_ids: number[] | string[] | null;
   answered: boolean;
   correct: boolean;
   player_id: number | null;
 };
-
-function parsePlayerIds(value: number[] | string[] | null | undefined) {
-  if (!Array.isArray(value)) return [] as number[];
-  return Array.from(new Set(value.map(Number).filter((id) => Number.isInteger(id) && id > 0)));
-}
 
 function remainingSeconds(createdAt: string, durationSeconds: number) {
   const elapsedSeconds = Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000);
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
 
     const { data: cellData, error: cellError } = await supabaseAdmin
       .from("tic_tac_toe_cells")
-      .select("id, session_id, row_index, column_index, valid_player_ids, answered, correct, player_id")
+      .select("id, session_id, row_index, column_index, row_type, row_value, column_type, column_value, valid_player_ids, answered, correct, player_id")
       .eq("session_id", sessionId)
       .eq("row_index", rowIndex)
       .eq("column_index", columnIndex)
@@ -103,8 +103,16 @@ export async function POST(request: Request) {
     if (usedPlayerError) throw usedPlayerError;
     if (usedPlayerCell) return NextResponse.json({ ok: false, error: "Bu oyuncuyu bu gridde daha önce kullandın." }, { status: 409 });
 
-    const correct = parsePlayerIds(cell.valid_player_ids).includes(playerId);
+    // valid_player_ids artık sadece üretim kalite snapshot'ı olarak kullanılabilir.
+    // Doğruluk, oyuncunun gerçek kariyer/milliyet verisinden dinamik kontrol edilir.
+    const match = await matchesBothConstraints(
+      playerId,
+      { type: cell.row_type === "nationality" ? "country" : "club", value: cell.row_value },
+      { type: cell.column_type === "nationality" ? "country" : "club", value: cell.column_value },
+    );
+    const correct = match.matches;
     const now = new Date().toISOString();
+
     if (!correct) {
       const newWrongCount = Number(session.wrong_count ?? 0) + 1;
       const { error } = await supabaseAdmin.from("tic_tac_toe_sessions").update({ wrong_count: newWrongCount }).eq("id", sessionId).eq("completed", false);
