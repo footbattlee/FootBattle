@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { matchesBothConstraints } from "@/lib/challenges/player-matcher";
 import { recordGameSecurityEvent } from "@/lib/game-security/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -27,12 +28,6 @@ type RoundRow = {
   completed: boolean;
   passed: boolean;
 };
-
-function parsePlayerIds(value: number[] | string[] | null | undefined) {
-  return Array.isArray(value)
-    ? Array.from(new Set(value.map(Number).filter((id) => Number.isInteger(id) && id > 0)))
-    : [];
-}
 
 function remainingSeconds(createdAt: string, durationSeconds: number) {
   return Math.max(0, durationSeconds - Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000));
@@ -88,7 +83,15 @@ export async function POST(request: Request) {
 
     const round = roundData as RoundRow;
     const nextAttemptCount = Number(round.attempt_count ?? 0) + 1;
-    const correct = parsePlayerIds(round.answer_player_ids).includes(playerId);
+
+    // answer_player_ids yalnızca soru üretimindeki 85+ kalite havuzudur.
+    // Cevap kontrolü ise iki kulüpte gerçekten oynamış HER playable oyuncuyu kabul eder.
+    const match = await matchesBothConstraints(
+      playerId,
+      { type: "club", value: round.left_club },
+      { type: "club", value: round.right_club },
+    );
+    const correct = match.matches;
 
     if (!correct) {
       const { data: updated, error } = await supabaseAdmin
