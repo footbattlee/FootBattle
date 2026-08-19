@@ -13,6 +13,8 @@ const DIFFICULTIES = [
   { key: "hard", tr: "Zor", en: "Hard", icon: "🔴" },
 ] as const;
 
+type DifficultyKey = (typeof DIFFICULTIES)[number]["key"];
+
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
   if (!isLocale(locale)) return {};
@@ -45,7 +47,9 @@ export default async function Page({
   if (!isLocale(locale)) notFound();
 
   const en = locale === "en";
-  const active = DIFFICULTIES.some((item) => item.key === difficulty) ? difficulty : "mixed";
+  const selectedDifficulty = DIFFICULTIES.some((item) => item.key === difficulty)
+    ? (difficulty as DifficultyKey)
+    : null;
 
   return (
     <div className="min-h-screen bg-[#07111f] text-white" data-game="guess-the-player-super-lig">
@@ -57,16 +61,17 @@ export default async function Page({
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
             {en
-              ? "The hidden player is currently playing in Turkey's Süper Lig. Search and guesses are also limited to active Süper Lig players."
-              : "Gizli futbolcu şu anda Süper Lig'de oynuyor. Arama ve tahmin listesi de yalnızca aktif Süper Lig futbolcularından oluşuyor."}
+              ? "First choose a difficulty. The hidden player is created only after your selection and is limited to active Süper Lig players."
+              : "Önce zorluk seç. Gizli futbolcu yalnızca seçimini yaptıktan sonra oluşturulur ve aktif Süper Lig oyuncularından gelir."}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             {DIFFICULTIES.map((item) => (
               <Link
                 key={item.key}
-                href={`/${locale}/guess-the-player/super-lig${item.key === "mixed" ? "" : `?difficulty=${item.key}`}`}
+                href={`/${locale}/guess-the-player/super-lig?difficulty=${item.key}`}
+                scroll={false}
                 className={`rounded-xl border px-4 py-2 text-sm font-black transition ${
-                  active === item.key
+                  selectedDifficulty === item.key
                     ? "border-red-300/40 bg-red-500/20 text-white"
                     : "border-white/10 bg-white/[0.03] text-slate-400 hover:text-white"
                 }`}
@@ -82,7 +87,29 @@ export default async function Page({
           </p>
         </div>
       </section>
-      <LocalizedGuessThePlayer locale={locale as Locale} />
+
+      {selectedDifficulty ? (
+        <LocalizedGuessThePlayer
+          key={`super-lig-${selectedDifficulty}`}
+          locale={locale as Locale}
+          requestSuffix={`?mode=super_lig&difficulty=${selectedDifficulty}`}
+          analyticsGameName="super_lig_guess_the_player"
+        />
+      ) : (
+        <section className="mx-auto max-w-6xl px-4 pb-16 pt-8 sm:px-6">
+          <div className="mx-auto max-w-2xl rounded-3xl border border-white/10 bg-[#0c1929] p-6 text-center sm:p-8">
+            <p className="text-4xl">🎯</p>
+            <h2 className="mt-3 text-xl font-black sm:text-2xl">
+              {en ? "Choose difficulty to start" : "Oyunu başlatmak için zorluk seç"}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              {en
+                ? "No player has been selected yet. Your game session will be created after you choose a difficulty above."
+                : "Henüz hiçbir futbolcu seçilmedi. Yukarıdan zorluk seçtiğinde oyun oturumu ve gizli futbolcu oluşturulacak."}
+            </p>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
