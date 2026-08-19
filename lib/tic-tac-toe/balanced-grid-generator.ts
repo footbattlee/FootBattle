@@ -7,10 +7,12 @@ import {
 
 const MIN_TEAM_SCORE = 80;
 const MIN_CELL_PLAYERS = 2;
+const MIN_PLAYER_POPULARITY = 85;
 const MAX_TEAMS = 70;
 const TEAM_QUERY_CHUNK = 30;
 const PLAYER_QUERY_CHUNK = 200;
 const DB_PAGE_SIZE = 1000;
+const MAX_FALLBACK_ATTEMPTS = 10;
 
 type ClubHistoryRow = {
   player_id: number;
@@ -91,8 +93,8 @@ async function loadClubHistory(teamNames: string[]) {
   return rows;
 }
 
-async function loadPlayableIds(playerIds: number[]) {
-  const playable = new Set<number>();
+async function loadPopularPlayableIds(playerIds: number[]) {
+  const popular = new Set<number>();
 
   for (let index = 0; index < playerIds.length; index += PLAYER_QUERY_CHUNK) {
     const chunk = playerIds.slice(index, index + PLAYER_QUERY_CHUNK);
@@ -100,16 +102,17 @@ async function loadPlayableIds(playerIds: number[]) {
       .from("guess_players")
       .select("player_id")
       .eq("is_playable", 1)
+      .gte("popularity_score", MIN_PLAYER_POPULARITY)
       .in("player_id", chunk);
 
     if (error) throw error;
     for (const row of data ?? []) {
       const id = Number(row.player_id);
-      if (Number.isInteger(id) && id > 0) playable.add(id);
+      if (Number.isInteger(id) && id > 0) popular.add(id);
     }
   }
 
-  return playable;
+  return popular;
 }
 
 function gridQuality(playerCounts: number[]) {
@@ -134,18 +137,20 @@ async function generateTeamTeamGrid(): Promise<TicTacToeGrid | null> {
         .filter((id) => Number.isInteger(id) && id > 0),
     ),
   );
-  const playableIds = await loadPlayableIds(relevantPlayerIds);
+  const popularIds = await loadPopularPlayableIds(relevantPlayerIds);
 
   const clubsByPlayer = new Map<number, Set<string>>();
   for (const row of history) {
     const playerId = Number(row.player_id);
-    if (!playableIds.has(playerId)) continue;
+    if (!popularIds.has(playerId)) continue;
     const club = normalize(row.club_name);
     if (!club) continue;
     if (!clubsByPlayer.has(playerId)) clubsByPlayer.set(playerId, new Set<string>());
     clubsByPlayer.get(playerId)!.add(club);
   }
 
+  // Bu pairMap yalnızca grid ÜRETİM kalitesi içindir. Hücrede minimum 2 adet
+  // popularity >= 85 oyuncu olmasını garanti eder. Cevap kontrolü ayrı ve sınırsızdır.
   const pairMap = new Map<string, PairInfo>();
   for (const [playerId, clubSet] of clubsByPlayer) {
     const clubs = Array.from(clubSet);
@@ -253,11 +258,27 @@ async function generateTeamTeamGrid(): Promise<TicTacToeGrid | null> {
   return best;
 }
 
+async function gridHasEnoughPopularAnswers(grid: TicTacToeGrid) {
+  const ids = Array.from(new Set(grid.cells.flatMap((cell) => cell.validPlayerIds).map(Number).filter((id) => Number.isInteger(id) && id > 0)));
+  if (!ids.length) return false;
+
+  const popularIds = await loadPopularPlayableIds(ids);
+  return grid.cells.every((cell) => {
+    const popularCount = cell.validPlayerIds.reduce(
+      (count, id) => count + (popularIds.has(Number(id)) ? 1 : 0),
+      0,
+    );
+    return popularCount >= MIN_CELL_PLAYERS;
+  });
+}
+
 /**
- * Random Tic Tac Toe grids are deliberately split between sensible modes:
+ * Random Tic Tac Toe grids:
  * - Takım x Ülke
  * - Takım x Takım
- * There is intentionally no Ülke x Ülke mode.
+ *
+ * Üretim kuralı: her hücrede en az 2 popularity >= 85 cevap bulunmalı.
+ * Cevap kuralı: popularity ne olursa olsun gerçek eşleşen her oyuncu kabul edilir.
  */
 export async function generateBalancedTicTacToeGrid(): Promise<TicTacToeGrid> {
   const preferTeamTeam = Math.random() < 0.5;
@@ -271,5 +292,17 @@ export async function generateBalancedTicTacToeGrid(): Promise<TicTacToeGrid> {
     }
   }
 
-  return generateTicTacToeGrid();
+  let lastGrid: TicTacToeGrid | null = null;
+  for (let attempt = 0; attempt < MAX_FALLBACK_ATTEMPTS; attempt += 1) {
+    const grid = await generateTicTacToeGrid();
+    lastGrid = grid;
+    if (await gridHasEnoughPopularAnswers(grid)) return grid;
+  }
+
+  // Kalitesiz soru göstermemek, rastgele zayıf hücre üretmekten daha güvenlidir.
+  // Son bir team-team denemesi yap; o da yoksa açık hata üret.
+  const teamTeam = await generateTeamTeamGrid();
+  if (teamTeam) return teamTeam;
+
+  throw new Error(`Popularity >= ${MIN_PLAYER_POPULARITY} cevabı yeterli Tic Tac Toe gridi üretilemedi.${lastGrid ? " Son aday reddedildi." : ""}`);
 }
