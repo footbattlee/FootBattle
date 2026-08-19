@@ -16,6 +16,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 
 const MINIMUM_SEARCH_LENGTH = 3;
 const MAXIMUM_RESULTS = 10;
+const SUPER_LIG_CANDIDATE_LIMIT = 100;
 
 function normalizeSearchText(value: string) {
   return value
@@ -44,16 +45,10 @@ export async function GET(request: Request) {
     const safeQuery = query.replace(/%/g, "").replace(/_/g, "");
     const superLigMode = isSuperLigGuessRequest(request);
 
-    let allowedIds: number[] | null = null;
-    if (superLigMode) {
-      const careerIds = await getSuperLigCareerPlayerIds();
-      allowedIds = await filterSuperLigPlayerIdsByDifficulty(careerIds, getSuperLigDifficulty(request));
-      if (allowedIds.length === 0) {
-        return NextResponse.json({ ok: true, players: [], minimumSearchLength: MINIMUM_SEARCH_LENGTH });
-      }
-    }
-
-    let queryBuilder = supabaseAdmin
+    // Önce isimle eşleşen küçük aday havuzunu çekiyoruz. Eski yaklaşımda
+    // Süper Lig oyuncu ID'lerinin ilk 1500 kaydıyla `.in(...)` yapıldığı için
+    // Osimhen gibi geç sıradaki oyuncular mobil/desktop aramasında görünmeyebiliyordu.
+    const { data: candidateRows, error: candidateError } = await supabaseAdmin
       .from("guess_players")
       .select(`
         player_id,
@@ -69,23 +64,27 @@ export async function GET(request: Request) {
         popularity_score
       `)
       .eq("is_playable", 1)
-      .ilike("name_normalized", `%${safeQuery}%`);
-
-    if (allowedIds) {
-      // Search candidates first, then keep only the Süper Lig alumni pool.
-      queryBuilder = queryBuilder.in("player_id", allowedIds.slice(0, 1500));
-    }
-
-    const { data, error } = await queryBuilder
+      .ilike("name_normalized", `%${safeQuery}%`)
       .order("popularity_score", { ascending: false, nullsFirst: false })
-      .limit(MAXIMUM_RESULTS);
+      .limit(superLigMode ? SUPER_LIG_CANDIDATE_LIMIT : MAXIMUM_RESULTS);
 
-    if (error) {
-      console.error("Guess the Player oyuncu araması başarısız:", error);
+    if (candidateError) {
+      console.error("Guess the Player oyuncu araması başarısız:", candidateError);
       return NextResponse.json({ ok: false, error: "Oyuncular aranırken bir hata oluştu." }, { status: 500 });
     }
 
-    const players = (data ?? []).map((player) => ({
+    let rows = candidateRows ?? [];
+
+    if (superLigMode && rows.length > 0) {
+      const careerIds = await getSuperLigCareerPlayerIds();
+      const eligibleIds = await filterSuperLigPlayerIdsByDifficulty(careerIds, getSuperLigDifficulty(request));
+      const allowed = new Set(eligibleIds);
+      rows = rows.filter((player) => allowed.has(Number(player.player_id))).slice(0, MAXIMUM_RESULTS);
+    } else {
+      rows = rows.slice(0, MAXIMUM_RESULTS);
+    }
+
+    const players = rows.map((player) => ({
       id: player.player_id,
       fullName: player.name,
       nationality: nationalityToDisplayName(player.nationality),
@@ -97,7 +96,12 @@ export async function GET(request: Request) {
       imageUrl: player.image_url ?? null,
     }));
 
-    return NextResponse.json({ ok: true, players, minimumSearchLength: MINIMUM_SEARCH_LENGTH, mode: superLigMode ? "super_lig" : "standard" });
+    return NextResponse.json({
+      ok: true,
+      players,
+      minimumSearchLength: MINIMUM_SEARCH_LENGTH,
+      mode: superLigMode ? "super_lig" : "standard",
+    });
   } catch (error) {
     console.error("Guess the Player search endpoint hatası:", error);
     return NextResponse.json({ ok: false, error: "Beklenmeyen bir hata oluştu." }, { status: 500 });
