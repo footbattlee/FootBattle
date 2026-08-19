@@ -6,7 +6,7 @@ import {
   positionToDisplayName,
   preferredFootToDisplayName,
 } from "@/lib/football/localization";
-import { isSuperLigGuessRequest } from "@/lib/guess-the-player/super-lig";
+import { CURRENT_SUPER_LIG_CLUB_NAMES, isSuperLigGuessRequest } from "@/lib/guess-the-player/super-lig";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const MINIMUM_SEARCH_LENGTH = 3;
@@ -89,13 +89,13 @@ export async function GET(request: Request) {
     const superLigMode = isSuperLigGuessRequest(request);
 
     if (superLigMode) {
-      // Süper Lig modu sadece şu an TR1'de aktif olan oyuncuları arar.
-      // Kariyer tablosu + büyük fallback sorgularını tamamen atladığımız için bu yol çok daha hızlıdır.
       const { data, error } = await supabaseAdmin
         .from("guess_players")
         .select(PLAYER_SELECT)
         .eq("is_playable", 1)
+        .eq("is_active", 1)
         .eq("current_competition_id", SUPER_LIG_COMPETITION_ID)
+        .in("current_club_name", [...CURRENT_SUPER_LIG_CLUB_NAMES])
         .ilike("name_normalized", `%${safeQuery}%`)
         .order("popularity_score", { ascending: false, nullsFirst: false })
         .limit(30);
@@ -134,7 +134,6 @@ export async function GET(request: Request) {
       });
     }
 
-    // Standart Guess The Player için mevcut geniş arama davranışı korunur.
     const { data: directRows, error: directError } = await supabaseAdmin
       .from("guess_players")
       .select(PLAYER_SELECT)
