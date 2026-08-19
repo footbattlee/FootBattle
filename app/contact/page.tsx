@@ -30,12 +30,12 @@ export default function ContactPage() {
         <h2 className="text-xl font-black text-white">Instagram</h2>
         <p className="mt-2">En hızlı geri bildirim kanallarımızdan biri Instagram hesabımızdır.</p>
         <a
-          href="https://www.instagram.com/footbattlee/"
+          href="https://www.instagram.com/playfootbattle/"
           target="_blank"
           rel="noreferrer"
           className="mt-3 inline-flex rounded-xl border border-pink-400/20 bg-pink-400/10 px-4 py-2.5 font-black text-pink-200 hover:bg-pink-400/15"
         >
-          @footbattlee →
+          @playfootbattle →
         </a>
       </section>
       <section>
