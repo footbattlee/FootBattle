@@ -89,12 +89,7 @@ export default async function Page({
       </section>
 
       {selectedDifficulty ? (
-        <LocalizedGuessThePlayer
-          key={`super-lig-${selectedDifficulty}`}
-          locale={locale as Locale}
-          requestSuffix={`?mode=super_lig&difficulty=${selectedDifficulty}`}
-          analyticsGameName="super_lig_guess_the_player"
-        />
+        <LocalizedGuessThePlayer key={`super-lig-${selectedDifficulty}`} locale={locale as Locale} />
       ) : (
         <section className="mx-auto max-w-6xl px-4 pb-16 pt-8 sm:px-6">
           <div className="mx-auto max-w-2xl rounded-3xl border border-white/10 bg-[#0c1929] p-6 text-center sm:p-8">
