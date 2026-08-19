@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 
 type SupportedGame =
   | "guess_the_player"
+  | "super_lig_guess_the_player"
   | "player_quiz"
   | "tic_tac_toe"
   | "wordle";
@@ -17,6 +18,7 @@ type RequestBody = {
 
 const SUPPORTED_GAMES = new Set<SupportedGame>([
   "guess_the_player",
+  "super_lig_guess_the_player",
   "player_quiz",
   "tic_tac_toe",
   "wordle",
