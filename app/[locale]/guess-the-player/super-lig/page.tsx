@@ -20,8 +20,8 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   return {
     title: en ? "Süper Lig Guess the Player | FootBattle" : "Süper Lig Futbolcuyu Tahmin Et | FootBattle",
     description: en
-      ? "Guess footballers who currently play or previously played in Turkey's Süper Lig. Choose easy, medium, hard or mixed difficulty."
-      : "Süper Lig'de oynayan veya geçmişte oynamış futbolcuları tahmin et. Kolay, orta, zor veya karışık zorluk seç.",
+      ? "Guess footballers currently playing in Turkey's Süper Lig. Choose easy, medium, hard or mixed difficulty."
+      : "Şu anda Süper Lig'de oynayan futbolcuları tahmin et. Kolay, orta, zor veya karışık zorluk seç.",
     alternates: {
       canonical: `${SITE_URL}/${locale}/guess-the-player/super-lig`,
       languages: {
@@ -57,8 +57,8 @@ export default async function Page({
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
             {en
-              ? "The hidden player has played in Turkey's Süper Lig at some point in his career. Career history is used, so former league stars are included too."
-              : "Gizli futbolcu kariyerinin bir döneminde Süper Lig'de oynadı. Kariyer geçmişini kullandığımız için eski lig efsaneleri de havuzda."}
+              ? "The hidden player is currently playing in Turkey's Süper Lig. Search and guesses are also limited to active Süper Lig players."
+              : "Gizli futbolcu şu anda Süper Lig'de oynuyor. Arama ve tahmin listesi de yalnızca aktif Süper Lig futbolcularından oluşuyor."}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             {DIFFICULTIES.map((item) => (
@@ -77,8 +77,8 @@ export default async function Page({
           </div>
           <p className="mt-3 text-xs text-slate-500">
             {en
-              ? "Difficulty is based on player popularity: Easy 84+, Medium 68–83, Hard 50–67. Mixed uses all eligible players."
-              : "Zorluk oyuncu popülerliğine göre belirlenir: Kolay 84+, Orta 68–83, Zor 50–67. Karışık tüm uygun havuzu kullanır."}
+              ? "Difficulty is based on player popularity: Easy 84+, Medium 68–83, Hard 50–67. Mixed uses all eligible active players."
+              : "Zorluk oyuncu popülerliğine göre belirlenir: Kolay 84+, Orta 68–83, Zor 50–67. Karışık tüm uygun aktif oyuncuları kullanır."}
           </p>
         </div>
       </section>
