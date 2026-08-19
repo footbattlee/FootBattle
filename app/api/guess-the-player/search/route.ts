@@ -6,6 +6,12 @@ import {
   positionToDisplayName,
   preferredFootToDisplayName,
 } from "@/lib/football/localization";
+import {
+  filterSuperLigPlayerIdsByDifficulty,
+  getSuperLigCareerPlayerIds,
+  getSuperLigDifficulty,
+  isSuperLigGuessRequest,
+} from "@/lib/guess-the-player/super-lig";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const MINIMUM_SEARCH_LENGTH = 3;
@@ -36,7 +42,18 @@ export async function GET(request: Request) {
     }
 
     const safeQuery = query.replace(/%/g, "").replace(/_/g, "");
-    const { data, error } = await supabaseAdmin
+    const superLigMode = isSuperLigGuessRequest(request);
+
+    let allowedIds: number[] | null = null;
+    if (superLigMode) {
+      const careerIds = await getSuperLigCareerPlayerIds();
+      allowedIds = await filterSuperLigPlayerIdsByDifficulty(careerIds, getSuperLigDifficulty(request));
+      if (allowedIds.length === 0) {
+        return NextResponse.json({ ok: true, players: [], minimumSearchLength: MINIMUM_SEARCH_LENGTH });
+      }
+    }
+
+    let queryBuilder = supabaseAdmin
       .from("guess_players")
       .select(`
         player_id,
@@ -52,7 +69,14 @@ export async function GET(request: Request) {
         popularity_score
       `)
       .eq("is_playable", 1)
-      .ilike("name_normalized", `%${safeQuery}%`)
+      .ilike("name_normalized", `%${safeQuery}%`);
+
+    if (allowedIds) {
+      // Search candidates first, then keep only the Süper Lig alumni pool.
+      queryBuilder = queryBuilder.in("player_id", allowedIds.slice(0, 1500));
+    }
+
+    const { data, error } = await queryBuilder
       .order("popularity_score", { ascending: false, nullsFirst: false })
       .limit(MAXIMUM_RESULTS);
 
@@ -73,7 +97,7 @@ export async function GET(request: Request) {
       imageUrl: player.image_url ?? null,
     }));
 
-    return NextResponse.json({ ok: true, players, minimumSearchLength: MINIMUM_SEARCH_LENGTH });
+    return NextResponse.json({ ok: true, players, minimumSearchLength: MINIMUM_SEARCH_LENGTH, mode: superLigMode ? "super_lig" : "standard" });
   } catch (error) {
     console.error("Guess the Player search endpoint hatası:", error);
     return NextResponse.json({ ok: false, error: "Beklenmeyen bir hata oluştu." }, { status: 500 });
