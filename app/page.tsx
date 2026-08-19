@@ -1,5 +1,5 @@
-import UnifiedHomePage from "@/components/UnifiedHomePage";
+import { redirect } from "next/navigation";
 
 export default function HomePage() {
-  return <UnifiedHomePage locale="tr" />;
+  redirect("/tr");
 }
