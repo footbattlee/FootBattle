@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import LocalizedGuessThePlayer from "@/components/i18n/LocalizedGuessThePlayer";
@@ -22,5 +23,22 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  return <div data-game="guess-the-player"><LocalizedGuessThePlayer locale={locale as Locale} /></div>;
+  const en = locale === "en";
+  return (
+    <div data-game="guess-the-player" className="bg-[#07111f]">
+      <div className="mx-auto max-w-6xl px-4 pt-5 sm:px-6">
+        <Link
+          href={`/${locale}/guess-the-player/super-lig`}
+          className="flex items-center justify-between gap-4 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 transition hover:bg-red-500/15"
+        >
+          <div>
+            <p className="text-xs font-black uppercase tracking-wider text-red-300">🇹🇷 {en ? "NEW MODE" : "YENİ MOD"}</p>
+            <p className="mt-1 font-black text-white">{en ? "Süper Lig Guess the Player" : "Süper Lig Futbolcuyu Tahmin Et"}</p>
+          </div>
+          <span className="shrink-0 text-sm font-black text-red-200">{en ? "Play →" : "Oyna →"}</span>
+        </Link>
+      </div>
+      <LocalizedGuessThePlayer locale={locale as Locale} />
+    </div>
+  );
 }
