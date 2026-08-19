@@ -46,6 +46,7 @@ const RANGE_OPTIONS: Array<{ key: RangeKey; label: string }> = [
 const GAME_LABELS: Record<string, string> = {
   wordle: "Wordle",
   guess_the_player: "Guess the Player",
+  super_lig_guess_the_player: "Süper Lig Guess the Player",
   player_quiz: "Player Quiz",
   transfer_quiz: "Transfer Quiz",
   tic_tac_toe: "Futbol Tic Tac Toe",
@@ -132,7 +133,7 @@ export default function AdminAnalyticsPage() {
         <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
           <SummaryCard label="Başlatma" value={formatNumber(summary.totalStarted)} icon="🎮" loading={loading} />
           <SummaryCard label="Tamamlama" value={formatNumber(summary.totalCompleted)} icon="✅" loading={loading} />
-          <SummaryCard label="Tahmini Terk" value={formatNumber(summary.totalAbandoned)} icon="🚪" loading={loading} />
+          <SummaryCard label="Tahmini Terk (15 dk+)" value={formatNumber(summary.totalAbandoned)} icon="🚪" loading={loading} />
           <SummaryCard label="Ort. Süre" value={formatDuration(summary.averageDurationSeconds)} icon="⏱️" loading={loading} />
           <SummaryCard label="Tekrar Oyna" value={formatNumber(summary.totalPlayAgain)} icon="🔁" loading={loading} />
           <SummaryCard label="Paylaşım" value={formatNumber(summary.totalShared)} icon="📤" loading={loading} />
@@ -141,12 +142,12 @@ export default function AdminAnalyticsPage() {
         <section className="mt-4 grid gap-4 lg:grid-cols-3">
           <InsightCard label="Genel Tamamlama Oranı" value={formatPercentage(overallCompletionRate)} detail="Tamamlanan oyunların başlatılan oyunlara oranı." tone="green" />
           <InsightCard label="En Çok Oynanan" value={mostPlayedGame ? getGameLabel(mostPlayedGame.gameName) : "-"} detail={mostPlayedGame ? `${formatNumber(mostPlayedGame.started)} kez başlatıldı.` : "Henüz veri yok."} tone="yellow" />
-          <InsightCard label="En Çok Terk Edilen" value={mostAbandonedGame ? getGameLabel(mostAbandonedGame.gameName) : "-"} detail={mostAbandonedGame ? `${formatNumber(mostAbandonedGame.abandoned)} tamamlanmamış başlatma.` : "Henüz veri yok."} tone="red" />
+          <InsightCard label="En Çok Terk Edilen" value={mostAbandonedGame ? getGameLabel(mostAbandonedGame.gameName) : "-"} detail={mostAbandonedGame ? `${formatNumber(mostAbandonedGame.abandoned)} adet 15 dakikadan eski tamamlanmamış başlangıç.` : "Henüz veri yok."} tone="red" />
         </section>
 
         <section className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
           <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
-            <div><p className="font-black">Oyun Bazlı Performans</p><p className="mt-1 text-xs text-slate-500">Terk sayısı = başlatma - tamamlama. Süre, aynı oturumdaki start/completion eşleşmelerinden hesaplanır.</p></div>
+            <div><p className="font-black">Oyun Bazlı Performans</p><p className="mt-1 text-xs text-slate-500">Tahmini terk; completion ile eşleşmeyen ve en az 15 dakika önce başlamış oturumdur. Aktif/yeni oturumlar terk sayılmaz.</p></div>
             <button type="button" onClick={() => void loadAnalytics()} disabled={loading} className="rounded-xl border border-white/10 px-4 py-2 text-xs font-black text-slate-300 disabled:opacity-40">{loading ? "Yükleniyor..." : "Yenile"}</button>
           </div>
           <div className="hidden overflow-x-auto md:block">
