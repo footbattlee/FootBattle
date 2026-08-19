@@ -6,16 +6,14 @@ import {
   positionToDisplayName,
   preferredFootToDisplayName,
 } from "@/lib/football/localization";
-import {
-  getSuperLigCareerPlayerIds,
-  isSuperLigGuessRequest,
-} from "@/lib/guess-the-player/super-lig";
+import { isSuperLigGuessRequest } from "@/lib/guess-the-player/super-lig";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const MINIMUM_SEARCH_LENGTH = 3;
 const MAXIMUM_RESULTS = 10;
 const CANDIDATE_LIMIT = 120;
 const FALLBACK_LIMIT = 250;
+const SUPER_LIG_COMPETITION_ID = "TR1";
 
 const PLAYER_SELECT = `
   player_id,
@@ -90,7 +88,53 @@ export async function GET(request: Request) {
     const safeQuery = query.replace(/%/g, "").replace(/_/g, "");
     const superLigMode = isSuperLigGuessRequest(request);
 
-    // 1) Hızlı yol: mevcut normalize edilmiş alan üzerinden ara.
+    if (superLigMode) {
+      // Süper Lig modu sadece şu an TR1'de aktif olan oyuncuları arar.
+      // Kariyer tablosu + büyük fallback sorgularını tamamen atladığımız için bu yol çok daha hızlıdır.
+      const { data, error } = await supabaseAdmin
+        .from("guess_players")
+        .select(PLAYER_SELECT)
+        .eq("is_playable", 1)
+        .eq("current_competition_id", SUPER_LIG_COMPETITION_ID)
+        .ilike("name_normalized", `%${safeQuery}%`)
+        .order("popularity_score", { ascending: false, nullsFirst: false })
+        .limit(30);
+
+      if (error) {
+        console.error("Süper Lig oyuncu araması başarısız:", error);
+        return NextResponse.json({ ok: false, error: "Oyuncular aranırken bir hata oluştu." }, { status: 500 });
+      }
+
+      const rows = (data ?? [])
+        .filter((player) => normalizeSearchText(player.name ?? "").includes(query))
+        .sort((a, b) => {
+          const rankDiff = nameRank(a.name ?? "", query) - nameRank(b.name ?? "", query);
+          if (rankDiff !== 0) return rankDiff;
+          return Number(b.popularity_score ?? 0) - Number(a.popularity_score ?? 0);
+        })
+        .slice(0, MAXIMUM_RESULTS);
+
+      const players = rows.map((player) => ({
+        id: player.player_id,
+        fullName: player.name,
+        nationality: nationalityToDisplayName(player.nationality),
+        position: positionToDisplayName(player.sub_position ?? player.position),
+        club: player.current_club_name ?? "Kulüpsüz",
+        league: leagueToDisplayName(player.current_competition_id),
+        age: typeof player.age === "number" ? player.age : Number(player.age ?? 0),
+        preferredFoot: preferredFootToDisplayName(player.preferred_foot),
+        imageUrl: player.image_url ?? null,
+      }));
+
+      return NextResponse.json({
+        ok: true,
+        players,
+        minimumSearchLength: MINIMUM_SEARCH_LENGTH,
+        mode: "super_lig",
+      });
+    }
+
+    // Standart Guess The Player için mevcut geniş arama davranışı korunur.
     const { data: directRows, error: directError } = await supabaseAdmin
       .from("guess_players")
       .select(PLAYER_SELECT)
@@ -104,9 +148,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ ok: false, error: "Oyuncular aranırken bir hata oluştu." }, { status: 500 });
     }
 
-    // 2) Aksan fallback'i: Dzeko -> Džeko gibi isimlerde name_normalized alanı
-    // yeterli olmayabiliyor. İlk ve son karakterle daha geniş aday havuzu çekip
-    // Node tarafında Unicode aksanlarını kaldırarak gerçek eşleşmeyi yapıyoruz.
     const compact = safeQuery.replace(/[^a-z0-9]/g, "");
     let fallbackRows: typeof directRows = [];
 
@@ -127,29 +168,9 @@ export async function GET(request: Request) {
       else console.warn("Guess the Player aksan fallback araması başarısız:", error);
     }
 
-    let rows = mergeRows(directRows ?? [], fallbackRows ?? [])
-      .filter((player) => normalizeSearchText(player.name ?? "").includes(query));
-
-    let superLigIds: Set<number> | null = null;
-    if (superLigMode) {
-      try {
-        // Bu liste yalnızca sıralama önceliği için kullanılır. Arama sonucunu sert
-        // filtrelemiyoruz; kariyer datasında eksik kayıt varsa Džeko gibi gerçek
-        // Süper Lig oyuncularının kullanıcıdan kaybolmasını istemiyoruz.
-        superLigIds = new Set(await getSuperLigCareerPlayerIds());
-      } catch (error) {
-        console.warn("Süper Lig arama önceliği hazırlanamadı:", error);
-      }
-    }
-
-    rows = rows
+    const rows = mergeRows(directRows ?? [], fallbackRows ?? [])
+      .filter((player) => normalizeSearchText(player.name ?? "").includes(query))
       .sort((a, b) => {
-        if (superLigIds) {
-          const aSuper = superLigIds.has(Number(a.player_id)) || a.current_competition_id === "TR1";
-          const bSuper = superLigIds.has(Number(b.player_id)) || b.current_competition_id === "TR1";
-          if (aSuper !== bSuper) return aSuper ? -1 : 1;
-        }
-
         const rankDiff = nameRank(a.name ?? "", query) - nameRank(b.name ?? "", query);
         if (rankDiff !== 0) return rankDiff;
         return Number(b.popularity_score ?? 0) - Number(a.popularity_score ?? 0);
@@ -172,7 +193,7 @@ export async function GET(request: Request) {
       ok: true,
       players,
       minimumSearchLength: MINIMUM_SEARCH_LENGTH,
-      mode: superLigMode ? "super_lig" : "standard",
+      mode: "standard",
     });
   } catch (error) {
     console.error("Guess the Player search endpoint hatası:", error);
