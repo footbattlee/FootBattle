@@ -8,8 +8,9 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 const GAME_DURATION_SECONDS = 120;
 const STARTING_PASSES = 3;
 const SCORE_PER_CORRECT = 20;
+const MINIMUM_POPULARITY_SCORE = 85;
 
-type PlayerRow = { player_id: number; name: string; nationality: string | null };
+type PlayerRow = { player_id: number; name: string; nationality: string | null; popularity_score: number | null };
 type ClubNationPairRow = { club_name: string; duel_tier: string; nationality: string; matching_player_count: number };
 
 function shuffleArray<T>(values: T[]) {
@@ -38,12 +39,13 @@ async function loadValidPairs() {
   return rows;
 }
 
-async function findAnswerPlayer(clubName: string, nationality: string) {
+async function findPopularAnchorPlayer(clubName: string, nationality: string) {
   const { data: clubRows, error: clubError } = await supabaseAdmin
     .from("player_quiz_clubs")
     .select("player_id")
     .eq("club_name", clubName);
   if (clubError) throw clubError;
+
   const playerIds = Array.from(new Set((clubRows ?? []).map((row) => Number(row.player_id)).filter((id) => Number.isInteger(id) && id > 0)));
   if (!playerIds.length) return null;
 
@@ -52,12 +54,15 @@ async function findAnswerPlayer(clubName: string, nationality: string) {
     const chunk = playerIds.slice(index, index + 200);
     const { data, error } = await supabaseAdmin
       .from("guess_players")
-      .select("player_id, name, nationality")
+      .select("player_id, name, nationality, popularity_score")
       .in("player_id", chunk)
-      .eq("nationality", nationality);
+      .eq("is_playable", 1)
+      .eq("nationality", nationality)
+      .gte("popularity_score", MINIMUM_POPULARITY_SCORE);
     if (error) throw error;
     matchingPlayers.push(...((data ?? []) as PlayerRow[]));
   }
+
   return matchingPlayers.length ? shuffleArray(matchingPlayers)[0] : null;
 }
 
@@ -67,11 +72,14 @@ async function createQuestion() {
     const clubName = pair.club_name?.trim();
     const nationality = pair.nationality?.trim();
     if (!clubName || !nationality) continue;
-    const player = await findAnswerPlayer(clubName, nationality);
+
+    // Soru kullanıcıya ancak bu kombinasyonda en az bir popularity >= 85
+    // oyuncu varsa gösterilir. Cevap kontrolünde ise tüm gerçek eşleşmeler kabul edilir.
+    const player = await findPopularAnchorPlayer(clubName, nationality);
     if (!player) continue;
     return { playerId: Number(player.player_id), clubName, nationality };
   }
-  throw new Error("Uygun Club Nation sorusu üretilemedi.");
+  throw new Error("Popularity >= 85 cevabı olan uygun Club Nation sorusu üretilemedi.");
 }
 
 export async function POST(request: Request) {
