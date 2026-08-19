@@ -22,19 +22,21 @@ export function getSuperLigDifficulty(request: Request): SuperLigDifficulty {
 }
 
 export function getPopularityBounds(difficulty: SuperLigDifficulty) {
-  if (difficulty === "easy") return { min: 84, max: 100 };
+  if (difficulty === "easy") return { min: 84, max: Number.POSITIVE_INFINITY };
   if (difficulty === "medium") return { min: 68, max: 83.999 };
   if (difficulty === "hard") return { min: 50, max: 67.999 };
-  return { min: 50, max: 100 };
+  return { min: 50, max: Number.POSITIVE_INFINITY };
 }
 
-// Adı geriye dönük uyumluluk için korunuyor. Artık sadece şu anda Süper Lig'de
-// (TR1) oynayan aktif oyuncuları döndürüyor; eski Süper Lig kariyeri yeterli değil.
+// Sadece şu anda Süper Lig'de aktif olan oyuncuları döndürür.
+// current_competition_id tek başına yeterli değil; eski takım verilerinde
+// Ziyech gibi artık ligde olmayan oyuncular TR1 olarak kalabiliyor.
 export async function getSuperLigCareerPlayerIds() {
   const { data, error } = await supabaseAdmin
     .from("guess_players")
     .select("player_id")
     .eq("is_playable", 1)
+    .eq("is_active", 1)
     .eq("current_competition_id", TURKISH_COMPETITION_ID)
     .limit(10000);
 
@@ -49,14 +51,20 @@ export async function filterSuperLigPlayerIdsByDifficulty(playerIds: number[], d
 
   for (let index = 0; index < playerIds.length; index += 300) {
     const batch = playerIds.slice(index, index + 300);
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from("guess_players")
       .select("player_id")
       .in("player_id", batch)
       .eq("is_playable", 1)
+      .eq("is_active", 1)
       .eq("current_competition_id", TURKISH_COMPETITION_ID)
-      .gte("popularity_score", min)
-      .lte("popularity_score", max);
+      .gte("popularity_score", min);
+
+    if (Number.isFinite(max)) {
+      query = query.lte("popularity_score", max);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
     for (const row of data ?? []) output.push(Number(row.player_id));
   }
