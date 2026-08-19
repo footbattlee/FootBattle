@@ -12,6 +12,8 @@ type AnalyticsRow = {
   created_at: string;
 };
 
+const ABANDON_AFTER_MS = 15 * 60 * 1000;
+
 function getStartDate(range: RangeKey) {
   const now = new Date();
 
@@ -78,7 +80,7 @@ export async function GET(request: NextRequest) {
       }
     >();
 
-    // A session can play the same game multiple times. Keep unmatched starts in FIFO order.
+    // Aynı oturum aynı oyunu tekrar oynayabilir. Eşleşmemiş başlangıçları FIFO tutuyoruz.
     const unmatchedStarts = new Map<string, number[]>();
     const allDurations: number[] = [];
 
@@ -116,7 +118,6 @@ export async function GET(request: NextRequest) {
           unmatchedStarts.set(sessionKey, queue);
           if (startedAt) {
             const durationSeconds = Math.round((eventTime - startedAt) / 1000);
-            // Ignore stale/background-session pairings.
             if (durationSeconds >= 1 && durationSeconds <= 3600) {
               game.durations.push(durationSeconds);
               allDurations.push(durationSeconds);
@@ -136,9 +137,23 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // "Tahmini terk" artık doğrudan started-completed değildir. Yeni/halen oynanan
+    // oturumları yanlışlıkla terk saymamak için yalnızca 15 dakikadan eski, completion
+    // eventiyle eşleşmemiş başlangıçları terk kabul ediyoruz.
+    const cutoff = Date.now() - ABANDON_AFTER_MS;
+    const abandonedByGame = new Map<string, number>();
+    for (const [sessionKey, starts] of unmatchedStarts.entries()) {
+      const separatorIndex = sessionKey.lastIndexOf("::");
+      const gameName = separatorIndex >= 0 ? sessionKey.slice(separatorIndex + 2) : "unknown";
+      const staleCount = starts.filter((startedAt) => startedAt <= cutoff).length;
+      if (staleCount > 0) {
+        abandonedByGame.set(gameName, (abandonedByGame.get(gameName) ?? 0) + staleCount);
+      }
+    }
+
     const games = Array.from(gameMap.values())
       .map((game) => {
-        const abandoned = Math.max(0, game.started - game.completed);
+        const abandoned = abandonedByGame.get(game.gameName) ?? 0;
         return {
           gameName: game.gameName,
           started: game.started,
@@ -152,14 +167,13 @@ export async function GET(request: NextRequest) {
       })
       .sort((a, b) => b.started - a.started);
 
-    summary.totalAbandoned = Math.max(0, summary.totalStarted - summary.totalCompleted);
+    summary.totalAbandoned = Array.from(abandonedByGame.values()).reduce((sum, value) => sum + value, 0);
     summary.averageDurationSeconds = average(allDurations);
 
-    let setsQuery = supabaseAdmin
+    const { data: sets, error: setsError } = await supabaseAdmin
       .from("survivor_sets")
       .select("id, slug, title, title_tr, is_active")
       .order("created_at", { ascending: false });
-    const { data: sets, error: setsError } = await setsQuery;
     if (setsError) throw setsError;
 
     const setIds = (sets ?? []).map((set) => set.id);
