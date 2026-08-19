@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { nationalityToDisplayName } from "@/lib/football/localization";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-const MINIMUM_POPULARITY_SCORE = 85;
 const MINIMUM_SEARCH_LENGTH = 2;
 const SEARCH_LIMIT = 20;
 
@@ -19,11 +18,13 @@ export async function GET(request: Request) {
     const normalizedQuery = normalizeSearch(query);
     if (!normalizedQuery) return NextResponse.json({ ok: true, players: [] });
 
+    // Cevap aramasında popularity filtresi YOK.
+    // Popularity >= 85 sadece soru üretim kalitesini belirler; iki takımda da
+    // gerçekten oynamış düşük popularity oyuncular da doğru cevap olabilmelidir.
     const { data: playersData, error: playersError } = await supabaseAdmin
       .from("guess_players")
       .select("player_id, name, name_normalized, nationality, current_club_name, image_url, popularity_score")
       .eq("is_playable", 1)
-      .gte("popularity_score", MINIMUM_POPULARITY_SCORE)
       .ilike("name_normalized", `%${normalizedQuery}%`)
       .order("popularity_score", { ascending: false, nullsFirst: false })
       .limit(SEARCH_LIMIT);
