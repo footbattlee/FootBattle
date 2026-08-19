@@ -4,15 +4,44 @@ export type SuperLigDifficulty = "easy" | "medium" | "hard" | "mixed";
 
 const TURKISH_COMPETITION_ID = "TR1";
 
+// 2026-27 Süper Lig kulüpleri. TFF fikstüründeki güncel 18 takım baz alınır.
+// Antalyaspor, Kayserispor ve Fatih Karagümrük artık bu havuzda değildir.
+export const CURRENT_SUPER_LIG_CLUB_NAMES = [
+  "Alanyaspor",
+  "Amed SK",
+  "Basaksehir FK",
+  "Beşiktaş Jimnastik Kulübü",
+  "Caykur Rizespor",
+  "Corum FK",
+  "Erzurumspor FK",
+  "Eyüpspor",
+  "Fenerbahce",
+  "Galatasaray",
+  "Gaziantep FK",
+  "Gençlerbirliği Spor Kulübü",
+  "Göztepe",
+  "Kasimpasa",
+  "Kocaelispor",
+  "Konyaspor",
+  "Samsunspor",
+  "Trabzonspor",
+] as const;
+
 function readReferrer(request: Request) {
   return request.headers.get("referer") ?? "";
 }
 
 export function isSuperLigGuessRequest(request: Request) {
+  const requestUrl = new URL(request.url);
+  if (requestUrl.searchParams.get("mode") === "super_lig") return true;
   return readReferrer(request).includes("/guess-the-player/super-lig");
 }
 
 export function getSuperLigDifficulty(request: Request): SuperLigDifficulty {
+  const requestUrl = new URL(request.url);
+  const explicit = requestUrl.searchParams.get("difficulty");
+  if (explicit === "easy" || explicit === "medium" || explicit === "hard" || explicit === "mixed") return explicit;
+
   try {
     const url = new URL(readReferrer(request));
     const value = url.searchParams.get("difficulty");
@@ -28,9 +57,8 @@ export function getPopularityBounds(difficulty: SuperLigDifficulty) {
   return { min: 50, max: Number.POSITIVE_INFINITY };
 }
 
-// Sadece şu anda Süper Lig'de aktif olan oyuncuları döndürür.
-// current_competition_id tek başına yeterli değil; eski takım verilerinde
-// Ziyech gibi artık ligde olmayan oyuncular TR1 olarak kalabiliyor.
+// Güncel Süper Lig takım whitelist'i + TR1 + aktif oyuncu şartları birlikte kullanılır.
+// Böylece eski TR1 etiketi kalmış küme düşen kulüpler hedef havuzuna giremez.
 export async function getSuperLigCareerPlayerIds() {
   const { data, error } = await supabaseAdmin
     .from("guess_players")
@@ -38,6 +66,7 @@ export async function getSuperLigCareerPlayerIds() {
     .eq("is_playable", 1)
     .eq("is_active", 1)
     .eq("current_competition_id", TURKISH_COMPETITION_ID)
+    .in("current_club_name", [...CURRENT_SUPER_LIG_CLUB_NAMES])
     .limit(10000);
 
   if (error) throw error;
@@ -58,6 +87,7 @@ export async function filterSuperLigPlayerIdsByDifficulty(playerIds: number[], d
       .eq("is_playable", 1)
       .eq("is_active", 1)
       .eq("current_competition_id", TURKISH_COMPETITION_ID)
+      .in("current_club_name", [...CURRENT_SUPER_LIG_CLUB_NAMES])
       .gte("popularity_score", min);
 
     if (Number.isFinite(max)) {
