@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 import {
-  getPopularityBounds,
+  filterSuperLigPlayerIdsByDifficulty,
+  getSuperLigCareerPlayerIds,
   getSuperLigDifficulty,
   isSuperLigGuessRequest,
 } from "@/lib/guess-the-player/super-lig";
@@ -10,7 +11,6 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 const MAX_ATTEMPTS = 7;
 const MINIMUM_SEARCH_LENGTH = 3;
 const MINIMUM_POPULARITY_SCORE = 84;
-const SUPER_LIG_COMPETITION_ID = "TR1";
 
 type CandidatePlayer = {
   player_id: number;
@@ -56,6 +56,22 @@ function isCompletePlayer(player: CandidatePlayer) {
   );
 }
 
+async function getRandomPlayerFromIds(ids: number[]) {
+  if (ids.length === 0) return null;
+  const shuffled = [...ids].sort(() => Math.random() - 0.5).slice(0, 40);
+  for (const id of shuffled) {
+    const { data, error } = await supabaseAdmin
+      .from("guess_players")
+      .select(PLAYER_SELECT)
+      .eq("player_id", id)
+      .eq("is_playable", 1)
+      .maybeSingle();
+    if (error) throw error;
+    if (data && isCompletePlayer(data)) return data as CandidatePlayer;
+  }
+  return null;
+}
+
 async function getNormalRandomPlayer() {
   const { count, error: countError } = await supabaseAdmin
     .from("guess_players")
@@ -80,28 +96,6 @@ async function getNormalRandomPlayer() {
   }
 
   return null;
-}
-
-async function getCurrentSuperLigRandomPlayer(difficulty: ReturnType<typeof getSuperLigDifficulty>) {
-  const { min, max } = getPopularityBounds(difficulty);
-
-  const baseQuery = () =>
-    supabaseAdmin
-      .from("guess_players")
-      .select(PLAYER_SELECT)
-      .eq("is_playable", 1)
-      .eq("current_competition_id", SUPER_LIG_COMPETITION_ID)
-      .gte("popularity_score", min)
-      .lte("popularity_score", max)
-      .order("popularity_score", { ascending: false, nullsFirst: false });
-
-  const { data: pool, error } = await baseQuery().limit(500);
-  if (error) throw error;
-
-  const complete = (pool ?? []).filter((player) => isCompletePlayer(player as CandidatePlayer)) as CandidatePlayer[];
-  if (!complete.length) return null;
-
-  return complete[Math.floor(Math.random() * complete.length)] ?? null;
 }
 
 export async function GET(request: Request) {
@@ -132,7 +126,9 @@ export async function GET(request: Request) {
       if (error) throw error;
       if (data && isCompletePlayer(data)) targetPlayer = data as CandidatePlayer;
     } else if (superLigMode) {
-      targetPlayer = await getCurrentSuperLigRandomPlayer(difficulty);
+      const currentIds = await getSuperLigCareerPlayerIds();
+      const eligibleIds = await filterSuperLigPlayerIdsByDifficulty(currentIds, difficulty);
+      targetPlayer = await getRandomPlayerFromIds(eligibleIds);
     } else {
       targetPlayer = await getNormalRandomPlayer();
     }
@@ -158,7 +154,7 @@ export async function GET(request: Request) {
       sessionId: session.id,
       maxAttempts: session.max_attempts,
       minimumSearchLength: MINIMUM_SEARCH_LENGTH,
-      minimumPopularityScore: superLigMode ? getPopularityBounds(difficulty).min : MINIMUM_POPULARITY_SCORE,
+      minimumPopularityScore: superLigMode ? 50 : MINIMUM_POPULARITY_SCORE,
       board: { columns: ["nationality", "club", "competition", "position", "age", "preferredFoot"] },
     });
   } catch (error) {
