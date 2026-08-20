@@ -27,6 +27,7 @@ type PairInfo = {
 type TeamTeamSourceData = {
   teamNames: string[];
   history: ClubHistoryRow[];
+  playablePlayerIds: number[];
   popularPlayerIds: number[];
 };
 
@@ -63,6 +64,25 @@ function intersect(first: Set<string>, second: Set<string>) {
     if (large.has(value)) result.add(value);
   }
   return result;
+}
+
+function buildClubPairMap(clubsByPlayer: Map<number, Set<string>>) {
+  const pairMap = new Map<string, PairInfo>();
+
+  for (const [playerId, clubSet] of clubsByPlayer) {
+    const clubs = Array.from(clubSet);
+    for (let first = 0; first < clubs.length - 1; first += 1) {
+      for (let second = first + 1; second < clubs.length; second += 1) {
+        if (clubs[first] === clubs[second]) continue;
+        const key = pairKey(clubs[first], clubs[second]);
+        const pair = pairMap.get(key) ?? { playerIds: [] };
+        if (!pair.playerIds.includes(playerId)) pair.playerIds.push(playerId);
+        pairMap.set(key, pair);
+      }
+    }
+  }
+
+  return pairMap;
 }
 
 async function loadEligibleTeamNames() {
@@ -107,6 +127,27 @@ async function loadClubHistory(teamNames: string[]) {
   return rows;
 }
 
+async function loadPlayableIds(playerIds: number[]) {
+  const playable = new Set<number>();
+
+  for (let index = 0; index < playerIds.length; index += PLAYER_QUERY_CHUNK) {
+    const chunk = playerIds.slice(index, index + PLAYER_QUERY_CHUNK);
+    const { data, error } = await supabaseAdmin
+      .from("guess_players")
+      .select("player_id")
+      .eq("is_playable", 1)
+      .in("player_id", chunk);
+
+    if (error) throw error;
+    for (const row of data ?? []) {
+      const id = Number(row.player_id);
+      if (Number.isInteger(id) && id > 0) playable.add(id);
+    }
+  }
+
+  return playable;
+}
+
 async function loadPopularPlayableIds(playerIds: number[]) {
   const popular = new Set<number>();
 
@@ -141,6 +182,7 @@ async function loadTeamTeamSourceData(): Promise<TeamTeamSourceData> {
     return {
       teamNames,
       history: [],
+      playablePlayerIds: [],
       popularPlayerIds: [],
     };
   }
@@ -153,14 +195,17 @@ async function loadTeamTeamSourceData(): Promise<TeamTeamSourceData> {
         .filter((id) => Number.isInteger(id) && id > 0),
     ),
   );
-  const popularPlayerIds = Array.from(
-    await loadPopularPlayableIds(relevantPlayerIds),
-  );
+
+  const [playablePlayerIds, popularPlayerIds] = await Promise.all([
+    loadPlayableIds(relevantPlayerIds),
+    loadPopularPlayableIds(relevantPlayerIds),
+  ]);
 
   const data: TeamTeamSourceData = {
     teamNames,
     history,
-    popularPlayerIds,
+    playablePlayerIds: Array.from(playablePlayerIds),
+    popularPlayerIds: Array.from(popularPlayerIds),
   };
 
   teamTeamSourceCache = {
@@ -182,39 +227,46 @@ function gridQuality(playerCounts: number[]) {
 }
 
 async function generateTeamTeamGrid(): Promise<TicTacToeGrid | null> {
-  const { teamNames, history, popularPlayerIds } = await loadTeamTeamSourceData();
+  const { teamNames, history, playablePlayerIds, popularPlayerIds } =
+    await loadTeamTeamSourceData();
   if (teamNames.length < 6) return null;
 
+  const playableIds = new Set(playablePlayerIds);
   const popularIds = new Set(popularPlayerIds);
 
-  const clubsByPlayer = new Map<number, Set<string>>();
+  const popularClubsByPlayer = new Map<number, Set<string>>();
+  const allPlayableClubsByPlayer = new Map<number, Set<string>>();
+
   for (const row of history) {
     const playerId = Number(row.player_id);
-    if (!popularIds.has(playerId)) continue;
     const club = normalize(row.club_name);
     if (!club) continue;
-    if (!clubsByPlayer.has(playerId)) clubsByPlayer.set(playerId, new Set<string>());
-    clubsByPlayer.get(playerId)!.add(club);
-  }
 
-  // Bu pairMap yalnızca grid ÜRETİM kalitesi içindir. Hücrede minimum 2 adet
-  // popularity >= 85 oyuncu olmasını garanti eder. Cevap kontrolü ayrı ve sınırsızdır.
-  const pairMap = new Map<string, PairInfo>();
-  for (const [playerId, clubSet] of clubsByPlayer) {
-    const clubs = Array.from(clubSet);
-    for (let first = 0; first < clubs.length - 1; first += 1) {
-      for (let second = first + 1; second < clubs.length; second += 1) {
-        if (clubs[first] === clubs[second]) continue;
-        const key = pairKey(clubs[first], clubs[second]);
-        const pair = pairMap.get(key) ?? { playerIds: [] };
-        if (!pair.playerIds.includes(playerId)) pair.playerIds.push(playerId);
-        pairMap.set(key, pair);
+    if (playableIds.has(playerId)) {
+      if (!allPlayableClubsByPlayer.has(playerId)) {
+        allPlayableClubsByPlayer.set(playerId, new Set<string>());
       }
+      allPlayableClubsByPlayer.get(playerId)!.add(club);
+    }
+
+    if (popularIds.has(playerId)) {
+      if (!popularClubsByPlayer.has(playerId)) {
+        popularClubsByPlayer.set(playerId, new Set<string>());
+      }
+      popularClubsByPlayer.get(playerId)!.add(club);
     }
   }
 
+  // popularPairMap yalnızca grid ÜRETİM kalitesi içindir. Hücrede minimum 2 adet
+  // popularity >= 85 oyuncu olmasını garanti eder.
+  const popularPairMap = buildClubPairMap(popularClubsByPlayer);
+
+  // answerPairMap ise cevap doğrulamasının gerçek kaynağıdır. Popularity sınırı yoktur;
+  // kariyeri iki kulüple de eşleşen tüm is_playable=1 oyuncular kabul edilir.
+  const answerPairMap = buildClubPairMap(allPlayableClubsByPlayer);
+
   const adjacency = new Map<string, Set<string>>();
-  for (const [key, pair] of pairMap) {
+  for (const [key, pair] of popularPairMap) {
     if (pair.playerIds.length < MIN_CELL_PLAYERS) continue;
     const [firstClub, secondClub] = key.split("|||");
     if (!adjacency.has(firstClub)) adjacency.set(firstClub, new Set<string>());
@@ -269,19 +321,25 @@ async function generateTeamTeamGrid(): Promise<TicTacToeGrid | null> {
 
         for (let rowIndex = 0; rowIndex < 3; rowIndex += 1) {
           for (let columnIndex = 0; columnIndex < 3; columnIndex += 1) {
-            const pair = pairMap.get(pairKey(rowClubs[rowIndex], columnClubs[columnIndex]));
-            if (!pair || pair.playerIds.length < MIN_CELL_PLAYERS) {
+            const key = pairKey(rowClubs[rowIndex], columnClubs[columnIndex]);
+            const popularPair = popularPairMap.get(key);
+            const answerPair = answerPairMap.get(key);
+
+            if (!popularPair || popularPair.playerIds.length < MIN_CELL_PLAYERS) {
               valid = false;
               break;
             }
-            counts.push(pair.playerIds.length);
+
+            counts.push(popularPair.playerIds.length);
+            const validPlayerIds = answerPair?.playerIds ?? popularPair.playerIds;
+
             cells.push({
               rowIndex,
               columnIndex,
               row: rows[rowIndex],
               column: columns[columnIndex],
-              validPlayerIds: [...pair.playerIds],
-              validPlayerCount: pair.playerIds.length,
+              validPlayerIds: [...validPlayerIds],
+              validPlayerCount: validPlayerIds.length,
             });
           }
           if (!valid) break;
@@ -307,7 +365,14 @@ async function generateTeamTeamGrid(): Promise<TicTacToeGrid | null> {
 }
 
 async function gridHasEnoughPopularAnswers(grid: TicTacToeGrid) {
-  const ids = Array.from(new Set(grid.cells.flatMap((cell) => cell.validPlayerIds).map(Number).filter((id) => Number.isInteger(id) && id > 0)));
+  const ids = Array.from(
+    new Set(
+      grid.cells
+        .flatMap((cell) => cell.validPlayerIds)
+        .map(Number)
+        .filter((id) => Number.isInteger(id) && id > 0),
+    ),
+  );
   if (!ids.length) return false;
 
   const popularIds = await loadPopularPlayableIds(ids);
@@ -352,5 +417,9 @@ export async function generateBalancedTicTacToeGrid(): Promise<TicTacToeGrid> {
   const teamTeam = await generateTeamTeamGrid();
   if (teamTeam) return teamTeam;
 
-  throw new Error(`Popularity >= ${MIN_PLAYER_POPULARITY} cevabı yeterli Tic Tac Toe gridi üretilemedi.${lastGrid ? " Son aday reddedildi." : ""}`);
+  throw new Error(
+    `Popularity >= ${MIN_PLAYER_POPULARITY} cevabı yeterli Tic Tac Toe gridi üretilemedi.${
+      lastGrid ? " Son aday reddedildi." : ""
+    }`,
+  );
 }
