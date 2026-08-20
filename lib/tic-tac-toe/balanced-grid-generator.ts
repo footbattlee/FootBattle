@@ -8,11 +8,12 @@ import {
 const MIN_TEAM_SCORE = 80;
 const MIN_CELL_PLAYERS = 2;
 const MIN_PLAYER_POPULARITY = 85;
-const MAX_TEAMS = 70;
+const MAX_TEAMS = 50;
 const TEAM_QUERY_CHUNK = 30;
 const PLAYER_QUERY_CHUNK = 200;
 const DB_PAGE_SIZE = 1000;
-const MAX_FALLBACK_ATTEMPTS = 10;
+const MAX_FALLBACK_ATTEMPTS = 3;
+const TEAM_TEAM_CACHE_TTL_MS = 5 * 60 * 1000;
 
 type ClubHistoryRow = {
   player_id: number;
@@ -22,6 +23,19 @@ type ClubHistoryRow = {
 type PairInfo = {
   playerIds: number[];
 };
+
+type TeamTeamSourceData = {
+  teamNames: string[];
+  history: ClubHistoryRow[];
+  popularPlayerIds: number[];
+};
+
+let teamTeamSourceCache:
+  | {
+      expiresAt: number;
+      data: TeamTeamSourceData;
+    }
+  | null = null;
 
 function normalize(value: unknown) {
   return String(value ?? "").trim().replace(/\s+/g, " ");
@@ -115,6 +129,48 @@ async function loadPopularPlayableIds(playerIds: number[]) {
   return popular;
 }
 
+async function loadTeamTeamSourceData(): Promise<TeamTeamSourceData> {
+  const now = Date.now();
+
+  if (teamTeamSourceCache && teamTeamSourceCache.expiresAt > now) {
+    return teamTeamSourceCache.data;
+  }
+
+  const teamNames = await loadEligibleTeamNames();
+  if (teamNames.length < 6) {
+    return {
+      teamNames,
+      history: [],
+      popularPlayerIds: [],
+    };
+  }
+
+  const history = await loadClubHistory(teamNames);
+  const relevantPlayerIds = Array.from(
+    new Set(
+      history
+        .map((row) => Number(row.player_id))
+        .filter((id) => Number.isInteger(id) && id > 0),
+    ),
+  );
+  const popularPlayerIds = Array.from(
+    await loadPopularPlayableIds(relevantPlayerIds),
+  );
+
+  const data: TeamTeamSourceData = {
+    teamNames,
+    history,
+    popularPlayerIds,
+  };
+
+  teamTeamSourceCache = {
+    expiresAt: now + TEAM_TEAM_CACHE_TTL_MS,
+    data,
+  };
+
+  return data;
+}
+
 function gridQuality(playerCounts: number[]) {
   return playerCounts.reduce((total, count) => {
     if (count <= 2) return total + 3;
@@ -126,18 +182,10 @@ function gridQuality(playerCounts: number[]) {
 }
 
 async function generateTeamTeamGrid(): Promise<TicTacToeGrid | null> {
-  const teamNames = await loadEligibleTeamNames();
+  const { teamNames, history, popularPlayerIds } = await loadTeamTeamSourceData();
   if (teamNames.length < 6) return null;
 
-  const history = await loadClubHistory(teamNames);
-  const relevantPlayerIds = Array.from(
-    new Set(
-      history
-        .map((row) => Number(row.player_id))
-        .filter((id) => Number.isInteger(id) && id > 0),
-    ),
-  );
-  const popularIds = await loadPopularPlayableIds(relevantPlayerIds);
+  const popularIds = new Set(popularPlayerIds);
 
   const clubsByPlayer = new Map<number, Set<string>>();
   for (const row of history) {
