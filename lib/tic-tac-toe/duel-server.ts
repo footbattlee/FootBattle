@@ -315,8 +315,15 @@ export async function maybeFinalizeDuel(
 
   if (!timedOut && !bothFinished) return challenge;
 
+  const challengerAttemptCount = challenger.correctCount + challenger.wrongCount;
+  const opponentAttemptCount = opponent.correctCount + opponent.wrongCount;
+  const challengerIdle = timedOut && challengerAttemptCount === 0;
+  const opponentIdle = timedOut && opponentAttemptCount === 0;
+
   let winner: DuelSide | "draw" = "draw";
-  if (challenger.score !== opponent.score) {
+  if (challengerIdle !== opponentIdle) {
+    winner = challengerIdle ? "opponent" : "challenger";
+  } else if (challenger.score !== opponent.score) {
     winner = challenger.score > opponent.score ? "challenger" : "opponent";
   } else if (challenger.wrongCount !== opponent.wrongCount) {
     winner = challenger.wrongCount < opponent.wrongCount ? "challenger" : "opponent";
