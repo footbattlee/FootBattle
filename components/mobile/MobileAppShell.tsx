@@ -9,7 +9,7 @@ type NavItem = { key: "home" | "daily" | "duels" | "rank" | "profile"; label: st
 
 const MOBILE_GAME_PREFIXES = [
   "/tic-tac-toe", "/guess-the-player", "/club-clash", "/daily-faceoff", "/wordle",
-  "/career-path", "/survivor", "/player-quiz", "/transfer-quiz", "/club-nation",
+  "/survivor", "/player-quiz", "/transfer-quiz", "/club-nation", "/halisaha-kadro",
 ];
 
 function getLocale(pathname: string): Locale {
