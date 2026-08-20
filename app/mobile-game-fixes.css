@@ -74,6 +74,23 @@
     border-radius: 10px !important;
   }
 
+  /* Oyuncu seçildikten sonra cevap butonu klavye / alt navbar altında kaybolmasın. */
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] form {
+    padding-bottom: 72px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] form button[type="submit"] {
+    position: fixed !important;
+    left: 50% !important;
+    bottom: calc(84px + env(safe-area-inset-bottom)) !important;
+    z-index: 140 !important;
+    width: min(calc(100vw - 28px), 520px) !important;
+    min-height: 48px !important;
+    transform: translateX(-50%) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, .45) !important;
+  }
+
   /* DUO TIC TAC TOE ------------------------------------------------ */
   body[data-mobile-route="tic-tac-toe-duel"] main {
     padding-top: 10px;
