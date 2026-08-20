@@ -5,7 +5,6 @@ import "./globals.css";
 import "./halisaha-mobile-fix.css";
 import "./club-clash-mobile.css";
 import "./mobile-game-fixes.css";
-import "./duels-mobile.css";
 import "./mobile-home-dashboard.css";
 
 import PresenceHeartbeat from "@/components/PresenceHeartbeat";
