@@ -80,7 +80,9 @@ export default function MobileProfilePage({ locale }: { locale: Locale }) {
     <main className="min-h-screen bg-[#07111f] px-4 pb-24 pt-5 text-white">
       <div className="mx-auto max-w-xl">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-green-300">FootBattle</p>
+          <Link href={`/${locale}`} aria-label="FootBattle" className="inline-flex">
+            <img src="/footbattle-logo.png" alt="FootBattle" className="h-9 w-auto object-contain" />
+          </Link>
           <div className="flex items-center gap-3">
             {profile.is_admin ? <Link href="/admin" className="rounded-lg border border-purple-400/20 bg-purple-400/10 px-2.5 py-1.5 text-[10px] font-black text-purple-200">⚙ Admin</Link> : null}
             <Link href={`/${locale}/rank`} className="text-[11px] font-black text-green-300">{tr ? "Sıralama →" : "Rank →"}</Link>
