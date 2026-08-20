@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { matchesBothConstraints } from "@/lib/challenges/player-matcher";
 import { footballLocaleFromRequest, nationalityToDisplayName } from "@/lib/football/localization";
 import { recordGameSecurityEvent } from "@/lib/game-security/server";
 import {
@@ -100,7 +101,20 @@ export async function POST(
       return NextResponse.json({ ok: false, error: "Seçilen hücre bulunamadı." }, { status: 404 });
     }
 
-    const correct = Array.isArray(cell.validPlayerIds) && cell.validPlayerIds.map(Number).includes(playerId);
+    // validPlayerIds geçmişte popularity tabanlı üretildiği için eski gridlerde eksik olabilir.
+    // Doğruluğu her zaman oyuncunun güncel kariyer/milliyet verisine göre kontrol et.
+    const match = await matchesBothConstraints(
+      playerId,
+      {
+        type: cell.row.type === "nationality" ? "country" : "club",
+        value: cell.row.value,
+      },
+      {
+        type: cell.column.type === "nationality" ? "country" : "club",
+        value: cell.column.value,
+      },
+    );
+    const correct = match.matches;
     const now = new Date().toISOString();
 
     const { error: insertError } = await supabaseAdmin
