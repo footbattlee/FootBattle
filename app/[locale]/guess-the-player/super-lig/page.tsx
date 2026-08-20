@@ -50,43 +50,60 @@ export default async function Page({
   const selectedDifficulty = DIFFICULTIES.some((item) => item.key === difficulty)
     ? (difficulty as DifficultyKey)
     : null;
+  const selectedDifficultyItem = selectedDifficulty
+    ? DIFFICULTIES.find((item) => item.key === selectedDifficulty) ?? null
+    : null;
 
   return (
     <div className="min-h-screen bg-[#07111f] text-white" data-game="guess-the-player-super-lig">
-      <section className="mx-auto max-w-6xl px-4 pt-6 sm:px-6 sm:pt-8">
-        <div className="rounded-3xl border border-red-400/20 bg-gradient-to-r from-red-500/10 to-white/[0.03] p-5 sm:p-6">
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-red-300">🇹🇷 SÜPER LİG MODE</p>
-          <h1 className="mt-2 text-2xl font-black sm:text-3xl">
-            {en ? "Süper Lig Guess the Player" : "Süper Lig Futbolcuyu Tahmin Et"}
-          </h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-            {en
-              ? "First choose a difficulty. The hidden player is created only after your selection and is limited to active Süper Lig players."
-              : "Önce zorluk seç. Gizli futbolcu yalnızca seçimini yaptıktan sonra oluşturulur ve aktif Süper Lig oyuncularından gelir."}
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {DIFFICULTIES.map((item) => (
-              <Link
-                key={item.key}
-                href={`/${locale}/guess-the-player/super-lig?difficulty=${item.key}`}
-                scroll={false}
-                className={`rounded-xl border px-4 py-2 text-sm font-black transition ${
-                  selectedDifficulty === item.key
-                    ? "border-red-300/40 bg-red-500/20 text-white"
-                    : "border-white/10 bg-white/[0.03] text-slate-400 hover:text-white"
-                }`}
-              >
-                {item.icon} {en ? item.en : item.tr}
-              </Link>
-            ))}
+      {!selectedDifficulty ? (
+        <section className="mx-auto max-w-6xl px-4 pt-6 sm:px-6 sm:pt-8">
+          <div className="rounded-3xl border border-red-400/20 bg-gradient-to-r from-red-500/10 to-white/[0.03] p-5 sm:p-6">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-red-300">🇹🇷 SÜPER LİG MODE</p>
+            <h1 className="mt-2 text-2xl font-black sm:text-3xl">
+              {en ? "Süper Lig Guess the Player" : "Süper Lig Futbolcuyu Tahmin Et"}
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+              {en
+                ? "First choose a difficulty. The hidden player is created only after your selection and is limited to active Süper Lig players."
+                : "Önce zorluk seç. Gizli futbolcu yalnızca seçimini yaptıktan sonra oluşturulur ve aktif Süper Lig oyuncularından gelir."}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {DIFFICULTIES.map((item) => (
+                <Link
+                  key={item.key}
+                  href={`/${locale}/guess-the-player/super-lig?difficulty=${item.key}`}
+                  className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-sm font-black text-slate-300 transition hover:border-red-300/30 hover:bg-red-500/10 hover:text-white"
+                >
+                  {item.icon} {en ? item.en : item.tr}
+                </Link>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-slate-500">
+              {en
+                ? "Difficulty is based on player popularity: Easy 84+, Medium 68–83, Hard 50–67. Mixed uses all eligible active players."
+                : "Zorluk oyuncu popülerliğine göre belirlenir: Kolay 84+, Orta 68–83, Zor 50–67. Karışık tüm uygun aktif oyuncuları kullanır."}
+            </p>
           </div>
-          <p className="mt-3 text-xs text-slate-500">
-            {en
-              ? "Difficulty is based on player popularity: Easy 84+, Medium 68–83, Hard 50–67. Mixed uses all eligible active players."
-              : "Zorluk oyuncu popülerliğine göre belirlenir: Kolay 84+, Orta 68–83, Zor 50–67. Karışık tüm uygun aktif oyuncuları kullanır."}
-          </p>
-        </div>
-      </section>
+        </section>
+      ) : (
+        <section className="mx-auto max-w-6xl px-4 pt-3 sm:px-6 sm:pt-5">
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-red-400/15 bg-red-500/[0.06] px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-300">🇹🇷 SÜPER LİG</p>
+              <p className="mt-0.5 truncate text-sm font-black text-white">
+                {en ? "Difficulty" : "Zorluk"}: {selectedDifficultyItem?.icon} {selectedDifficultyItem ? (en ? selectedDifficultyItem.en : selectedDifficultyItem.tr) : selectedDifficulty}
+              </p>
+            </div>
+            <Link
+              href={`/${locale}/guess-the-player/super-lig`}
+              className="shrink-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-black text-slate-300 transition hover:text-white"
+            >
+              {en ? "Change" : "Değiştir"}
+            </Link>
+          </div>
+        </section>
+      )}
 
       {selectedDifficulty ? (
         <LocalizedGuessThePlayer key={`super-lig-${selectedDifficulty}`} locale={locale as Locale} />
