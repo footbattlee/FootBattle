@@ -16,7 +16,7 @@ export function localizedAlternates(path: string) {
   return {
     tr: `${SITE_URL}/tr${suffix}`,
     en: `${SITE_URL}/en${suffix}`,
-    "x-default": `${SITE_URL}/en${suffix}`,
+    "x-default": `${SITE_URL}/tr${suffix}`,
   };
 }
 
