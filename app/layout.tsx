@@ -3,10 +3,12 @@ import { Analytics } from "@vercel/analytics/next";
 
 import "./globals.css";
 import "./halisaha-mobile-fix.css";
+import "./club-clash-mobile.css";
+import "./mobile-game-fixes.css";
+import "./mobile-home-dashboard.css";
 
 import PresenceHeartbeat from "@/components/PresenceHeartbeat";
 import HomeProgressionSpotlight from "@/components/HomeProgressionSpotlight";
-import HomeQuickAccess from "@/components/HomeQuickAccess";
 import HomeTicTacToeDuelEnhancer from "@/components/HomeTicTacToeDuelEnhancer";
 import HomeSuperLigAndMobileOrder from "@/components/HomeSuperLigAndMobileOrder";
 import GuessThePlayerSearchEnhancer from "@/components/GuessThePlayerSearchEnhancer";
@@ -19,6 +21,9 @@ import FootballLocaleBridge from "@/components/FootballLocaleBridge";
 import WordlePhysicalKeyboard from "@/components/WordlePhysicalKeyboard";
 import GlobalLegalFooter from "@/components/GlobalLegalFooter";
 import AdminBackButton from "@/components/AdminBackButton";
+import MobileAppShell from "@/components/mobile/MobileAppShell";
+import MobileHomeDashboard from "@/components/mobile/MobileHomeDashboard";
+import GuessThePlayerMobileAutoScroll from "@/components/mobile/GuessThePlayerMobileAutoScroll";
 import { SITE_URL, SiteJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -32,20 +37,14 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: "FootBattle | Futbol Oyunları Arenası", description: "Futbol oyunları, quizler, düellolar ve günlük kapışmalar.", images: ["/footbattle-logo.png"] },
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 } },
   category: "games",
-  other: {
-    "google-adsense-account": "ca-pub-2192914861529531",
-  },
+  other: { "google-adsense-account": "ca-pub-2192914861529531" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="tr">
       <head>
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2192914861529531"
-          crossOrigin="anonymous"
-        />
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2192914861529531" crossOrigin="anonymous" />
       </head>
       <body>
         <SiteJsonLd />
@@ -55,6 +54,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <GlobalShareEnhancer />
         <HomeProgressionSpotlight />
         {children}
+        <MobileHomeDashboard />
+        <MobileAppShell />
+        <GuessThePlayerMobileAutoScroll />
         <HomeSuperLigAndMobileOrder />
         <GuessThePlayerSearchEnhancer />
         <AdminBackButton />
@@ -64,7 +66,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <RankResultToast />
         <ChallengeQuickShare />
         <HomeTicTacToeDuelEnhancer />
-        <HomeQuickAccess />
         <Analytics />
       </body>
     </html>

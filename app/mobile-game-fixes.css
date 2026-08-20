@@ -1,0 +1,201 @@
+@media (max-width: 767px) {
+  /* Shared mobile breathing room above the fixed app shell. */
+  body[data-mobile-route="tic-tac-toe-solo"] main,
+  body[data-mobile-route="tic-tac-toe-duel"] main,
+  body[data-mobile-route="club-clash"] main,
+  body[data-mobile-route="guess-the-player"] main {
+    padding-bottom: calc(92px + env(safe-area-inset-bottom));
+  }
+
+  /* SOLO TIC TAC TOE ------------------------------------------------ */
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] main {
+    padding-top: 12px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] main > div > div:first-child > a {
+    display: none;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] main > div > div:first-child {
+    justify-content: flex-end;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] header {
+    margin-top: 8px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] header p {
+    font-size: 9px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] header h1 {
+    margin-top: 2px;
+    font-size: 22px;
+    line-height: 1.15;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] header + div {
+    margin-top: 10px;
+    gap: 5px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] header + div > div {
+    padding: 7px 4px;
+    border-radius: 12px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] header + div > div > :first-child {
+    font-size: 15px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] section.mt-5 {
+    margin-top: 10px;
+    overflow-x: visible;
+    padding: 6px;
+    border-radius: 18px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] .min-w-\[620px\] {
+    min-width: 0 !important;
+    gap: 4px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] .min-w-\[620px\] > div:not(.contents) {
+    min-height: 48px !important;
+    padding: 4px !important;
+    font-size: 9px !important;
+    line-height: 1.15 !important;
+    overflow-wrap: anywhere;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] .min-w-\[620px\] button {
+    min-height: 66px !important;
+    padding: 4px !important;
+    border-radius: 10px !important;
+  }
+
+  /* Oyuncu seçildikten sonra cevap butonu klavye / alt navbar altında kaybolmasın. */
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] form {
+    padding-bottom: 72px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] form button[type="submit"] {
+    position: fixed !important;
+    left: 50% !important;
+    bottom: calc(84px + env(safe-area-inset-bottom)) !important;
+    z-index: 140 !important;
+    width: min(calc(100vw - 28px), 520px) !important;
+    min-height: 48px !important;
+    transform: translateX(-50%) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, .45) !important;
+  }
+
+  /* DUO TIC TAC TOE ------------------------------------------------ */
+  body[data-mobile-route="tic-tac-toe-duel"] main {
+    padding-top: 10px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main > div > header > a:first-child {
+    display: none;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main > div > header {
+    justify-content: flex-end;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main > div > section:first-of-type {
+    margin-top: 9px;
+    padding: 12px;
+    border-radius: 18px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main > div > section:first-of-type > div:first-child {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main > div > section:first-of-type h1 {
+    margin-top: 3px;
+    font-size: 18px;
+    line-height: 1.15;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main > div > section:first-of-type h1 + * {
+    margin-top: 0;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main > div > section:first-of-type > div:first-child > div:last-child {
+    padding: 7px 10px;
+    border-radius: 12px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main > div > section:first-of-type > div:first-child > div:last-child p:first-child {
+    font-size: 8px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main > div > section:first-of-type > div:first-child > div:last-child p:last-child {
+    margin-top: 0;
+    font-size: 20px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main > div > section:first-of-type > div:nth-child(2) {
+    margin-top: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main > div > section:first-of-type > div:nth-child(2) > div {
+    padding: 9px;
+    border-radius: 12px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main > div > section:first-of-type > div:nth-child(2) p:last-child {
+    font-size: 18px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main .mt-5.grid.gap-5 {
+    margin-top: 10px;
+    gap: 10px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main .mt-5.grid.gap-5 > section {
+    padding: 6px;
+    border-radius: 18px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main .grid-cols-\[86px_repeat\(3\2c minmax\(0\2c 1fr\)\)\] {
+    grid-template-columns: 66px repeat(3, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main .grid-cols-\[86px_repeat\(3\2c minmax\(0\2c 1fr\)\)\] > div:not(.contents) {
+    min-height: 48px !important;
+    padding: 4px !important;
+    font-size: 9px !important;
+    line-height: 1.15 !important;
+    overflow-wrap: anywhere;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main .grid-cols-\[86px_repeat\(3\2c minmax\(0\2c 1fr\)\)\] button {
+    min-height: 68px !important;
+    padding: 4px !important;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main aside {
+    padding: 12px;
+    border-radius: 18px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main aside input {
+    margin-top: 8px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] main aside .mt-5 {
+    margin-top: 10px;
+  }
+}

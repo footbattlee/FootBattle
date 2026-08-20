@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import LocalizedRankPage from "@/components/i18n/LocalizedRankPage";
+import MobileRankPage from "@/components/mobile/MobileRankPage";
 import { isLocale, type Locale } from "@/lib/i18n/config";
 import { SITE_URL } from "@/lib/seo";
 
@@ -23,5 +24,9 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 export default async function RankLocalePage({ params }: { params: Params }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  return <LocalizedRankPage locale={locale as Locale} />;
+  const typedLocale = locale as Locale;
+  return <>
+    <div className="md:hidden"><MobileRankPage locale={typedLocale} /></div>
+    <div className="hidden md:block"><LocalizedRankPage locale={typedLocale} /></div>
+  </>;
 }
