@@ -21,10 +21,10 @@ type ResponseData = {
 };
 
 const dailyGames = [
-  { key: "guessThePlayer" as const, icon: "🕵️", title: "Guess The Player", path: "/guess-the-player" },
-  { key: "playerQuiz" as const, icon: "🧠", title: "Player Quiz", path: "/player-quiz" },
-  { key: "ticTacToe" as const, icon: "⭕", title: "Tic Tac Toe", path: "/tic-tac-toe" },
-  { key: "wordle" as const, icon: "🟩", title: "Wordle", path: "/wordle" },
+  { key: "guessThePlayer" as const, icon: "🕵️", titleTr: "Futbolcuyu Tahmin Et", titleEn: "Guess The Player", path: "/guess-the-player" },
+  { key: "playerQuiz" as const, icon: "🧠", titleTr: "Futbolcu Quiz", titleEn: "Player Quiz", path: "/player-quiz" },
+  { key: "ticTacToe" as const, icon: "⭕", titleTr: "Futbol Tic Tac Toe", titleEn: "Football Tic Tac Toe", path: "/tic-tac-toe" },
+  { key: "wordle" as const, icon: "🟩", titleTr: "Futbol Wordle", titleEn: "Football Wordle", path: "/wordle" },
 ];
 
 export default function MobileDailyChallengePage({ locale }: { locale: Locale }) {
@@ -79,7 +79,7 @@ export default function MobileDailyChallengePage({ locale }: { locale: Locale })
                 return (
                   <Link key={game.key} href={`/${locale}${game.path}?daily=1`} className="flex min-h-[72px] items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-3.5 py-3">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] text-xl">{game.icon}</div>
-                    <div className="min-w-0 flex-1"><p className="truncate text-sm font-black">{game.title}</p><p className={`mt-1 text-[11px] font-bold ${done ? "text-green-300" : attempted ? "text-slate-500" : "text-yellow-300"}`}>{done ? (tr ? "Tamamlandı ✓" : "Completed ✓") : attempted ? (tr ? "Bugünkü hak kullanıldı" : "Today's attempt used") : (tr ? "Oyna" : "Play")}</p></div>
+                    <div className="min-w-0 flex-1"><p className="truncate text-sm font-black">{tr ? game.titleTr : game.titleEn}</p><p className={`mt-1 text-[11px] font-bold ${done ? "text-green-300" : attempted ? "text-slate-500" : "text-yellow-300"}`}>{done ? (tr ? "Tamamlandı ✓" : "Completed ✓") : attempted ? (tr ? "Bugünkü hak kullanıldı" : "Today's attempt used") : (tr ? "Oyna" : "Play")}</p></div>
                     <span className="font-black text-slate-500">→</span>
                   </Link>
                 );
