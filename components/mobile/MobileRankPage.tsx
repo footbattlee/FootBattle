@@ -47,9 +47,11 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
   return (
     <main className="min-h-screen bg-[#07111f] px-4 pb-24 pt-5 text-white">
       <div className="mx-auto max-w-xl">
-        <header className="flex items-start justify-between gap-3">
-          <div><p className="text-[10px] font-black uppercase tracking-[0.18em] text-green-300">FootBattle Arena</p><h1 className="mt-1 text-3xl font-black">{tr ? "Sıralama" : "Rankings"}</h1><p className="mt-1 text-xs text-slate-500">{rank?.season?.title ?? (tr ? "Sezon LP sıralaması" : "Season LP leaderboard")}</p></div>
-          <img src="/footbattle-logo.png" alt="FootBattle" className="h-8 w-auto object-contain" />
+        <header>
+          <Link href={`/${locale}`} aria-label="FootBattle" className="inline-flex">
+            <img src="/footbattle-logo.png" alt="FootBattle" className="h-9 w-auto object-contain" />
+          </Link>
+          <div className="mt-6"><p className="text-[10px] font-black uppercase tracking-[0.18em] text-green-300">FootBattle Arena</p><h1 className="mt-1 text-3xl font-black">{tr ? "Sıralama" : "Rankings"}</h1><p className="mt-1 text-xs text-slate-500">{rank?.season?.title ?? (tr ? "Sezon LP sıralaması" : "Season LP leaderboard")}</p></div>
         </header>
 
         <div className="mt-5 grid grid-cols-2 rounded-2xl border border-white/10 bg-white/[0.025] p-1">
