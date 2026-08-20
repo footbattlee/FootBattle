@@ -1,0 +1,15 @@
+@media (max-width: 767px) {
+  body[data-mobile-route="home"] > main:first-of-type {
+    display: none !important;
+  }
+
+  body[data-mobile-route="home"] .mobile-home-dashboard {
+    display: block;
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-home-dashboard {
+    display: none !important;
+  }
+}
