@@ -74,21 +74,44 @@
     border-radius: 10px !important;
   }
 
-  /* Oyuncu seçildikten sonra cevap butonu klavye / alt navbar altında kaybolmasın. */
+  /* Oyuncu seçim modalındaki iki aksiyonu navbarın üstünde ayrı ve net tut. */
   body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] form {
-    padding-bottom: 72px;
+    padding-bottom: 86px;
   }
 
-  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] form button[type="submit"] {
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] form > .mt-5.grid.grid-cols-2 {
     position: fixed !important;
     left: 50% !important;
     bottom: calc(84px + env(safe-area-inset-bottom)) !important;
     z-index: 140 !important;
     width: min(calc(100vw - 28px), 520px) !important;
-    min-height: 48px !important;
     transform: translateX(-50%) !important;
-    border-radius: 14px !important;
-    box-shadow: 0 12px 34px rgba(0, 0, 0, .45) !important;
+    grid-template-columns: 92px minmax(0, 1fr) !important;
+    gap: 8px !important;
+    margin-top: 0 !important;
+    padding: 7px !important;
+    border: 1px solid rgba(255,255,255,.08) !important;
+    border-radius: 16px !important;
+    background: #0d1828 !important;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, .48) !important;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] form > .mt-5.grid.grid-cols-2 > button {
+    min-height: 46px !important;
+    position: static !important;
+    width: auto !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] form > .mt-5.grid.grid-cols-2 > button:first-child {
+    background: transparent !important;
+    color: #94a3b8 !important;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] [data-game="tic-tac-toe"] form > .mt-5.grid.grid-cols-2 > button[type="submit"] {
+    background: #22c55e !important;
+    color: #07111f !important;
   }
 
   /* DUO TIC TAC TOE ------------------------------------------------ */
