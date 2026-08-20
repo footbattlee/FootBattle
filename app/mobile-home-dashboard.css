@@ -1,10 +1,16 @@
 @media (max-width: 767px) {
-  body[data-mobile-route="home"] > main:first-of-type {
-    display: none !important;
+  .mobile-home-dashboard {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: block !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: calc(94px + env(safe-area-inset-bottom)) !important;
   }
 
-  body[data-mobile-route="home"] .mobile-home-dashboard {
-    display: block;
+  body[data-mobile-route="home"] {
+    overflow: hidden;
   }
 }
 
