@@ -25,14 +25,17 @@ export default function MobileDuelsPage({ locale }: { locale: Locale }) {
   const history = data?.history ?? [];
 
   return (
-    <main className="min-h-screen bg-[#07111f] px-4 pb-24 pt-6 text-white">
+    <main className="min-h-screen bg-[#07111f] px-4 pb-24 pt-5 text-white">
       <div className="mx-auto max-w-xl">
-        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-green-300">⚔️ FootBattle Arena</p>
+        <Link href={`/${locale}`} aria-label="FootBattle" className="inline-flex">
+          <img src="/footbattle-logo.png" alt="FootBattle" className="h-9 w-auto object-contain" />
+        </Link>
+        <p className="mt-6 text-[10px] font-black uppercase tracking-[0.18em] text-green-300">⚔️ FootBattle Arena</p>
         <h1 className="mt-2 text-3xl font-black">{tr ? "Düello" : "Duel"}</h1>
         <p className="mt-2 text-sm leading-6 text-slate-400">{tr ? "Bir oyun seç, arkadaşına meydan oku ve linki gönder." : "Choose a game, challenge a friend and send the link."}</p>
 
         <section className="mt-5 grid gap-3">
-          <DuelMode icon="⭕" title="Tic Tac Toe" text={tr ? "Aynı 3×3 grid, aynı 120 saniye." : "Same 3×3 grid, same 120 seconds."} href="/tic-tac-toe/duel" button={tr ? "Düello Başlat" : "Start Duel"} />
+          <DuelMode icon="⭕" title={tr ? "Futbol Tic Tac Toe" : "Football Tic Tac Toe"} text={tr ? "Aynı 3×3 grid, aynı 120 saniye." : "Same 3×3 grid, same 120 seconds."} href="/tic-tac-toe/duel" button={tr ? "Düello Başlat" : "Start Duel"} />
           <DuelMode icon="⚽" title={tr ? "2 Takım 1 Oyuncu" : "2 Clubs 1 Player"} text={tr ? "Ortak futbolcuyu rakibinden önce bul." : "Find the shared player before your rival."} href="/duels/challenge?game=club_clash" button={tr ? "Düello Gönder" : "Send Challenge"} />
         </section>
 
