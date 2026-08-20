@@ -59,7 +59,7 @@ export default function MobileHomeDashboard() {
             return (
               <Link key={game.titleEn} href={game.href(locale)} className="flex min-h-[74px] items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-3.5 py-3 active:scale-[0.99]">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] text-xl">{game.icon}</div>
-                <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="truncate text-sm font-black">{title}</p>{game.tag ? <span className="rounded-full bg-yellow-400/15 px-2 py-0.5 text-[8px] font-black uppercase text-yellow-300">{game.tag}</span> : null}</div><p className="mt-1 line-clamp-1 text-[11px] leading-4 text-slate-500">{tr ? game.tr : game.en}</p></div>
+                <div className="min-w-0 flex-1"><div className="flex items-start gap-2"><p className="line-clamp-2 min-w-0 text-[13px] font-black leading-4">{title}</p>{game.tag ? <span className="mt-0.5 shrink-0 rounded-full bg-yellow-400/15 px-2 py-0.5 text-[8px] font-black uppercase text-yellow-300">{game.tag}</span> : null}</div><p className="mt-1 line-clamp-1 text-[11px] leading-4 text-slate-500">{tr ? game.tr : game.en}</p></div>
                 <span className="shrink-0 text-sm font-black text-green-300">→</span>
               </Link>
             );
