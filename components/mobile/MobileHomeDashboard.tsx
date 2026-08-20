@@ -6,7 +6,8 @@ import { usePathname } from "next/navigation";
 
 type Game = {
   icon: string;
-  title: string;
+  titleTr: string;
+  titleEn: string;
   tr: string;
   en: string;
   href: (locale: "tr" | "en") => string;
@@ -14,14 +15,14 @@ type Game = {
 };
 
 const GAMES: Game[] = [
-  { icon: "🇹🇷", title: "Süper Lig Guess The Player", tr: "Süper Lig oyuncusunu ipuçlarından bul.", en: "Guess the Süper Lig player from clues.", href: (locale) => `/${locale}/guess-the-player/super-lig`, tag: "Yeni" },
-  { icon: "🕵️", title: "Guess The Player", tr: "Gizli futbolcuyu mümkün olduğunca az tahminde bul.", en: "Find the hidden player in as few guesses as possible.", href: (locale) => `/${locale}/guess-the-player` },
-  { icon: "⭕", title: "Tic Tac Toe", tr: "3×3 futbol gridini doğru oyuncularla doldur.", en: "Complete the 3×3 football grid.", href: (locale) => `/${locale}/tic-tac-toe` },
-  { icon: "🟩", title: "Wordle", tr: "Futbolcunun soyadını 5 tahminde bul.", en: "Guess the footballer's surname in 5 tries.", href: (locale) => `/${locale}/wordle` },
-  { icon: "⚔️", title: "2 Takım 1 Oyuncu", tr: "İki takımda da oynamış futbolcuyu bul.", en: "Find a player who represented both clubs.", href: () => "/club-clash" },
-  { icon: "⚽", title: "Halısaha Kadro", tr: "Arkadaşlarını sahaya diz, kadronu paylaş.", en: "Build and share your pickup squad.", href: () => "/halisaha-kadro" },
-  { icon: "🏆", title: "Survivor", tr: "Futbol bilgini eleme turlarında test et.", en: "Test your football knowledge in elimination rounds.", href: (locale) => `/${locale}/survivor` },
-  { icon: "🔥", title: "Günün Kapışması", tr: "Günün futbol sorusunda kapış.", en: "Take on today's football faceoff.", href: (locale) => `/${locale}/daily-faceoff` },
+  { icon: "🇹🇷", titleTr: "Süper Lig Futbolcuyu Tahmin Et", titleEn: "Süper Lig Guess The Player", tr: "Süper Lig oyuncusunu ipuçlarından bul.", en: "Guess the Süper Lig player from clues.", href: (locale) => `/${locale}/guess-the-player/super-lig`, tag: "Yeni" },
+  { icon: "🕵️", titleTr: "Futbolcuyu Tahmin Et", titleEn: "Guess The Player", tr: "Gizli futbolcuyu mümkün olduğunca az tahminde bul.", en: "Find the hidden player in as few guesses as possible.", href: (locale) => `/${locale}/guess-the-player` },
+  { icon: "⭕", titleTr: "Futbol Tic Tac Toe", titleEn: "Football Tic Tac Toe", tr: "3×3 futbol gridini doğru oyuncularla doldur.", en: "Complete the 3×3 football grid.", href: (locale) => `/${locale}/tic-tac-toe` },
+  { icon: "🟩", titleTr: "Futbol Wordle", titleEn: "Football Wordle", tr: "Futbolcunun soyadını 5 tahminde bul.", en: "Guess the footballer's surname in 5 tries.", href: (locale) => `/${locale}/wordle` },
+  { icon: "⚔️", titleTr: "2 Takım 1 Oyuncu", titleEn: "2 Clubs 1 Player", tr: "İki takımda da oynamış futbolcuyu bul.", en: "Find a player who represented both clubs.", href: () => "/club-clash" },
+  { icon: "⚽", titleTr: "Halısaha Kadro", titleEn: "Pickup Squad", tr: "Arkadaşlarını sahaya diz, kadronu paylaş.", en: "Build and share your pickup squad.", href: () => "/halisaha-kadro" },
+  { icon: "🏆", titleTr: "O mu Bu mu?", titleEn: "Survivor", tr: "Futbol dünyasının ikilemlerinde seçimini yap.", en: "Test your football knowledge in elimination rounds.", href: (locale) => `/${locale}/survivor` },
+  { icon: "🔥", titleTr: "Günün Kapışması", titleEn: "Daily Faceoff", tr: "Günün futbol sorusunda kapış.", en: "Take on today's football faceoff.", href: (locale) => `/${locale}/daily-faceoff` },
 ];
 
 export default function MobileHomeDashboard() {
@@ -53,13 +54,16 @@ export default function MobileHomeDashboard() {
       <section className="mt-4">
         <div className="flex items-end justify-between"><div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{tr ? "Oyunlar" : "Games"}</p><h2 className="mt-1 text-lg font-black">{tr ? "Hemen oyna" : "Play now"}</h2></div><span className="text-[10px] font-bold text-slate-600">{GAMES.length} {tr ? "oyun" : "games"}</span></div>
         <div className="mt-3 space-y-2.5">
-          {GAMES.map((game) => (
-            <Link key={game.title} href={game.href(locale)} className="flex min-h-[74px] items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-3.5 py-3 active:scale-[0.99]">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] text-xl">{game.icon}</div>
-              <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="truncate text-sm font-black">{game.title}</p>{game.tag ? <span className="rounded-full bg-yellow-400/15 px-2 py-0.5 text-[8px] font-black uppercase text-yellow-300">{game.tag}</span> : null}</div><p className="mt-1 line-clamp-1 text-[11px] leading-4 text-slate-500">{tr ? game.tr : game.en}</p></div>
-              <span className="shrink-0 text-sm font-black text-green-300">→</span>
-            </Link>
-          ))}
+          {GAMES.map((game) => {
+            const title = tr ? game.titleTr : game.titleEn;
+            return (
+              <Link key={game.titleEn} href={game.href(locale)} className="flex min-h-[74px] items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-3.5 py-3 active:scale-[0.99]">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] text-xl">{game.icon}</div>
+                <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="truncate text-sm font-black">{title}</p>{game.tag ? <span className="rounded-full bg-yellow-400/15 px-2 py-0.5 text-[8px] font-black uppercase text-yellow-300">{game.tag}</span> : null}</div><p className="mt-1 line-clamp-1 text-[11px] leading-4 text-slate-500">{tr ? game.tr : game.en}</p></div>
+                <span className="shrink-0 text-sm font-black text-green-300">→</span>
+              </Link>
+            );
+          })}
         </div>
       </section>
     </main>
