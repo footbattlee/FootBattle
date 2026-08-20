@@ -17,6 +17,7 @@ export default function HomeTicTacToeDuelEnhancer() {
 
   useEffect(() => {
     if (!locale) return;
+    if (window.matchMedia("(max-width: 767px)").matches) return;
 
     const selectors = [
       'a[href="/tic-tac-toe"]',
