@@ -6,6 +6,7 @@ import "./halisaha-mobile-fix.css";
 import "./club-clash-mobile.css";
 import "./mobile-game-fixes.css";
 import "./duels-mobile.css";
+import "./mobile-home-dashboard.css";
 
 import PresenceHeartbeat from "@/components/PresenceHeartbeat";
 import HomeProgressionSpotlight from "@/components/HomeProgressionSpotlight";
@@ -22,6 +23,7 @@ import WordlePhysicalKeyboard from "@/components/WordlePhysicalKeyboard";
 import GlobalLegalFooter from "@/components/GlobalLegalFooter";
 import AdminBackButton from "@/components/AdminBackButton";
 import MobileAppShell from "@/components/mobile/MobileAppShell";
+import MobileHomeDashboard from "@/components/mobile/MobileHomeDashboard";
 import GuessThePlayerMobileAutoScroll from "@/components/mobile/GuessThePlayerMobileAutoScroll";
 import { SITE_URL, SiteJsonLd } from "@/lib/seo";
 
@@ -43,11 +45,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="tr">
       <head>
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2192914861529531"
-          crossOrigin="anonymous"
-        />
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2192914861529531" crossOrigin="anonymous" />
       </head>
       <body>
         <SiteJsonLd />
@@ -57,6 +55,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <GlobalShareEnhancer />
         <HomeProgressionSpotlight />
         {children}
+        <MobileHomeDashboard />
         <MobileAppShell />
         <GuessThePlayerMobileAutoScroll />
         <HomeSuperLigAndMobileOrder />
