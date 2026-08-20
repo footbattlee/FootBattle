@@ -46,11 +46,19 @@ export default function MobileDailyChallengePage({ locale }: { locale: Locale })
   const pct = Math.min(100, Math.round((completed / Math.max(1, total)) * 100));
 
   return (
-    <main className="min-h-screen bg-[#07111f] px-4 pb-24 pt-6 text-white">
+    <main className="min-h-screen bg-[#07111f] px-4 pb-24 pt-5 text-white">
       <div className="mx-auto max-w-xl">
-        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-yellow-300">🔥 {tr ? "Günlük Görev" : "Daily Challenge"}</p>
-        <h1 className="mt-2 text-3xl font-black">{tr ? "Bugünün görevi" : "Today's challenge"}</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-400">{tr ? "4 oyundan en az 3'ünü tamamla, günlük bonusunu kazan. 4/4 yaparsan ekstra ödül al." : "Complete at least 3 of 4 games for the daily bonus. Go 4/4 for an extra reward."}</p>
+        <header className="flex items-center justify-between">
+          <Link href={`/${locale}`} aria-label="FootBattle">
+            <img src="/footbattle-logo.png" alt="FootBattle" className="h-9 w-auto object-contain" />
+          </Link>
+        </header>
+
+        <section className="mt-7">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-yellow-300">🔥 {tr ? "Günlük Görev" : "Daily Challenge"}</p>
+          <h1 className="mt-2 text-3xl font-black">{tr ? "Bugünün görevi" : "Today's challenge"}</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-400">{tr ? "4 oyundan en az 3'ünü tamamla, günlük bonusunu kazan. 4/4 yaparsan ekstra ödül al." : "Complete at least 3 of 4 games for the daily bonus. Go 4/4 for an extra reward."}</p>
+        </section>
 
         {!loading && data?.authenticated === false ? (
           <section className="mt-5 rounded-2xl border border-yellow-400/20 bg-yellow-400/[0.06] p-5 text-center">
