@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1082215741027",
+    "project_id": "footbattle-c0290",
+    "storage_bucket": "footbattle-c0290.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1082215741027:android:9b6d185d4339bc007c2a56",
+        "android_client_info": {
+          "package_name": "com.playfootbattle.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDdpRYbnhlB0tqdbsZ1qBkSF0OZg8_Vcio"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
