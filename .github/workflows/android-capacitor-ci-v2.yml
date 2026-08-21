@@ -45,8 +45,42 @@ jobs:
       - name: Generate Android project
         run: npx cap add android
 
+      - name: Add Firebase Android configuration
+        run: cp android-ci/google-services.json android/app/google-services.json
+
       - name: Sync Capacitor
         run: npx cap sync android
+
+      - name: Apply Firebase Crashlytics
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          root_gradle = Path('android/build.gradle')
+          text = root_gradle.read_text()
+          if 'com.google.firebase:firebase-crashlytics-gradle' not in text:
+              marker = "classpath 'com.google.gms:google-services:"
+              idx = text.find(marker)
+              if idx >= 0:
+                  line_end = text.find('\n', idx)
+                  text = text[:line_end+1] + "        classpath 'com.google.firebase:firebase-crashlytics-gradle:3.0.7'\n" + text[line_end+1:]
+              else:
+                  marker = "classpath 'com.android.tools.build:gradle:"
+                  idx = text.find(marker)
+                  if idx < 0:
+                      raise SystemExit('Unable to find root Gradle classpath block')
+                  line_end = text.find('\n', idx)
+                  text = text[:line_end+1] + "        classpath 'com.google.gms:google-services:4.5.0'\n        classpath 'com.google.firebase:firebase-crashlytics-gradle:3.0.7'\n" + text[line_end+1:]
+              root_gradle.write_text(text)
+
+          app_gradle = Path('android/app/build.gradle')
+          app = app_gradle.read_text()
+          if "apply plugin: 'com.google.firebase.crashlytics'" not in app:
+              app += "\napply plugin: 'com.google.firebase.crashlytics'\n"
+          if 'firebase-bom:34.17.0' not in app:
+              app += "\ndependencies {\n    implementation platform('com.google.firebase:firebase-bom:34.17.0')\n    implementation 'com.google.firebase:firebase-crashlytics'\n    implementation 'com.google.firebase:firebase-messaging'\n}\n"
+          app_gradle.write_text(app)
+          PY
 
       - name: Apply Android Integration v2
         run: |
@@ -75,9 +109,6 @@ jobs:
           target.set(a('screenOrientation'), 'portrait')
           target.set(a('windowSoftInputMode'), 'adjustPan')
 
-          # Verified Android App Links scaffold for all FootBattle HTTPS URLs.
-          # Full auto-verification becomes active once /.well-known/assetlinks.json
-          # contains the SHA-256 fingerprint of the release/Play signing certificate.
           app_links = ET.SubElement(target, 'intent-filter')
           app_links.set(a('autoVerify'), 'true')
           action = ET.SubElement(app_links, 'action')
@@ -90,7 +121,6 @@ jobs:
           data.set(a('scheme'), 'https')
           data.set(a('host'), 'playfootbattle.com')
 
-          # Android 13+ runtime notification permission; FCM wiring will use it.
           if not any(p.get(a('name')) == 'android.permission.POST_NOTIFICATIONS'
                      for p in root.findall('uses-permission')):
               perm = ET.SubElement(root, 'uses-permission')
@@ -98,10 +128,6 @@ jobs:
 
           tree.write(manifest, encoding='utf-8', xml_declaration=True)
           PY
-          echo '--- Android Integration v2 manifest ---'
-          cat android/app/src/main/AndroidManifest.xml
-          echo '--- Android Integration v2 MainActivity ---'
-          cat android/app/src/main/java/com/playfootbattle/app/MainActivity.java
 
       - name: Verify Android toolchain
         run: |
@@ -116,10 +142,14 @@ jobs:
         working-directory: android
         run: ./gradlew assembleDebug --stacktrace
 
+      - name: Print signing fingerprints
+        working-directory: android
+        run: ./gradlew signingReport
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: footbattle-android-debug-integration-v2
+          name: footbattle-android-debug-firebase-v2
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
