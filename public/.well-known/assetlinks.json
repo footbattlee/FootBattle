@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.playfootbattle.app",
+      "sha256_cert_fingerprints": [
+        "B7:9E:98:75:85:0C:86:7E:13:59:B6:4A:20:AA:D0:29:54:22:17:59:00:68:1B:42:6A:22:8F:F8:14:91:71:77"
+      ]
+    }
+  }
+]
