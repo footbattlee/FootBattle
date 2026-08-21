@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { Capacitor } from "@capacitor/core";
+import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
 import { createClient } from "@/lib/supabase/client";
 import type { Locale } from "@/lib/i18n/config";
 
@@ -33,6 +35,7 @@ export default function MobileProfilePage({ locale }: { locale: Locale }) {
   const [friendCount, setFriendCount] = useState(0);
   const [onlineCount, setOnlineCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
   const nf = useMemo(() => new Intl.NumberFormat(tr ? "tr-TR" : "en-US"), [tr]);
 
   useEffect(() => {
@@ -69,6 +72,20 @@ export default function MobileProfilePage({ locale }: { locale: Locale }) {
     })();
   }, [locale]);
 
+  async function logout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      if (Capacitor.isNativePlatform()) {
+        try { await FirebaseAuthentication.signOut(); } catch (error) { console.warn("Native Google sign-out failed", error); }
+      }
+      await createClient().auth.signOut({ scope: "local" });
+      window.location.replace(`/login?next=/${locale}`);
+    } finally {
+      setLoggingOut(false);
+    }
+  }
+
   if (loading || !profile) {
     return <main className="min-h-screen bg-[#07111f] px-4 py-8 text-white"><p className="text-sm text-slate-500">{tr ? "Profil hazırlanıyor..." : "Preparing profile..."}</p></main>;
   }
@@ -77,31 +94,34 @@ export default function MobileProfilePage({ locale }: { locale: Locale }) {
   const winRate = profile.games_played ? Math.round((profile.games_won / profile.games_played) * 100) : 0;
 
   return (
-    <main className="min-h-screen bg-[#07111f] px-4 pb-24 pt-5 text-white">
+    <main className="min-h-screen bg-[#07111f] px-4 pb-24 pt-4 text-white">
       <div className="mx-auto max-w-xl">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-2">
           <Link href={`/${locale}`} aria-label="FootBattle" className="inline-flex">
-            <img src="/footbattle-logo.png" alt="FootBattle" className="h-9 w-auto object-contain" />
+            <img src="/footbattle-logo.png" alt="FootBattle" className="h-8 w-auto object-contain" />
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {profile.is_admin ? <Link href="/admin" className="rounded-lg border border-purple-400/20 bg-purple-400/10 px-2.5 py-1.5 text-[10px] font-black text-purple-200">⚙ Admin</Link> : null}
-            <Link href={`/${locale}/rank`} className="text-[11px] font-black text-green-300">{tr ? "Sıralama →" : "Rank →"}</Link>
+            <Link href={`/${locale}/rank`} className="rounded-lg border border-white/10 px-2.5 py-1.5 text-[10px] font-black text-green-300">{tr ? "Sıralama" : "Rank"}</Link>
+            <button type="button" disabled={loggingOut} onClick={() => void logout()} className="rounded-lg border border-red-400/25 bg-red-500/10 px-2.5 py-1.5 text-[10px] font-black text-red-300 disabled:opacity-50">{loggingOut ? "..." : tr ? "Çıkış Yap" : "Sign Out"}</button>
           </div>
         </div>
 
-        <section className="mt-4 rounded-3xl border border-white/10 bg-white/[0.035] p-4">
+        <section className="mt-3 rounded-3xl border border-white/10 bg-white/[0.035] p-4">
           <div className="grid grid-cols-[64px_minmax(0,1fr)_92px] items-center gap-3">
             {profile.avatar_url ? <img src={profile.avatar_url} alt={displayName} className="h-16 w-16 rounded-2xl object-cover" /> : <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-green-500/10 text-xl font-black text-green-200">{initials(displayName)}</div>}
             <div className="min-w-0">
               <p className="text-[9px] font-black uppercase tracking-[0.16em] text-green-300">{tr ? "Profilim" : "My Profile"}</p>
               <h1 className="mt-1 truncate text-xl font-black">{displayName}</h1>
-              {profile.username ? <p className="mt-0.5 truncate text-[11px] font-bold text-slate-500">@{profile.username}</p> : null}
-              <p className="mt-2 text-[11px] font-bold text-orange-300">🔥 {profile.current_streak} {tr ? "gün seri" : "day streak"}</p>
+              {profile.username ? <p className="mt-1 truncate text-sm font-black text-green-200">@{profile.username}</p> : <p className="mt-1 text-[11px] font-bold text-amber-300">{tr ? "Kullanıcı adı oluşturulmamış" : "No username set"}</p>}
+              <p className="mt-1.5 text-[11px] font-bold text-orange-300">🔥 {profile.current_streak} {tr ? "gün seri" : "day streak"}</p>
             </div>
             {rank ? <Link href={`/${locale}/rank`} className="rounded-2xl border border-yellow-300/15 bg-yellow-300/[0.05] p-2 text-center"><img src={rank.rankIcon} alt={rank.rankName} className="mx-auto h-10 w-10 object-contain" /><p className="mt-1 truncate text-[10px] font-black text-yellow-200">{rank.rankName.replace(" III", "")}</p><p className="mt-0.5 text-[9px] font-black text-green-300">{nf.format(rank.lp)} LP</p></Link> : <div />}
           </div>
 
-          <div className="mt-4 grid grid-cols-4 gap-2">
+          {profile.username ? <p className="mt-3 rounded-xl border border-green-400/15 bg-green-400/[0.045] px-3 py-2 text-[10px] font-bold text-slate-400">{tr ? "Arkadaşların seni " : "Friends can find you as "}<span className="font-black text-green-200">@{profile.username}</span>{tr ? " kullanıcı adıyla bulabilir." : "."}</p> : null}
+
+          <div className="mt-3 grid grid-cols-4 gap-2">
             <MiniStat label={tr ? "Skor" : "Score"} value={nf.format(profile.total_score)} />
             <MiniStat label={tr ? "Oyun" : "Games"} value={nf.format(profile.games_played)} />
             <MiniStat label={tr ? "Galibiyet" : "Wins"} value={nf.format(profile.games_won)} />
