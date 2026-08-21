@@ -59,7 +59,7 @@
   body[data-keyboard-open="true"] textarea:focus,
   body[data-keyboard-open="true"] select:focus {
     position: relative;
-    z-index: 5;
+    z-index: 160;
   }
 
   [data-game="guess-the-player"] input,
@@ -83,6 +83,45 @@
   [data-game="club-nation"] form {
     width: 100% !important;
     max-width: 100% !important;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] div.fixed.inset-0,
+  body[data-mobile-route="tic-tac-toe-duel"] div.fixed.inset-0 {
+    z-index: 150 !important;
+    padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] div.fixed.inset-0 form,
+  body[data-mobile-route="tic-tac-toe-duel"] div.fixed.inset-0 form {
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] div.fixed.inset-0 input,
+  body[data-mobile-route="tic-tac-toe-duel"] div.fixed.inset-0 input {
+    position: relative;
+    z-index: 160 !important;
+    pointer-events: auto !important;
+    touch-action: manipulation;
+  }
+
+  body[data-mobile-route="wordle"] main {
+    padding-bottom: max(22px, env(safe-area-inset-bottom)) !important;
+  }
+
+  [data-game="club-clash"] input {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    z-index: 30 !important;
+    min-height: 52px !important;
+    background: #07111f !important;
+  }
+
+  [data-game="club-clash"] button {
+    position: relative;
   }
 
   @media (max-width: 380px) {
