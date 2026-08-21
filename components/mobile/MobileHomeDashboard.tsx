@@ -32,35 +32,40 @@ export default function MobileHomeDashboard() {
   const tr = locale === "tr";
 
   return (
-    <main className="mobile-home-dashboard min-h-screen bg-[#07111f] px-4 pb-24 pt-4 text-white md:hidden">
-      <header className="flex items-center justify-between gap-3">
+    <main className="mobile-home-dashboard min-h-screen bg-[#07111f] px-3 pb-24 pt-2.5 text-white md:hidden">
+      <header className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <Link href={`/${locale}`} aria-label="FootBattle" className="inline-flex">
-            <Image src="/footbattle-logo.png" alt="FootBattle" width={180} height={55} priority className="h-auto w-[118px] object-contain" />
+            <Image src="/footbattle-logo.png" alt="FootBattle" width={180} height={55} priority className="h-auto w-[102px] object-contain" />
           </Link>
-          <h1 className="mt-1.5 text-[23px] font-black leading-tight">{tr ? "Ne oynayacaksın?" : "What will you play?"}</h1>
+          <h1 className="mt-0.5 text-[20px] font-black leading-tight">{tr ? "Ne oynayacaksın?" : "What will you play?"}</h1>
         </div>
-        <div className="flex shrink-0 rounded-xl border border-white/10 bg-white/[0.03] p-1 text-[11px] font-black">
-          <Link href="/tr" className={`rounded-lg px-2.5 py-2 ${locale === "tr" ? "bg-green-500 text-[#07111f]" : "text-slate-500"}`}>TR</Link>
-          <Link href="/en" className={`rounded-lg px-2.5 py-2 ${locale === "en" ? "bg-green-500 text-[#07111f]" : "text-slate-500"}`}>EN</Link>
+        <div className="flex shrink-0 rounded-xl border border-white/10 bg-white/[0.03] p-0.5 text-[10px] font-black">
+          <Link href="/tr" className={`rounded-lg px-2 py-1.5 ${locale === "tr" ? "bg-green-500 text-[#07111f]" : "text-slate-500"}`}>TR</Link>
+          <Link href="/en" className={`rounded-lg px-2 py-1.5 ${locale === "en" ? "bg-green-500 text-[#07111f]" : "text-slate-500"}`}>EN</Link>
         </div>
       </header>
 
-      <Link href={`/${locale}/daily`} className="mt-4 flex items-center justify-between rounded-2xl border border-yellow-400/20 bg-yellow-400/[0.07] px-4 py-3">
-        <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.15em] text-yellow-300">🔥 {tr ? "Günlük Görev" : "Daily Challenge"}</p><p className="mt-1 text-sm font-black">{tr ? "Bugünkü bonusunu kaçırma" : "Don't miss today's bonus"}</p></div>
-        <span className="ml-3 text-lg text-yellow-300">→</span>
+      <Link href={`/${locale}/daily`} className="mt-2.5 flex items-center justify-between rounded-xl border border-yellow-400/20 bg-yellow-400/[0.07] px-3 py-2">
+        <div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-[0.14em] text-yellow-300">🔥 {tr ? "Günlük Görev" : "Daily Challenge"}</p><p className="mt-0.5 text-[12px] font-black">{tr ? "Bugünkü bonusunu kaçırma" : "Don't miss today's bonus"}</p></div>
+        <span className="ml-2 text-base text-yellow-300">→</span>
       </Link>
 
-      <section className="mt-4">
-        <div className="flex items-end justify-between"><div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{tr ? "Oyunlar" : "Games"}</p><h2 className="mt-1 text-lg font-black">{tr ? "Hemen oyna" : "Play now"}</h2></div><span className="text-[10px] font-bold text-slate-600">{GAMES.length} {tr ? "oyun" : "games"}</span></div>
-        <div className="mt-3 space-y-2.5">
+      <section className="mt-2.5">
+        <div className="flex items-end justify-between"><h2 className="text-base font-black">{tr ? "Hemen oyna" : "Play now"}</h2><span className="text-[9px] font-bold text-slate-600">{GAMES.length} {tr ? "oyun" : "games"}</span></div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
           {GAMES.map((game) => {
             const title = tr ? game.titleTr : game.titleEn;
             return (
-              <Link key={game.titleEn} href={game.href(locale)} className="flex min-h-[74px] items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-3.5 py-3 active:scale-[0.99]">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] text-xl">{game.icon}</div>
-                <div className="min-w-0 flex-1"><div className="flex items-start gap-2"><p className="line-clamp-2 min-w-0 text-[13px] font-black leading-4">{title}</p>{game.tag ? <span className="mt-0.5 shrink-0 rounded-full bg-yellow-400/15 px-2 py-0.5 text-[8px] font-black uppercase text-yellow-300">{game.tag}</span> : null}</div><p className="mt-1 line-clamp-1 text-[11px] leading-4 text-slate-500">{tr ? game.tr : game.en}</p></div>
-                <span className="shrink-0 text-sm font-black text-green-300">→</span>
+              <Link key={game.titleEn} href={game.href(locale)} className="relative flex min-h-[94px] flex-col justify-between rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3 active:scale-[0.99]">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-xl">{game.icon}</span>
+                  {game.tag ? <span className="rounded-full bg-yellow-400/15 px-1.5 py-0.5 text-[7px] font-black uppercase text-yellow-300">{game.tag}</span> : <span className="text-xs font-black text-green-300">→</span>}
+                </div>
+                <div className="mt-2 min-w-0">
+                  <p className="line-clamp-2 text-[12px] font-black leading-[15px]">{title}</p>
+                  <p className="mt-1 line-clamp-1 text-[9px] leading-3 text-slate-500">{tr ? game.tr : game.en}</p>
+                </div>
               </Link>
             );
           })}
