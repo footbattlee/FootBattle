@@ -45,11 +45,36 @@ jobs:
       - name: Generate Android project
         run: npx cap add android
 
+      - name: Configure native Google authentication dependencies
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          variables = Path('android/variables.gradle')
+          text = variables.read_text()
+          marker = 'ext {'
+          if marker not in text:
+              raise SystemExit('ext block not found in android/variables.gradle')
+
+          additions = []
+          if 'rgcfaIncludeGoogle' not in text:
+              additions.append("    rgcfaIncludeGoogle = true")
+          if 'androidxCredentialsVersion' not in text:
+              additions.append("    androidxCredentialsVersion = '1.3.0'")
+
+          if additions:
+              idx = text.find(marker) + len(marker)
+              text = text[:idx] + '\n' + '\n'.join(additions) + text[idx:]
+              variables.write_text(text)
+          PY
+
       - name: Add Firebase Android configuration
         run: cp android-ci/google-services.json android/app/google-services.json
 
-      - name: Sync Capacitor
-        run: npx cap sync android
+      - name: Update and sync Capacitor
+        run: |
+          npx cap update android
+          npx cap sync android
 
       - name: Apply Firebase Crashlytics
         run: |
@@ -82,7 +107,7 @@ jobs:
           app_gradle.write_text(app)
           PY
 
-      - name: Apply Android Integration v2
+      - name: Apply Android Integration v3
         run: |
           cp android-ci/MainActivity.java android/app/src/main/java/com/playfootbattle/app/MainActivity.java
           python - <<'PY'
@@ -109,17 +134,25 @@ jobs:
           target.set(a('screenOrientation'), 'portrait')
           target.set(a('windowSoftInputMode'), 'adjustPan')
 
-          app_links = ET.SubElement(target, 'intent-filter')
-          app_links.set(a('autoVerify'), 'true')
-          action = ET.SubElement(app_links, 'action')
-          action.set(a('name'), 'android.intent.action.VIEW')
-          category_default = ET.SubElement(app_links, 'category')
-          category_default.set(a('name'), 'android.intent.category.DEFAULT')
-          category_browsable = ET.SubElement(app_links, 'category')
-          category_browsable.set(a('name'), 'android.intent.category.BROWSABLE')
-          data = ET.SubElement(app_links, 'data')
-          data.set(a('scheme'), 'https')
-          data.set(a('host'), 'playfootbattle.com')
+          has_app_link = False
+          for intent_filter in target.findall('intent-filter'):
+              for data in intent_filter.findall('data'):
+                  if data.get(a('host')) == 'playfootbattle.com':
+                      has_app_link = True
+                      break
+
+          if not has_app_link:
+              app_links = ET.SubElement(target, 'intent-filter')
+              app_links.set(a('autoVerify'), 'true')
+              action = ET.SubElement(app_links, 'action')
+              action.set(a('name'), 'android.intent.action.VIEW')
+              category_default = ET.SubElement(app_links, 'category')
+              category_default.set(a('name'), 'android.intent.category.DEFAULT')
+              category_browsable = ET.SubElement(app_links, 'category')
+              category_browsable.set(a('name'), 'android.intent.category.BROWSABLE')
+              data = ET.SubElement(app_links, 'data')
+              data.set(a('scheme'), 'https')
+              data.set(a('host'), 'playfootbattle.com')
 
           if not any(p.get(a('name')) == 'android.permission.POST_NOTIFICATIONS'
                      for p in root.findall('uses-permission')):
@@ -129,9 +162,10 @@ jobs:
           tree.write(manifest, encoding='utf-8', xml_declaration=True)
           PY
 
-      - name: Verify Android toolchain
+      - name: Verify Android integration
         run: |
           cat android/variables.gradle
+          grep -R "CapacitorFirebaseAuthentication" -n android/settings.gradle android/app/build.gradle android/capacitor.settings.gradle || true
           java -version
           node --version
 
@@ -149,7 +183,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: footbattle-android-debug-firebase-v2
+          name: footbattle-android-integration-v3
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
