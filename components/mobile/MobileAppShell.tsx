@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Locale = "tr" | "en";
 type NavItem = { key: "home" | "daily" | "duels" | "rank" | "profile"; label: string; icon: string; href: string };
@@ -12,26 +12,18 @@ const MOBILE_GAME_PREFIXES = [
   "/survivor", "/player-quiz", "/transfer-quiz", "/club-nation", "/halisaha-kadro",
 ];
 
-function getLocale(pathname: string): Locale {
-  return pathname === "/en" || pathname.startsWith("/en/") ? "en" : "tr";
-}
-
+function getLocale(pathname: string): Locale { return pathname === "/en" || pathname.startsWith("/en/") ? "en" : "tr"; }
 function stripLocale(pathname: string) {
   if (pathname === "/tr" || pathname === "/en") return "/";
   if (pathname.startsWith("/tr/") || pathname.startsWith("/en/")) return pathname.slice(3) || "/";
   return pathname;
 }
-
-function isGamePath(plain: string) {
-  return MOBILE_GAME_PREFIXES.some((prefix) => plain === prefix || plain.startsWith(`${prefix}/`));
-}
-
+function isGamePath(plain: string) { return MOBILE_GAME_PREFIXES.some((prefix) => plain === prefix || plain.startsWith(`${prefix}/`)); }
 function shouldShowShell(pathname: string) {
   const plain = stripLocale(pathname);
   if (["/", "/daily", "/duels", "/rank", "/profile"].includes(plain)) return true;
   return isGamePath(plain);
 }
-
 function routeName(plain: string) {
   if (plain.startsWith("/tic-tac-toe/duel/")) return "tic-tac-toe-duel";
   if (plain === "/tic-tac-toe") return "tic-tac-toe-solo";
@@ -49,11 +41,29 @@ export default function MobileAppShell() {
   const pathname = usePathname();
   const locale = getLocale(pathname);
   const plainPath = stripLocale(pathname);
+  const [incomingCount, setIncomingCount] = useState(0);
 
   useEffect(() => {
     document.body.dataset.mobileRoute = routeName(plainPath);
     return () => { delete document.body.dataset.mobileRoute; };
   }, [plainPath]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadBadge() {
+      try {
+        const response = await fetch("/api/duels", { cache: "no-store" });
+        if (!response.ok) return;
+        const body = await response.json();
+        if (!cancelled) setIncomingCount(Number(body?.summary?.incomingCount ?? body?.incoming?.length ?? 0));
+      } catch {
+        if (!cancelled) setIncomingCount(0);
+      }
+    }
+    void loadBadge();
+    const timer = window.setInterval(loadBadge, 30000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [pathname]);
 
   const items = useMemo<NavItem[]>(() => {
     const tr = locale === "tr";
@@ -86,7 +96,7 @@ export default function MobileAppShell() {
             const active = isActive(item);
             const duel = item.key === "duels";
             return <Link key={item.key} href={item.href} aria-current={active ? "page" : undefined} className={`group relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-center transition active:scale-95 ${active ? "text-green-300" : "text-slate-500"}`}>
-              {duel ? <span className={`flex h-10 w-10 -translate-y-1.5 items-center justify-center rounded-2xl border text-lg font-black shadow-lg ${active ? "border-green-200/40 bg-green-400 text-[#07111f] shadow-green-950/30" : "border-green-300/20 bg-green-500 text-[#07111f] shadow-green-950/20"}`}>{item.icon}</span> : <span className={`text-[20px] font-black leading-none ${active ? "text-green-300" : "text-slate-400"}`}>{item.icon}</span>}
+              {duel ? <span className={`relative flex h-10 w-10 -translate-y-1.5 items-center justify-center rounded-2xl border text-lg font-black shadow-lg ${active ? "border-green-200/40 bg-green-400 text-[#07111f] shadow-green-950/30" : "border-green-300/20 bg-green-500 text-[#07111f] shadow-green-950/20"}`}>{item.icon}{incomingCount > 0 ? <span className="absolute -right-2 -top-2 flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-[#07111f] bg-red-500 px-1 text-[9px] font-black leading-none text-white">{incomingCount > 9 ? "9+" : incomingCount}</span> : null}</span> : <span className={`text-[20px] font-black leading-none ${active ? "text-green-300" : "text-slate-400"}`}>{item.icon}</span>}
               <span className={`truncate text-[11px] font-black ${duel ? "-mt-1.5" : ""}`}>{item.label}</span>
               {active && !duel ? <span className="absolute bottom-1.5 h-1 w-5 rounded-full bg-green-400" /> : null}
             </Link>;

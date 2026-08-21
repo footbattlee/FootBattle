@@ -6,9 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "android:add": "cap add android",
+    "android:sync": "cap sync android",
+    "android:open": "cap open android"
   },
   "dependencies": {
+    "@capacitor-firebase/authentication": "^8.4.0",
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/push-notifications": "^8.0.0",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.0",
     "@vercel/analytics": "^2.0.1",
@@ -16,6 +23,7 @@
     "csv-parse": "^7.0.2",
     "date-fns": "^4.4.0",
     "dotenv": "^17.4.2",
+    "firebase": "^12.3.0",
     "html-to-image": "^1.11.13",
     "lucide-react": "^1.29.0",
     "next": "16.3.0",
@@ -23,6 +31,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.0.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
