@@ -48,6 +48,40 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      - name: Apply Android Polish v1
+        run: |
+          cp android-ci/MainActivity.java android/app/src/main/java/com/playfootbattle/app/MainActivity.java
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          android_ns = 'http://schemas.android.com/apk/res/android'
+          ET.register_namespace('android', android_ns)
+          tree = ET.parse(manifest)
+          root = tree.getroot()
+          name_key = f'{{{android_ns}}}name'
+          orientation_key = f'{{{android_ns}}}screenOrientation'
+          keyboard_key = f'{{{android_ns}}}windowSoftInputMode'
+
+          target = None
+          for activity in root.findall('./application/activity'):
+              if activity.get(name_key) in ('.MainActivity', 'com.playfootbattle.app.MainActivity'):
+                  target = activity
+                  break
+
+          if target is None:
+              raise SystemExit('MainActivity not found in AndroidManifest.xml')
+
+          target.set(orientation_key, 'portrait')
+          target.set(keyboard_key, 'adjustPan')
+          tree.write(manifest, encoding='utf-8', xml_declaration=True)
+          PY
+          echo '--- Android polish manifest ---'
+          cat android/app/src/main/AndroidManifest.xml
+          echo '--- Android polish MainActivity ---'
+          cat android/app/src/main/java/com/playfootbattle/app/MainActivity.java
+
       - name: Verify Android toolchain
         run: |
           cat android/variables.gradle
@@ -64,7 +98,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: footbattle-android-debug
+          name: footbattle-android-debug-polish-v1
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
