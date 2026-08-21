@@ -48,7 +48,7 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Apply Android Polish v1
+      - name: Apply Android Integration v2
         run: |
           cp android-ci/MainActivity.java android/app/src/main/java/com/playfootbattle/app/MainActivity.java
           python - <<'PY'
@@ -60,26 +60,47 @@ jobs:
           ET.register_namespace('android', android_ns)
           tree = ET.parse(manifest)
           root = tree.getroot()
-          name_key = f'{{{android_ns}}}name'
-          orientation_key = f'{{{android_ns}}}screenOrientation'
-          keyboard_key = f'{{{android_ns}}}windowSoftInputMode'
+
+          def a(name):
+              return f'{{{android_ns}}}{name}'
 
           target = None
           for activity in root.findall('./application/activity'):
-              if activity.get(name_key) in ('.MainActivity', 'com.playfootbattle.app.MainActivity'):
+              if activity.get(a('name')) in ('.MainActivity', 'com.playfootbattle.app.MainActivity'):
                   target = activity
                   break
-
           if target is None:
               raise SystemExit('MainActivity not found in AndroidManifest.xml')
 
-          target.set(orientation_key, 'portrait')
-          target.set(keyboard_key, 'adjustPan')
+          target.set(a('screenOrientation'), 'portrait')
+          target.set(a('windowSoftInputMode'), 'adjustPan')
+
+          # Verified Android App Links scaffold for all FootBattle HTTPS URLs.
+          # Full auto-verification becomes active once /.well-known/assetlinks.json
+          # contains the SHA-256 fingerprint of the release/Play signing certificate.
+          app_links = ET.SubElement(target, 'intent-filter')
+          app_links.set(a('autoVerify'), 'true')
+          action = ET.SubElement(app_links, 'action')
+          action.set(a('name'), 'android.intent.action.VIEW')
+          category_default = ET.SubElement(app_links, 'category')
+          category_default.set(a('name'), 'android.intent.category.DEFAULT')
+          category_browsable = ET.SubElement(app_links, 'category')
+          category_browsable.set(a('name'), 'android.intent.category.BROWSABLE')
+          data = ET.SubElement(app_links, 'data')
+          data.set(a('scheme'), 'https')
+          data.set(a('host'), 'playfootbattle.com')
+
+          # Android 13+ runtime notification permission; FCM wiring will use it.
+          if not any(p.get(a('name')) == 'android.permission.POST_NOTIFICATIONS'
+                     for p in root.findall('uses-permission')):
+              perm = ET.SubElement(root, 'uses-permission')
+              perm.set(a('name'), 'android.permission.POST_NOTIFICATIONS')
+
           tree.write(manifest, encoding='utf-8', xml_declaration=True)
           PY
-          echo '--- Android polish manifest ---'
+          echo '--- Android Integration v2 manifest ---'
           cat android/app/src/main/AndroidManifest.xml
-          echo '--- Android polish MainActivity ---'
+          echo '--- Android Integration v2 MainActivity ---'
           cat android/app/src/main/java/com/playfootbattle/app/MainActivity.java
 
       - name: Verify Android toolchain
@@ -98,7 +119,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: footbattle-android-debug-polish-v1
+          name: footbattle-android-debug-integration-v2
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
