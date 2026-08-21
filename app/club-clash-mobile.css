@@ -1,7 +1,7 @@
 @media (max-width: 767px) {
   [data-game="club-clash"] > main > div {
     padding-top: 0.75rem !important;
-    padding-bottom: calc(6.5rem + env(safe-area-inset-bottom)) !important;
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom)) !important;
   }
 
   [data-game="club-clash"] > main > div > div:first-child {
@@ -92,30 +92,32 @@
 
   [data-game="club-clash"] section > div:nth-child(4) label {
     margin-bottom: 0.35rem !important;
-    font-size: 0.58rem !important;
+    font-size: 0.72rem !important;
   }
 
   [data-game="club-clash"] section > div:nth-child(4) input {
+    display: block !important;
+    min-height: 52px !important;
     border-radius: 0.85rem !important;
-    padding-top: 0.75rem !important;
-    padding-bottom: 0.75rem !important;
+    padding: 0.75rem 0.9rem !important;
+    font-size: 16px !important;
   }
 
   [data-game="club-clash"] section > div:nth-child(4) .mt-4.grid {
-    position: sticky;
-    bottom: calc(82px + env(safe-area-inset-bottom));
-    z-index: 20;
-    margin: 0.65rem -0.15rem -0.15rem !important;
-    padding: 0.35rem;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 1rem;
-    background: rgba(7, 11, 20, 0.94);
-    backdrop-filter: blur(14px);
+    position: static !important;
+    bottom: auto !important;
+    z-index: auto !important;
+    margin: 0.75rem 0 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
   }
 
   [data-game="club-clash"] section > div:nth-child(4) .mt-4.grid button {
-    padding-top: 0.8rem !important;
-    padding-bottom: 0.8rem !important;
+    min-height: 48px !important;
+    padding-top: 0.7rem !important;
+    padding-bottom: 0.7rem !important;
     border-radius: 0.8rem !important;
   }
 
