@@ -87,10 +87,12 @@ export default function MobileAppShell() {
     return false;
   }
 
+  const navLayer = plainPath === "/duels" ? "z-[60]" : "z-[100]";
+
   return (
     <>
       <div aria-hidden="true" className="h-[calc(74px+env(safe-area-inset-bottom))] md:hidden" />
-      <nav aria-label={locale === "tr" ? "Mobil ana navigasyon" : "Mobile primary navigation"} className="fixed inset-x-0 bottom-0 z-[100] border-t border-white/10 bg-[#07111f]/95 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl md:hidden">
+      <nav aria-label={locale === "tr" ? "Mobil ana navigasyon" : "Mobile primary navigation"} className={`fixed inset-x-0 bottom-0 ${navLayer} border-t border-white/10 bg-[#07111f]/95 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl md:hidden`}>
         <div className="mx-auto grid h-[74px] max-w-[560px] grid-cols-5 items-stretch">
           {items.map((item) => {
             const active = isActive(item);
