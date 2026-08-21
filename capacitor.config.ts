@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   appName: 'FootBattle',
   webDir: 'www',
   server: {
-    url: 'https://foot-battle-git-android-capacitor-footbatlee.vercel.app/tr',
+    url: 'https://playfootbattle.com/tr',
     cleartext: false,
   },
   android: {
