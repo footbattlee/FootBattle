@@ -88,8 +88,6 @@ public class MainActivity extends BridgeActivity {
     private void configureFirebaseDebugChecks() {
         requestNotificationPermissionIfNeeded();
 
-        if (!BuildConfig.DEBUG) return;
-
         boolean crashlyticsSent = getSharedPreferences(PREFS, MODE_PRIVATE)
             .getBoolean(PREF_CRASHLYTICS_SENT, false);
 
