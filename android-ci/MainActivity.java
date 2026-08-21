@@ -45,7 +45,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onPause() {
+    public void onPause() {
         // Supabase SSR/browser auth uses browser cookies. Explicitly flushing
         // them prevents a process kill from losing a freshly-created session.
         CookieManager.getInstance().flush();
@@ -53,7 +53,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onStop() {
+    public void onStop() {
         CookieManager.getInstance().flush();
         super.onStop();
     }
