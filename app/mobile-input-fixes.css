@@ -1,0 +1,95 @@
+@media (max-width: 767px) {
+  html,
+  body {
+    width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  select,
+  textarea {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 48px;
+    font-size: 16px !important;
+    line-height: 1.25 !important;
+    scroll-margin-top: 18vh;
+    scroll-margin-bottom: 32vh;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    font-size: 16px !important;
+    line-height: 1.25 !important;
+  }
+
+  form,
+  form > div,
+  [role="combobox"],
+  [role="listbox"] {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  [role="listbox"],
+  [data-radix-popper-content-wrapper],
+  [class*="absolute"][class*="z-"] {
+    max-height: min(42vh, 360px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body[data-keyboard-open="true"] nav[aria-label="Mobil ana navigasyon"],
+  body[data-keyboard-open="true"] nav[aria-label="Mobile primary navigation"] {
+    display: none !important;
+  }
+
+  body[data-keyboard-open="true"] > div[aria-hidden="true"] {
+    display: none !important;
+  }
+
+  body[data-keyboard-open="true"] main {
+    padding-bottom: max(20px, env(safe-area-inset-bottom)) !important;
+  }
+
+  body[data-keyboard-open="true"] input:focus,
+  body[data-keyboard-open="true"] textarea:focus,
+  body[data-keyboard-open="true"] select:focus {
+    position: relative;
+    z-index: 5;
+  }
+
+  [data-game="guess-the-player"] input,
+  [data-game="tic-tac-toe"] input,
+  [data-game="player-quiz"] input,
+  [data-game="transfer-quiz"] input,
+  [data-game="club-nation"] input,
+  body[data-mobile-route="guess-the-player"] input,
+  body[data-mobile-route="tic-tac-toe-solo"] input,
+  body[data-mobile-route="tic-tac-toe-duel"] input,
+  body[data-mobile-route="club-clash"] input {
+    min-height: 50px !important;
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+  }
+
+  [data-game="guess-the-player"] form,
+  [data-game="tic-tac-toe"] form,
+  [data-game="player-quiz"] form,
+  [data-game="transfer-quiz"] form,
+  [data-game="club-nation"] form {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  @media (max-width: 380px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+    select,
+    textarea {
+      min-height: 46px;
+    }
+  }
+}
