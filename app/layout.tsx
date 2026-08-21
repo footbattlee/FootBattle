@@ -6,6 +6,7 @@ import "./halisaha-mobile-fix.css";
 import "./club-clash-mobile.css";
 import "./mobile-game-fixes.css";
 import "./mobile-home-dashboard.css";
+import "./mobile-input-fixes.css";
 
 import PresenceHeartbeat from "@/components/PresenceHeartbeat";
 import HomeProgressionSpotlight from "@/components/HomeProgressionSpotlight";
@@ -25,6 +26,7 @@ import MobileAppShell from "@/components/mobile/MobileAppShell";
 import MobileHomeDashboard from "@/components/mobile/MobileHomeDashboard";
 import GuessThePlayerMobileAutoScroll from "@/components/mobile/GuessThePlayerMobileAutoScroll";
 import AndroidGoogleSignInBridge from "@/components/mobile/AndroidGoogleSignInBridge";
+import MobileKeyboardGuard from "@/components/mobile/MobileKeyboardGuard";
 import { SITE_URL, SiteJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -57,6 +59,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         {children}
         <MobileHomeDashboard />
         <MobileAppShell />
+        <MobileKeyboardGuard />
         <GuessThePlayerMobileAutoScroll />
         <AndroidGoogleSignInBridge />
         <HomeSuperLigAndMobileOrder />
