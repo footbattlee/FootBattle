@@ -2,1189 +2,199 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import {
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { useCallback, useEffect, useState } from "react";
 
-/* =========================================================
-   TYPES
-========================================================= */
-
-type FriendshipStatus =
-  | "none"
-  | "pending_sent"
-  | "pending_received"
-  | "accepted"
-  | "rejected";
-
+type FriendshipStatus = "none" | "pending_sent" | "pending_received" | "accepted" | "rejected";
 type PublicUser = {
   id: string;
   username: string | null;
   displayName: string;
   avatarUrl: string | null;
-
   totalScore: number;
   currentStreak: number;
   bestStreak: number;
-
   gamesPlayed: number;
   gamesWon: number;
   winRate: number;
-
   createdAt: string;
 };
-
-type GameResult = {
-  id: number;
-  game_code: string;
-  play_date: string;
-  score: number;
-  attempt_count: number | null;
-  won: boolean;
-  duration_seconds: number | null;
-  created_at: string;
-};
-
+type GameResult = { id: number; game_code: string; play_date: string; score: number; won: boolean };
 type UserResponse = {
   ok?: boolean;
   error?: string;
-
   isOwnProfile?: boolean;
-
   profile?: PublicUser;
-
-  friendship?: {
-    id: number | null;
-    status: FriendshipStatus;
-  };
-
+  friendship?: { id: number | null; status: FriendshipStatus };
   results?: GameResult[];
 };
-
-type ActionResponse = {
-  ok?: boolean;
-  error?: string;
-
-  friendship?: {
-    id: number;
-    requester_id?: string;
-    addressee_id?: string;
-    status?: string;
-  };
-};
-
-/* =========================================================
-   CONSTANTS
-========================================================= */
+type ActionResponse = { ok?: boolean; error?: string; friendship?: { id: number } };
+type DuelGame = "tic_tac_toe" | "club_clash";
 
 const GAME_LABELS: Record<string, string> = {
   wordle: "Wordle",
   guess_the_player: "Guess the Player",
   player_quiz: "Player Quiz",
   career_path: "Career Path",
+  tic_tac_toe: "Futbol Tic Tac Toe",
+  club_clash: "2 Takım 1 Oyuncu",
 };
 
-/* =========================================================
-   HELPERS
-========================================================= */
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat(
-    "tr-TR",
-  ).format(value);
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat(
-    "tr-TR",
-    {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    },
-  ).format(new Date(value));
-}
-
-function getInitials(
-  displayName: string,
-  username: string | null,
-) {
-  const value =
-    displayName?.trim() ||
-    username?.trim() ||
-    "FootBattle";
-
-  const parts = value
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (parts.length === 0) {
-    return "FB";
-  }
-
-  if (parts.length === 1) {
-    return parts[0]
-      .slice(0, 2)
-      .toUpperCase();
-  }
-
-  return (
-    parts[0].slice(0, 1) +
-    parts[parts.length - 1].slice(0, 1)
-  ).toUpperCase();
-}
-
-/* =========================================================
-   PAGE
-========================================================= */
+function formatNumber(value: number) { return new Intl.NumberFormat("tr-TR").format(value); }
+function formatDate(value: string) { return new Intl.DateTimeFormat("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(value)); }
+function initials(name: string) { return name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join("").toUpperCase() || "FB"; }
 
 export default function PublicUserPage() {
-  const params =
-    useParams<{
-      username: string;
-    }>();
+  const params = useParams<{ username: string }>();
+  const username = decodeURIComponent(params.username ?? "").trim().replace(/^@/, "").toLowerCase();
+  const [profile, setProfile] = useState<PublicUser | null>(null);
+  const [results, setResults] = useState<GameResult[]>([]);
+  const [friendship, setFriendship] = useState<{ id: number | null; status: FriendshipStatus }>({ id: null, status: "none" });
+  const [isOwnProfile, setIsOwnProfile] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [duelOpen, setDuelOpen] = useState(false);
+  const [duelSending, setDuelSending] = useState<DuelGame | null>(null);
 
-  const username =
-    decodeURIComponent(
-      params.username ?? "",
-    )
-      .trim()
-      .replace(/^@/, "")
-      .toLowerCase();
-
-  const [profile, setProfile] =
-    useState<PublicUser | null>(null);
-
-  const [results, setResults] =
-    useState<GameResult[]>([]);
-
-  const [
-    friendship,
-    setFriendship,
-  ] = useState<{
-    id: number | null;
-    status: FriendshipStatus;
-  }>({
-    id: null,
-    status: "none",
-  });
-
-  const [
-    isOwnProfile,
-    setIsOwnProfile,
-  ] = useState(false);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [error, setError] =
-    useState("");
-
-  const [message, setMessage] =
-    useState("");
-
-  const [
-    actionLoading,
-    setActionLoading,
-  ] = useState(false);
-
-  /* =======================================================
-     LOAD PROFILE
-  ======================================================= */
-
-  const loadProfile =
-    useCallback(
-      async (
-        showLoading = true,
-      ) => {
-        if (!username) {
-          return;
-        }
-
-        try {
-          if (showLoading) {
-            setLoading(true);
-          }
-
-          setError("");
-
-          const response =
-            await fetch(
-              `/api/users/${encodeURIComponent(
-                username,
-              )}`,
-              {
-                method: "GET",
-                cache: "no-store",
-              },
-            );
-
-          const data =
-            (await response.json()) as UserResponse;
-
-          if (
-            !response.ok ||
-            !data.ok ||
-            !data.profile
-          ) {
-            throw new Error(
-              data.error ??
-                "Kullanıcı bulunamadı.",
-            );
-          }
-
-          setProfile(
-            data.profile,
-          );
-
-          setResults(
-            data.results ?? [],
-          );
-
-          setFriendship(
-            data.friendship ?? {
-              id: null,
-              status: "none",
-            },
-          );
-
-          setIsOwnProfile(
-            Boolean(
-              data.isOwnProfile,
-            ),
-          );
-        } catch (err) {
-          console.error(
-            "Public profil yükleme hatası:",
-            err,
-          );
-
-          setProfile(null);
-
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Profil yüklenemedi.",
-          );
-        } finally {
-          if (showLoading) {
-            setLoading(false);
-          }
-        }
-      },
-      [username],
-    );
-
-  useEffect(() => {
-    void loadProfile();
-  }, [loadProfile]);
-
-  /* =======================================================
-     SEND FRIEND REQUEST
-  ======================================================= */
-
-  async function sendFriendRequest() {
-    if (!profile) {
-      return;
-    }
-
+  const loadProfile = useCallback(async (showLoading = true) => {
+    if (!username) return;
+    if (showLoading) setLoading(true);
     try {
-      setActionLoading(true);
       setError("");
-      setMessage("");
-
-      const response =
-        await fetch(
-          "/api/friends/request",
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body: JSON.stringify({
-              userId: profile.id,
-            }),
-          },
-        );
-
-      const data =
-        (await response.json()) as ActionResponse;
-
-      if (
-        !response.ok ||
-        !data.ok
-      ) {
-        throw new Error(
-          data.error ??
-            "Arkadaşlık isteği gönderilemedi.",
-        );
-      }
-
-      setFriendship({
-        id:
-          data.friendship?.id ??
-          null,
-
-        status:
-          "pending_sent",
-      });
-
-      setMessage(
-        "Arkadaşlık isteği gönderildi. ✅",
-      );
+      const response = await fetch(`/api/users/${encodeURIComponent(username)}`, { cache: "no-store" });
+      const body = (await response.json()) as UserResponse;
+      if (!response.ok || !body.ok || !body.profile) throw new Error(body.error ?? "Kullanıcı bulunamadı.");
+      setProfile(body.profile);
+      setResults(body.results ?? []);
+      setFriendship(body.friendship ?? { id: null, status: "none" });
+      setIsOwnProfile(Boolean(body.isOwnProfile));
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Arkadaşlık isteği gönderilemedi.",
-      );
+      setError(err instanceof Error ? err.message : "Profil yüklenemedi.");
     } finally {
-      setActionLoading(false);
+      if (showLoading) setLoading(false);
     }
-  }
+  }, [username]);
 
-  /* =======================================================
-     REMOVE / CANCEL
-  ======================================================= */
+  useEffect(() => { void loadProfile(); }, [loadProfile]);
 
-  async function removeFriendship() {
-    if (
-      friendship.id === null
-    ) {
-      return;
-    }
-
+  async function friendAction(action: "send" | "remove" | "accept" | "reject") {
+    if (!profile || actionLoading) return;
+    setActionLoading(true); setError(""); setMessage("");
     try {
-      setActionLoading(true);
-      setError("");
-      setMessage("");
-
-      const previousStatus =
-        friendship.status;
-
-      const response =
-        await fetch(
-          "/api/friends/remove",
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body: JSON.stringify({
-              friendshipId:
-                friendship.id,
-            }),
-          },
-        );
-
-      const data =
-        (await response.json()) as ActionResponse;
-
-      if (
-        !response.ok ||
-        !data.ok
-      ) {
-        throw new Error(
-          data.error ??
-            "Arkadaşlık işlemi gerçekleştirilemedi.",
-        );
-      }
-
-      setFriendship({
-        id: null,
-        status: "none",
-      });
-
-      setMessage(
-        previousStatus ===
-          "accepted"
-          ? "Arkadaşlıktan çıkarıldı."
-          : "Arkadaşlık isteği iptal edildi.",
-      );
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "İşlem gerçekleştirilemedi.",
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  /* =======================================================
-     ACCEPT / REJECT
-  ======================================================= */
-
-  async function respondToRequest(
-    action:
-      | "accept"
-      | "reject",
-  ) {
-    if (
-      friendship.id === null
-    ) {
-      return;
-    }
-
-    try {
-      setActionLoading(true);
-      setError("");
-      setMessage("");
-
-      const response =
-        await fetch(
-          "/api/friends/respond",
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body: JSON.stringify({
-              friendshipId:
-                friendship.id,
-              action,
-            }),
-          },
-        );
-
-      const data =
-        (await response.json()) as ActionResponse;
-
-      if (
-        !response.ok ||
-        !data.ok
-      ) {
-        throw new Error(
-          data.error ??
-            "Arkadaşlık isteği güncellenemedi.",
-        );
-      }
-
-      if (
-        action === "accept"
-      ) {
-        setFriendship(
-          (current) => ({
-            ...current,
-            status:
-              "accepted",
-          }),
-        );
-
-        setMessage(
-          "Arkadaşlık isteği kabul edildi. 🤝",
-        );
-      } else {
-        setFriendship({
-          id:
-            friendship.id,
-          status:
-            "rejected",
-        });
-
-        setMessage(
-          "Arkadaşlık isteği reddedildi.",
-        );
-      }
-
+      let endpoint = "/api/friends/request";
+      let body: Record<string, unknown> = { userId: profile.id };
+      if (action === "remove") { endpoint = "/api/friends/remove"; body = { friendshipId: friendship.id }; }
+      if (action === "accept" || action === "reject") { endpoint = "/api/friends/respond"; body = { friendshipId: friendship.id, action }; }
+      const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = (await response.json()) as ActionResponse;
+      if (!response.ok || !data.ok) throw new Error(data.error ?? "İşlem gerçekleştirilemedi.");
+      setMessage(action === "send" ? "Arkadaşlık isteği gönderildi. ✅" : action === "accept" ? "Arkadaşlık isteği kabul edildi. 🤝" : action === "reject" ? "İstek reddedildi." : "Arkadaşlık güncellendi.");
       await loadProfile(false);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "İşlem gerçekleştirilemedi.",
-      );
-    } finally {
-      setActionLoading(false);
-    }
+    } catch (err) { setError(err instanceof Error ? err.message : "İşlem gerçekleştirilemedi."); }
+    finally { setActionLoading(false); }
   }
 
-  /* =======================================================
-     LOADING
-  ======================================================= */
-
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-[#07111f] text-white">
-
-        <div className="mx-auto max-w-[1120px] px-5 py-8 sm:px-6">
-
-          <div className="rounded-[24px] border border-white/10 bg-[#101c2c] p-10 text-center">
-
-            <p className="font-bold text-slate-400">
-              Profil yükleniyor...
-            </p>
-
-          </div>
-
-        </div>
-
-      </main>
-    );
+  async function sendDuel(gameCode: DuelGame) {
+    if (!profile || friendship.status !== "accepted" || duelSending) return;
+    setDuelSending(gameCode); setError("");
+    try {
+      const response = await fetch("/api/duels/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ opponentId: profile.id, gameCode }),
+      });
+      const body = await response.json();
+      if (!response.ok || !body.ok || !body.duel?.id) throw new Error(body.error ?? "Düello gönderilemedi.");
+      window.location.href = `/duels/${body.duel.id}`;
+    } catch (err) { setError(err instanceof Error ? err.message : "Düello gönderilemedi."); }
+    finally { setDuelSending(null); }
   }
 
-  /* =======================================================
-     ERROR
-  ======================================================= */
+  if (loading) return <main className="min-h-screen bg-[#07111f] p-8 text-center text-white"><p className="font-bold text-slate-400">Profil yükleniyor...</p></main>;
+  if (!profile) return <main className="min-h-screen bg-[#07111f] px-5 py-8 text-white"><Link href="/" className="text-sm font-bold text-slate-300">← Ana Sayfa</Link><div className="mt-8 rounded-3xl border border-red-500/20 bg-[#101c2c] p-8 text-center"><h1 className="text-2xl font-black">Profil bulunamadı</h1><p className="mt-3 text-slate-400">{error}</p></div></main>;
 
-  if (
-    error &&
-    !profile
-  ) {
-    return (
-      <main className="min-h-screen bg-[#07111f] text-white">
-
-        <div className="mx-auto max-w-[1120px] px-5 py-8 sm:px-6">
-
-          <Link
-            href="/"
-            className="inline-flex rounded-xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-300 transition hover:bg-white/5"
-          >
-            ← Ana Sayfa
-          </Link>
-
-          <div className="mt-8 rounded-[24px] border border-red-500/20 bg-[#101c2c] p-10 text-center">
-
-            <div className="text-5xl">
-              ⚠️
-            </div>
-
-            <h1 className="mt-5 text-3xl font-black">
-              Profil bulunamadı
-            </h1>
-
-            <p className="mt-3 text-slate-400">
-              {error}
-            </p>
-
-          </div>
-
-        </div>
-
-      </main>
-    );
-  }
-
-  if (!profile) {
-    return null;
-  }
-
-  /* =======================================================
-     GAME SUMMARIES
-  ======================================================= */
-
-  const gameSummaries =
-    Object.entries(
-      GAME_LABELS,
-    ).map(
-      ([gameCode, label]) => {
-        const gameResults =
-          results.filter(
-            (result) =>
-              result.game_code ===
-              gameCode,
-          );
-
-        const wins =
-          gameResults.filter(
-            (result) =>
-              result.won,
-          ).length;
-
-        const totalScore =
-          gameResults.reduce(
-            (
-              total,
-              result,
-            ) =>
-              total +
-              result.score,
-            0,
-          );
-
-        return {
-          gameCode,
-          label,
-          games:
-            gameResults.length,
-          wins,
-          losses:
-            gameResults.length -
-            wins,
-          totalScore,
-        };
-      },
-    );
-
-  /* =======================================================
-     PAGE
-  ======================================================= */
+  const gameSummaries = Object.entries(GAME_LABELS).map(([gameCode, label]) => {
+    const rows = results.filter((r) => r.game_code === gameCode);
+    return { gameCode, label, games: rows.length, wins: rows.filter((r) => r.won).length, totalScore: rows.reduce((sum, r) => sum + Number(r.score || 0), 0) };
+  }).filter((x) => x.games > 0);
 
   return (
-    <main className="min-h-screen bg-[#07111f] text-white">
-
-      <div className="mx-auto max-w-[1120px] px-5 py-8 sm:px-6">
-
-        {/* =================================================
-            HEADER
-        ================================================= */}
-
-        <header className="flex items-center justify-between border-b border-white/10 pb-6">
-
-          <Link
-            href="/"
-            className="rounded-xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-300 transition hover:bg-white/5"
-          >
-            ← Ana Sayfa
-          </Link>
-
-          <div className="text-center">
-
-            <p className="text-lg font-black">
-              FootBattle
-            </p>
-
-            <p className="text-xs text-slate-500">
-              Oyuncu Profili
-            </p>
-
-          </div>
-
-          <Link
-            href="/profile"
-            className="rounded-xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-300 transition hover:bg-white/5"
-          >
-            Profilim
-          </Link>
-
+    <main className="min-h-screen bg-[#07111f] pb-28 text-white">
+      <div className="mx-auto max-w-[900px] px-4 py-6 sm:px-6">
+        <header className="flex items-center justify-between gap-3">
+          <Link href="/" className="rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-slate-300">← Ana Sayfa</Link>
+          <p className="font-black">FootBattle</p>
+          <Link href="/profile" className="rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-slate-300">Profilim</Link>
         </header>
 
-        {/* =================================================
-            PROFILE HERO
-        ================================================= */}
-
-        <section className="mt-8 overflow-hidden rounded-[24px] border border-white/10 bg-[#101c2c]">
-
-          <div className="relative p-7 sm:p-8">
-
-            <div className="absolute inset-x-0 top-0 h-[3px] bg-green-400" />
-
-            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-
-              <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
-
-                {/* AVATAR */}
-
-                {profile.avatarUrl ? (
-                  <img
-                    src={
-                      profile.avatarUrl
-                    }
-                    alt={
-                      profile.displayName
-                    }
-                    className="h-24 w-24 rounded-[24px] border border-green-400/30 object-cover"
-                  />
-                ) : (
-                  <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-[24px] border border-green-400/30 bg-green-500 text-2xl font-black text-[#07111f]">
-
-                    {getInitials(
-                      profile.displayName,
-                      profile.username,
-                    )}
-
-                  </div>
-                )}
-
-                <div className="text-center sm:text-left">
-
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-green-400">
-                    FootBattle Oyuncusu
-                  </p>
-
-                  <h1 className="mt-2 text-3xl font-black">
-                    {
-                      profile.displayName
-                    }
-                  </h1>
-
-                  {profile.username && (
-                    <p className="mt-1 font-bold text-slate-400">
-                      @{profile.username}
-                    </p>
-                  )}
-
-                  <p className="mt-3 text-xs text-slate-500">
-                    Üyelik:{" "}
-                    {formatDate(
-                      profile.createdAt,
-                    )}
-                  </p>
-
-                  {/* FRIENDSHIP STATUS */}
-
-                  {!isOwnProfile && (
-                    <div className="mt-4">
-
-                      {friendship.status ===
-                        "accepted" && (
-                        <span className="inline-flex rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs font-black text-green-300">
-                          ✓ Arkadaşsınız
-                        </span>
-                      )}
-
-                      {friendship.status ===
-                        "pending_sent" && (
-                        <span className="inline-flex rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1 text-xs font-black text-yellow-300">
-                          İstek gönderildi
-                        </span>
-                      )}
-
-                      {friendship.status ===
-                        "pending_received" && (
-                        <span className="inline-flex rounded-full border border-blue-400/30 bg-blue-400/10 px-3 py-1 text-xs font-black text-blue-300">
-                          Sana istek gönderdi
-                        </span>
-                      )}
-
-                    </div>
-                  )}
-
-                </div>
-
+        <section className="mt-6 overflow-hidden rounded-[26px] border border-white/10 bg-[#101c2c]">
+          <div className="h-1 bg-green-400" />
+          <div className="p-5 sm:p-7">
+            <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
+              {profile.avatarUrl ? <img src={profile.avatarUrl} alt={profile.displayName} className="h-24 w-24 rounded-3xl border border-green-400/30 object-cover" /> : <div className="flex h-24 w-24 items-center justify-center rounded-3xl border border-green-400/30 bg-green-500 text-2xl font-black text-[#07111f]">{initials(profile.displayName)}</div>}
+              <div className="min-w-0 flex-1 text-center sm:text-left">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-green-400">FootBattle Oyuncusu</p>
+                <h1 className="mt-2 truncate text-3xl font-black">{profile.displayName}</h1>
+                {profile.username ? <p className="mt-1 font-bold text-slate-400">@{profile.username}</p> : null}
+                <p className="mt-2 text-xs text-slate-600">Üyelik: {formatDate(profile.createdAt)}</p>
+                {!isOwnProfile && friendship.status === "accepted" ? <span className="mt-3 inline-flex rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs font-black text-green-300">✓ Arkadaşsınız</span> : null}
               </div>
-
-              {/* ACTION */}
-
-              <div className="flex shrink-0 flex-wrap justify-center gap-2">
-
-                {isOwnProfile ? (
-                  <Link
-                    href="/profile"
-                    className="rounded-xl bg-green-500 px-5 py-3 text-sm font-black text-[#07111f] transition hover:bg-green-400"
-                  >
-                    Profilimi Yönet
-                  </Link>
-                ) : (
-                  <FriendAction
-                    status={
-                      friendship.status
-                    }
-                    loading={
-                      actionLoading
-                    }
-                    onSend={() =>
-                      void sendFriendRequest()
-                    }
-                    onRemove={() =>
-                      void removeFriendship()
-                    }
-                    onAccept={() =>
-                      void respondToRequest(
-                        "accept",
-                      )
-                    }
-                    onReject={() =>
-                      void respondToRequest(
-                        "reject",
-                      )
-                    }
-                  />
-                )}
-
-              </div>
-
             </div>
 
-          </div>
-
-          {/* MAIN STATS */}
-
-          <div className="grid gap-px border-t border-white/10 bg-white/10 sm:grid-cols-2 lg:grid-cols-5">
-
-            <StatCard
-              label="Toplam Puan"
-              value={formatNumber(
-                profile.totalScore,
-              )}
-              accent="text-yellow-300"
-            />
-
-            <StatCard
-              label="Güncel Seri"
-              value={`${profile.currentStreak} 🔥`}
-            />
-
-            <StatCard
-              label="En İyi Seri"
-              value={`${profile.bestStreak} gün`}
-            />
-
-            <StatCard
-              label="Oynanan Oyun"
-              value={formatNumber(
-                profile.gamesPlayed,
-              )}
-            />
-
-            <StatCard
-              label="Kazanma Oranı"
-              value={`%${profile.winRate}`}
-              accent="text-green-300"
-            />
-
-          </div>
-
-        </section>
-
-        {/* =================================================
-            ACTION MESSAGE
-        ================================================= */}
-
-        {(message ||
-          (error &&
-            profile)) && (
-          <div
-            className={`mt-5 rounded-xl border px-4 py-3 text-sm font-bold ${
-              error
-                ? "border-red-500/20 bg-red-500/10 text-red-300"
-                : "border-green-500/20 bg-green-500/10 text-green-300"
-            }`}
-          >
-            {error || message}
-          </div>
-        )}
-
-        {/* =================================================
-            GAME PERFORMANCE
-        ================================================= */}
-
-        <section className="mt-8">
-
-          <p className="text-sm font-black uppercase tracking-widest text-yellow-400">
-            İstatistikler
-          </p>
-
-          <h2 className="mt-2 text-2xl font-black">
-            Oyun Bazlı Performans
-          </h2>
-
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
-
-            {gameSummaries.map(
-              (game) => (
-                <article
-                  key={
-                    game.gameCode
-                  }
-                  className="rounded-[20px] border border-white/10 bg-[#101c2c] p-5"
-                >
-
-                  <div className="flex items-start justify-between gap-4">
-
-                    <div>
-
-                      <h3 className="text-lg font-black">
-                        {game.label}
-                      </h3>
-
-                      <p className="mt-1 text-xs text-slate-500">
-                        {game.games} oyun
-                      </p>
-
-                    </div>
-
-                    <div className="rounded-xl bg-yellow-400/10 px-3 py-2 text-sm font-black text-yellow-300">
-                      {formatNumber(
-                        game.totalScore,
-                      )}{" "}
-                      P
-                    </div>
-
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-3 gap-2">
-
-                    <SmallStat
-                      label="Oyun"
-                      value={
-                        game.games
-                      }
-                    />
-
-                    <SmallStat
-                      label="Galibiyet"
-                      value={
-                        game.wins
-                      }
-                    />
-
-                    <SmallStat
-                      label="Mağlubiyet"
-                      value={
-                        game.losses
-                      }
-                    />
-
-                  </div>
-
-                </article>
-              ),
-            )}
-
-          </div>
-
-        </section>
-
-        {/* =================================================
-            GAME HISTORY
-        ================================================= */}
-
-        <section className="mt-8 pb-12">
-
-          <p className="text-sm font-black uppercase tracking-widest text-green-400">
-            Geçmiş
-          </p>
-
-          <h2 className="mt-2 text-2xl font-black">
-            Son Oyunlar
-          </h2>
-
-          <div className="mt-5 overflow-hidden rounded-[20px] border border-white/10">
-
-            {results.length === 0 ? (
-              <div className="bg-[#101c2c] p-8 text-center text-sm text-slate-500">
-                Henüz oynanmış oyun yok.
+            {!isOwnProfile ? (
+              <div className="mt-5 flex flex-wrap gap-2">
+                {friendship.status === "accepted" ? (
+                  <>
+                    <button type="button" onClick={() => setDuelOpen(true)} className="flex-1 rounded-xl bg-green-500 px-5 py-3 text-sm font-black text-[#07111f]">⚔ Düello Gönder</button>
+                    <button type="button" disabled={actionLoading} onClick={() => void friendAction("remove")} className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-xs font-black text-red-300">Arkadaşlıktan Çıkar</button>
+                  </>
+                ) : friendship.status === "pending_sent" ? (
+                  <button type="button" disabled={actionLoading} onClick={() => void friendAction("remove")} className="rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-5 py-3 text-sm font-black text-yellow-300">İsteği İptal Et</button>
+                ) : friendship.status === "pending_received" ? (
+                  <><button type="button" disabled={actionLoading} onClick={() => void friendAction("accept")} className="rounded-xl bg-green-500 px-5 py-3 text-sm font-black text-[#07111f]">Kabul Et</button><button type="button" disabled={actionLoading} onClick={() => void friendAction("reject")} className="rounded-xl border border-red-400/30 px-5 py-3 text-sm font-black text-red-300">Reddet</button></>
+                ) : (
+                  <button type="button" disabled={actionLoading} onClick={() => void friendAction("send")} className="rounded-xl bg-green-500 px-5 py-3 text-sm font-black text-[#07111f]">+ Arkadaş Ekle</button>
+                )}
               </div>
-            ) : (
-              results
-                .slice(0, 10)
-                .map((result) => (
-                  <div
-                    key={result.id}
-                    className="flex flex-col gap-3 border-b border-white/10 bg-[#101c2c] p-4 last:border-0 sm:flex-row sm:items-center sm:justify-between"
-                  >
-
-                    <div>
-
-                      <p className="font-black">
-                        {GAME_LABELS[
-                          result.game_code
-                        ] ??
-                          result.game_code}
-                      </p>
-
-                      <p className="mt-1 text-xs text-slate-500">
-                        {formatDate(
-                          result.play_date,
-                        )}
-                      </p>
-
-                    </div>
-
-                    <div className="flex items-center gap-3">
-
-                      <span
-                        className={`rounded-lg px-3 py-1.5 text-xs font-black ${
-                          result.won
-                            ? "bg-green-500/10 text-green-300"
-                            : "bg-red-500/10 text-red-300"
-                        }`}
-                      >
-                        {result.won
-                          ? "KAZANDI"
-                          : "KAYBETTİ"}
-                      </span>
-
-                      <span className="min-w-16 text-right font-black text-yellow-300">
-                        {formatNumber(
-                          result.score,
-                        )}{" "}
-                        P
-                      </span>
-
-                    </div>
-
-                  </div>
-                ))
-            )}
-
+            ) : <Link href="/profile" className="mt-5 inline-flex rounded-xl bg-green-500 px-5 py-3 text-sm font-black text-[#07111f]">Profilimi Yönet</Link>}
           </div>
 
+          <div className="grid grid-cols-2 gap-px border-t border-white/10 bg-white/10 sm:grid-cols-5">
+            <Stat label="Toplam Puan" value={formatNumber(profile.totalScore)} />
+            <Stat label="Güncel Seri" value={`${profile.currentStreak} 🔥`} />
+            <Stat label="En İyi Seri" value={`${profile.bestStreak} gün`} />
+            <Stat label="Oyun" value={formatNumber(profile.gamesPlayed)} />
+            <Stat label="Kazanma" value={`%${profile.winRate}`} />
+          </div>
         </section>
 
+        {message || error ? <div className={`mt-4 rounded-xl border px-4 py-3 text-sm font-bold ${error ? "border-red-500/20 bg-red-500/10 text-red-300" : "border-green-500/20 bg-green-500/10 text-green-300"}`}>{error || message}</div> : null}
+
+        <section className="mt-7">
+          <h2 className="text-xl font-black">Oyun Bazlı Performans</h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {gameSummaries.length ? gameSummaries.map((game) => <article key={game.gameCode} className="rounded-2xl border border-white/10 bg-[#101c2c] p-4"><div className="flex justify-between gap-3"><div><h3 className="font-black">{game.label}</h3><p className="mt-1 text-xs text-slate-500">{game.games} oyun · {game.wins} galibiyet</p></div><span className="text-sm font-black text-yellow-300">{formatNumber(game.totalScore)} P</span></div></article>) : <p className="rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-500">Henüz oyun sonucu yok.</p>}
+          </div>
+        </section>
       </div>
 
+      {duelOpen ? (
+        <div className="fixed inset-0 z-[90] flex items-end bg-black/75 p-3 sm:items-center sm:justify-center" onClick={() => setDuelOpen(false)}>
+          <div className="w-full max-w-md rounded-[24px] border border-white/10 bg-[#101c2c] p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-wider text-green-300">⚔ {profile.displayName}</p><h2 className="mt-1 text-xl font-black">Hangi oyunda düello?</h2></div><button type="button" onClick={() => setDuelOpen(false)} className="h-9 w-9 rounded-full bg-white/5 text-slate-400">✕</button></div>
+            <div className="mt-5 grid gap-3">
+              <button type="button" disabled={duelSending !== null} onClick={() => void sendDuel("tic_tac_toe")} className="rounded-2xl border border-green-400/20 bg-green-500/10 p-4 text-left disabled:opacity-50"><p className="font-black">⭕ Futbol Tic Tac Toe</p><p className="mt-1 text-xs text-slate-400">Aynı grid, aynı süre.</p></button>
+              <button type="button" disabled={duelSending !== null} onClick={() => void sendDuel("club_clash")} className="rounded-2xl border border-green-400/20 bg-green-500/10 p-4 text-left disabled:opacity-50"><p className="font-black">⚽ 2 Takım 1 Oyuncu</p><p className="mt-1 text-xs text-slate-400">Ortak oyuncuyu rakibinden önce bul.</p></button>
+            </div>
+            {duelSending ? <p className="mt-3 text-center text-xs font-bold text-green-300">Düello oluşturuluyor...</p> : null}
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
 
-/* =========================================================
-   FRIEND ACTION
-========================================================= */
-
-function FriendAction({
-  status,
-  loading,
-  onSend,
-  onRemove,
-  onAccept,
-  onReject,
-}: {
-  status: FriendshipStatus;
-  loading: boolean;
-  onSend: () => void;
-  onRemove: () => void;
-  onAccept: () => void;
-  onReject: () => void;
-}) {
-  if (
-    status === "accepted"
-  ) {
-    return (
-      <button
-        type="button"
-        disabled={loading}
-        onClick={onRemove}
-        className="rounded-xl border border-red-400/30 bg-red-500/10 px-5 py-3 text-sm font-black text-red-300 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {loading
-          ? "İşleniyor..."
-          : "Arkadaşlıktan Çıkar"}
-      </button>
-    );
-  }
-
-  if (
-    status ===
-    "pending_sent"
-  ) {
-    return (
-      <button
-        type="button"
-        disabled={loading}
-        onClick={onRemove}
-        className="rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-5 py-3 text-sm font-black text-yellow-300 transition hover:bg-yellow-400/20 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {loading
-          ? "İşleniyor..."
-          : "İsteği İptal Et"}
-      </button>
-    );
-  }
-
-  if (
-    status ===
-    "pending_received"
-  ) {
-    return (
-      <>
-        <button
-          type="button"
-          disabled={loading}
-          onClick={onAccept}
-          className="rounded-xl bg-green-500 px-5 py-3 text-sm font-black text-[#07111f] transition hover:bg-green-400 disabled:opacity-50"
-        >
-          {loading
-            ? "İşleniyor..."
-            : "Kabul Et"}
-        </button>
-
-        <button
-          type="button"
-          disabled={loading}
-          onClick={onReject}
-          className="rounded-xl border border-red-400/30 bg-red-500/10 px-5 py-3 text-sm font-black text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
-        >
-          Reddet
-        </button>
-      </>
-    );
-  }
-
-  /*
-   * rejected durumunda da yeniden
-   * arkadaşlık isteği gönderilebilir.
-   */
-
-  return (
-    <button
-      type="button"
-      disabled={loading}
-      onClick={onSend}
-      className="rounded-xl bg-green-500 px-5 py-3 text-sm font-black text-[#07111f] transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-50"
-    >
-      {loading
-        ? "Gönderiliyor..."
-        : "+ Arkadaş Ekle"}
-    </button>
-  );
-}
-
-/* =========================================================
-   STAT CARD
-========================================================= */
-
-function StatCard({
-  label,
-  value,
-  accent = "text-white",
-}: {
-  label: string;
-  value: string;
-  accent?: string;
-}) {
-  return (
-    <div className="bg-[#0c1929] p-5">
-
-      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-        {label}
-      </p>
-
-      <p
-        className={`mt-2 text-xl font-black ${accent}`}
-      >
-        {value}
-      </p>
-
-    </div>
-  );
-}
-
-/* =========================================================
-   SMALL STAT
-========================================================= */
-
-function SmallStat({
-  label,
-  value,
-}: {
-  label: string;
-  value: number;
-}) {
-  return (
-    <div className="rounded-xl bg-black/20 p-3 text-center">
-
-      <p className="text-xs font-bold text-slate-500">
-        {label}
-      </p>
-
-      <p className="mt-1 text-lg font-black">
-        {value}
-      </p>
-
-    </div>
-  );
+function Stat({ label, value }: { label: string; value: string }) {
+  return <div className="bg-[#0c1929] p-4 text-center"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</p><p className="mt-2 text-lg font-black">{value}</p></div>;
 }
