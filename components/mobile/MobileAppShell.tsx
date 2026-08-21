@@ -21,12 +21,12 @@ function stripLocale(pathname: string) {
 function isGamePath(plain: string) { return MOBILE_GAME_PREFIXES.some((prefix) => plain === prefix || plain.startsWith(`${prefix}/`)); }
 function shouldShowShell(pathname: string) {
   const plain = stripLocale(pathname);
-  if (["/", "/daily", "/duels", "/rank", "/profile"].includes(plain)) return true;
-  return isGamePath(plain);
+  return ["/", "/daily", "/duels", "/rank", "/profile"].includes(plain);
 }
 function routeName(plain: string) {
   if (plain.startsWith("/tic-tac-toe/duel/")) return "tic-tac-toe-duel";
   if (plain === "/tic-tac-toe") return "tic-tac-toe-solo";
+  if (plain === "/wordle") return "wordle";
   if (plain === "/club-clash") return "club-clash";
   if (plain.startsWith("/guess-the-player")) return "guess-the-player";
   if (plain === "/daily") return "daily";
@@ -79,9 +79,9 @@ export default function MobileAppShell() {
   if (!shouldShowShell(pathname)) return null;
 
   function isActive(item: NavItem) {
-    if (item.key === "home") return plainPath === "/" || (isGamePath(plainPath) && !plainPath.startsWith("/tic-tac-toe/duel/"));
+    if (item.key === "home") return plainPath === "/";
     if (item.key === "daily") return plainPath === "/daily";
-    if (item.key === "duels") return plainPath === "/duels" || plainPath.startsWith("/tic-tac-toe/duel/");
+    if (item.key === "duels") return plainPath === "/duels";
     if (item.key === "rank") return plainPath === "/rank";
     if (item.key === "profile") return plainPath === "/profile";
     return false;
