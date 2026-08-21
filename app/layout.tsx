@@ -25,7 +25,6 @@ import AdminBackButton from "@/components/AdminBackButton";
 import MobileAppShell from "@/components/mobile/MobileAppShell";
 import MobileHomeDashboard from "@/components/mobile/MobileHomeDashboard";
 import GuessThePlayerMobileAutoScroll from "@/components/mobile/GuessThePlayerMobileAutoScroll";
-import AndroidGoogleSignInBridge from "@/components/mobile/AndroidGoogleSignInBridge";
 import MobileKeyboardGuard from "@/components/mobile/MobileKeyboardGuard";
 import { SITE_URL, SiteJsonLd } from "@/lib/seo";
 
@@ -61,7 +60,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <MobileAppShell />
         <MobileKeyboardGuard />
         <GuessThePlayerMobileAutoScroll />
-        <AndroidGoogleSignInBridge />
         <HomeSuperLigAndMobileOrder />
         <GuessThePlayerSearchEnhancer />
         <AdminBackButton />
