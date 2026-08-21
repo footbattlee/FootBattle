@@ -12,7 +12,20 @@
           "package_name": "com.playfootbattle.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1082215741027-ihmgi906sn5cq3i6d3kpahgtkdf93moj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.playfootbattle.app",
+            "certificate_hash": "a312c50c11c5a369be6cea633e6114257df2e020"
+          }
+        },
+        {
+          "client_id": "1082215741027-mr93a2l3575jvboekkrs4qrf7jmg3brf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDdpRYbnhlB0tqdbsZ1qBkSF0OZg8_Vcio"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1082215741027-mr93a2l3575jvboekkrs4qrf7jmg3brf.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
