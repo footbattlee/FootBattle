@@ -24,14 +24,7 @@ import com.getcapacitor.BridgeActivity;
 import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.google.firebase.messaging.FirebaseMessaging;
 
-/**
- * Android-specific integration shell for FootBattle.
- *
- * Keeps the existing remote Next.js app intact while adding the native behavior
- * required by the Android release: persistent cookies, Android back navigation,
- * portrait/keyboard polish, exact App Link routing, FCM registration visibility
- * for debug testing and a one-time Crashlytics non-fatal probe.
- */
+/** Android-specific integration shell for FootBattle. */
 public class MainActivity extends BridgeActivity {
 
     private static final int NOTIFICATION_PERMISSION_REQUEST = 1907;
@@ -44,7 +37,7 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
 
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN);
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
 
         configureWebView();
         handleIncomingIntent(getIntent());
@@ -102,15 +95,11 @@ public class MainActivity extends BridgeActivity {
         }
 
         FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
-            if (!task.isSuccessful() || task.getResult() == null || task.getResult().isEmpty()) {
-                return;
-            }
+            if (!task.isSuccessful() || task.getResult() == null || task.getResult().isEmpty()) return;
 
             boolean shown = getSharedPreferences(PREFS, MODE_PRIVATE)
                 .getBoolean(PREF_FCM_SHOWN, false);
-            if (!shown) {
-                showFcmTokenForDebug(task.getResult());
-            }
+            if (!shown) showFcmTokenForDebug(task.getResult());
         });
     }
 
@@ -131,21 +120,13 @@ public class MainActivity extends BridgeActivity {
             .setTitle("FootBattle Push Test")
             .setMessage("FCM token hazır. Firebase Console'dan test bildirimi göndermek için kopyalayabilirsin.\n\n" + token)
             .setPositiveButton("Kopyala", (dialog, which) -> {
-                ClipboardManager clipboard =
-                    (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
                 clipboard.setPrimaryClip(ClipData.newPlainText("FootBattle FCM Token", token));
                 Toast.makeText(this, "FCM token kopyalandı", Toast.LENGTH_SHORT).show();
-                getSharedPreferences(PREFS, MODE_PRIVATE)
-                    .edit()
-                    .putBoolean(PREF_FCM_SHOWN, true)
-                    .apply();
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(PREF_FCM_SHOWN, true).apply();
             })
-            .setNegativeButton("Kapat", (dialog, which) -> {
-                getSharedPreferences(PREFS, MODE_PRIVATE)
-                    .edit()
-                    .putBoolean(PREF_FCM_SHOWN, true)
-                    .apply();
-            })
+            .setNegativeButton("Kapat", (dialog, which) ->
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(PREF_FCM_SHOWN, true).apply())
             .show());
     }
 
