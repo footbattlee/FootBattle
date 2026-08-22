@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 
 type Locale = "tr" | "en";
 type NavItem = { key: "home" | "daily" | "ranked" | "duels" | "leaderboard" | "profile"; label: string; icon: string; href: string };
+
+const BADGE_POLL_MS = 60_000;
+const BADGE_MIN_GAP_MS = 15_000;
 
 function getLocale(pathname: string): Locale {
   return pathname === "/en" || pathname.startsWith("/en/") ? "en" : "tr";
@@ -43,6 +46,8 @@ export default function MobileAppShell() {
   const plainPath = stripLocale(pathname);
   const [incomingCount, setIncomingCount] = useState(0);
   const [rankedContext, setRankedContext] = useState(false);
+  const lastBadgeLoadAt = useRef(0);
+  const badgeInFlight = useRef(false);
 
   useEffect(() => {
     document.body.dataset.mobileRoute = routeName(plainPath);
@@ -55,8 +60,16 @@ export default function MobileAppShell() {
 
   useEffect(() => {
     let cancelled = false;
+    let timer: number | null = null;
 
-    async function loadBadge() {
+    async function loadBadge(force = false) {
+      if (document.visibilityState !== "visible") return;
+      if (plainPath === "/duels") return;
+      const now = Date.now();
+      if (!force && now - lastBadgeLoadAt.current < BADGE_MIN_GAP_MS) return;
+      if (badgeInFlight.current) return;
+
+      badgeInFlight.current = true;
       try {
         const [duelResponse, friendResponse] = await Promise.all([
           fetch("/api/duels", { cache: "no-store" }),
@@ -71,16 +84,53 @@ export default function MobileAppShell() {
           const body = await friendResponse.json();
           count += Number(body?.summary?.incomingRequestCount ?? body?.incomingRequests?.length ?? 0);
         }
+        lastBadgeLoadAt.current = Date.now();
         if (!cancelled) setIncomingCount(count);
       } catch {
-        if (!cancelled) setIncomingCount(0);
+        // Badge best-effort çalışır; ana akışı yavaşlatmamalı.
+      } finally {
+        badgeInFlight.current = false;
       }
     }
 
-    void loadBadge();
-    const timer = window.setInterval(loadBadge, 15000);
-    return () => { cancelled = true; window.clearInterval(timer); };
-  }, [pathname]);
+    function stopTimer() {
+      if (timer !== null) {
+        window.clearInterval(timer);
+        timer = null;
+      }
+    }
+
+    function startTimer() {
+      stopTimer();
+      if (document.visibilityState !== "visible" || plainPath === "/duels") return;
+      timer = window.setInterval(() => void loadBadge(false), BADGE_POLL_MS);
+    }
+
+    if (plainPath !== "/duels") {
+      void loadBadge(false);
+      startTimer();
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void loadBadge(false);
+        startTimer();
+      } else {
+        stopTimer();
+      }
+    };
+
+    const handleFocus = () => void loadBadge(false);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      cancelled = true;
+      stopTimer();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [plainPath]);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
