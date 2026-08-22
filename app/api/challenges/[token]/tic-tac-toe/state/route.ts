@@ -4,12 +4,17 @@ import { footballLocaleFromRequest, localizeFootballAxisValue, nationalityToDisp
 import {
   ensureTicTacToeDuel,
   getDuelAttempts,
-  maybeFinalizeDuel,
   requireTicTacToeParticipant,
-  sideStats,
-  duelRemainingSeconds,
   type DuelSide,
 } from "@/lib/tic-tac-toe/duel-server";
+import {
+  boardIsFull,
+  ensureTurnState,
+  finalizeTurnDuel,
+  getWinningSide,
+  normalizeExpiredTurn,
+  turnRemainingSeconds,
+} from "@/lib/tic-tac-toe/turn-duel";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export async function GET(
@@ -20,9 +25,7 @@ export async function GET(
     const locale = footballLocaleFromRequest(request);
     const { token } = await context.params;
     const access = await requireTicTacToeParticipant(token);
-    if (!access.ok) {
-      return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
-    }
+    if (!access.ok) return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
 
     let challenge = access.challenge;
     if (challenge.status !== "playing" && challenge.status !== "completed") {
@@ -34,14 +37,24 @@ export async function GET(
 
     const duel = await ensureTicTacToeDuel(challenge);
     const attempts = await getDuelAttempts(duel.id);
-    challenge = await maybeFinalizeDuel(duel, challenge, attempts);
 
-    const mySide = access.role as DuelSide;
-    const opponentSide: DuelSide = mySide === "challenger" ? "opponent" : "challenger";
-    const me = sideStats(attempts, mySide);
-    const opponent = sideStats(attempts, opponentSide);
+    if (challenge.status !== "completed") {
+      const winner = getWinningSide(attempts);
+      if (winner) {
+        await finalizeTurnDuel(challenge, winner);
+        challenge = { ...challenge, status: "completed", winner_side: winner };
+      } else if (boardIsFull(attempts)) {
+        await finalizeTurnDuel(challenge, "draw");
+        challenge = { ...challenge, status: "completed", winner_side: "draw" };
+      }
+    }
 
-    const playerIds = Array.from(new Set(me.correct.map((attempt) => Number(attempt.player_id))));
+    let turn = await ensureTurnState(duel.id);
+    if (challenge.status !== "completed") turn = await normalizeExpiredTurn(duel.id, turn);
+
+    const playerIds = Array.from(
+      new Set(attempts.filter((attempt) => attempt.correct).map((attempt) => Number(attempt.player_id))),
+    );
     const { data: playerRows, error: playerError } = playerIds.length
       ? await supabaseAdmin
           .from("guess_players")
@@ -63,18 +76,22 @@ export async function GET(
       ]),
     );
 
-    const myCells = me.correct.map((attempt) => ({
-      rowIndex: Number(attempt.row_index),
-      columnIndex: Number(attempt.column_index),
-      player: playerMap.get(Number(attempt.player_id)) ?? {
-        id: Number(attempt.player_id),
-        name: locale === "en" ? "Player" : "Oyuncu",
-        nationality: null,
-        currentClubName: null,
-        imageUrl: null,
-      },
-    }));
+    const cells = attempts
+      .filter((attempt) => attempt.correct)
+      .map((attempt) => ({
+        rowIndex: Number(attempt.row_index),
+        columnIndex: Number(attempt.column_index),
+        ownerSide: attempt.side as DuelSide,
+        player: playerMap.get(Number(attempt.player_id)) ?? {
+          id: Number(attempt.player_id),
+          name: locale === "en" ? "Player" : "Oyuncu",
+          nationality: null,
+          currentClubName: null,
+          imageUrl: null,
+        },
+      }));
 
+    const mySide = access.role as DuelSide;
     const completed = challenge.status === "completed";
     const result = completed
       ? challenge.winner_side === "draw"
@@ -90,13 +107,15 @@ export async function GET(
       completed,
       result,
       winnerSide: challenge.winner_side,
-      remainingSeconds: completed ? 0 : duelRemainingSeconds(duel),
+      currentTurn: completed ? null : turn.currentTurn,
+      isMyTurn: !completed && turn.currentTurn === mySide,
+      turnRemainingSeconds: completed ? 0 : turnRemainingSeconds(turn.turnStartedAt),
+      drawOfferBy: completed ? null : turn.drawOfferBy,
       game: {
         code: "tic_tac_toe",
         label: locale === "en" ? "Football Tic Tac Toe Duel" : "Futbol Tic Tac Toe Düello",
-        durationSeconds: Number(duel.duration_seconds),
-        scorePerCorrect: 10,
-        fullGridBonus: 50,
+        turnSeconds: 60,
+        mode: "three_in_a_row",
       },
       challenge: {
         id: Number(challenge.id),
@@ -104,11 +123,11 @@ export async function GET(
         status: challenge.status,
         challenger: {
           name: challenge.challenger_name ?? (locale === "en" ? "FootBattle Player" : "FootBattle Oyuncusu"),
-          score: Number(challenge.challenger_score ?? 0),
+          score: challenge.winner_side === "challenger" ? 1 : 0,
         },
         opponent: {
           name: challenge.opponent_name ?? (locale === "en" ? "FootBattle Player" : "FootBattle Oyuncusu"),
-          score: Number(challenge.opponent_score ?? 0),
+          score: challenge.winner_side === "opponent" ? 1 : 0,
         },
       },
       grid: {
@@ -122,19 +141,7 @@ export async function GET(
           type: item.type,
           value: localizeFootballAxisValue(item.type, item.value, locale),
         })),
-        cells: myCells,
-      },
-      me: {
-        side: mySide,
-        score: me.score,
-        correctCount: me.correctCount,
-        wrongCount: me.wrongCount,
-      },
-      opponent: {
-        side: opponentSide,
-        score: opponent.score,
-        correctCount: opponent.correctCount,
-        wrongCount: opponent.wrongCount,
+        cells,
       },
     });
   } catch (error) {
