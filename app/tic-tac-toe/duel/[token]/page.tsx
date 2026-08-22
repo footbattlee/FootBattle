@@ -169,6 +169,13 @@ export default function TicTacToeDuelPage({ params }: { params: Promise<{ token:
     return () => { controller.abort(); window.clearTimeout(id); };
   }, [duel?.isMyTurn, query, selectedCell]);
 
+  useEffect(() => {
+    if (!selectedCell) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [selectedCell]);
+
   const occupied = useMemo(() => {
     const map = new Map<string, Cell>();
     for (const cell of duel?.grid?.cells ?? []) map.set(`${cell.rowIndex}:${cell.columnIndex}`, cell);
@@ -318,8 +325,10 @@ export default function TicTacToeDuelPage({ params }: { params: Promise<{ token:
     </section>
   ) : null;
 
+  const showPlayerSheet = Boolean(duel && !duel.completed && duel.isMyTurn && selectedCell);
+
   return (
-    <main className="min-h-screen bg-[#07111f] px-3 py-3 text-white sm:px-5 sm:py-6">
+    <main className="min-h-screen overflow-x-hidden bg-[#07111f] px-3 py-3 text-white sm:px-5 sm:py-6">
       <div className="mx-auto max-w-3xl">
         <header className="flex items-center justify-between gap-2">
           <Link href="/" className="rounded-xl border border-white/10 px-3 py-2 text-sm font-bold text-slate-400">← FootBattle</Link>
@@ -342,28 +351,38 @@ export default function TicTacToeDuelPage({ params }: { params: Promise<{ token:
         {notice && <p className="mt-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-slate-200">{notice}</p>}
 
         {challenge?.expired ? <Panel title="Düellonun süresi doldu" text="Yeni bir düello oluşturup tekrar deneyin." />
-        : role === "visitor" && challenge?.canJoin ? <section className="mt-3 rounded-3xl border border-green-400/20 bg-green-400/[0.05] p-5"><h2 className="text-xl font-black">{current?.challenger.name ?? "Bir oyuncu"} seni bekliyor.</h2><input value={opponentName} onChange={(e) => setOpponentName(e.target.value)} maxLength={30} placeholder="Görünen adın" className="mt-4 w-full rounded-2xl border border-white/10 bg-[#07111f] px-4 py-3 outline-none focus:border-green-400/50" /><button onClick={joinDuel} disabled={busy} className="mt-3 w-full rounded-2xl bg-green-400 px-5 py-4 font-black text-[#07111f] disabled:opacity-50">⚔️ Düelloya Katıl</button></section>
+        : role === "visitor" && challenge?.canJoin ? <section className="mt-3 rounded-3xl border border-green-400/20 bg-green-400/[0.05] p-5"><h2 className="text-xl font-black">{current?.challenger.name ?? "Bir oyuncu"} seni bekliyor.</h2><input value={opponentName} onChange={(e) => setOpponentName(e.target.value)} maxLength={30} placeholder="Görünen adın" className="mt-4 w-full rounded-2xl border border-white/10 bg-[#07111f] px-4 py-3 text-base outline-none focus:border-green-400/50" /><button onClick={joinDuel} disabled={busy} className="mt-3 w-full rounded-2xl bg-green-400 px-5 py-4 font-black text-[#07111f] disabled:opacity-50">⚔️ Düelloya Katıl</button></section>
         : current?.status === "waiting" && role === "challenger" ? <Panel title="Rakibini bekliyorsun" text="Davet linkini gönder. Rakip katıldığı anda maç otomatik başlayacak." />
         : duel ? <>
           {duel.completed && <ResultCard result={duel.result ?? null} onRematch={rematch} onShare={shareResult} busy={busy} />}
           {incomingDraw && !duel.completed && <section className="mt-3 rounded-3xl border border-yellow-400/25 bg-yellow-400/10 p-4"><p className="font-black text-yellow-200">🤝 Rakibin beraberlik teklif etti.</p><div className="mt-3 grid grid-cols-2 gap-2"><button disabled={busy} onClick={() => duelAction("accept_draw")} className="rounded-xl bg-yellow-400 px-3 py-3 font-black text-[#07111f]">Kabul Et</button><button disabled={busy} onClick={() => duelAction("decline_draw")} className="rounded-xl border border-white/15 px-3 py-3 font-black">Reddet</button></div></section>}
           {gridView}
           {!duel.completed && <>
-            <section className="relative z-20 mt-3 rounded-3xl border border-white/10 bg-[#0d1828] p-4">
-              {!duel.isMyTurn ? <p className="py-3 text-center font-bold text-slate-500">Rakibin hamlesi bekleniyor.</p> : !selectedCell ? <p className="py-3 text-center font-bold text-slate-400">Önce boş bir hücre seç.</p> : <div className="relative min-h-[88px]">
-                <p className="text-xs font-black uppercase tracking-wider text-yellow-300">Oyuncuyu seç</p>
-                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Futbolcu ara..." className="mt-2 w-full rounded-2xl border border-white/10 bg-[#07111f] px-4 py-3 text-base outline-none focus:border-yellow-300/50" />
-                {(searching || query.trim().length >= 2) && <div className="absolute left-0 right-0 top-[76px] z-50 max-h-52 overflow-y-auto rounded-2xl border border-white/10 bg-[#0d1828] p-1 shadow-2xl">
-                  {searching && <p className="px-3 py-3 text-sm text-slate-500">Aranıyor...</p>}
-                  {!searching && query.trim().length >= 2 && players.length === 0 && <p className="px-3 py-3 text-sm text-slate-500">Oyuncu bulunamadı.</p>}
-                  {players.map((player) => <button key={player.id} disabled={busy} onClick={() => answer(player)} className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left hover:bg-white/[0.05]"><span className="truncate font-bold">{player.name}</span><span className="ml-3 shrink-0 text-xs text-slate-500">Seç →</span></button>)}
-                </div>}
-              </div>}
+            <section className="mt-3 rounded-3xl border border-white/10 bg-[#0d1828] p-4">
+              {!duel.isMyTurn ? <p className="py-3 text-center font-bold text-slate-500">Rakibin hamlesi bekleniyor.</p> : !selectedCell ? <p className="py-3 text-center font-bold text-slate-400">Önce boş bir hücre seç.</p> : <p className="py-3 text-center font-bold text-yellow-200">Oyuncu arama paneli açık.</p>}
             </section>
-            <div className="relative z-10 mt-3 grid grid-cols-2 gap-2"><button disabled={busy || myDrawPending} onClick={() => duelAction("offer_draw")} className="rounded-2xl border border-yellow-400/25 bg-yellow-400/[0.06] px-3 py-3 text-sm font-black text-yellow-200 disabled:opacity-50">{myDrawPending ? "🤝 Teklif bekliyor" : "🤝 Beraberlik Teklif Et"}</button><button disabled={busy} onClick={() => duelAction("forfeit")} className="rounded-2xl border border-red-400/25 bg-red-400/[0.06] px-3 py-3 text-sm font-black text-red-300">🏳️ Pes Et</button></div>
+            <div className="mt-3 grid grid-cols-2 gap-2"><button disabled={busy || myDrawPending} onClick={() => duelAction("offer_draw")} className="rounded-2xl border border-yellow-400/25 bg-yellow-400/[0.06] px-3 py-3 text-sm font-black text-yellow-200 disabled:opacity-50">{myDrawPending ? "🤝 Teklif bekliyor" : "🤝 Beraberlik Teklif Et"}</button><button disabled={busy} onClick={() => duelAction("forfeit")} className="rounded-2xl border border-red-400/25 bg-red-400/[0.06] px-3 py-3 text-sm font-black text-red-300">🏳️ Pes Et</button></div>
           </>}
         </> : null}
       </div>
+
+      {showPlayerSheet && <div className="fixed inset-0 z-[100] flex items-end bg-black/45" onClick={() => { setSelectedCell(null); setQuery(""); setPlayers([]); }}>
+        <section className="w-full rounded-t-3xl border border-white/10 bg-[#0d1828] px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-4 shadow-2xl" style={{ maxHeight: "min(62dvh, 520px)" }} onClick={(e) => e.stopPropagation()}>
+          <div className="mx-auto max-w-3xl">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div><p className="text-[11px] font-black uppercase tracking-[0.18em] text-yellow-300">Oyuncuyu seç</p><p className="mt-1 text-sm text-slate-400">Seçtiğin hücre için futbolcu ara.</p></div>
+              <button type="button" onClick={() => { setSelectedCell(null); setQuery(""); setPlayers([]); }} className="rounded-full border border-white/10 px-3 py-2 text-sm font-black text-slate-300">✕</button>
+            </div>
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Futbolcu ara..." inputMode="search" enterKeyHint="search" className="w-full rounded-2xl border border-white/10 bg-[#07111f] px-4 py-3 text-base outline-none focus:border-yellow-300/50" />
+            <div className="mt-2 min-h-[56px] max-h-[220px] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-[#07111f] p-1">
+              {query.trim().length < 2 && <p className="px-3 py-4 text-sm text-slate-500">En az 2 harf yaz.</p>}
+              {searching && <p className="px-3 py-4 text-sm text-slate-500">Aranıyor...</p>}
+              {!searching && query.trim().length >= 2 && players.length === 0 && <p className="px-3 py-4 text-sm text-slate-500">Oyuncu bulunamadı.</p>}
+              {players.map((player) => <button key={player.id} disabled={busy} onClick={() => answer(player)} className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left active:bg-white/[0.06]"><span className="truncate font-bold">{player.name}</span><span className="ml-3 shrink-0 text-xs text-slate-500">Seç →</span></button>)}
+            </div>
+          </div>
+        </section>
+      </div>}
     </main>
   );
 }
