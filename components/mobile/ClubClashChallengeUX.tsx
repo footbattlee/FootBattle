@@ -38,15 +38,16 @@ export default function ClubClashChallengeUX() {
 
   useEffect(() => {
     if (!token) { setActive(false); setState(null); return; }
+    const challengeToken = token;
     let cancelled = false;
     async function load() {
       try {
-        const c = await fetch(`/api/challenges/${encodeURIComponent(token)}`, { cache: "no-store" });
+        const c = await fetch(`/api/challenges/${encodeURIComponent(challengeToken)}`, { cache: "no-store" });
         const cj = await c.json() as Challenge;
         if (cancelled || !c.ok || !cj.ok || cj.challenge?.gameCode !== "club_clash") return;
         setActive(true);
         document.body.classList.add("club-clash-challenge-mobile");
-        const s = await fetch(`/api/challenges/${encodeURIComponent(token)}/club-clash`, { cache: "no-store" });
+        const s = await fetch(`/api/challenges/${encodeURIComponent(challengeToken)}/club-clash`, { cache: "no-store" });
         const sj = await s.json() as State;
         if (!cancelled && s.ok && sj.ok) setState(sj);
       } catch { /* existing page handles errors */ }
@@ -58,8 +59,9 @@ export default function ClubClashChallengeUX() {
 
   useEffect(() => {
     if (!active || !state?.completed || !token) return;
+    const challengeToken = token;
     const id = window.setInterval(() => {
-      void fetch(`/api/challenges/${encodeURIComponent(token)}/club-clash/rematch`, { cache: "no-store" })
+      void fetch(`/api/challenges/${encodeURIComponent(challengeToken)}/club-clash/rematch`, { cache: "no-store" })
         .then((r) => r.json() as Promise<Rematch>)
         .then((r) => { if (r.ok && r.token) router.replace(`/challenge/${r.token}`); })
         .catch(() => undefined);
