@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 import { localizeFootballAxisValue } from "@/lib/football/localization";
+import { runRankedClubClashBotTick, syncRankedMatchCompletion } from "@/lib/ranked/shared-engine";
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -62,14 +63,8 @@ function serializeRound(round: ChallengeRoundRow) {
   return {
     id: Number(round.id),
     roundNo: Number(round.round_no),
-    left: {
-      type: round.left_type,
-      value: localizeFootballAxisValue(round.left_type, round.left_value),
-    },
-    right: {
-      type: round.right_type,
-      value: localizeFootballAxisValue(round.right_type, round.right_value),
-    },
+    left: { type: round.left_type, value: localizeFootballAxisValue(round.left_type, round.left_value) },
+    right: { type: round.right_type, value: localizeFootballAxisValue(round.right_type, round.right_value) },
     winnerSide: round.winner_side,
     challengerAnswer: round.challenger_answer,
     opponentAnswer: round.opponent_answer,
@@ -80,6 +75,23 @@ function serializeRound(round: ChallengeRoundRow) {
     completedAt: round.completed_at,
     createdAt: round.created_at,
   };
+}
+
+async function loadChallenge(token: string) {
+  const { data, error } = await supabaseAdmin
+    .from("guest_challenges")
+    .select(`
+      id, invite_token, game_code, status,
+      challenger_user_id, challenger_guest_id,
+      opponent_user_id, opponent_guest_id,
+      challenger_name, opponent_name,
+      challenger_score, opponent_score, winner_side,
+      created_at, joined_at, started_at, completed_at, updated_at
+    `)
+    .eq("invite_token", token)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? (data as ChallengeRow) : null;
 }
 
 export async function GET(_request: Request, context: RouteContext) {
@@ -93,22 +105,8 @@ export async function GET(_request: Request, context: RouteContext) {
     const cookieStore = await cookies();
     const guestId = cookieStore.get(GUEST_COOKIE_NAME)?.value ?? null;
 
-    const { data: challengeData, error: challengeError } = await supabaseAdmin
-      .from("guest_challenges")
-      .select(`
-        id, invite_token, game_code, status,
-        challenger_user_id, challenger_guest_id,
-        opponent_user_id, opponent_guest_id,
-        challenger_name, opponent_name,
-        challenger_score, opponent_score, winner_side,
-        created_at, joined_at, started_at, completed_at, updated_at
-      `)
-      .eq("invite_token", token)
-      .maybeSingle();
-
-    if (challengeError) throw challengeError;
-    if (!challengeData) return NextResponse.json({ ok: false, error: "Challenge bulunamadı." }, { status: 404 });
-    const challenge = challengeData as ChallengeRow;
+    let challenge = await loadChallenge(token);
+    if (!challenge) return NextResponse.json({ ok: false, error: "Challenge bulunamadı." }, { status: 404 });
     if (challenge.game_code !== "club_clash") return NextResponse.json({ ok: false, error: "Bu challenge 2 Takım 1 Oyuncu değil." }, { status: 409 });
 
     const isChallenger = user
@@ -119,6 +117,11 @@ export async function GET(_request: Request, context: RouteContext) {
       : Boolean(guestId && challenge.opponent_guest_id === guestId);
     if (!isChallenger && !isOpponent) return NextResponse.json({ ok: false, error: "Bu challenge'a erişim yetkin yok." }, { status: 403 });
     const role: ChallengeSide = isChallenger ? "challenger" : "opponent";
+
+    if (challenge.status === "playing") {
+      await runRankedClubClashBotTick(token);
+      challenge = (await loadChallenge(token)) ?? challenge;
+    }
 
     const { data: roundsData, error: roundsError } = await supabaseAdmin
       .from("challenge_rounds")
@@ -147,6 +150,10 @@ export async function GET(_request: Request, context: RouteContext) {
     if (!winnerSide && challengerScore >= WIN_SCORE) winnerSide = "challenger";
     if (!winnerSide && opponentScore >= WIN_SCORE) winnerSide = "opponent";
 
+    if (challenge.status === "completed") {
+      await syncRankedMatchCompletion(token, winnerSide);
+    }
+
     const myName = role === "challenger" ? challenge.challenger_name : challenge.opponent_name;
     const opponentName = role === "challenger" ? challenge.opponent_name : challenge.challenger_name;
     const myScore = role === "challenger" ? challengerScore : opponentScore;
@@ -164,13 +171,9 @@ export async function GET(_request: Request, context: RouteContext) {
       role,
       game: { code: "club_clash", label: "2 Takım 1 Oyuncu", roundCount: ROUND_COUNT, winScore: WIN_SCORE },
       challenge: {
-        id: Number(challenge.id),
-        token: challenge.invite_token,
-        status: challenge.status,
-        startedAt: challenge.started_at,
-        completedAt: challenge.completed_at,
-        createdAt: challenge.created_at,
-        updatedAt: challenge.updated_at,
+        id: Number(challenge.id), token: challenge.invite_token, status: challenge.status,
+        startedAt: challenge.started_at, completedAt: challenge.completed_at,
+        createdAt: challenge.created_at, updatedAt: challenge.updated_at,
       },
       players: {
         challenger: { name: challenge.challenger_name, score: challengerScore },
