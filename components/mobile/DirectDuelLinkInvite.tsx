@@ -34,6 +34,7 @@ export default function DirectDuelLinkInvite() {
 
   useEffect(() => {
     if (!gameCode || startedRef.current) return;
+    const activeGameCode: GameCode = gameCode;
     startedRef.current = true;
 
     async function createAndShare() {
@@ -42,7 +43,7 @@ export default function DirectDuelLinkInvite() {
         const response = await fetch("/api/challenges/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ gameCode }),
+          body: JSON.stringify({ gameCode: activeGameCode }),
         });
         const result = (await response.json()) as CreateResponse;
         if (!response.ok || !result.ok || !result.challenge?.shareUrl || !result.challenge.sharePath) {
@@ -51,12 +52,13 @@ export default function DirectDuelLinkInvite() {
 
         const shareUrl = result.challenge.shareUrl;
         const sharePath = result.challenge.sharePath;
-        const text = `⚔️ FootBattle'da ${GAME_LABEL[gameCode]} düellosuna davetlisin!\n${shareUrl}`;
+        const gameLabel = GAME_LABEL[activeGameCode];
+        const text = `⚔️ FootBattle'da ${gameLabel} düellosuna davetlisin!\n${shareUrl}`;
 
         if (navigator.share) {
           try {
             await navigator.share({
-              title: `${GAME_LABEL[gameCode]} · FootBattle`,
+              title: `${gameLabel} · FootBattle`,
               text,
               url: shareUrl,
             });
