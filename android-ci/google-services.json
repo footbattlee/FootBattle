@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "1082215741027-t77nc8dtdmt6i94tak31ukv62ubk50rr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.playfootbattle.app",
+            "certificate_hash": "48a1efeaa9b83fdf1fb6a7575ef77814c088e36f"
+          }
+        },
+        {
           "client_id": "1082215741027-mr93a2l3575jvboekkrs4qrf7jmg3brf.apps.googleusercontent.com",
           "client_type": 3
         }
