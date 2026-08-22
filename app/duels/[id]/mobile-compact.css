@@ -1,0 +1,229 @@
+@media (max-width: 640px) {
+  .duel-room-mobile-compact main > div {
+    padding: 10px 12px 88px !important;
+  }
+
+  .duel-room-mobile-compact main > div > header {
+    gap: 8px !important;
+    padding-bottom: 10px !important;
+  }
+
+  .duel-room-mobile-compact main > div > header > div:first-child > a {
+    padding: 6px 9px !important;
+    font-size: 11px !important;
+  }
+
+  .duel-room-mobile-compact main > div > header > div:first-child > p:first-of-type,
+  .duel-room-mobile-compact main > div > header > div:first-child > p:last-of-type {
+    display: none !important;
+  }
+
+  .duel-room-mobile-compact main > div > header h1 {
+    margin-top: 8px !important;
+    font-size: 20px !important;
+    line-height: 1.05 !important;
+  }
+
+  .duel-room-mobile-compact main > div > header > div:last-child {
+    position: absolute;
+    right: 12px;
+    top: 10px;
+    gap: 6px !important;
+  }
+
+  .duel-room-mobile-compact main > div > header > div:last-child > div {
+    display: none !important;
+  }
+
+  .duel-room-mobile-compact main > div > header button {
+    padding: 7px 10px !important;
+    font-size: 11px !important;
+  }
+
+  /* Scoreboard: keep names + score visible without vertical stacking. */
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) {
+    margin-top: 10px !important;
+    border-radius: 16px !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) > div {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr) !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) > div > div {
+    min-width: 0 !important;
+    padding: 10px !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) > div > div:nth-child(2) {
+    padding: 8px 4px !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) > div > div:nth-child(2) span:first-child,
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) > div > div:nth-child(2) span:last-child {
+    display: none !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) > div > div:nth-child(2) span:nth-child(2) {
+    margin-top: 0 !important;
+    font-size: 18px !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) > div > div:first-child > div:first-child > div:first-child,
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) > div > div:last-child > div:first-child > div:first-child {
+    display: none !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) > div > div:first-child > div:first-child,
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) > div > div:last-child > div:first-child {
+    display: block !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) a,
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) > div > div:first-child > div:first-child p:last-child,
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) > div > div:last-child > div:first-child p:last-child {
+    display: none !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) p.text-xl {
+    margin-top: 2px !important;
+    font-size: 14px !important;
+    line-height: 1.15 !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) > div > div:first-child > div:last-child,
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) > div > div:last-child > div:last-child {
+    margin-top: 6px !important;
+    padding-top: 6px !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) > div > div:first-child > div:last-child p:first-child,
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) > div > div:last-child > div:last-child p:first-child {
+    display: none !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) > div > div:first-child > div:last-child p:last-child,
+  .duel-room-mobile-compact main > div > section:nth-of-type(1) > div > div:last-child > div:last-child p:last-child {
+    margin-top: 0 !important;
+    font-size: 28px !important;
+    line-height: 1 !important;
+  }
+
+  /* Oyun/Kabul/Başlangıç/Durum cards add no value during play. */
+  .duel-room-mobile-compact main > div > section:nth-of-type(2) {
+    display: none !important;
+  }
+
+  /* Active game area. */
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) {
+    margin-top: 10px !important;
+    padding: 10px !important;
+    border-radius: 18px !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) > div:first-child {
+    display: none !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) > div.mt-6 {
+    margin-top: 0 !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) .rounded-3xl {
+    padding: 10px !important;
+    border-radius: 16px !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) .rounded-3xl > div:first-child {
+    gap: 6px !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) h3 {
+    margin-top: 0 !important;
+    font-size: 15px !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) .rounded-3xl > div:first-child > div:last-child {
+    padding: 5px 8px !important;
+    font-size: 10px !important;
+  }
+
+  /* Bournemouth + Tottenham side by side. */
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) .rounded-3xl > div.mt-7 {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr) !important;
+    align-items: stretch !important;
+    gap: 6px !important;
+    margin-top: 10px !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) .rounded-3xl > div.mt-7 > div {
+    min-width: 0 !important;
+    padding: 10px 6px !important;
+    border-radius: 12px !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) .rounded-3xl > div.mt-7 > div:nth-child(2) {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    font-size: 20px !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) .rounded-3xl > div.mt-7 > div > div {
+    display: none !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) .rounded-3xl > div.mt-7 > div > p:first-child {
+    display: none !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) .rounded-3xl > div.mt-7 > div > p:last-child {
+    margin-top: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    font-size: 14px !important;
+    line-height: 1.15 !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) .rounded-3xl > p.mt-6 {
+    margin-top: 9px !important;
+    font-size: 11px !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) .relative.mx-auto.mt-6 {
+    margin-top: 10px !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) input {
+    padding: 12px !important;
+    padding-right: 38px !important;
+    font-size: 16px !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) button.mt-3 {
+    margin-top: 7px !important;
+    padding: 12px 14px !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) button.mt-3 + p {
+    display: none !important;
+  }
+
+  /* Round progress remains visible, but compact. */
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) .grid.grid-cols-5 {
+    margin-top: 10px !important;
+    gap: 5px !important;
+  }
+
+  .duel-room-mobile-compact main > div > section:nth-of-type(3) .grid.grid-cols-5 > div {
+    padding: 6px 2px !important;
+  }
+
+  /* Hide profile/stat cards below the actual game on mobile. */
+  .duel-room-mobile-compact main > div > section:last-child:not(:nth-of-type(3)) {
+    display: none !important;
+  }
+}
