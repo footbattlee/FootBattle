@@ -7,7 +7,7 @@ import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 
 type Locale = "tr" | "en";
-type NavItem = { key: "home" | "daily" | "duels" | "rank" | "profile"; label: string; icon: string; href: string };
+type NavItem = { key: "home" | "daily" | "ranked" | "duels" | "leaderboard" | "profile"; label: string; icon: string; href: string };
 
 function getLocale(pathname: string): Locale {
   return pathname === "/en" || pathname.startsWith("/en/") ? "en" : "tr";
@@ -146,8 +146,9 @@ export default function MobileAppShell() {
     return [
       { key: "home", label: tr ? "Ana Sayfa" : "Home", icon: "⌂", href: `/${locale}` },
       { key: "daily", label: tr ? "Günlük" : "Daily", icon: "🔥", href: `/${locale}/daily` },
+      { key: "ranked", label: "Ranked", icon: "🏆", href: `/${locale}/rank` },
       { key: "duels", label: tr ? "Düello" : "Duel", icon: "⚔", href: `/${locale}/duels` },
-      { key: "rank", label: tr ? "Sıralama" : "Rank", icon: "♛", href: `/${locale}/rank` },
+      { key: "leaderboard", label: tr ? "Sıralama" : "Ranks", icon: "♛", href: `/${locale}/rank#leaderboard` },
       { key: "profile", label: tr ? "Profil" : "Profile", icon: "●", href: `/${locale}/profile` },
     ];
   }, [locale]);
@@ -157,8 +158,9 @@ export default function MobileAppShell() {
   function isActive(item: NavItem) {
     if (item.key === "home") return plainPath === "/";
     if (item.key === "daily") return plainPath === "/daily";
+    if (item.key === "ranked") return plainPath === "/rank" && !window.location.hash;
     if (item.key === "duels") return plainPath === "/duels";
-    if (item.key === "rank") return plainPath === "/rank";
+    if (item.key === "leaderboard") return plainPath === "/rank" && window.location.hash === "#leaderboard";
     if (item.key === "profile") return plainPath === "/profile";
     return false;
   }
@@ -168,21 +170,21 @@ export default function MobileAppShell() {
   return (
     <>
       <div aria-hidden="true" className="h-[calc(74px+env(safe-area-inset-bottom))] md:hidden" />
-      <nav aria-label={locale === "tr" ? "Mobil ana navigasyon" : "Mobile primary navigation"} className={`fixed inset-x-0 bottom-0 ${navLayer} border-t border-white/10 bg-[#07111f]/95 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl md:hidden`}>
-        <div className="mx-auto grid h-[74px] max-w-[560px] grid-cols-5 items-stretch">
+      <nav aria-label={locale === "tr" ? "Mobil ana navigasyon" : "Mobile primary navigation"} className={`fixed inset-x-0 bottom-0 ${navLayer} border-t border-white/10 bg-[#07111f]/95 px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl md:hidden`}>
+        <div className="mx-auto grid h-[74px] max-w-[620px] grid-cols-6 items-stretch">
           {items.map((item) => {
             const active = isActive(item);
             const duel = item.key === "duels";
             return (
-              <Link key={item.key} href={item.href} aria-current={active ? "page" : undefined} className={`group relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-center transition active:scale-95 ${active ? "text-green-300" : "text-slate-500"}`}>
+              <Link key={item.key} href={item.href} aria-current={active ? "page" : undefined} className={`group relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-0.5 text-center transition active:scale-95 ${active ? "text-green-300" : "text-slate-500"}`}>
                 {duel ? (
-                  <span className={`relative flex h-10 w-10 -translate-y-1.5 items-center justify-center rounded-2xl border text-lg font-black shadow-lg ${active ? "border-green-200/40 bg-green-400 text-[#07111f] shadow-green-950/30" : "border-green-300/20 bg-green-500 text-[#07111f] shadow-green-950/20"}`}>
+                  <span className={`relative flex h-9 w-9 -translate-y-1 items-center justify-center rounded-2xl border text-base font-black shadow-lg ${active ? "border-green-200/40 bg-green-400 text-[#07111f] shadow-green-950/30" : "border-green-300/20 bg-green-500 text-[#07111f] shadow-green-950/20"}`}>
                     {item.icon}
                     {incomingCount > 0 ? <span className="absolute -right-2 -top-2 flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-[#07111f] bg-red-500 px-1 text-[9px] font-black leading-none text-white">{incomingCount > 9 ? "9+" : incomingCount}</span> : null}
                   </span>
-                ) : <span className={`text-[20px] font-black leading-none ${active ? "text-green-300" : "text-slate-400"}`}>{item.icon}</span>}
-                <span className={`truncate text-[11px] font-black ${duel ? "-mt-1.5" : ""}`}>{item.label}</span>
-                {active && !duel ? <span className="absolute bottom-1.5 h-1 w-5 rounded-full bg-green-400" /> : null}
+                ) : <span className={`text-[18px] font-black leading-none ${active ? "text-green-300" : "text-slate-400"}`}>{item.icon}</span>}
+                <span className={`truncate text-[9px] font-black sm:text-[10px] ${duel ? "-mt-1" : ""}`}>{item.label}</span>
+                {active && !duel ? <span className="absolute bottom-1.5 h-1 w-4 rounded-full bg-green-400" /> : null}
               </Link>
             );
           })}
