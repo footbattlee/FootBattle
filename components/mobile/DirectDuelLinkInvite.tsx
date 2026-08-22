@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 type GameCode = "tic_tac_toe" | "club_clash";
 
@@ -21,16 +21,25 @@ const GAME_LABEL: Record<GameCode, string> = {
 
 export default function DirectDuelLinkInvite() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const startedRef = useRef(false);
+  const [gameCode, setGameCode] = useState<GameCode | null>(null);
   const [error, setError] = useState("");
 
-  const gameCode = useMemo<GameCode | null>(() => {
-    if (pathname === "/tic-tac-toe/duel") return "tic_tac_toe";
-    if (pathname === "/duels/challenge" && searchParams.get("game") === "club_clash") return "club_clash";
-    return null;
-  }, [pathname, searchParams]);
+  useEffect(() => {
+    let nextGameCode: GameCode | null = null;
+
+    if (pathname === "/tic-tac-toe/duel") {
+      nextGameCode = "tic_tac_toe";
+    } else if (pathname === "/duels/challenge") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("game") === "club_clash") nextGameCode = "club_clash";
+    }
+
+    startedRef.current = false;
+    setError("");
+    setGameCode(nextGameCode);
+  }, [pathname]);
 
   useEffect(() => {
     if (!gameCode || startedRef.current) return;
@@ -64,7 +73,11 @@ export default function DirectDuelLinkInvite() {
             });
           } catch (shareError) {
             if (!(shareError instanceof DOMException && shareError.name === "AbortError")) {
-              try { await navigator.clipboard.writeText(text); } catch { /* paylaşım ekranı yeterli */ }
+              try {
+                await navigator.clipboard.writeText(text);
+              } catch {
+                // Paylaşım ekranı açılamadıysa challenge sayfasına yine devam edilir.
+              }
             }
           }
         } else {
@@ -92,7 +105,12 @@ export default function DirectDuelLinkInvite() {
             <p className="mt-2 text-sm text-slate-400">{error}</p>
             <button
               type="button"
-              onClick={() => { startedRef.current = false; setError(""); router.refresh(); }}
+              onClick={() => {
+                startedRef.current = false;
+                setError("");
+                setGameCode(null);
+                window.setTimeout(() => setGameCode(gameCode), 0);
+              }}
               className="mt-5 min-h-12 w-full rounded-xl bg-green-500 font-black text-[#07111f]"
             >
               Tekrar Dene
