@@ -158,9 +158,8 @@ export default function MobileAppShell() {
   function isActive(item: NavItem) {
     if (item.key === "home") return plainPath === "/";
     if (item.key === "daily") return plainPath === "/daily";
-    if (item.key === "ranked") return plainPath === "/rank" && !window.location.hash;
+    if (item.key === "ranked") return plainPath === "/rank";
     if (item.key === "duels") return plainPath === "/duels";
-    if (item.key === "leaderboard") return plainPath === "/rank" && window.location.hash === "#leaderboard";
     if (item.key === "profile") return plainPath === "/profile";
     return false;
   }
