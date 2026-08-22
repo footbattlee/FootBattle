@@ -93,6 +93,19 @@ export default function MobileAppShell() {
         }
         if (receive !== "granted") return;
 
+        if (Capacitor.getPlatform() === "android") {
+          try {
+            await PushNotifications.createChannel({
+              id: "footbattle_social",
+              name: "FootBattle",
+              description: "Arkadaşlık ve düello bildirimleri",
+              importance: 5,
+            });
+          } catch (error) {
+            console.warn("Push channel creation failed", error);
+          }
+        }
+
         listeners.push(await PushNotifications.addListener("registration", (token) => {
           if (!active) return;
           void fetch("/api/push/register", {
