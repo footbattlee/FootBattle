@@ -62,26 +62,27 @@ export default function DirectDuelLinkInvite() {
         const shareUrl = result.challenge.shareUrl;
         const sharePath = result.challenge.sharePath;
         const gameLabel = GAME_LABEL[activeGameCode];
-        const text = `⚔️ FootBattle'da ${gameLabel} düellosuna davetlisin!\n${shareUrl}`;
+        const shareText = `⚔️ FootBattle'da ${gameLabel} düellosuna davetlisin!`;
+        const clipboardText = `${shareText}\n${shareUrl}`;
 
         if (navigator.share) {
           try {
             await navigator.share({
               title: `${gameLabel} · FootBattle`,
-              text,
+              text: shareText,
               url: shareUrl,
             });
           } catch (shareError) {
             if (!(shareError instanceof DOMException && shareError.name === "AbortError")) {
               try {
-                await navigator.clipboard.writeText(text);
+                await navigator.clipboard.writeText(clipboardText);
               } catch {
                 // Paylaşım ekranı açılamadıysa challenge sayfasına yine devam edilir.
               }
             }
           }
         } else {
-          await navigator.clipboard.writeText(text);
+          await navigator.clipboard.writeText(clipboardText);
         }
 
         router.replace(sharePath);
