@@ -124,4 +124,52 @@
   [data-game="club-clash"] > main > div > div:last-child:not([class*="rounded-"]) {
     margin-top: 0.75rem !important;
   }
+
+  /* Link/challenge düellosu: skor, round ve takım kartlarını mobilde sıkıştır. */
+  body.club-clash-challenge-mobile main {
+    padding-left: 0.6rem !important;
+    padding-right: 0.6rem !important;
+  }
+
+  body.club-clash-challenge-mobile main .mt-8 {
+    margin-top: 1rem !important;
+  }
+
+  body.club-clash-challenge-mobile main .mt-7,
+  body.club-clash-challenge-mobile main .mt-6 {
+    margin-top: 0.85rem !important;
+  }
+
+  body.club-clash-challenge-mobile main .mt-5 {
+    margin-top: 0.7rem !important;
+  }
+
+  body.club-clash-challenge-mobile main .p-6 {
+    padding: 1rem !important;
+  }
+
+  body.club-clash-challenge-mobile main .p-5 {
+    padding: 0.8rem !important;
+  }
+
+  body.club-clash-challenge-mobile main .gap-4 {
+    gap: 0.65rem !important;
+  }
+
+  body.club-clash-challenge-mobile main .gap-3 {
+    gap: 0.5rem !important;
+  }
+
+  body.club-clash-challenge-mobile main .text-3xl {
+    font-size: 1.65rem !important;
+    line-height: 1.9rem !important;
+  }
+
+  body.club-clash-challenge-mobile main input {
+    font-size: 16px !important;
+  }
+
+  body.club-clash-challenge-mobile main {
+    padding-bottom: calc(5.25rem + env(safe-area-inset-bottom)) !important;
+  }
 }
