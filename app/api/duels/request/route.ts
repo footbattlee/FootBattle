@@ -68,12 +68,16 @@ export async function POST(request: Request) {
     if (insertError) return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 });
 
     const challengerName = challenger?.display_name ?? challenger?.username ?? user.email?.split("@")[0] ?? "Bir oyuncu";
-    void sendPushToUser(opponentId, {
-      title: "Yeni düello daveti ⚔️",
-      body: `${challengerName} seni ${GAME_LABELS[gameCode]} düellosuna davet etti.`,
-      url: "/tr/duels",
-      type: "duel_invite",
-    }).catch((error) => console.error("Duel invite push failed", error));
+    try {
+      await sendPushToUser(opponentId, {
+        title: "Yeni düello daveti ⚔️",
+        body: `${challengerName} seni ${GAME_LABELS[gameCode]} düellosuna davet etti.`,
+        url: "/tr/duels",
+        type: "duel_invite",
+      });
+    } catch (error) {
+      console.error("Duel invite push failed", error);
+    }
 
     return NextResponse.json({
       ok: true,
