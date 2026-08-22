@@ -7,6 +7,7 @@ import "./club-clash-mobile.css";
 import "./mobile-game-fixes.css";
 import "./mobile-home-dashboard.css";
 import "./mobile-input-fixes.css";
+import "./must-mobile-fixes.css";
 
 import PresenceHeartbeat from "@/components/PresenceHeartbeat";
 import HomeProgressionSpotlight from "@/components/HomeProgressionSpotlight";
@@ -14,7 +15,6 @@ import HomeTicTacToeDuelEnhancer from "@/components/HomeTicTacToeDuelEnhancer";
 import HomeSuperLigAndMobileOrder from "@/components/HomeSuperLigAndMobileOrder";
 import GuessThePlayerSearchEnhancer from "@/components/GuessThePlayerSearchEnhancer";
 import GlobalShareEnhancer from "@/components/GlobalShareEnhancer";
-import ChallengeQuickShare from "@/components/ChallengeQuickShare";
 import GameResultArena from "@/components/GameResultArena";
 import RankResultToast from "@/components/RankResultToast";
 import ReferralClaimObserver from "@/components/ReferralClaimObserver";
@@ -26,6 +26,7 @@ import MobileAppShell from "@/components/mobile/MobileAppShell";
 import MobileHomeDashboard from "@/components/mobile/MobileHomeDashboard";
 import GuessThePlayerMobileAutoScroll from "@/components/mobile/GuessThePlayerMobileAutoScroll";
 import MobileKeyboardGuard from "@/components/mobile/MobileKeyboardGuard";
+import DirectDuelLinkInvite from "@/components/mobile/DirectDuelLinkInvite";
 import { SITE_URL, SiteJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -59,6 +60,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <MobileHomeDashboard />
         <MobileAppShell />
         <MobileKeyboardGuard />
+        <DirectDuelLinkInvite />
         <GuessThePlayerMobileAutoScroll />
         <HomeSuperLigAndMobileOrder />
         <GuessThePlayerSearchEnhancer />
@@ -67,7 +69,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <WordlePhysicalKeyboard />
         <GameResultArena />
         <RankResultToast />
-        <ChallengeQuickShare />
         <HomeTicTacToeDuelEnhancer />
         <Analytics />
       </body>
