@@ -64,6 +64,12 @@ export default function HomeQuickAccess() {
             🎮 {tr ? "Oyunlar" : "Games"}
           </Link>
           <Link
+            href={`/${locale}/rank`}
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-3 text-xs font-black text-yellow-200 transition hover:bg-yellow-400/20"
+          >
+            🏆 Ranked
+          </Link>
+          <Link
             href={`/${locale}/survivor`}
             className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-black text-yellow-100 transition hover:bg-yellow-300/10"
           >
@@ -75,7 +81,7 @@ export default function HomeQuickAccess() {
       {/* Mobil/tablet hızlı erişim. */}
       <div className="fixed bottom-3 left-1/2 z-[70] w-[calc(100%-1rem)] max-w-[980px] -translate-x-1/2 sm:bottom-5 sm:left-5 sm:w-auto sm:max-w-[calc(100vw-2.5rem)] sm:translate-x-0 xl:hidden">
         <div className="flex items-center gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-[#081523]/95 p-2 shadow-2xl backdrop-blur-xl">
-          <Link href={`/${locale}/rank`} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-3 text-xs font-black text-yellow-200 sm:px-4 sm:text-sm">🏆 {tr ? "Rank Arenası" : "Rank Arena"}</Link>
+          <Link href={`/${locale}/rank`} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-3 text-xs font-black text-yellow-200 sm:px-4 sm:text-sm">🏆 Ranked</Link>
           <Link href={`/${locale}/daily-faceoff`} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-red-400/25 bg-red-400/10 px-3 text-xs font-black text-red-200 sm:px-4 sm:text-sm">🔥 {tr ? "Günün Kapışması" : "Daily Faceoff"}</Link>
           <Link href={`/${locale}/survivor`} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-yellow-300/25 bg-yellow-300/10 px-3 text-xs font-black text-yellow-100 sm:px-4 sm:text-sm">👑 Survivor</Link>
           <Link href="/halisaha-kadro" className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-green-400/20 bg-green-400/10 px-3 text-xs font-black text-green-300 sm:px-4 sm:text-sm">⚽ {tr ? "Halısaha" : "Pickup Squad"}</Link>
