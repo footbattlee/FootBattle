@@ -42,11 +42,16 @@ export default function MobileAppShell() {
   const locale = getLocale(pathname);
   const plainPath = stripLocale(pathname);
   const [incomingCount, setIncomingCount] = useState(0);
+  const [rankedContext, setRankedContext] = useState(false);
 
   useEffect(() => {
     document.body.dataset.mobileRoute = routeName(plainPath);
     return () => { delete document.body.dataset.mobileRoute; };
   }, [plainPath]);
+
+  useEffect(() => {
+    setRankedContext(new URLSearchParams(window.location.search).get("ranked") === "1");
+  }, [pathname]);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,7 +158,40 @@ export default function MobileAppShell() {
     ];
   }, [locale]);
 
-  if (!shouldShowShell(pathname)) return null;
+  const rankedMatchChrome = rankedContext && (plainPath.startsWith("/tic-tac-toe/duel/") || plainPath.startsWith("/challenge/"));
+
+  if (!shouldShowShell(pathname)) {
+    if (!rankedMatchChrome) return null;
+    return <>
+      <Link href={`/${locale}/rank`} className="fixed left-3 top-[calc(env(safe-area-inset-top)+10px)] z-[120] rounded-full border border-white/15 bg-[#07111f]/90 px-3 py-2 text-xs font-black text-green-300 shadow-xl backdrop-blur-md">← Ranked&apos;e Dön</Link>
+      <style jsx global>{`
+        body[data-mobile-route="tic-tac-toe-duel"] main { padding-left: 10px !important; padding-right: 10px !important; }
+        body[data-mobile-route="tic-tac-toe-duel"] main > div { max-width: 680px !important; }
+        body[data-mobile-route="tic-tac-toe-duel"] main section { border-radius: 20px !important; }
+        body[data-mobile-route="tic-tac-toe-duel"] main section button span.truncate {
+          white-space: normal !important;
+          overflow: visible !important;
+          text-overflow: clip !important;
+          line-height: 1.12 !important;
+          display: block !important;
+          overflow-wrap: anywhere !important;
+        }
+        body[data-mobile-route="tic-tac-toe-duel"] main section button.aspect-square {
+          aspect-ratio: auto !important;
+          min-height: 82px !important;
+          height: 82px !important;
+        }
+        body[data-mobile-route="tic-tac-toe-duel"] main section button.aspect-square span:nth-child(2) {
+          font-size: 8px !important;
+          padding-left: 3px !important;
+          padding-right: 3px !important;
+        }
+        @media (min-width: 640px) {
+          body[data-mobile-route="tic-tac-toe-duel"] main section button.aspect-square { height: auto !important; aspect-ratio: 1 / 1 !important; }
+        }
+      `}</style>
+    </>;
+  }
 
   function isActive(item: NavItem) {
     if (item.key === "home") return plainPath === "/";
