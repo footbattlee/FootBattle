@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { footballLocaleFromRequest, localizeFootballAxisValue, type FootballLocale } from "@/lib/football/localization";
-import { generateBalancedTicTacToeGrid } from "@/lib/tic-tac-toe/balanced-grid-generator";
+import { generateCachedBalancedTicTacToeGrid } from "@/lib/tic-tac-toe/cached-balanced-grid";
 import { type TicTacToeAxisItem } from "@/lib/tic-tac-toe/grid-generator";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
         })),
       };
     } else {
-      const grid = await generateBalancedTicTacToeGrid();
+      const grid = await generateCachedBalancedTicTacToeGrid();
       if (!grid || grid.rows.length !== 3 || grid.columns.length !== 3 || grid.cells.length !== 9) {
         return NextResponse.json({ ok: false, error: "Geçerli TicTacToe grid'i oluşturulamadı." }, { status: 500 });
       }
