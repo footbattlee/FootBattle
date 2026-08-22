@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+import { SITE_URL } from "@/lib/seo";
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -83,10 +84,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: insertError?.message ?? "Meydan okuma oluşturulamadı." }, { status: 500 });
     }
 
-    const requestOrigin = new URL(request.url).origin;
-    const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? requestOrigin).replace(/\/$/, "");
     const sharePath = body.gameCode === "tic_tac_toe" ? `/tic-tac-toe/duel/${challenge.invite_token}` : `/challenge/${challenge.invite_token}`;
-    const shareUrl = `${baseUrl}${sharePath}`;
+    const shareUrl = `${SITE_URL}${sharePath}`;
 
     const response = NextResponse.json({ ok: true, challenge: {
       id: Number(challenge.id), token: challenge.invite_token, gameCode: challenge.game_code,
