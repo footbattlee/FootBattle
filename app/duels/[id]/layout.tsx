@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
+import "./mobile-compact.css";
+
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -28,5 +30,5 @@ export default async function DuelRoomLayout({ children, params }: { children: R
     redirect(`/tic-tac-toe/duel/${duel.challenge_token}`);
   }
 
-  return children;
+  return <div className="duel-room-mobile-compact">{children}</div>;
 }
