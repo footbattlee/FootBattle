@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { footballLocaleFromRequest, localizeFootballAxisValue, nationalityToDisplayName } from "@/lib/football/localization";
+import { runRankedTicTacToeBotTick, syncRankedMatchCompletion } from "@/lib/ranked/shared-engine";
 import {
   ensureTicTacToeDuel,
   getDuelAttempts,
@@ -35,6 +36,10 @@ export async function GET(
       );
     }
 
+    if (challenge.status === "playing") {
+      await runRankedTicTacToeBotTick(challenge);
+    }
+
     const duel = await ensureTicTacToeDuel(challenge);
     const attempts = await getDuelAttempts(duel.id);
 
@@ -42,11 +47,15 @@ export async function GET(
       const winner = getWinningSide(attempts);
       if (winner) {
         await finalizeTurnDuel(challenge, winner);
+        await syncRankedMatchCompletion(challenge.invite_token, winner);
         challenge = { ...challenge, status: "completed", winner_side: winner };
       } else if (boardIsFull(attempts)) {
         await finalizeTurnDuel(challenge, "draw");
+        await syncRankedMatchCompletion(challenge.invite_token, "draw");
         challenge = { ...challenge, status: "completed", winner_side: "draw" };
       }
+    } else {
+      await syncRankedMatchCompletion(challenge.invite_token, challenge.winner_side);
     }
 
     let turn = await ensureTurnState(duel.id);
