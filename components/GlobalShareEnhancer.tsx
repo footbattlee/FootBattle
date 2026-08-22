@@ -40,8 +40,13 @@ export default function GlobalShareEnhancer() {
         navigator.share = async (data: ShareData) => {
           const nextData: ShareData = { ...data };
           if (shouldEnhanceText(nextData.text)) {
-            nextData.text = withFootBattleLink(String(nextData.text));
-            if (!nextData.url) nextData.url = buildShareUrl();
+            // Direct share flows (for example duel/challenge invites) already provide
+            // the exact destination in `url`. Do not prepend a generic UTM link and
+            // accidentally create two competing URLs in WhatsApp/iMessage.
+            if (!nextData.url) {
+              nextData.text = withFootBattleLink(String(nextData.text));
+              nextData.url = buildShareUrl();
+            }
 
             try {
               const card = await createGlobalFootBattleShareCard(nextData);
