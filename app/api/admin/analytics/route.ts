@@ -12,6 +12,19 @@ type AnalyticsRow = {
   created_at: string;
 };
 
+type DuelRow = {
+  id: number;
+  challenger_id: string;
+  opponent_id: string;
+  game_code: string;
+  status: string;
+  created_at: string;
+  accepted_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  updated_at: string | null;
+};
+
 const ABANDON_AFTER_MS = 15 * 60 * 1000;
 
 function getStartDate(range: RangeKey) {
@@ -35,6 +48,12 @@ function getStartDate(range: RangeKey) {
 function average(values: number[]) {
   if (!values.length) return 0;
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+}
+
+function inRange(value: string | null | undefined, startDate: string | null) {
+  if (!value) return false;
+  if (!startDate) return true;
+  return new Date(value).getTime() >= new Date(startDate).getTime();
 }
 
 export async function GET(request: NextRequest) {
@@ -165,10 +184,85 @@ export async function GET(request: NextRequest) {
           averageDurationSeconds: average(game.durations),
         };
       })
+      .filter((game) => game.started > 0 || game.completed > 0 || game.playAgain > 0 || game.shared > 0)
       .sort((a, b) => b.started - a.started);
 
     summary.totalAbandoned = Array.from(abandonedByGame.values()).reduce((sum, value) => sum + value, 0);
     summary.averageDurationSeconds = average(allDurations);
+
+    // Duel funnel'u doğrudan source-of-truth olan duels tablosundan hesaplıyoruz.
+    // Böylece analytics trigger'ından önce oluşmuş düellolar da raporda görünür.
+    const { data: duelData, error: duelError } = await supabaseAdmin
+      .from("duels")
+      .select("id,challenger_id,opponent_id,game_code,status,created_at,accepted_at,started_at,completed_at,updated_at");
+    if (duelError) throw duelError;
+
+    const duelRows = (duelData ?? []) as DuelRow[];
+    const duelParticipants = new Set<string>();
+    const duelGameMap = new Map<string, { gameCode: string; created: number; accepted: number; started: number; completed: number; rejected: number; cancelled: number }>();
+    const duelSummary = {
+      created: 0,
+      accepted: 0,
+      started: 0,
+      completed: 0,
+      rejected: 0,
+      cancelled: 0,
+      uniquePlayers: 0,
+    };
+
+    for (const duel of duelRows) {
+      if (!duelGameMap.has(duel.game_code)) {
+        duelGameMap.set(duel.game_code, {
+          gameCode: duel.game_code,
+          created: 0,
+          accepted: 0,
+          started: 0,
+          completed: 0,
+          rejected: 0,
+          cancelled: 0,
+        });
+      }
+      const game = duelGameMap.get(duel.game_code)!;
+      const touchedInRange =
+        inRange(duel.created_at, startDate) ||
+        inRange(duel.accepted_at, startDate) ||
+        inRange(duel.started_at, startDate) ||
+        inRange(duel.completed_at, startDate) ||
+        ((duel.status === "rejected" || duel.status === "cancelled") && inRange(duel.updated_at, startDate));
+
+      if (touchedInRange) {
+        duelParticipants.add(duel.challenger_id);
+        duelParticipants.add(duel.opponent_id);
+      }
+      if (inRange(duel.created_at, startDate)) {
+        duelSummary.created += 1;
+        game.created += 1;
+      }
+      if (inRange(duel.accepted_at, startDate)) {
+        duelSummary.accepted += 1;
+        game.accepted += 1;
+      }
+      if (inRange(duel.started_at, startDate)) {
+        duelSummary.started += 1;
+        game.started += 1;
+      }
+      if (inRange(duel.completed_at, startDate)) {
+        duelSummary.completed += 1;
+        game.completed += 1;
+      }
+      if (duel.status === "rejected" && inRange(duel.updated_at, startDate)) {
+        duelSummary.rejected += 1;
+        game.rejected += 1;
+      }
+      if (duel.status === "cancelled" && inRange(duel.updated_at, startDate)) {
+        duelSummary.cancelled += 1;
+        game.cancelled += 1;
+      }
+    }
+    duelSummary.uniquePlayers = duelParticipants.size;
+    const duelGames = Array.from(duelGameMap.values())
+      .filter((game) => game.created || game.accepted || game.started || game.completed || game.rejected || game.cancelled)
+      .sort((a, b) => b.created - a.created);
 
     const { data: sets, error: setsError } = await supabaseAdmin
       .from("survivor_sets")
@@ -200,7 +294,7 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => b.completions - a.completions);
 
-    return NextResponse.json({ ok: true, range, summary, games, survivors });
+    return NextResponse.json({ ok: true, range, summary, games, duelSummary, duelGames, survivors });
   } catch (error) {
     console.error("Analytics API error:", error);
     return NextResponse.json(
