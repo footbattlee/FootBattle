@@ -3,24 +3,23 @@
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 
-type Role = "challenger" | "opponent" | "visitor";
+type Side = "challenger" | "opponent";
+type Role = Side | "visitor";
+type Winner = Side | "draw" | null;
+
 type ChallengeResponse = {
   ok?: boolean;
   role?: Role;
   canJoin?: boolean;
-  waitingForOpponent?: boolean;
   expired?: boolean;
   error?: string;
   challenge?: {
-    id: number;
     token: string;
     gameCode: string;
     status: string;
     challenger: { name: string | null; score: number };
     opponent: { name: string | null; score: number } | null;
-    winnerSide: "challenger" | "opponent" | "draw" | null;
-    startedAt: string | null;
-    completedAt: string | null;
+    winnerSide: Winner;
   };
 };
 
@@ -32,40 +31,31 @@ type Player = {
   currentClubName: string | null;
   imageUrl: string | null;
 };
+type Cell = { rowIndex: number; columnIndex: number; ownerSide: Side; player: Player };
 type DuelState = {
   ok?: boolean;
   error?: string;
-  role?: "challenger" | "opponent";
+  role?: Side;
   completed?: boolean;
   result?: "win" | "loss" | "draw" | null;
-  winnerSide?: "challenger" | "opponent" | "draw" | null;
-  remainingSeconds?: number;
+  winnerSide?: Winner;
+  currentTurn?: Side | null;
+  isMyTurn?: boolean;
+  turnRemainingSeconds?: number;
+  drawOfferBy?: Side | null;
   challenge?: {
     status: string;
     challenger: { name: string; score: number };
     opponent: { name: string; score: number };
   };
-  grid?: {
-    rows: GridAxis[];
-    columns: GridAxis[];
-    cells: Array<{ rowIndex: number; columnIndex: number; player: Player }>;
-  };
-  me?: { score: number; correctCount: number; wrongCount: number };
-  opponent?: { score: number; correctCount: number; wrongCount: number };
+  grid?: { rows: GridAxis[]; columns: GridAxis[]; cells: Cell[] };
 };
 
-type SearchResponse = { ok?: boolean; error?: string; players?: Player[] };
+type SearchResponse = { ok?: boolean; players?: Player[] };
+type ApiResponse = { ok?: boolean; error?: string; message?: string; completed?: boolean };
 
-type AnswerResponse = {
-  ok?: boolean;
-  error?: string;
-  correct?: boolean;
-  completed?: boolean;
-  message?: string;
-};
-
-function formatTimer(seconds: number) {
-  const safe = Math.max(0, Math.floor(seconds));
+function formatTimer(total: number) {
+  const safe = Math.max(0, Math.floor(total));
   return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, "0")}`;
 }
 
@@ -75,16 +65,14 @@ export default function TicTacToeDuelPage({ params }: { params: Promise<{ token:
   const [duel, setDuel] = useState<DuelState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [opponentName, setOpponentName] = useState("");
-  const [actionLoading, setActionLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-
+  const [busy, setBusy] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{ rowIndex: number; columnIndex: number } | null>(null);
   const [query, setQuery] = useState("");
   const [players, setPlayers] = useState<Player[]>([]);
   const [searching, setSearching] = useState(false);
-  const [answerMessage, setAnswerMessage] = useState("");
-  const [answerCorrect, setAnswerCorrect] = useState<boolean | null>(null);
+  const [clock, setClock] = useState(60);
 
   const loadChallenge = useCallback(async () => {
     const response = await fetch(`/api/challenges/${encodeURIComponent(token)}`, { cache: "no-store" });
@@ -103,6 +91,12 @@ export default function TicTacToeDuelPage({ params }: { params: Promise<{ token:
       throw new Error(result.error ?? "Oyun durumu yüklenemedi.");
     }
     setDuel(result);
+    setClock(result.turnRemainingSeconds ?? 60);
+    if (!result.isMyTurn) {
+      setSelectedCell(null);
+      setQuery("");
+      setPlayers([]);
+    }
     return result;
   }, [token]);
 
@@ -110,356 +104,281 @@ export default function TicTacToeDuelPage({ params }: { params: Promise<{ token:
     let cancelled = false;
     void (async () => {
       try {
-        setLoading(true);
-        const current = await loadChallenge();
-        if (!cancelled && (current.challenge?.status === "playing" || current.challenge?.status === "completed")) {
-          await loadDuel();
-        }
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Düello yüklenemedi.");
+        const c = await loadChallenge();
+        if (!cancelled && (c.challenge?.status === "playing" || c.challenge?.status === "completed")) await loadDuel();
+      } catch (reason) {
+        if (!cancelled) setError(reason instanceof Error ? reason.message : "Düello yüklenemedi.");
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [loadChallenge, loadDuel]);
 
   useEffect(() => {
     const status = challenge?.challenge?.status;
     if (!status || status === "completed" || status === "expired") return;
-
     const id = window.setInterval(() => {
-      void loadChallenge()
-        .then((current) => {
-          if (current.challenge?.status === "playing") return loadDuel();
-          return null;
-        })
-        .catch(() => undefined);
-    }, 2200);
+      void loadChallenge().then((c) => {
+        if (c.challenge?.status === "playing") return loadDuel();
+        return null;
+      }).catch(() => undefined);
+    }, 1400);
     return () => window.clearInterval(id);
   }, [challenge?.challenge?.status, loadChallenge, loadDuel]);
 
   useEffect(() => {
-    if (challenge?.challenge?.status !== "playing" || duel?.completed) return;
-    const id = window.setInterval(() => {
-      void loadDuel().catch(() => undefined);
-    }, 1400);
+    if (!duel || duel.completed) return;
+    const id = window.setInterval(() => setClock((value) => Math.max(0, value - 1)), 1000);
     return () => window.clearInterval(id);
-  }, [challenge?.challenge?.status, duel?.completed, loadDuel]);
+  }, [duel?.currentTurn, duel?.completed]);
 
   useEffect(() => {
-    if (!selectedCell || query.trim().length < 2) {
+    if (!selectedCell || !duel?.isMyTurn || query.trim().length < 2) {
       setPlayers([]);
       setSearching(false);
       return;
     }
-
     const controller = new AbortController();
     const id = window.setTimeout(() => {
       setSearching(true);
-      void fetch(`/api/tic-tac-toe/search-player?q=${encodeURIComponent(query.trim())}`, {
-        cache: "no-store",
-        signal: controller.signal,
-      })
-        .then((response) => response.json() as Promise<SearchResponse>)
+      void fetch(`/api/tic-tac-toe/search-player?q=${encodeURIComponent(query.trim())}`, { cache: "no-store", signal: controller.signal })
+        .then((r) => r.json() as Promise<SearchResponse>)
         .then((result) => setPlayers(result.ok ? result.players ?? [] : []))
         .catch(() => undefined)
         .finally(() => setSearching(false));
-    }, 250);
+    }, 220);
+    return () => { controller.abort(); window.clearTimeout(id); };
+  }, [duel?.isMyTurn, query, selectedCell]);
 
-    return () => {
-      controller.abort();
-      window.clearTimeout(id);
-    };
-  }, [query, selectedCell]);
+  const occupied = useMemo(() => {
+    const map = new Map<string, Cell>();
+    for (const cell of duel?.grid?.cells ?? []) map.set(`${cell.rowIndex}:${cell.columnIndex}`, cell);
+    return map;
+  }, [duel?.grid?.cells]);
 
   async function joinDuel() {
-    try {
-      setActionLoading(true);
-      setError("");
+    await run(async () => {
       const response = await fetch("/api/challenges/join", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, opponentName: opponentName.trim() || "Misafir" }),
       });
-      const result = await response.json();
+      const result = await response.json() as ApiResponse;
       if (!response.ok || !result.ok) throw new Error(result.error ?? "Düelloya katılınamadı.");
       await loadChallenge();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Düelloya katılınamadı.");
-    } finally {
-      setActionLoading(false);
-    }
+    });
   }
 
   async function startDuel() {
-    try {
-      setActionLoading(true);
-      setError("");
+    await run(async () => {
       const response = await fetch("/api/challenges/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }),
       });
-      const result = await response.json();
+      const result = await response.json() as ApiResponse;
       if (!response.ok || !result.ok) throw new Error(result.error ?? "Düello başlatılamadı.");
       await loadChallenge();
       await loadDuel();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Düello başlatılamadı.");
-    } finally {
-      setActionLoading(false);
-    }
+    });
+  }
+
+  async function answer(player: Player) {
+    if (!selectedCell || !duel?.isMyTurn) return;
+    await run(async () => {
+      const response = await fetch(`/api/challenges/${encodeURIComponent(token)}/tic-tac-toe/answer`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rowIndex: selectedCell.rowIndex, columnIndex: selectedCell.columnIndex, playerId: player.id }),
+      });
+      const result = await response.json() as ApiResponse;
+      if (!response.ok || !result.ok) throw new Error(result.error ?? "Cevap gönderilemedi.");
+      setNotice(result.message ?? "Hamle tamamlandı.");
+      setSelectedCell(null); setQuery(""); setPlayers([]);
+      await loadDuel();
+      if (result.completed) await loadChallenge();
+    });
+  }
+
+  async function duelAction(action: "forfeit" | "offer_draw" | "accept_draw" | "decline_draw") {
+    if (action === "forfeit" && !window.confirm("Pes etmek istediğine emin misin?")) return;
+    await run(async () => {
+      const response = await fetch(`/api/challenges/${encodeURIComponent(token)}/tic-tac-toe/action`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }),
+      });
+      const result = await response.json() as ApiResponse;
+      if (!response.ok || !result.ok) throw new Error(result.error ?? "İşlem yapılamadı.");
+      setNotice(result.message ?? "İşlem tamamlandı.");
+      await loadDuel();
+      if (result.completed) await loadChallenge();
+    });
+  }
+
+  async function run(task: () => Promise<void>) {
+    try { setBusy(true); setError(""); await task(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "İşlem yapılamadı."); }
+    finally { setBusy(false); }
   }
 
   async function shareDuel() {
     const url = window.location.href;
     try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "FootBattle Tic Tac Toe Düello",
-          text: "⚔️ Futbol Tic Tac Toe’da kapışalım!",
-          url,
-        });
-      } else {
-        await navigator.clipboard.writeText(url);
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1800);
-      }
-    } catch {
-      // User may cancel native sharing.
-    }
+      if (navigator.share) await navigator.share({ title: "FootBattle Tic Tac Toe Düello", text: "⚔️ Futbol Tic Tac Toe’da kapışalım!", url });
+      else { await navigator.clipboard.writeText(url); setNotice("Link kopyalandı."); }
+    } catch { /* share cancel */ }
   }
 
-  async function answer(player: Player) {
-    if (!selectedCell) return;
-    try {
-      setActionLoading(true);
-      setAnswerMessage("");
-      setAnswerCorrect(null);
-      const response = await fetch(`/api/challenges/${encodeURIComponent(token)}/tic-tac-toe/answer`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rowIndex: selectedCell.rowIndex,
-          columnIndex: selectedCell.columnIndex,
-          playerId: player.id,
-        }),
-      });
-      const result = (await response.json()) as AnswerResponse;
-      if (!response.ok || !result.ok) throw new Error(result.error ?? "Cevap gönderilemedi.");
-      setAnswerCorrect(Boolean(result.correct));
-      setAnswerMessage(result.message ?? (result.correct ? "Doğru!" : "Yanlış."));
-      if (result.correct) {
-        setSelectedCell(null);
-        setQuery("");
-        setPlayers([]);
-      }
-      await loadDuel();
-      if (result.completed) await loadChallenge();
-    } catch (err) {
-      setAnswerCorrect(false);
-      setAnswerMessage(err instanceof Error ? err.message : "Cevap gönderilemedi.");
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  const solvedMap = useMemo(() => {
-    const map = new Map<string, Player>();
-    for (const cell of duel?.grid?.cells ?? []) {
-      map.set(`${cell.rowIndex}:${cell.columnIndex}`, cell.player);
-    }
-    return map;
-  }, [duel?.grid?.cells]);
-
-  if (loading) {
-    return <FullMessage text="Düello yükleniyor..." />;
-  }
-
-  if (error && !challenge) {
-    return <FullMessage text={error} error />;
-  }
+  if (loading) return <FullMessage text="Düello yükleniyor..." />;
+  if (error && !challenge) return <FullMessage text={error} />;
 
   const current = challenge?.challenge;
   const role = challenge?.role ?? "visitor";
+  const mySide = duel?.role;
+  const incomingDraw = Boolean(duel?.drawOfferBy && duel.drawOfferBy !== mySide);
+  const myDrawPending = Boolean(duel?.drawOfferBy && duel.drawOfferBy === mySide);
+  const challengerMark = "X";
+  const opponentMark = "O";
 
   return (
-    <main className="min-h-screen bg-[#07111f] px-3 py-5 text-white sm:px-5 sm:py-8">
-      <div className="mx-auto max-w-5xl">
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <Link href="/" className="rounded-xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-400 transition hover:text-white">← FootBattle</Link>
+    <main className="min-h-screen bg-[#07111f] px-3 py-3 text-white sm:px-5 sm:py-6">
+      <div className="mx-auto max-w-3xl">
+        <header className="flex items-center justify-between gap-2">
+          <Link href="/" className="rounded-xl border border-white/10 px-3 py-2 text-sm font-bold text-slate-400">← FootBattle</Link>
           <div className="flex gap-2">
-            <Link href="/tic-tac-toe" className="rounded-xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-400">Solo</Link>
-            <button onClick={shareDuel} className="rounded-xl bg-yellow-400 px-4 py-2 text-sm font-black text-[#07111f]">{copied ? "Kopyalandı ✓" : "↗ Paylaş"}</button>
+            <Link href="/tic-tac-toe" className="rounded-xl border border-white/10 px-3 py-2 text-sm font-bold text-slate-400">Solo</Link>
+            <button onClick={shareDuel} className="rounded-xl bg-yellow-400 px-3 py-2 text-sm font-black text-[#07111f]">↗ Paylaş</button>
           </div>
         </header>
 
-        <section className="mt-5 rounded-3xl border border-white/10 bg-[#0d1828] p-5 sm:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <section className="mt-3 rounded-3xl border border-white/10 bg-[#0d1828] p-4">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-yellow-300">⚔️ Tic Tac Toe Düello</p>
-              <h1 className="mt-2 text-3xl font-black sm:text-4xl">Aynı grid. Aynı süre. Bahane yok.</h1>
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-yellow-300">⚔️ Tic Tac Toe Düello</p>
+              <h1 className="mt-1 text-xl font-black sm:text-2xl">Üçlü yapan kazanır.</h1>
             </div>
             {duel && !duel.completed && (
-              <div className="rounded-2xl border border-red-400/20 bg-red-400/10 px-5 py-3 text-center">
-                <p className="text-xs font-black uppercase tracking-wider text-red-300">Kalan Süre</p>
-                <p className="mt-1 text-3xl font-black tabular-nums">{formatTimer(duel.remainingSeconds ?? 0)}</p>
+              <div className={`min-w-20 rounded-2xl px-3 py-2 text-center ${duel.isMyTurn ? "bg-green-400/10 text-green-300" : "bg-purple-400/10 text-purple-300"}`}>
+                <p className="text-[10px] font-black uppercase">Hamle</p>
+                <p className="text-2xl font-black tabular-nums">{formatTimer(clock)}</p>
               </div>
             )}
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <ScoreCard
-              name={current?.challenger.name ?? "Oyuncu 1"}
-              score={duel?.challenge?.challenger.score ?? current?.challenger.score ?? 0}
-              meta={role === "challenger" ? "Sen" : duel ? `${duel.opponent?.correctCount ?? 0}/9` : "Meydan okuyan"}
-              active={role === "challenger"}
-            />
-            <ScoreCard
-              name={current?.opponent?.name ?? "Rakip bekleniyor"}
-              score={duel?.challenge?.opponent.score ?? current?.opponent?.score ?? 0}
-              meta={role === "opponent" ? "Sen" : duel ? `${duel.opponent?.correctCount ?? 0}/9` : "Rakip"}
-              active={role === "opponent"}
-            />
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <PlayerCard name={current?.challenger.name ?? "Oyuncu 1"} mark={challengerMark} mine={role === "challenger"} turn={duel?.currentTurn === "challenger"} />
+            <PlayerCard name={current?.opponent?.name ?? "Rakip bekleniyor"} mark={opponentMark} mine={role === "opponent"} turn={duel?.currentTurn === "opponent"} />
           </div>
+
+          {duel && !duel.completed && (
+            <div className={`mt-3 rounded-2xl px-4 py-3 text-center text-sm font-black ${duel.isMyTurn ? "border border-green-400/25 bg-green-400/10 text-green-300" : "border border-purple-400/25 bg-purple-400/10 text-purple-300"}`}>
+              {duel.isMyTurn ? "🎯 Senin sıran — bir hücre seç" : "⏳ Rakibin sırası"}
+            </div>
+          )}
         </section>
 
-        {error && (
-          <p className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300">{error}</p>
-        )}
+        {error && <p className="mt-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300">{error}</p>}
+        {notice && <p className="mt-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-slate-200">{notice}</p>}
 
         {challenge?.expired ? (
-          <Panel title="Düellonun süresi doldu" text="Yeni bir düello oluşturup tekrar kapışabilirsiniz." />
+          <Panel title="Düellonun süresi doldu" text="Yeni bir düello oluşturup tekrar deneyin." />
         ) : role === "visitor" && challenge?.canJoin ? (
-          <section className="mt-5 rounded-3xl border border-green-400/20 bg-green-400/[0.05] p-6">
-            <p className="text-xs font-black uppercase tracking-wider text-green-300">Davet Aldın</p>
-            <h2 className="mt-2 text-2xl font-black">{current?.challenger.name ?? "Bir oyuncu"} seni bekliyor.</h2>
-            <input value={opponentName} onChange={(event) => setOpponentName(event.target.value)} maxLength={30} placeholder="Görünen adın" className="mt-5 w-full rounded-2xl border border-white/10 bg-[#07111f] px-4 py-3 text-base font-bold outline-none focus:border-green-400/50" />
-            <button onClick={joinDuel} disabled={actionLoading} className="mt-3 w-full rounded-2xl bg-green-400 px-5 py-4 font-black text-[#07111f] disabled:opacity-60">{actionLoading ? "Katılınıyor..." : "⚔️ Düelloya Katıl"}</button>
+          <section className="mt-3 rounded-3xl border border-green-400/20 bg-green-400/[0.05] p-5">
+            <h2 className="text-xl font-black">{current?.challenger.name ?? "Bir oyuncu"} seni bekliyor.</h2>
+            <input value={opponentName} onChange={(e) => setOpponentName(e.target.value)} maxLength={30} placeholder="Görünen adın" className="mt-4 w-full rounded-2xl border border-white/10 bg-[#07111f] px-4 py-3 outline-none focus:border-green-400/50" />
+            <button onClick={joinDuel} disabled={busy} className="mt-3 w-full rounded-2xl bg-green-400 px-5 py-4 font-black text-[#07111f] disabled:opacity-50">⚔️ Düelloya Katıl</button>
           </section>
         ) : current?.status === "waiting" && role === "challenger" ? (
-          <section className="mt-5 rounded-3xl border border-yellow-400/20 bg-yellow-400/[0.05] p-6 text-center">
-            <div className="text-4xl">📲</div>
-            <h2 className="mt-3 text-2xl font-black">Rakibini bekliyorsun.</h2>
-            <p className="mt-2 text-sm text-slate-400">Linki WhatsApp’tan gönder. Rakip katıldığında ekran otomatik güncellenecek.</p>
-            <button onClick={shareDuel} className="mt-5 rounded-2xl bg-yellow-400 px-6 py-3 font-black text-[#07111f]">↗ Düello Linkini Paylaş</button>
+          <Panel title="Rakibini bekliyorsun" text="Davet linkini gönder. Rakip katıldığında burası otomatik güncellenecek." />
+        ) : current?.status === "joined" && role === "challenger" ? (
+          <section className="mt-3 rounded-3xl border border-green-400/20 bg-green-400/[0.05] p-5 text-center">
+            <h2 className="text-xl font-black">Rakip hazır.</h2>
+            <p className="mt-2 text-sm text-slate-400">Başlangıç oyuncusu %50 şansla belirlenecek.</p>
+            <button onClick={startDuel} disabled={busy} className="mt-4 w-full rounded-2xl bg-green-400 px-5 py-4 font-black text-[#07111f] disabled:opacity-50">Oyunu Başlat</button>
           </section>
-        ) : current?.status === "ready" && (role === "challenger" || role === "opponent") ? (
-          <section className="mt-5 rounded-3xl border border-green-400/20 bg-green-400/[0.05] p-6 text-center">
-            <div className="text-4xl">✅</div>
-            <h2 className="mt-3 text-2xl font-black">İki oyuncu da hazır.</h2>
-            <p className="mt-2 text-sm text-slate-400">Başlatan anda 120 saniyelik sayaç ikiniz için de başlar.</p>
-            <button onClick={startDuel} disabled={actionLoading} className="mt-5 w-full max-w-md rounded-2xl bg-green-400 px-6 py-4 font-black text-[#07111f] disabled:opacity-60">{actionLoading ? "Başlatılıyor..." : "🚀 Düelloyu Başlat"}</button>
-          </section>
-        ) : duel?.completed ? (
-          <ResultPanel duel={duel} />
-        ) : duel?.grid ? (
-          <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <section className="rounded-3xl border border-white/10 bg-[#0d1828] p-3 sm:p-5">
-              <div className="grid grid-cols-[86px_repeat(3,minmax(0,1fr))] gap-1.5 sm:grid-cols-[130px_repeat(3,minmax(0,1fr))] sm:gap-2">
-                <div />
-                {duel.grid.columns.map((column) => <Axis key={`c-${column.index}`} value={column.value} />)}
-                {duel.grid.rows.map((row) => (
-                  <div key={`r-${row.index}`} className="contents">
-                    <Axis value={row.value} />
-                    {duel.grid!.columns.map((column) => {
-                      const key = `${row.index}:${column.index}`;
-                      const solved = solvedMap.get(key);
-                      const selected = selectedCell?.rowIndex === row.index && selectedCell?.columnIndex === column.index;
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          disabled={Boolean(solved)}
-                          onClick={() => {
-                            setSelectedCell({ rowIndex: row.index, columnIndex: column.index });
-                            setQuery("");
-                            setPlayers([]);
-                            setAnswerMessage("");
-                          }}
-                          className={`min-h-[88px] rounded-xl border p-2 text-center transition sm:min-h-[112px] ${solved ? "border-green-400/30 bg-green-400/10" : selected ? "border-yellow-400 bg-yellow-400/10" : "border-white/10 bg-[#07111f] hover:border-white/25"}`}
-                        >
-                          {solved ? (
-                            <div>
-                              <span className="text-xl">✅</span>
-                              <p className="mt-1 line-clamp-2 text-xs font-black sm:text-sm">{solved.name}</p>
-                            </div>
-                          ) : (
-                            <span className="text-xl text-slate-600">+</span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </section>
+        ) : current?.status === "joined" && role === "opponent" ? (
+          <Panel title="Hazırsın" text="Meydan okuyan oyuncunun maçı başlatmasını bekliyorsun." />
+        ) : duel ? (
+          <>
+            {duel.completed ? (
+              <ResultCard result={duel.result ?? null} />
+            ) : (
+              <>
+                {incomingDraw && (
+                  <section className="mt-3 rounded-3xl border border-yellow-400/25 bg-yellow-400/10 p-4">
+                    <p className="font-black text-yellow-200">🤝 Rakibin beraberlik teklif etti.</p>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <button disabled={busy} onClick={() => duelAction("accept_draw")} className="rounded-xl bg-yellow-400 px-3 py-3 font-black text-[#07111f]">Kabul Et</button>
+                      <button disabled={busy} onClick={() => duelAction("decline_draw")} className="rounded-xl border border-white/15 px-3 py-3 font-black">Reddet</button>
+                    </div>
+                  </section>
+                )}
 
-            <aside className="rounded-3xl border border-white/10 bg-[#0d1828] p-5">
-              <p className="text-xs font-black uppercase tracking-wider text-yellow-300">Oyuncu Seç</p>
-              {selectedCell ? (
-                <>
-                  <p className="mt-2 text-sm text-slate-400">Seçili hücre için futbolcu ara.</p>
-                  <input value={query} onChange={(event) => setQuery(event.target.value)} autoFocus placeholder="Oyuncu adı..." className="mt-4 w-full rounded-xl border border-white/10 bg-[#07111f] px-4 py-3 text-base font-bold outline-none focus:border-yellow-400/50" />
-                  {answerMessage && (
-                    <p className={`mt-3 rounded-xl border px-3 py-2 text-sm font-bold ${answerCorrect ? "border-green-400/20 bg-green-400/10 text-green-300" : "border-red-400/20 bg-red-400/10 text-red-300"}`}>{answerMessage}</p>
+                <section className="mt-3 rounded-3xl border border-white/10 bg-[#0d1828] p-2.5 sm:p-4">
+                  <div className="grid grid-cols-[72px_repeat(3,minmax(0,1fr))] gap-1.5 sm:grid-cols-[100px_repeat(3,minmax(0,1fr))] sm:gap-2">
+                    <div />
+                    {(duel.grid?.columns ?? []).map((axis) => <AxisLabel key={`c-${axis.index}`} text={axis.value} />)}
+                    {(duel.grid?.rows ?? []).flatMap((row) => [
+                      <AxisLabel key={`r-${row.index}`} text={row.value} />,
+                      ...(duel.grid?.columns ?? []).map((column) => {
+                        const key = `${row.index}:${column.index}`;
+                        const cell = occupied.get(key);
+                        const selected = selectedCell?.rowIndex === row.index && selectedCell.columnIndex === column.index;
+                        const canSelect = Boolean(duel.isMyTurn && !cell && !busy);
+                        return (
+                          <button key={key} disabled={!canSelect} onClick={() => { setSelectedCell({ rowIndex: row.index, columnIndex: column.index }); setQuery(""); setPlayers([]); setNotice(""); }} className={`aspect-square min-h-0 rounded-xl border text-center transition ${cell?.ownerSide === "challenger" ? "border-green-400/50 bg-green-400/15" : cell?.ownerSide === "opponent" ? "border-purple-400/50 bg-purple-400/15" : selected ? "border-yellow-300 bg-yellow-300/10" : "border-white/10 bg-[#07111f]"} ${canSelect ? "active:scale-95" : "opacity-90"}`}>
+                            {cell ? <><span className={`block text-2xl font-black sm:text-3xl ${cell.ownerSide === "challenger" ? "text-green-300" : "text-purple-300"}`}>{cell.ownerSide === "challenger" ? challengerMark : opponentMark}</span><span className="mt-0.5 block truncate px-1 text-[9px] font-bold text-slate-400 sm:text-xs">{cell.player.name}</span></> : <span className="text-xl text-slate-600">+</span>}
+                          </button>
+                        );
+                      }),
+                    ])}
+                  </div>
+                </section>
+
+                <section className="mt-3 rounded-3xl border border-white/10 bg-[#0d1828] p-4">
+                  {!duel.isMyTurn ? (
+                    <p className="py-3 text-center font-bold text-slate-500">Rakibin hamlesi bekleniyor.</p>
+                  ) : !selectedCell ? (
+                    <p className="py-3 text-center font-bold text-slate-400">Önce boş bir hücre seç.</p>
+                  ) : (
+                    <>
+                      <p className="text-xs font-black uppercase tracking-wider text-yellow-300">Oyuncuyu seç</p>
+                      <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Futbolcu ara..." className="mt-2 w-full rounded-2xl border border-white/10 bg-[#07111f] px-4 py-3 text-base outline-none focus:border-yellow-300/50" />
+                      <div className="mt-2 max-h-48 space-y-1 overflow-y-auto">
+                        {searching && <p className="px-2 py-3 text-sm text-slate-500">Aranıyor...</p>}
+                        {!searching && query.trim().length >= 2 && players.length === 0 && <p className="px-2 py-3 text-sm text-slate-500">Oyuncu bulunamadı.</p>}
+                        {players.map((player) => <button key={player.id} disabled={busy} onClick={() => answer(player)} className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-left"><span className="font-bold">{player.name}</span><span className="text-xs text-slate-500">Seç →</span></button>)}
+                      </div>
+                    </>
                   )}
-                  <div className="mt-3 max-h-[390px] space-y-2 overflow-y-auto">
-                    {searching ? <p className="py-6 text-center text-sm text-slate-500">Aranıyor...</p> : players.map((player) => (
-                      <button key={player.id} disabled={actionLoading} onClick={() => answer(player)} className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-[#07111f] p-3 text-left transition hover:border-yellow-400/30 disabled:opacity-60">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/5">{player.imageUrl ? <img src={player.imageUrl} alt="" className="h-full w-full object-cover" /> : "⚽"}</div>
-                        <div className="min-w-0"><p className="truncate text-sm font-black">{player.name}</p><p className="truncate text-xs text-slate-500">{player.currentClubName ?? player.nationality ?? "Futbolcu"}</p></div>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="mt-4 rounded-2xl border border-dashed border-white/10 p-6 text-center text-sm text-slate-500">Gridden boş bir hücre seç.</div>
-              )}
+                </section>
 
-              <div className="mt-5 grid grid-cols-2 gap-2">
-                <MiniStat label="Doğru" value={`${duel.me?.correctCount ?? 0}/9`} />
-                <MiniStat label="Yanlış" value={String(duel.me?.wrongCount ?? 0)} />
-              </div>
-              <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-                <div className="flex items-center justify-between"><span className="text-xs font-black uppercase tracking-wider text-slate-500">Rakip</span><span className="font-black text-yellow-300">{duel.opponent?.score ?? 0} puan</span></div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-yellow-400 transition-all" style={{ width: `${Math.min(100, ((duel.opponent?.correctCount ?? 0) / 9) * 100)}%` }} /></div>
-                <p className="mt-2 text-xs text-slate-500">{duel.opponent?.correctCount ?? 0}/9 doğru • {duel.opponent?.wrongCount ?? 0} yanlış</p>
-              </div>
-            </aside>
-          </div>
-        ) : (
-          <Panel title="Düello hazırlanıyor" text="Grid birkaç saniye içinde hazır olacak." />
-        )}
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button disabled={busy || myDrawPending} onClick={() => duelAction("offer_draw")} className="rounded-2xl border border-yellow-400/25 bg-yellow-400/[0.06] px-3 py-3 text-sm font-black text-yellow-200 disabled:opacity-50">{myDrawPending ? "🤝 Teklif bekliyor" : "🤝 Beraberlik Teklif Et"}</button>
+                  <button disabled={busy} onClick={() => duelAction("forfeit")} className="rounded-2xl border border-red-400/25 bg-red-400/[0.06] px-3 py-3 text-sm font-black text-red-300">🏳️ Pes Et</button>
+                </div>
+              </>
+            )}
+          </>
+        ) : null}
       </div>
     </main>
   );
 }
 
-function Axis({ value }: { value: string }) {
-  return <div className="flex min-h-[64px] items-center justify-center rounded-xl border border-white/10 bg-white/[0.035] p-2 text-center text-[10px] font-black leading-4 text-slate-200 sm:min-h-[72px] sm:text-xs">{value}</div>;
+function AxisLabel({ text }: { text: string }) {
+  return <div className="flex min-w-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] px-1 py-2 text-center text-[10px] font-black leading-tight text-slate-300 sm:text-sm">{text}</div>;
 }
 
-function ScoreCard({ name, score, meta, active }: { name: string; score: number; meta: string; active: boolean }) {
-  return <div className={`rounded-2xl border p-4 ${active ? "border-green-400/25 bg-green-400/[0.06]" : "border-white/10 bg-[#07111f]"}`}><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="truncate font-black">{name}</p><p className="mt-1 text-xs text-slate-500">{meta}</p></div><p className="text-2xl font-black text-yellow-300">{score}</p></div></div>;
+function PlayerCard({ name, mark, mine, turn }: { name: string; mark: string; mine: boolean; turn: boolean }) {
+  return <div className={`rounded-2xl border p-3 ${turn ? "border-yellow-300/40 bg-yellow-300/[0.06]" : "border-white/10 bg-[#07111f]"}`}><div className="flex items-center justify-between"><div className="min-w-0"><p className="truncate font-black">{name}</p><p className="mt-0.5 text-xs font-bold text-slate-500">{mine ? "Sen" : turn ? "Sırada" : "Rakip"}</p></div><span className="text-2xl font-black text-yellow-300">{mark}</span></div></div>;
 }
 
-function MiniStat({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-xl border border-white/10 bg-[#07111f] p-3"><p className="text-lg font-black">{value}</p><p className="mt-1 text-[10px] font-black uppercase tracking-wider text-slate-600">{label}</p></div>;
+function ResultCard({ result }: { result: "win" | "loss" | "draw" | null }) {
+  const title = result === "win" ? "🏆 Kazandın!" : result === "loss" ? "🥈 Bu kez rakip aldı." : "🤝 Berabere.";
+  return <section className="mt-3 rounded-3xl border border-yellow-400/25 bg-yellow-400/[0.05] p-6 text-center"><div className="text-5xl">{result === "win" ? "🏆" : result === "loss" ? "🥈" : "🤝"}</div><h2 className="mt-3 text-3xl font-black">{title}</h2><p className="mt-2 text-sm text-slate-400">Yeni bir düello oluşturabilir veya solo oyuna dönebilirsin.</p><div className="mt-5 grid grid-cols-2 gap-2"><Link href="/duels" className="rounded-2xl bg-yellow-400 px-4 py-3 font-black text-[#07111f]">Yeni Düello</Link><Link href="/tic-tac-toe" className="rounded-2xl border border-white/10 px-4 py-3 font-black text-slate-300">Solo Oyna</Link></div></section>;
 }
 
 function Panel({ title, text }: { title: string; text: string }) {
-  return <section className="mt-5 rounded-3xl border border-white/10 bg-[#0d1828] p-8 text-center"><h2 className="text-2xl font-black">{title}</h2><p className="mt-2 text-sm text-slate-400">{text}</p></section>;
+  return <section className="mt-3 rounded-3xl border border-white/10 bg-[#0d1828] p-6 text-center"><h2 className="text-xl font-black">{title}</h2><p className="mt-2 text-sm text-slate-400">{text}</p></section>;
 }
 
-function ResultPanel({ duel }: { duel: DuelState }) {
-  const title = duel.result === "win" ? "Kazandın! 🏆" : duel.result === "loss" ? "Bu kez rakip aldı." : "Berabere! 🤝";
-  return <section className="mt-5 rounded-3xl border border-yellow-400/20 bg-yellow-400/[0.045] p-6 text-center sm:p-8"><div className="text-5xl">{duel.result === "win" ? "🏆" : duel.result === "loss" ? "🥈" : "🤝"}</div><h2 className="mt-3 text-3xl font-black">{title}</h2><p className="mt-2 text-sm text-slate-400">Sen: {duel.me?.score ?? 0} puan • Rakip: {duel.opponent?.score ?? 0} puan</p><div className="mx-auto mt-6 grid max-w-md grid-cols-2 gap-3"><MiniStat label="Senin Doğrun" value={`${duel.me?.correctCount ?? 0}/9`} /><MiniStat label="Rakibin Doğrusu" value={`${duel.opponent?.correctCount ?? 0}/9`} /></div><div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row"><Link href="/tic-tac-toe/duel" className="rounded-2xl bg-yellow-400 px-6 py-3 font-black text-[#07111f]">Yeni Düello</Link><Link href="/tic-tac-toe" className="rounded-2xl border border-white/10 px-6 py-3 font-black text-slate-300">Solo Oyna</Link></div></section>;
-}
-
-function FullMessage({ text, error = false }: { text: string; error?: boolean }) {
-  return <main className="flex min-h-screen items-center justify-center bg-[#07111f] p-6 text-white"><div className={`rounded-3xl border p-8 text-center ${error ? "border-red-500/20 bg-red-500/10" : "border-white/10 bg-[#0d1828]"}`}><p className={`font-black ${error ? "text-red-300" : "text-slate-300"}`}>{text}</p><Link href="/" className="mt-5 inline-block text-sm font-black text-yellow-300">← Ana Sayfa</Link></div></main>;
+function FullMessage({ text }: { text: string }) {
+  return <main className="flex min-h-screen items-center justify-center bg-[#07111f] px-5 text-center text-white"><p className="rounded-3xl border border-white/10 bg-[#0d1828] px-6 py-5 font-black">{text}</p></main>;
 }
