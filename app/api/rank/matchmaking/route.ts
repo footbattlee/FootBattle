@@ -48,7 +48,7 @@ async function createSharedChallenge(input: {
   const expiresAt = new Date(Date.now() + CHALLENGE_LIFETIME_HOURS * 60 * 60 * 1000).toISOString();
   const challengerName = await getDisplayName(input.playerAId);
   const opponentName = input.opponentKind === "bot"
-    ? (input.botName ?? "Mehmet")
+    ? (input.botName ?? "Bot Mehmet")
     : input.playerBId
       ? await getDisplayName(input.playerBId)
       : "Rakip";
@@ -145,7 +145,7 @@ async function createRankedMatch(input: {
       player_a_id: input.playerAId,
       player_b_id: input.playerBId,
       opponent_kind: input.opponentKind,
-      bot_name: input.opponentKind === "bot" ? (input.botName ?? "Mehmet") : null,
+      bot_name: input.opponentKind === "bot" ? (input.botName ?? "Bot Mehmet") : null,
       challenge_token: challengeToken,
       started_at: now,
       updated_at: now,
@@ -224,7 +224,7 @@ export async function POST(request: Request) {
         playerAId: userId,
         playerBId: null,
         opponentKind: "bot",
-        botName: "Mehmet",
+        botName: "Bot Mehmet",
       });
       await supabaseAdmin.from("ranked_match_queue").delete().eq("user_id", userId);
       return NextResponse.json({ ok: true, state: "matched", match });
