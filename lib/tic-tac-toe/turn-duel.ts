@@ -146,4 +146,29 @@ export async function finalizeTurnDuel(challenge: DuelChallenge, winner: DuelSid
     .update({ finalized_at: now, updated_at: now })
     .eq("challenge_id", challenge.id)
     .is("finalized_at", null);
+
+  const genericWinnerId =
+    winner === "challenger"
+      ? challenge.challenger_user_id
+      : winner === "opponent"
+        ? challenge.opponent_user_id
+        : null;
+
+  const { error: genericDuelError } = await supabaseAdmin
+    .from("duels")
+    .update({
+      status: "completed",
+      challenger_score: challengerScore,
+      opponent_score: opponentScore,
+      winner_id: genericWinnerId,
+      completed_at: now,
+      updated_at: now,
+    })
+    .eq("game_code", "tic_tac_toe")
+    .eq("challenge_token", challenge.invite_token)
+    .in("status", ["accepted", "active"]);
+
+  if (genericDuelError) {
+    console.error("Generic Tic Tac Toe duel completion sync failed", genericDuelError);
+  }
 }
