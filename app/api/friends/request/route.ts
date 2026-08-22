@@ -2,284 +2,66 @@ import { NextResponse } from "next/server";
 
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { sendPushToUser } from "@/lib/server/push";
 
-type RequestBody = {
-  userId?: string;
-};
+type RequestBody = { userId?: string };
 
 export async function POST(request: Request) {
   try {
-    const authSupabase =
-      await createAuthServerClient();
+    const auth = await createAuthServerClient();
+    const { data: { user }, error: userError } = await auth.auth.getUser();
+    if (userError || !user) return NextResponse.json({ ok: false, error: "Giriş yapmalısın." }, { status: 401 });
 
-    const {
-      data: { user },
-      error: userError,
-    } = await authSupabase.auth.getUser();
+    const body = (await request.json()) as RequestBody;
+    const targetUserId = body.userId?.trim();
+    if (!targetUserId) return NextResponse.json({ ok: false, error: "Arkadaş eklenecek kullanıcı zorunludur." }, { status: 400 });
+    if (targetUserId === user.id) return NextResponse.json({ ok: false, error: "Kendine arkadaşlık isteği gönderemezsin." }, { status: 400 });
 
-    if (userError || !user) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Giriş yapmalısın.",
-        },
-        { status: 401 },
-      );
-    }
+    const [{ data: targetProfile, error: targetError }, { data: requesterProfile }] = await Promise.all([
+      supabaseAdmin.from("profiles").select("id,username,display_name").eq("id", targetUserId).maybeSingle(),
+      supabaseAdmin.from("profiles").select("username,display_name").eq("id", user.id).maybeSingle(),
+    ]);
+    if (targetError) return NextResponse.json({ ok: false, error: "Kullanıcı kontrol edilemedi." }, { status: 500 });
+    if (!targetProfile) return NextResponse.json({ ok: false, error: "Kullanıcı bulunamadı." }, { status: 404 });
 
-    const body =
-      (await request.json()) as RequestBody;
-
-    const targetUserId =
-      body.userId?.trim();
-
-    if (!targetUserId) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Arkadaş eklenecek kullanıcı zorunludur.",
-        },
-        { status: 400 },
-      );
-    }
-
-    if (targetUserId === user.id) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Kendine arkadaşlık isteği gönderemezsin.",
-        },
-        { status: 400 },
-      );
-    }
-
-    // Hedef kullanıcı gerçekten var mı?
-    const {
-      data: targetProfile,
-      error: targetProfileError,
-    } = await supabaseAdmin
-      .from("profiles")
-      .select(`
-        id,
-        username,
-        display_name
-      `)
-      .eq("id", targetUserId)
-      .maybeSingle();
-
-    if (targetProfileError) {
-      console.error(
-        "Hedef profil sorgu hatası:",
-        targetProfileError,
-      );
-
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Kullanıcı kontrol edilemedi.",
-        },
-        { status: 500 },
-      );
-    }
-
-    if (!targetProfile) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Kullanıcı bulunamadı.",
-        },
-        { status: 404 },
-      );
-    }
-
-    // İki kullanıcı arasında zaten bir kayıt var mı?
-    const {
-      data: existingFriendship,
-      error: existingError,
-    } = await supabaseAdmin
+    const { data: existing, error: existingError } = await supabaseAdmin
       .from("friendships")
-      .select(`
-        id,
-        requester_id,
-        addressee_id,
-        status
-      `)
-      .or(
-        `and(requester_id.eq.${user.id},addressee_id.eq.${targetUserId}),and(requester_id.eq.${targetUserId},addressee_id.eq.${user.id})`,
-      )
+      .select("id,requester_id,addressee_id,status")
+      .or(`and(requester_id.eq.${user.id},addressee_id.eq.${targetUserId}),and(requester_id.eq.${targetUserId},addressee_id.eq.${user.id})`)
       .maybeSingle();
-
-    if (existingError) {
-      console.error(
-        "Mevcut arkadaşlık sorgu hatası:",
-        existingError,
-      );
-
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Arkadaşlık durumu kontrol edilemedi.",
-        },
-        { status: 500 },
-      );
+    if (existingError) return NextResponse.json({ ok: false, error: "Arkadaşlık durumu kontrol edilemedi." }, { status: 500 });
+    if (existing?.status === "accepted") return NextResponse.json({ ok: false, error: "Bu kullanıcıyla zaten arkadaşsın." }, { status: 409 });
+    if (existing?.status === "pending") {
+      return NextResponse.json({ ok: false, error: existing.requester_id === user.id ? "Arkadaşlık isteği zaten gönderilmiş." : "Bu kullanıcı sana zaten arkadaşlık isteği göndermiş." }, { status: 409 });
     }
 
-    if (existingFriendship) {
-      if (
-        existingFriendship.status ===
-        "accepted"
-      ) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error:
-              "Bu kullanıcıyla zaten arkadaşsın.",
-          },
-          { status: 409 },
-        );
-      }
+    const payload = {
+      requester_id: user.id,
+      addressee_id: targetUserId,
+      status: "pending",
+      updated_at: new Date().toISOString(),
+    };
 
-      if (
-        existingFriendship.status ===
-        "pending"
-      ) {
-        if (
-          existingFriendship.requester_id ===
-          user.id
-        ) {
-          return NextResponse.json(
-            {
-              ok: false,
-              error:
-                "Arkadaşlık isteği zaten gönderilmiş.",
-            },
-            { status: 409 },
-          );
-        }
+    const mutation = existing
+      ? supabaseAdmin.from("friendships").update(payload).eq("id", existing.id)
+      : supabaseAdmin.from("friendships").insert(payload);
 
-        return NextResponse.json(
-          {
-            ok: false,
-            error:
-              "Bu kullanıcı sana zaten arkadaşlık isteği göndermiş.",
-          },
-          { status: 409 },
-        );
-      }
-
-      if (
-        existingFriendship.status ===
-        "rejected"
-      ) {
-        const {
-          data: reopenedFriendship,
-          error: reopenError,
-        } = await supabaseAdmin
-          .from("friendships")
-          .update({
-            requester_id: user.id,
-            addressee_id: targetUserId,
-            status: "pending",
-          })
-          .eq(
-            "id",
-            existingFriendship.id,
-          )
-          .select(`
-            id,
-            requester_id,
-            addressee_id,
-            status,
-            created_at,
-            updated_at
-          `)
-          .single();
-
-        if (reopenError) {
-          console.error(
-            "Arkadaşlık yeniden gönderme hatası:",
-            reopenError,
-          );
-
-          return NextResponse.json(
-            {
-              ok: false,
-              error:
-                "Arkadaşlık isteği gönderilemedi.",
-            },
-            { status: 500 },
-          );
-        }
-
-        return NextResponse.json({
-          ok: true,
-          friendship:
-            reopenedFriendship,
-        });
-      }
-    }
-
-    // Yeni arkadaşlık isteği oluştur
-    const {
-      data: friendship,
-      error: insertError,
-    } = await supabaseAdmin
-      .from("friendships")
-      .insert({
-        requester_id: user.id,
-        addressee_id: targetUserId,
-        status: "pending",
-      })
-      .select(`
-        id,
-        requester_id,
-        addressee_id,
-        status,
-        created_at,
-        updated_at
-      `)
+    const { data: friendship, error: saveError } = await mutation
+      .select("id,requester_id,addressee_id,status,created_at,updated_at")
       .single();
+    if (saveError) return NextResponse.json({ ok: false, error: "Arkadaşlık isteği gönderilemedi." }, { status: 500 });
 
-    if (insertError) {
-      console.error(
-        "Arkadaşlık isteği insert hatası:",
-        insertError,
-      );
+    const requesterName = requesterProfile?.display_name ?? requesterProfile?.username ?? user.email?.split("@")[0] ?? "Bir oyuncu";
+    void sendPushToUser(targetUserId, {
+      title: "Yeni arkadaşlık isteği 👥",
+      body: `${requesterName} seni arkadaş olarak eklemek istiyor.`,
+      url: "/tr/profile",
+      type: "friend_request",
+    }).catch((error) => console.error("Friend request push failed", error));
 
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Arkadaşlık isteği gönderilemedi.",
-        },
-        { status: 500 },
-      );
-    }
-
-    return NextResponse.json({
-      ok: true,
-      friendship,
-    });
+    return NextResponse.json({ ok: true, friendship });
   } catch (error) {
-    console.error(
-      "Friend request endpoint hatası:",
-      error,
-    );
-
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Arkadaşlık isteği gönderilemedi.",
-      },
-      { status: 500 },
-    );
+    console.error("Friend request endpoint hatası:", error);
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Arkadaşlık isteği gönderilemedi." }, { status: 500 });
   }
 }

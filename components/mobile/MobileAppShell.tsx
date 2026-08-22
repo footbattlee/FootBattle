@@ -3,26 +3,26 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { Capacitor } from "@capacitor/core";
+import { PushNotifications } from "@capacitor/push-notifications";
 
 type Locale = "tr" | "en";
 type NavItem = { key: "home" | "daily" | "duels" | "rank" | "profile"; label: string; icon: string; href: string };
 
-const MOBILE_GAME_PREFIXES = [
-  "/tic-tac-toe", "/guess-the-player", "/club-clash", "/daily-faceoff", "/wordle",
-  "/survivor", "/player-quiz", "/transfer-quiz", "/club-nation", "/halisaha-kadro",
-];
+function getLocale(pathname: string): Locale {
+  return pathname === "/en" || pathname.startsWith("/en/") ? "en" : "tr";
+}
 
-function getLocale(pathname: string): Locale { return pathname === "/en" || pathname.startsWith("/en/") ? "en" : "tr"; }
 function stripLocale(pathname: string) {
   if (pathname === "/tr" || pathname === "/en") return "/";
   if (pathname.startsWith("/tr/") || pathname.startsWith("/en/")) return pathname.slice(3) || "/";
   return pathname;
 }
-function isGamePath(plain: string) { return MOBILE_GAME_PREFIXES.some((prefix) => plain === prefix || plain.startsWith(`${prefix}/`)); }
+
 function shouldShowShell(pathname: string) {
-  const plain = stripLocale(pathname);
-  return ["/", "/daily", "/duels", "/rank", "/profile"].includes(plain);
+  return ["/", "/daily", "/duels", "/rank", "/profile"].includes(stripLocale(pathname));
 }
+
 function routeName(plain: string) {
   if (plain.startsWith("/tic-tac-toe/duel/")) return "tic-tac-toe-duel";
   if (plain === "/tic-tac-toe") return "tic-tac-toe-solo";
@@ -50,20 +50,96 @@ export default function MobileAppShell() {
 
   useEffect(() => {
     let cancelled = false;
+
     async function loadBadge() {
       try {
-        const response = await fetch("/api/duels", { cache: "no-store" });
-        if (!response.ok) return;
-        const body = await response.json();
-        if (!cancelled) setIncomingCount(Number(body?.summary?.incomingCount ?? body?.incoming?.length ?? 0));
+        const [duelResponse, friendResponse] = await Promise.all([
+          fetch("/api/duels", { cache: "no-store" }),
+          fetch("/api/friends", { cache: "no-store" }),
+        ]);
+        let count = 0;
+        if (duelResponse.ok) {
+          const body = await duelResponse.json();
+          count += Number(body?.summary?.incomingCount ?? body?.incoming?.length ?? 0);
+        }
+        if (friendResponse.ok) {
+          const body = await friendResponse.json();
+          count += Number(body?.summary?.incomingRequestCount ?? body?.incomingRequests?.length ?? 0);
+        }
+        if (!cancelled) setIncomingCount(count);
       } catch {
         if (!cancelled) setIncomingCount(0);
       }
     }
+
     void loadBadge();
-    const timer = window.setInterval(loadBadge, 30000);
+    const timer = window.setInterval(loadBadge, 15000);
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [pathname]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let active = true;
+    const listeners: Array<{ remove: () => Promise<void> }> = [];
+
+    void (async () => {
+      try {
+        const current = await PushNotifications.checkPermissions();
+        let receive = current.receive;
+        if (receive === "prompt") {
+          const requested = await PushNotifications.requestPermissions();
+          receive = requested.receive;
+        }
+        if (receive !== "granted") return;
+
+        if (Capacitor.getPlatform() === "android") {
+          try {
+            await PushNotifications.createChannel({
+              id: "footbattle_social",
+              name: "FootBattle",
+              description: "Arkadaşlık ve düello bildirimleri",
+              importance: 5,
+            });
+          } catch (error) {
+            console.warn("Push channel creation failed", error);
+          }
+        }
+
+        listeners.push(await PushNotifications.addListener("registration", (token) => {
+          if (!active) return;
+          void fetch("/api/push/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: token.value, platform: Capacitor.getPlatform() }),
+          }).catch(() => undefined);
+        }));
+
+        listeners.push(await PushNotifications.addListener("registrationError", (error) => {
+          console.error("Push registration failed", error);
+        }));
+
+        listeners.push(await PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
+          const target = String(event.notification.data?.url ?? "").trim();
+          if (!target) return;
+          if (target.startsWith("https://playfootbattle.com")) {
+            window.location.href = target.replace("https://playfootbattle.com", "") || `/${locale}`;
+            return;
+          }
+          if (target.startsWith("/")) window.location.href = target;
+        }));
+
+        await PushNotifications.register();
+      } catch (error) {
+        console.error("Push setup failed", error);
+      }
+    })();
+
+    return () => {
+      active = false;
+      for (const listener of listeners) void listener.remove();
+    };
+  }, [locale]);
 
   const items = useMemo<NavItem[]>(() => {
     const tr = locale === "tr";
@@ -97,11 +173,18 @@ export default function MobileAppShell() {
           {items.map((item) => {
             const active = isActive(item);
             const duel = item.key === "duels";
-            return <Link key={item.key} href={item.href} aria-current={active ? "page" : undefined} className={`group relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-center transition active:scale-95 ${active ? "text-green-300" : "text-slate-500"}`}>
-              {duel ? <span className={`relative flex h-10 w-10 -translate-y-1.5 items-center justify-center rounded-2xl border text-lg font-black shadow-lg ${active ? "border-green-200/40 bg-green-400 text-[#07111f] shadow-green-950/30" : "border-green-300/20 bg-green-500 text-[#07111f] shadow-green-950/20"}`}>{item.icon}{incomingCount > 0 ? <span className="absolute -right-2 -top-2 flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-[#07111f] bg-red-500 px-1 text-[9px] font-black leading-none text-white">{incomingCount > 9 ? "9+" : incomingCount}</span> : null}</span> : <span className={`text-[20px] font-black leading-none ${active ? "text-green-300" : "text-slate-400"}`}>{item.icon}</span>}
-              <span className={`truncate text-[11px] font-black ${duel ? "-mt-1.5" : ""}`}>{item.label}</span>
-              {active && !duel ? <span className="absolute bottom-1.5 h-1 w-5 rounded-full bg-green-400" /> : null}
-            </Link>;
+            return (
+              <Link key={item.key} href={item.href} aria-current={active ? "page" : undefined} className={`group relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-center transition active:scale-95 ${active ? "text-green-300" : "text-slate-500"}`}>
+                {duel ? (
+                  <span className={`relative flex h-10 w-10 -translate-y-1.5 items-center justify-center rounded-2xl border text-lg font-black shadow-lg ${active ? "border-green-200/40 bg-green-400 text-[#07111f] shadow-green-950/30" : "border-green-300/20 bg-green-500 text-[#07111f] shadow-green-950/20"}`}>
+                    {item.icon}
+                    {incomingCount > 0 ? <span className="absolute -right-2 -top-2 flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-[#07111f] bg-red-500 px-1 text-[9px] font-black leading-none text-white">{incomingCount > 9 ? "9+" : incomingCount}</span> : null}
+                  </span>
+                ) : <span className={`text-[20px] font-black leading-none ${active ? "text-green-300" : "text-slate-400"}`}>{item.icon}</span>}
+                <span className={`truncate text-[11px] font-black ${duel ? "-mt-1.5" : ""}`}>{item.label}</span>
+                {active && !duel ? <span className="absolute bottom-1.5 h-1 w-5 rounded-full bg-green-400" /> : null}
+              </Link>
+            );
           })}
         </div>
       </nav>
