@@ -13,6 +13,8 @@ const MAX_ATTEMPTS = 7;
 const MINIMUM_SEARCH_LENGTH = 3;
 const MINIMUM_POPULARITY_SCORE = 84;
 const SUPER_LIG_COMPETITION_ID = "TR1";
+const PLAYER_POOL_CACHE_TTL_MS = 5 * 60 * 1000;
+const PLAYER_PAGE_SIZE = 1000;
 
 type CandidatePlayer = {
   player_id: number;
@@ -26,6 +28,11 @@ type CandidatePlayer = {
   popularity_score: number | null;
 };
 
+type PoolCache = {
+  expiresAt: number;
+  players: CandidatePlayer[];
+};
+
 const PLAYER_SELECT = `
   player_id,
   nationality,
@@ -37,6 +44,9 @@ const PLAYER_SELECT = `
   preferred_foot,
   popularity_score
 `;
+
+let normalPoolCache: PoolCache | null = null;
+const superLigPoolCache = new Map<SuperLigDifficulty, PoolCache>();
 
 function getTurkeyDateKey() {
   return new Intl.DateTimeFormat("en-CA", {
@@ -58,54 +68,59 @@ function isCompletePlayer(player: CandidatePlayer) {
   );
 }
 
-async function getNormalRandomPlayer() {
-  const { count, error: countError } = await supabaseAdmin
-    .from("guess_players")
-    .select("player_id", { count: "exact", head: true })
-    .eq("is_playable", 1)
-    .gte("popularity_score", MINIMUM_POPULARITY_SCORE);
+function randomFromPool(players: CandidatePlayer[]) {
+  if (!players.length) return null;
+  return players[Math.floor(Math.random() * players.length)] ?? null;
+}
 
-  if (countError || !count) throw countError ?? new Error("Oyuncu havuzu boş.");
+async function loadPagedPlayers(buildQuery: (from: number, to: number) => Promise<{ data: unknown; error: unknown }>) {
+  const players: CandidatePlayer[] = [];
+  let from = 0;
 
-  for (let attempt = 0; attempt < 30; attempt += 1) {
-    const randomIndex = Math.floor(Math.random() * count);
+  while (true) {
+    const to = from + PLAYER_PAGE_SIZE - 1;
+    const { data, error } = await buildQuery(from, to);
+    if (error) throw error;
+
+    const page = ((data ?? []) as CandidatePlayer[]).filter(isCompletePlayer);
+    players.push(...page);
+
+    const rawLength = Array.isArray(data) ? data.length : 0;
+    if (rawLength < PLAYER_PAGE_SIZE) break;
+    from += PLAYER_PAGE_SIZE;
+    if (from > 100_000) break;
+  }
+
+  return players;
+}
+
+async function getNormalPool() {
+  const now = Date.now();
+  if (normalPoolCache && normalPoolCache.expiresAt > now) return normalPoolCache.players;
+
+  const players = await loadPagedPlayers(async (from, to) => {
     const { data, error } = await supabaseAdmin
       .from("guess_players")
       .select(PLAYER_SELECT)
       .eq("is_playable", 1)
       .gte("popularity_score", MINIMUM_POPULARITY_SCORE)
       .order("player_id", { ascending: true })
-      .range(randomIndex, randomIndex)
-      .maybeSingle();
-    if (error) throw error;
-    if (data && isCompletePlayer(data)) return data as CandidatePlayer;
-  }
+      .range(from, to);
+    return { data, error };
+  });
 
-  return null;
+  normalPoolCache = { expiresAt: now + PLAYER_POOL_CACHE_TTL_MS, players };
+  return players;
 }
 
-async function getSuperLigRandomPlayer(difficulty: SuperLigDifficulty) {
+async function getSuperLigPool(difficulty: SuperLigDifficulty) {
+  const now = Date.now();
+  const cached = superLigPoolCache.get(difficulty);
+  if (cached && cached.expiresAt > now) return cached.players;
+
   const { min, max } = getPopularityBounds(difficulty);
-
-  let countQuery = supabaseAdmin
-    .from("guess_players")
-    .select("player_id", { count: "exact", head: true })
-    .eq("is_playable", 1)
-    .eq("is_active", 1)
-    .eq("current_competition_id", SUPER_LIG_COMPETITION_ID)
-    .in("current_club_name", [...CURRENT_SUPER_LIG_CLUB_NAMES])
-    .gte("popularity_score", min);
-
-  if (Number.isFinite(max)) countQuery = countQuery.lte("popularity_score", max);
-
-  const { count, error: countError } = await countQuery;
-  if (countError) throw countError;
-  if (!count) return null;
-
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    const randomIndex = Math.floor(Math.random() * count);
-
-    let playerQuery = supabaseAdmin
+  const players = await loadPagedPlayers(async (from, to) => {
+    let query = supabaseAdmin
       .from("guess_players")
       .select(PLAYER_SELECT)
       .eq("is_playable", 1)
@@ -114,18 +129,27 @@ async function getSuperLigRandomPlayer(difficulty: SuperLigDifficulty) {
       .in("current_club_name", [...CURRENT_SUPER_LIG_CLUB_NAMES])
       .gte("popularity_score", min);
 
-    if (Number.isFinite(max)) playerQuery = playerQuery.lte("popularity_score", max);
+    if (Number.isFinite(max)) query = query.lte("popularity_score", max);
 
-    const { data, error } = await playerQuery
+    const { data, error } = await query
       .order("player_id", { ascending: true })
-      .range(randomIndex, randomIndex)
-      .maybeSingle();
+      .range(from, to);
+    return { data, error };
+  });
 
-    if (error) throw error;
-    if (data && isCompletePlayer(data)) return data as CandidatePlayer;
-  }
+  superLigPoolCache.set(difficulty, {
+    expiresAt: now + PLAYER_POOL_CACHE_TTL_MS,
+    players,
+  });
+  return players;
+}
 
-  return null;
+async function getNormalRandomPlayer() {
+  return randomFromPool(await getNormalPool());
+}
+
+async function getSuperLigRandomPlayer(difficulty: SuperLigDifficulty) {
+  return randomFromPool(await getSuperLigPool(difficulty));
 }
 
 export async function GET(request: Request) {
