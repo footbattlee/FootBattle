@@ -30,11 +30,27 @@ export async function POST(request: Request) {
     catch { return NextResponse.json({ ok: false, error: "Geçersiz istek verisi." }, { status: 400 }); }
 
     if (!isAllowedGameCode(body.gameCode)) return NextResponse.json({ ok: false, error: "Geçersiz düello oyunu." }, { status: 400 });
-    const challengerName = sanitizePlayerName(body.challengerName);
-    if (challengerName.length < 2) return NextResponse.json({ ok: false, error: "Oyuncu adı en az 2 karakter olmalı." }, { status: 400 });
 
     const authClient = await createAuthServerClient();
     const { data: { user } } = await authClient.auth.getUser();
+
+    let challengerName = sanitizePlayerName(body.challengerName);
+    if (user) {
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("display_name, username")
+        .eq("id", user.id)
+        .maybeSingle();
+      challengerName = sanitizePlayerName(
+        profile?.display_name ??
+        profile?.username ??
+        user.email?.split("@")[0] ??
+        challengerName,
+      );
+    }
+
+    if (challengerName.length < 2) return NextResponse.json({ ok: false, error: "Oyuncu adı en az 2 karakter olmalı." }, { status: 400 });
+
     const cookieStore = await cookies();
     let guestId = cookieStore.get(GUEST_COOKIE_NAME)?.value ?? null;
     if (!user && !guestId) guestId = crypto.randomUUID();
