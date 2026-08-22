@@ -27,6 +27,7 @@ import MobileHomeDashboard from "@/components/mobile/MobileHomeDashboard";
 import GuessThePlayerMobileAutoScroll from "@/components/mobile/GuessThePlayerMobileAutoScroll";
 import MobileKeyboardGuard from "@/components/mobile/MobileKeyboardGuard";
 import DirectDuelLinkInvite from "@/components/mobile/DirectDuelLinkInvite";
+import ClubClashChallengeUX from "@/components/mobile/ClubClashChallengeUX";
 import { SITE_URL, SiteJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -61,6 +62,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <MobileAppShell />
         <MobileKeyboardGuard />
         <DirectDuelLinkInvite />
+        <ClubClashChallengeUX />
         <GuessThePlayerMobileAutoScroll />
         <HomeSuperLigAndMobileOrder />
         <GuessThePlayerSearchEnhancer />
