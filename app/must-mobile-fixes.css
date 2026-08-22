@@ -1,0 +1,32 @@
+@media (max-width: 767px) {
+  form:has(input[placeholder="Futbolcu ara..."]) {
+    max-height: calc(100dvh - 20px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  form:has(input[placeholder="Futbolcu ara..."]) input[placeholder="Futbolcu ara..."] {
+    position: static !important;
+    min-height: 52px;
+    font-size: 16px !important;
+  }
+
+  form:has(input[placeholder="Futbolcu ara..."]) > div:last-child {
+    position: static !important;
+    inset: auto !important;
+    z-index: auto !important;
+    margin-top: 14px !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+
+  form:has(input[placeholder="Futbolcu ara..."]) > div:last-child button {
+    position: static !important;
+    width: 100% !important;
+    min-height: 50px !important;
+  }
+}
