@@ -52,12 +52,16 @@ export async function POST(request: Request) {
     if (saveError) return NextResponse.json({ ok: false, error: "Arkadaşlık isteği gönderilemedi." }, { status: 500 });
 
     const requesterName = requesterProfile?.display_name ?? requesterProfile?.username ?? user.email?.split("@")[0] ?? "Bir oyuncu";
-    void sendPushToUser(targetUserId, {
-      title: "Yeni arkadaşlık isteği 👥",
-      body: `${requesterName} seni arkadaş olarak eklemek istiyor.`,
-      url: "/tr/profile",
-      type: "friend_request",
-    }).catch((error) => console.error("Friend request push failed", error));
+    try {
+      await sendPushToUser(targetUserId, {
+        title: "Yeni arkadaşlık isteği 👥",
+        body: `${requesterName} seni arkadaş olarak eklemek istiyor.`,
+        url: "/tr/profile",
+        type: "friend_request",
+      });
+    } catch (error) {
+      console.error("Friend request push failed", error);
+    }
 
     return NextResponse.json({ ok: true, friendship });
   } catch (error) {
