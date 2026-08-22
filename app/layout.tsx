@@ -28,6 +28,7 @@ import GuessThePlayerMobileAutoScroll from "@/components/mobile/GuessThePlayerMo
 import MobileKeyboardGuard from "@/components/mobile/MobileKeyboardGuard";
 import DirectDuelLinkInvite from "@/components/mobile/DirectDuelLinkInvite";
 import ClubClashChallengeUX from "@/components/mobile/ClubClashChallengeUX";
+import AndroidNetworkGuard from "@/components/mobile/AndroidNetworkGuard";
 import { SITE_URL, SiteJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -63,6 +64,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <MobileKeyboardGuard />
         <DirectDuelLinkInvite />
         <ClubClashChallengeUX />
+        <AndroidNetworkGuard />
         <GuessThePlayerMobileAutoScroll />
         <HomeSuperLigAndMobileOrder />
         <GuessThePlayerSearchEnhancer />
