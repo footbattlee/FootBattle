@@ -13,6 +13,24 @@ type GameAnalyticsRow = {
   completionRate: number;
   averageDurationSeconds: number;
 };
+type DuelSummary = {
+  created: number;
+  accepted: number;
+  started: number;
+  completed: number;
+  rejected: number;
+  cancelled: number;
+  uniquePlayers: number;
+};
+type DuelGameRow = {
+  gameCode: string;
+  created: number;
+  accepted: number;
+  started: number;
+  completed: number;
+  rejected: number;
+  cancelled: number;
+};
 type SurvivorAnalyticsRow = {
   id: string;
   slug: string;
@@ -33,6 +51,8 @@ type AnalyticsResponse = {
   error?: string;
   summary?: AnalyticsSummary;
   games?: GameAnalyticsRow[];
+  duelSummary?: DuelSummary;
+  duelGames?: DuelGameRow[];
   survivors?: SurvivorAnalyticsRow[];
 };
 
@@ -64,6 +84,16 @@ const EMPTY_SUMMARY: AnalyticsSummary = {
   averageDurationSeconds: 0,
 };
 
+const EMPTY_DUEL_SUMMARY: DuelSummary = {
+  created: 0,
+  accepted: 0,
+  started: 0,
+  completed: 0,
+  rejected: 0,
+  cancelled: 0,
+  uniquePlayers: 0,
+};
+
 function getGameLabel(gameName: string) {
   return GAME_LABELS[gameName] ?? gameName;
 }
@@ -87,6 +117,8 @@ export default function AdminAnalyticsPage() {
   const [error, setError] = useState("");
   const [summary, setSummary] = useState<AnalyticsSummary>(EMPTY_SUMMARY);
   const [games, setGames] = useState<GameAnalyticsRow[]>([]);
+  const [duelSummary, setDuelSummary] = useState<DuelSummary>(EMPTY_DUEL_SUMMARY);
+  const [duelGames, setDuelGames] = useState<DuelGameRow[]>([]);
   const [survivors, setSurvivors] = useState<SurvivorAnalyticsRow[]>([]);
 
   useEffect(() => { void loadAnalytics(); }, [range]);
@@ -100,6 +132,8 @@ export default function AdminAnalyticsPage() {
       if (!response.ok || !result.ok) throw new Error(result.error ?? "Analytics verileri yüklenemedi.");
       setSummary(result.summary ?? EMPTY_SUMMARY);
       setGames(result.games ?? []);
+      setDuelSummary(result.duelSummary ?? EMPTY_DUEL_SUMMARY);
+      setDuelGames(result.duelGames ?? []);
       setSurvivors(result.survivors ?? []);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Analytics verileri yüklenemedi.");
@@ -111,6 +145,9 @@ export default function AdminAnalyticsPage() {
   const overallCompletionRate = summary.totalStarted > 0 ? (summary.totalCompleted / summary.totalStarted) * 100 : 0;
   const mostPlayedGame = useMemo(() => [...games].sort((a, b) => b.started - a.started)[0] ?? null, [games]);
   const mostAbandonedGame = useMemo(() => [...games].sort((a, b) => b.abandoned - a.abandoned)[0] ?? null, [games]);
+  const duelAcceptRate = duelSummary.created > 0 ? (duelSummary.accepted / duelSummary.created) * 100 : 0;
+  const duelStartRate = duelSummary.accepted > 0 ? (duelSummary.started / duelSummary.accepted) * 100 : 0;
+  const duelCompletionRate = duelSummary.started > 0 ? (duelSummary.completed / duelSummary.started) * 100 : 0;
 
   return (
     <main className="min-h-screen bg-[#07111f] px-4 py-8 text-white sm:px-6">
@@ -119,7 +156,7 @@ export default function AdminAnalyticsPage() {
           <div>
             <p className="text-xs font-black uppercase tracking-[0.22em] text-green-400">FootBattle Admin</p>
             <h1 className="mt-2 text-3xl font-black sm:text-4xl">Oyun Raporları</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">Başlatma, tamamlama, tahmini terk, oyun süresi, tekrar oynama, paylaşım ve Survivor performansını takip et.</p>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">Başlatma, tamamlama, tahmini terk, oyun süresi, tekrar oynama, paylaşım, düello funnel ve Survivor performansını takip et.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {RANGE_OPTIONS.map((option) => (
@@ -143,6 +180,33 @@ export default function AdminAnalyticsPage() {
           <InsightCard label="Genel Tamamlama Oranı" value={formatPercentage(overallCompletionRate)} detail="Tamamlanan oyunların başlatılan oyunlara oranı." tone="green" />
           <InsightCard label="En Çok Oynanan" value={mostPlayedGame ? getGameLabel(mostPlayedGame.gameName) : "-"} detail={mostPlayedGame ? `${formatNumber(mostPlayedGame.started)} kez başlatıldı.` : "Henüz veri yok."} tone="yellow" />
           <InsightCard label="En Çok Terk Edilen" value={mostAbandonedGame ? getGameLabel(mostAbandonedGame.gameName) : "-"} detail={mostAbandonedGame ? `${formatNumber(mostAbandonedGame.abandoned)} adet 15 dakikadan eski tamamlanmamış başlangıç.` : "Henüz veri yok."} tone="red" />
+        </section>
+
+        <section className="mt-8 overflow-hidden rounded-2xl border border-green-400/15 bg-green-400/[0.025]">
+          <div className="border-b border-white/10 px-5 py-4">
+            <p className="font-black">⚔️ Düello Funnel</p>
+            <p className="mt-1 text-xs text-slate-500">Davetten maçı bitirmeye kadar gerçek düello akışı. Bu bölüm doğrudan duels tablosundan hesaplanır; eski düellolar da dahildir.</p>
+          </div>
+          <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+            <MiniCard label="Davet" value={formatNumber(duelSummary.created)} />
+            <MiniCard label="Kabul" value={formatNumber(duelSummary.accepted)} />
+            <MiniCard label="Başladı" value={formatNumber(duelSummary.started)} />
+            <MiniCard label="Tamamlandı" value={formatNumber(duelSummary.completed)} />
+            <MiniCard label="Reddedildi" value={formatNumber(duelSummary.rejected)} />
+            <MiniCard label="İptal" value={formatNumber(duelSummary.cancelled)} />
+            <MiniCard label="Tekil Oyuncu" value={formatNumber(duelSummary.uniquePlayers)} />
+          </div>
+          <div className="grid gap-3 border-t border-white/10 p-5 md:grid-cols-3">
+            <InsightCard label="Davet → Kabul" value={formatPercentage(duelAcceptRate)} detail="Seçili aralıkta kabul edilen davetler / oluşturulan davetler." tone="green" />
+            <InsightCard label="Kabul → Başlama" value={formatPercentage(duelStartRate)} detail="Kabul edilen düelloların oyuna dönüşme oranı." tone="yellow" />
+            <InsightCard label="Başlama → Bitiş" value={formatPercentage(duelCompletionRate)} detail="Başlatılan düelloların tamamlanma oranı." tone="green" />
+          </div>
+          <div className="overflow-x-auto border-t border-white/10">
+            <table className="w-full min-w-[720px] text-left">
+              <thead className="bg-black/10"><tr className="text-[11px] font-black uppercase tracking-wider text-slate-500"><th className="px-5 py-4">Oyun</th><th className="px-5 py-4 text-right">Davet</th><th className="px-5 py-4 text-right">Kabul</th><th className="px-5 py-4 text-right">Başladı</th><th className="px-5 py-4 text-right">Bitti</th><th className="px-5 py-4 text-right">Red</th><th className="px-5 py-4 text-right">İptal</th></tr></thead>
+              <tbody>{duelGames.length === 0 ? <tr><td colSpan={7} className="px-5 py-10 text-center text-sm text-slate-500">Bu aralıkta düello verisi yok.</td></tr> : duelGames.map((game) => <tr key={game.gameCode} className="border-t border-white/5"><td className="px-5 py-4 font-black">{getGameLabel(game.gameCode)}</td><td className="px-5 py-4 text-right font-black">{formatNumber(game.created)}</td><td className="px-5 py-4 text-right font-black">{formatNumber(game.accepted)}</td><td className="px-5 py-4 text-right font-black">{formatNumber(game.started)}</td><td className="px-5 py-4 text-right font-black text-green-300">{formatNumber(game.completed)}</td><td className="px-5 py-4 text-right font-black text-red-300">{formatNumber(game.rejected)}</td><td className="px-5 py-4 text-right font-black text-slate-400">{formatNumber(game.cancelled)}</td></tr>)}</tbody>
+            </table>
+          </div>
         </section>
 
         <section className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
@@ -172,6 +236,9 @@ export default function AdminAnalyticsPage() {
 
 function SummaryCard({ label, value, icon, loading }: { label: string; value: string; icon: string; loading: boolean }) {
   return <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-5"><div className="flex items-center justify-between"><p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</p><span className="text-lg">{icon}</span></div><p className="mt-3 text-2xl font-black">{loading ? "..." : value}</p></div>;
+}
+function MiniCard({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-xl border border-white/10 bg-black/10 p-4"><p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</p><p className="mt-2 text-xl font-black">{value}</p></div>;
 }
 function InsightCard({ label, value, detail, tone }: { label: string; value: string; detail: string; tone: "green" | "yellow" | "red" }) {
   const toneClass = tone === "green" ? "text-green-400" : tone === "yellow" ? "text-yellow-300" : "text-red-300";
