@@ -241,19 +241,16 @@ export default function TicTacToeDuelPage({ params }: { params: Promise<{ token:
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
     ctx.fillStyle = "#07111f"; ctx.fillRect(0, 0, 1080, 1350);
-    ctx.fillStyle = "#86efac"; ctx.font = "700 38px sans-serif"; ctx.fillText("FOOTBATTLE", 70, 90);
+    ctx.fillStyle = GREEN; ctx.font = "700 38px sans-serif"; ctx.fillText("FOOTBATTLE", 70, 90);
     ctx.fillStyle = "#ffffff"; ctx.font = "800 54px sans-serif";
     const title = duel.result === "win" ? "Kazandın!" : duel.result === "loss" ? "Rakip kazandı" : "Berabere";
     ctx.fillText(`Tic Tac Toe Düello · ${title}`, 70, 170);
     ctx.font = "700 30px sans-serif"; ctx.fillStyle = "#cbd5e1";
     ctx.fillText(`${duel.challenge?.challenger.name ?? "X"} (X)  vs  ${duel.challenge?.opponent.name ?? "O"} (O)`, 70, 225);
-
     const x0 = 240, y0 = 390, size = 240, gap = 12;
-    ctx.textAlign = "center";
-    ctx.font = "700 25px sans-serif"; ctx.fillStyle = "#cbd5e1";
+    ctx.textAlign = "center"; ctx.font = "700 25px sans-serif"; ctx.fillStyle = "#cbd5e1";
     (duel.grid.columns ?? []).forEach((col, i) => ctx.fillText(col.value, x0 + i * (size + gap) + size / 2, y0 - 45));
     (duel.grid.rows ?? []).forEach((row, i) => ctx.fillText(row.value, 115, y0 + i * (size + gap) + size / 2));
-
     for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
       const cell = occupied.get(`${r}:${c}`);
       const x = x0 + c * (size + gap), y = y0 + r * (size + gap);
@@ -269,7 +266,8 @@ export default function TicTacToeDuelPage({ params }: { params: Promise<{ token:
         ctx.fillText(name, x + size / 2, y + 155);
       }
     }
-    ctx.textAlign = "left"; ctx.fillStyle = "#94a3b8"; ctx.font = "600 28px sans-serif"; ctx.fillText("Futbolu biliyorsan, kanıtla. · playfootbattle.com", 70, 1260);
+    ctx.textAlign = "left"; ctx.fillStyle = "#94a3b8"; ctx.font = "600 28px sans-serif";
+    ctx.fillText("Futbolu biliyorsan, kanıtla. · playfootbattle.com", 70, 1260);
     return await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png", 0.95));
   }
 
@@ -294,6 +292,31 @@ export default function TicTacToeDuelPage({ params }: { params: Promise<{ token:
   const mySide = duel?.role;
   const incomingDraw = Boolean(duel?.drawOfferBy && duel.drawOfferBy !== mySide);
   const myDrawPending = Boolean(duel?.drawOfferBy && duel.drawOfferBy === mySide);
+
+  const gridView = duel?.grid ? (
+    <section className="mt-3 rounded-3xl border border-white/10 bg-[#0d1828] p-2.5 sm:p-4">
+      <div className="grid grid-cols-[72px_repeat(3,minmax(0,1fr))] gap-1.5 sm:grid-cols-[100px_repeat(3,minmax(0,1fr))] sm:gap-2">
+        <div />
+        {(duel.grid.columns ?? []).map((axis) => <AxisLabel key={`c-${axis.index}`} text={axis.value} />)}
+        {(duel.grid.rows ?? []).flatMap((row) => [
+          <AxisLabel key={`r-${row.index}`} text={row.value} />,
+          ...(duel.grid?.columns ?? []).map((column) => {
+            const key = `${row.index}:${column.index}`;
+            const cell = occupied.get(key);
+            const selected = selectedCell?.rowIndex === row.index && selectedCell.columnIndex === column.index;
+            const canSelect = Boolean(!duel.completed && duel.isMyTurn && !cell && !busy);
+            const winner = winKeys.has(key);
+            return <button key={key} disabled={!canSelect} onClick={() => {
+              setSelectedCell({ rowIndex: row.index, columnIndex: column.index });
+              setQuery(""); setPlayers([]); setNotice("");
+            }} className={`aspect-square min-h-0 rounded-xl border text-center transition ${cell?.ownerSide === "challenger" ? "border-green-400/60 bg-green-400/15" : cell?.ownerSide === "opponent" ? "border-purple-400/60 bg-purple-400/15" : selected ? "border-yellow-300 bg-yellow-300/10" : "border-white/10 bg-[#07111f]"} ${winner ? "ring-4 ring-yellow-300/80" : ""} ${canSelect ? "active:scale-95" : "opacity-90"}`}>
+              {cell ? <><span className={`block text-2xl font-black sm:text-3xl ${cell.ownerSide === "challenger" ? "text-green-300" : "text-purple-300"}`}>{cell.ownerSide === "challenger" ? "X" : "O"}</span><span className="mt-0.5 block truncate px-1 text-[9px] font-bold text-slate-300 sm:text-xs">{cell.player.name}</span></> : <span className="text-xl text-slate-600">+</span>}
+            </button>;
+          }),
+        ])}
+      </div>
+    </section>
+  ) : null;
 
   return (
     <main className="min-h-screen bg-[#07111f] px-3 py-3 text-white sm:px-5 sm:py-6">
@@ -321,11 +344,24 @@ export default function TicTacToeDuelPage({ params }: { params: Promise<{ token:
         {challenge?.expired ? <Panel title="Düellonun süresi doldu" text="Yeni bir düello oluşturup tekrar deneyin." />
         : role === "visitor" && challenge?.canJoin ? <section className="mt-3 rounded-3xl border border-green-400/20 bg-green-400/[0.05] p-5"><h2 className="text-xl font-black">{current?.challenger.name ?? "Bir oyuncu"} seni bekliyor.</h2><input value={opponentName} onChange={(e) => setOpponentName(e.target.value)} maxLength={30} placeholder="Görünen adın" className="mt-4 w-full rounded-2xl border border-white/10 bg-[#07111f] px-4 py-3 outline-none focus:border-green-400/50" /><button onClick={joinDuel} disabled={busy} className="mt-3 w-full rounded-2xl bg-green-400 px-5 py-4 font-black text-[#07111f] disabled:opacity-50">⚔️ Düelloya Katıl</button></section>
         : current?.status === "waiting" && role === "challenger" ? <Panel title="Rakibini bekliyorsun" text="Davet linkini gönder. Rakip katıldığı anda maç otomatik başlayacak." />
-        : duel ? duel.completed ? <ResultCard result={duel.result ?? null} onRematch={rematch} onShare={shareResult} busy={busy} /> : <>
-          {incomingDraw && <section className="mt-3 rounded-3xl border border-yellow-400/25 bg-yellow-400/10 p-4"><p className="font-black text-yellow-200">🤝 Rakibin beraberlik teklif etti.</p><div className="mt-3 grid grid-cols-2 gap-2"><button disabled={busy} onClick={() => duelAction("accept_draw")} className="rounded-xl bg-yellow-400 px-3 py-3 font-black text-[#07111f]">Kabul Et</button><button disabled={busy} onClick={() => duelAction("decline_draw")} className="rounded-xl border border-white/15 px-3 py-3 font-black">Reddet</button></div></section>}
-          <section className="mt-3 rounded-3xl border border-white/10 bg-[#0d1828] p-2.5 sm:p-4"><div className="grid grid-cols-[72px_repeat(3,minmax(0,1fr))] gap-1.5 sm:grid-cols-[100px_repeat(3,minmax(0,1fr))] sm:gap-2"><div />{(duel.grid?.columns ?? []).map((axis) => <AxisLabel key={`c-${axis.index}`} text={axis.value} />)}{(duel.grid?.rows ?? []).flatMap((row) => [<AxisLabel key={`r-${row.index}`} text={row.value} />, ...(duel.grid?.columns ?? []).map((column) => { const key = `${row.index}:${column.index}`; const cell = occupied.get(key); const selected = selectedCell?.rowIndex === row.index && selectedCell.columnIndex === column.index; const canSelect = Boolean(duel.isMyTurn && !cell && !busy); const winner = winKeys.has(key); return <button key={key} disabled={!canSelect} onClick={() => { setSelectedCell({ rowIndex: row.index, columnIndex: column.index }); setQuery(""); setPlayers([]); setNotice(""); }} className={`aspect-square min-h-0 rounded-xl border text-center transition ${cell?.ownerSide === "challenger" ? "border-green-400/60 bg-green-400/15" : cell?.ownerSide === "opponent" ? "border-purple-400/60 bg-purple-400/15" : selected ? "border-yellow-300 bg-yellow-300/10" : "border-white/10 bg-[#07111f]"} ${winner ? "ring-4 ring-yellow-300/80" : ""} ${canSelect ? "active:scale-95" : "opacity-90"}`}>{cell ? <><span className={`block text-2xl font-black sm:text-3xl ${cell.ownerSide === "challenger" ? "text-green-300" : "text-purple-300"}`}>{cell.ownerSide === "challenger" ? "X" : "O"}</span><span className="mt-0.5 block truncate px-1 text-[9px] font-bold text-slate-300 sm:text-xs">{cell.player.name}</span></> : <span className="text-xl text-slate-600">+</span>}</button>; })])}</div></section>
-          <section className="mt-3 rounded-3xl border border-white/10 bg-[#0d1828] p-4">{!duel.isMyTurn ? <p className="py-3 text-center font-bold text-slate-500">Rakibin hamlesi bekleniyor.</p> : !selectedCell ? <p className="py-3 text-center font-bold text-slate-400">Önce boş bir hücre seç.</p> : <><p className="text-xs font-black uppercase tracking-wider text-yellow-300">Oyuncuyu seç</p><input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Futbolcu ara..." className="mt-2 w-full rounded-2xl border border-white/10 bg-[#07111f] px-4 py-3 text-base outline-none focus:border-yellow-300/50" /><div className="mt-2 max-h-48 space-y-1 overflow-y-auto">{searching && <p className="px-2 py-3 text-sm text-slate-500">Aranıyor...</p>}{!searching && query.trim().length >= 2 && players.length === 0 && <p className="px-2 py-3 text-sm text-slate-500">Oyuncu bulunamadı.</p>}{players.map((player) => <button key={player.id} disabled={busy} onClick={() => answer(player)} className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-left"><span className="font-bold">{player.name}</span><span className="text-xs text-slate-500">Seç →</span></button>)}</div></>}</section>
-          <div className="mt-3 grid grid-cols-2 gap-2"><button disabled={busy || myDrawPending} onClick={() => duelAction("offer_draw")} className="rounded-2xl border border-yellow-400/25 bg-yellow-400/[0.06] px-3 py-3 text-sm font-black text-yellow-200 disabled:opacity-50">{myDrawPending ? "🤝 Teklif bekliyor" : "🤝 Beraberlik Teklif Et"}</button><button disabled={busy} onClick={() => duelAction("forfeit")} className="rounded-2xl border border-red-400/25 bg-red-400/[0.06] px-3 py-3 text-sm font-black text-red-300">🏳️ Pes Et</button></div>
+        : duel ? <>
+          {duel.completed && <ResultCard result={duel.result ?? null} onRematch={rematch} onShare={shareResult} busy={busy} />}
+          {incomingDraw && !duel.completed && <section className="mt-3 rounded-3xl border border-yellow-400/25 bg-yellow-400/10 p-4"><p className="font-black text-yellow-200">🤝 Rakibin beraberlik teklif etti.</p><div className="mt-3 grid grid-cols-2 gap-2"><button disabled={busy} onClick={() => duelAction("accept_draw")} className="rounded-xl bg-yellow-400 px-3 py-3 font-black text-[#07111f]">Kabul Et</button><button disabled={busy} onClick={() => duelAction("decline_draw")} className="rounded-xl border border-white/15 px-3 py-3 font-black">Reddet</button></div></section>}
+          {gridView}
+          {!duel.completed && <>
+            <section className="relative z-20 mt-3 rounded-3xl border border-white/10 bg-[#0d1828] p-4">
+              {!duel.isMyTurn ? <p className="py-3 text-center font-bold text-slate-500">Rakibin hamlesi bekleniyor.</p> : !selectedCell ? <p className="py-3 text-center font-bold text-slate-400">Önce boş bir hücre seç.</p> : <div className="relative min-h-[88px]">
+                <p className="text-xs font-black uppercase tracking-wider text-yellow-300">Oyuncuyu seç</p>
+                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Futbolcu ara..." className="mt-2 w-full rounded-2xl border border-white/10 bg-[#07111f] px-4 py-3 text-base outline-none focus:border-yellow-300/50" />
+                {(searching || query.trim().length >= 2) && <div className="absolute left-0 right-0 top-[76px] z-50 max-h-52 overflow-y-auto rounded-2xl border border-white/10 bg-[#0d1828] p-1 shadow-2xl">
+                  {searching && <p className="px-3 py-3 text-sm text-slate-500">Aranıyor...</p>}
+                  {!searching && query.trim().length >= 2 && players.length === 0 && <p className="px-3 py-3 text-sm text-slate-500">Oyuncu bulunamadı.</p>}
+                  {players.map((player) => <button key={player.id} disabled={busy} onClick={() => answer(player)} className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left hover:bg-white/[0.05]"><span className="truncate font-bold">{player.name}</span><span className="ml-3 shrink-0 text-xs text-slate-500">Seç →</span></button>)}
+                </div>}
+              </div>}
+            </section>
+            <div className="relative z-10 mt-3 grid grid-cols-2 gap-2"><button disabled={busy || myDrawPending} onClick={() => duelAction("offer_draw")} className="rounded-2xl border border-yellow-400/25 bg-yellow-400/[0.06] px-3 py-3 text-sm font-black text-yellow-200 disabled:opacity-50">{myDrawPending ? "🤝 Teklif bekliyor" : "🤝 Beraberlik Teklif Et"}</button><button disabled={busy} onClick={() => duelAction("forfeit")} className="rounded-2xl border border-red-400/25 bg-red-400/[0.06] px-3 py-3 text-sm font-black text-red-300">🏳️ Pes Et</button></div>
+          </>}
         </> : null}
       </div>
     </main>
@@ -341,7 +377,7 @@ function PlayerCard({ name, mark, mine, turn, side }: { name: string; mark: stri
 
 function ResultCard({ result, onRematch, onShare, busy }: { result: "win" | "loss" | "draw" | null; onRematch: () => void; onShare: () => void; busy: boolean }) {
   const title = result === "win" ? "🏆 Kazandın!" : result === "loss" ? "🥈 Bu kez rakip aldı." : "🤝 Berabere.";
-  return <section className="mt-3 rounded-3xl border border-yellow-400/25 bg-yellow-400/[0.05] p-6 text-center"><div className="text-5xl">{result === "win" ? "🏆" : result === "loss" ? "🥈" : "🤝"}</div><h2 className="mt-3 text-3xl font-black">{title}</h2><p className="mt-2 text-sm text-slate-400">Kazandıran üçlü gridde vurgulandı. Aynı rakiple hemen yeniden oynayabilirsin.</p><div className="mt-5 grid grid-cols-2 gap-2"><button disabled={busy} onClick={onRematch} className="rounded-2xl bg-yellow-400 px-4 py-3 font-black text-[#07111f] disabled:opacity-50">🔁 Rövanş</button><button disabled={busy} onClick={onShare} className="rounded-2xl border border-green-400/30 bg-green-400/10 px-4 py-3 font-black text-green-200 disabled:opacity-50">↗ Sonucu Paylaş</button></div></section>;
+  return <section className="mt-3 rounded-3xl border border-yellow-400/25 bg-yellow-400/[0.05] p-6 text-center"><div className="text-5xl">{result === "win" ? "🏆" : result === "loss" ? "🥈" : "🤝"}</div><h2 className="mt-3 text-3xl font-black">{title}</h2><p className="mt-2 text-sm text-slate-400">Final grid aşağıda. Kazandıran üçlü sarı çerçeveyle vurgulandı.</p><div className="mt-5 grid grid-cols-2 gap-2"><button disabled={busy} onClick={onRematch} className="rounded-2xl bg-yellow-400 px-4 py-3 font-black text-[#07111f] disabled:opacity-50">🔁 Rövanş</button><button disabled={busy} onClick={onShare} className="rounded-2xl border border-green-400/30 bg-green-400/10 px-4 py-3 font-black text-green-200 disabled:opacity-50">↗ Sonucu Paylaş</button></div></section>;
 }
 
 function Panel({ title, text }: { title: string; text: string }) { return <section className="mt-3 rounded-3xl border border-white/10 bg-[#0d1828] p-6 text-center"><h2 className="text-xl font-black">{title}</h2><p className="mt-2 text-sm text-slate-400">{text}</p></section>; }
