@@ -104,6 +104,7 @@ async function ensureChallenge(match: MatchRow) {
   if (error) throw error;
   if (data) return data as MatchRow;
 
+  await supabaseAdmin.from("guest_challenges").delete().eq("invite_token", challengeToken);
   const { data: latest, error: latestError } = await supabaseAdmin
     .from("ranked_matches")
     .select("id,game_code,status,player_a_id,player_b_id,opponent_kind,bot_name,challenge_token,created_at,updated_at")
@@ -118,24 +119,13 @@ async function closeStaleMatch(match: MatchRow) {
   if (match.challenge_token) {
     await supabaseAdmin
       .from("guest_challenges")
-      .update({
-        status: "completed",
-        winner_side: "draw",
-        completed_at: now,
-        updated_at: now,
-      })
+      .update({ status: "completed", winner_side: "draw", completed_at: now, updated_at: now })
       .eq("invite_token", match.challenge_token)
       .neq("status", "completed");
   }
-
   await supabaseAdmin
     .from("ranked_matches")
-    .update({
-      status: "completed",
-      winner_user_id: null,
-      completed_at: now,
-      updated_at: now,
-    })
+    .update({ status: "completed", winner_user_id: null, completed_at: now, updated_at: now })
     .eq("id", match.id)
     .in("status", ["ready", "active"]);
 }
@@ -150,10 +140,9 @@ async function getExistingMatch(userId: string, gameCode: string) {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-
   if (!data) return null;
-  const match = data as MatchRow;
 
+  const match = data as MatchRow;
   if (!match.challenge_token) {
     const age = Date.now() - new Date(match.updated_at ?? match.created_at).getTime();
     if (Number.isFinite(age) && age > STALE_MATCH_MS) {
@@ -182,13 +171,11 @@ async function getExistingMatch(userId: string, gameCode: string) {
     match.bot_name = "Bot Mehmet";
   }
 
-  const lastActivity = new Date(challenge.updated_at ?? match.updated_at ?? match.created_at).getTime();
-  const idleMs = Date.now() - lastActivity;
+  const idleMs = Date.now() - new Date(challenge.updated_at ?? match.updated_at ?? match.created_at).getTime();
   if (Number.isFinite(idleMs) && idleMs > STALE_MATCH_MS) {
     await closeStaleMatch(match);
     return null;
   }
-
   return match;
 }
 
@@ -264,10 +251,25 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (candidate?.user_id) {
+      // Both phones can see each other during the same polling window. Without a deterministic
+      // coordinator each request creates its own match/challenge. Only the lexicographically
+      // smaller user id is allowed to create; the other phone waits one poll and resumes it.
+      const coordinatorId = [userId, candidate.user_id].sort()[0];
+      if (userId !== coordinatorId) {
+        return NextResponse.json({ ok: true, state: "searching", elapsedMs: 0, botInMs: BOT_FALLBACK_MS });
+      }
+
+      // Re-check immediately before creating in case another request already completed the pair.
+      const alreadyMatched = await getExistingMatch(userId, gameCode);
+      if (alreadyMatched) {
+        const bridged = await ensureChallenge(alreadyMatched);
+        return NextResponse.json({ ok: true, state: "matched", match: bridged, resumed: true });
+      }
+
       const match = await createRankedMatch({
         gameCode,
-        playerAId: candidate.user_id,
-        playerBId: userId,
+        playerAId: userId,
+        playerBId: candidate.user_id,
         opponentKind: "human",
       });
       await supabaseAdmin.from("ranked_match_queue").delete().in("user_id", [candidate.user_id, userId]);
@@ -276,7 +278,7 @@ export async function POST(request: Request) {
 
     if (!mine) {
       const { error } = await supabaseAdmin.from("ranked_match_queue").insert({ user_id: userId, game_code: gameCode });
-      if (error) throw error;
+      if (error && (error as { code?: string }).code !== "23505") throw error;
       return NextResponse.json({ ok: true, state: "searching", elapsedMs: 0, botInMs: BOT_FALLBACK_MS });
     }
 
@@ -291,8 +293,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, state: "searching", elapsedMs: 0, botInMs: BOT_FALLBACK_MS });
     }
 
-    const elapsedMs = mineAgeMs;
-    if (elapsedMs >= BOT_FALLBACK_MS) {
+    if (mineAgeMs >= BOT_FALLBACK_MS) {
+      // One final human-match check prevents bot fallback from racing a just-created human match.
+      const humanMatch = await getExistingMatch(userId, gameCode);
+      if (humanMatch) {
+        const bridged = await ensureChallenge(humanMatch);
+        return NextResponse.json({ ok: true, state: "matched", match: bridged, resumed: true });
+      }
+
       const match = await createRankedMatch({
         gameCode,
         playerAId: userId,
@@ -307,8 +315,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       state: "searching",
-      elapsedMs,
-      botInMs: Math.max(0, BOT_FALLBACK_MS - elapsedMs),
+      elapsedMs: mineAgeMs,
+      botInMs: Math.max(0, BOT_FALLBACK_MS - mineAgeMs),
     });
   } catch (error) {
     console.error("Ranked matchmaking error:", error);
