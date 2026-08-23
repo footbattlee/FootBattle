@@ -269,7 +269,7 @@ export default function MobileDuelsPage({ locale }: { locale: Locale }) {
                   <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-black">{duel.otherPlayer?.displayName ?? (tr ? "Rakip" : "Opponent")}</p><p className="mt-1 text-[11px] font-bold text-slate-400">{duel.gameLabel}</p></div>{preparingDuelId === duel.id ? <span className="rounded-lg bg-green-400 px-3 py-2 text-sm font-black text-[#07111f]">{prepareSeconds}</span> : null}</div>
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <button type="button" disabled={actionDuelId !== null} onClick={() => void respondToDuel(duel.id, "accept")} className="rounded-xl bg-green-400 px-3 py-3 text-xs font-black text-[#07111f] disabled:opacity-50">✓ {preparingDuelId === duel.id ? (tr ? "Hazırlanıyor" : "Preparing") : (tr ? "Kabul Et" : "Accept")}</button>
-                    <button type="button" disabled={actionDuelId !== null} onClick={() => void respondToDuel(duel.id, "reject")} className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-3 text-xs font-black text-red-200 disabled:opacity-50">✕ {tr ? "Reddet" : "Reject")}</button>
+                    <button type="button" disabled={actionDuelId !== null} onClick={() => void respondToDuel(duel.id, "reject")} className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-3 text-xs font-black text-red-200 disabled:opacity-50">✕ {tr ? "Reddet" : "Reject"}</button>
                   </div>
                 </article>
               ))}
