@@ -5,7 +5,11 @@ import { runRankedTicTacToeBotTick, syncRankedMatchCompletion } from "@/lib/rank
 import {
   ensureTicTacToeDuel,
   getDuelAttempts,
+  loadTicTacToeChallenge,
   requireTicTacToeParticipant,
+  resolveDuelRole,
+  sanitizeDuelToken,
+  type DuelChallenge,
   type DuelSide,
 } from "@/lib/tic-tac-toe/duel-server";
 import {
@@ -24,11 +28,28 @@ export async function GET(
 ) {
   try {
     const locale = footballLocaleFromRequest(request);
-    const { token } = await context.params;
-    const access = await requireTicTacToeParticipant(token);
-    if (!access.ok) return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
+    const { token: rawToken } = await context.params;
+    const token = sanitizeDuelToken(rawToken);
 
-    let challenge = access.challenge;
+    let challenge: DuelChallenge;
+    let role: DuelSide;
+    let publicView = false;
+
+    const access = await requireTicTacToeParticipant(token);
+    if (access.ok) {
+      challenge = access.challenge;
+      role = access.role;
+    } else {
+      const publicChallenge = token ? await loadTicTacToeChallenge(token) : null;
+      if (!publicChallenge || publicChallenge.game_code !== "tic_tac_toe" || publicChallenge.status !== "completed") {
+        return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
+      }
+      const identity = await resolveDuelRole(publicChallenge);
+      challenge = publicChallenge;
+      publicView = identity.role === "visitor";
+      role = identity.role === "challenger" || identity.role === "opponent" ? identity.role : "challenger";
+    }
+
     if (challenge.status !== "playing" && challenge.status !== "completed") {
       return NextResponse.json(
         { ok: false, error: "Düello henüz başlamadı.", challengeStatus: challenge.status },
@@ -100,24 +121,26 @@ export async function GET(
         },
       }));
 
-    const mySide = access.role as DuelSide;
     const completed = challenge.status === "completed";
     const result = completed
       ? challenge.winner_side === "draw"
         ? "draw"
-        : challenge.winner_side === mySide
-          ? "win"
-          : "loss"
+        : publicView
+          ? null
+          : challenge.winner_side === role
+            ? "win"
+            : "loss"
       : null;
 
     return NextResponse.json({
       ok: true,
-      role: mySide,
+      role,
+      publicView,
       completed,
       result,
       winnerSide: challenge.winner_side,
       currentTurn: completed ? null : turn.currentTurn,
-      isMyTurn: !completed && turn.currentTurn === mySide,
+      isMyTurn: !publicView && !completed && turn.currentTurn === role,
       turnRemainingSeconds: completed ? 0 : turnRemainingSeconds(turn.turnStartedAt),
       drawOfferBy: completed ? null : turn.drawOfferBy,
       game: {
