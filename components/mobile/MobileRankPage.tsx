@@ -167,7 +167,7 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
 
         <div className="mt-7 flex items-end justify-between gap-3">
           <div><p className="text-[10px] font-black uppercase tracking-[0.18em] text-yellow-300">{tr ? "Sıralama" : "Leaderboard"}</p><h2 className="mt-1 text-xl font-black">{rank?.season?.title ?? (tr ? "Sezon sıralaması" : "Season leaderboard")}</h2></div>
-          <p className="max-w-[180px] text-right text-[10px] leading-4 text-slate-600">{tr ? "LP/ELO modeli daha sonra tek kişilik oyunlarla birlikte yeniden planlanacak." : "LP/ELO will be redesigned later together with solo games."}</p>
+          <p className="max-w-[180px] text-right text-[10px] leading-4 text-slate-600">{tr ? "ELO yalnızca gerçek oyuncular arasındaki Ranked maçlarda değişir." : "ELO changes only in Ranked matches between real players."}</p>
         </div>
 
         <div className="mt-4 grid grid-cols-2 rounded-2xl border border-white/10 bg-white/[0.025] p-1">
@@ -184,7 +184,7 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
                   <span className="w-7 shrink-0 text-center text-xs font-black">#{position ?? "-"}</span>
                   <img src={entry.rankIcon} alt={entry.rankName} className="h-10 w-10 shrink-0 object-contain" />
                   <div className="min-w-0 flex-1"><p className="truncate text-sm font-black">{entry.displayName ?? entry.username ?? "FootBattle"}</p><p className="mt-0.5 truncate text-[9px] text-slate-600">{entry.rankName} · {entry.gamesPlayed} {tr ? "oyun" : "games"} · {entry.wins}G/{entry.losses}M</p></div>
-                  <div className="shrink-0 text-right"><p className="text-sm font-black text-yellow-300">{nf.format(entry.lp)}</p><p className="text-[8px] font-black text-slate-600">LP</p></div>
+                  <div className="shrink-0 text-right"><p className="text-sm font-black text-yellow-300">{nf.format(entry.lp)}</p><p className="text-[8px] font-black text-slate-600">ELO</p></div>
                 </>;
                 return entry.username ? <Link key={entry.userId} href={`/u/${encodeURIComponent(entry.username)}`} className="flex items-center gap-2.5 px-3 py-3 active:bg-white/[0.04]">{content}</Link> : <div key={entry.userId} className="flex items-center gap-2.5 px-3 py-3">{content}</div>;
               })}
