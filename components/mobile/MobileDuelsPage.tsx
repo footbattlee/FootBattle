@@ -33,6 +33,9 @@ type FriendsData = { ok?: boolean; error?: string; friends?: Friend[] };
 type ActionResponse = { ok?: boolean; error?: string; message?: string; game?: { url?: string } };
 type GameCode = "tic_tac_toe" | "club_clash";
 
+const FAST_POLL_MS = 2_500;
+const IDLE_POLL_MS = 9_000;
+
 const GAME_INFO: Record<GameCode, { icon: string; titleTr: string; titleEn: string; textTr: string; textEn: string; linkHref: string }> = {
   tic_tac_toe: {
     icon: "⭕",
@@ -71,25 +74,71 @@ export default function MobileDuelsPage({ locale }: { locale: Locale }) {
   const [friendsLoading, setFriendsLoading] = useState(false);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
   const autoOpened = useRef(new Set<number>());
+  const dataRef = useRef<Data | null>(null);
+  const loadInFlight = useRef(false);
 
   const loadDuels = useCallback(async (showLoading = false) => {
+    if (loadInFlight.current) return;
+    loadInFlight.current = true;
     try {
       if (showLoading) setLoading(true);
       const response = await fetch("/api/duels", { cache: "no-store" });
       const body = (await response.json()) as Data;
       if (!response.ok || !body.ok) throw new Error(body.error ?? "Düellolar yüklenemedi.");
+      dataRef.current = body;
       setData(body);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Düellolar yüklenemedi.");
     } finally {
+      loadInFlight.current = false;
       if (showLoading) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadDuels(true);
-    const id = window.setInterval(() => void loadDuels(false), 2000);
-    return () => window.clearInterval(id);
+    let stopped = false;
+    let timer: number | null = null;
+
+    function stopTimer() {
+      if (timer !== null) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+    }
+
+    function nextDelay() {
+      const snapshot = dataRef.current;
+      const hasIncoming = (snapshot?.incoming?.length ?? 0) > 0;
+      const hasPreparing = (snapshot?.outgoing ?? []).some((duel) => duel.status === "accepted");
+      const hasFreshActive = (snapshot?.active ?? []).some((duel) => {
+        if (!duel.startedAt) return false;
+        const started = new Date(duel.startedAt).getTime();
+        return Number.isFinite(started) && Date.now() - started < 15_000;
+      });
+      return hasIncoming || hasPreparing || hasFreshActive ? FAST_POLL_MS : IDLE_POLL_MS;
+    }
+
+    async function poll(showLoading = false) {
+      stopTimer();
+      if (stopped || document.visibilityState !== "visible") return;
+      await loadDuels(showLoading);
+      if (stopped || document.visibilityState !== "visible") return;
+      timer = window.setTimeout(() => void poll(false), nextDelay());
+    }
+
+    void poll(true);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") void poll(false);
+      else stopTimer();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      stopped = true;
+      stopTimer();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [loadDuels]);
 
   useEffect(() => {
@@ -220,7 +269,7 @@ export default function MobileDuelsPage({ locale }: { locale: Locale }) {
                   <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-black">{duel.otherPlayer?.displayName ?? (tr ? "Rakip" : "Opponent")}</p><p className="mt-1 text-[11px] font-bold text-slate-400">{duel.gameLabel}</p></div>{preparingDuelId === duel.id ? <span className="rounded-lg bg-green-400 px-3 py-2 text-sm font-black text-[#07111f]">{prepareSeconds}</span> : null}</div>
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <button type="button" disabled={actionDuelId !== null} onClick={() => void respondToDuel(duel.id, "accept")} className="rounded-xl bg-green-400 px-3 py-3 text-xs font-black text-[#07111f] disabled:opacity-50">✓ {preparingDuelId === duel.id ? (tr ? "Hazırlanıyor" : "Preparing") : (tr ? "Kabul Et" : "Accept")}</button>
-                    <button type="button" disabled={actionDuelId !== null} onClick={() => void respondToDuel(duel.id, "reject")} className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-3 text-xs font-black text-red-200 disabled:opacity-50">✕ {tr ? "Reddet" : "Reject"}</button>
+                    <button type="button" disabled={actionDuelId !== null} onClick={() => void respondToDuel(duel.id, "reject")} className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-3 text-xs font-black text-red-200 disabled:opacity-50">✕ {tr ? "Reddet" : "Reject")}</button>
                   </div>
                 </article>
               ))}
