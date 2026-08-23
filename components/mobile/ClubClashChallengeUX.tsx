@@ -148,6 +148,7 @@ export default function ClubClashChallengeUX() {
         <button type="button" onClick={rematch} disabled={busy} className="min-h-12 rounded-xl bg-yellow-400 px-3 font-black text-[#07111f] disabled:opacity-50">{busy ? "Hazırlanıyor..." : "🔁 Rövanş"}</button>
         <button type="button" onClick={shareResult} className="min-h-12 rounded-xl border border-green-400/30 bg-green-400/10 px-3 font-black text-green-200">↗ Sonucu Paylaş</button>
       </div>
+      <button type="button" onClick={() => router.push("/")} className="mt-2 min-h-12 w-full rounded-xl border border-white/15 bg-white/5 px-3 font-black text-white transition hover:bg-white/10">⌂ Ana Sayfa</button>
     </div>
   );
 }
