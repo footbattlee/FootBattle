@@ -23,6 +23,7 @@ export default function LoginPage() {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   useEffect(() => {
     if (mode !== "register") {
@@ -54,6 +55,32 @@ export default function LoginPage() {
     return () => window.clearTimeout(timer);
   }, [username, mode]);
 
+  async function handleForgotPassword() {
+    const cleanEmail = email.trim();
+    setMessage("");
+    setIsError(false);
+
+    if (!cleanEmail) {
+      setIsError(true);
+      setMessage("Önce e-posta adresini yaz, ardından Şifremi Unuttum'a bas.");
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      const supabase = createClient();
+      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/reset-password")}`;
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, { redirectTo });
+      if (error) throw error;
+      setMessage("Şifre belirleme bağlantısını e-posta adresine gönderdik. Google ile açılmış bir hesapta da bu bağlantıdan şifre oluşturabilirsin.");
+    } catch (error) {
+      setIsError(true);
+      setMessage(error instanceof Error ? error.message : "Şifre sıfırlama e-postası gönderilemedi.");
+    } finally {
+      setResetLoading(false);
+    }
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setLoading(true);
@@ -82,7 +109,12 @@ export default function LoginPage() {
         setMessage("Kayıt başarılı. E-posta adresine gelen doğrulama bağlantısını aç.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-        if (error) throw error;
+        if (error) {
+          if (error.message.toLowerCase().includes("invalid login credentials")) {
+            throw new Error("E-posta veya şifre hatalı. Hesabı Google ile açtıysan Şifremi Unuttum üzerinden bu hesaba şifre belirleyebilirsin.");
+          }
+          throw error;
+        }
         window.location.href = "/";
       }
     } catch (err) {
@@ -146,13 +178,20 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="mb-2 block text-sm font-semibold text-slate-300">Şifre</label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label htmlFor="password" className="block text-sm font-semibold text-slate-300">Şifre</label>
+                {mode === "login" ? (
+                  <button type="button" onClick={() => void handleForgotPassword()} disabled={resetLoading} className="text-xs font-bold text-green-300 transition hover:text-green-200 disabled:opacity-50">
+                    {resetLoading ? "Gönderiliyor..." : "Şifremi Unuttum"}
+                  </button>
+                ) : null}
+              </div>
               <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} autoComplete={mode === "login" ? "current-password" : "new-password"} placeholder="En az 6 karakter" className="w-full rounded-xl border border-white/10 bg-[#0c1929] px-4 py-3 text-white outline-none placeholder:text-slate-600 focus:border-green-400/60" />
             </div>
 
             {message ? <div className={`rounded-xl border p-3 text-sm ${isError ? "border-red-500/30 bg-red-500/10 text-red-300" : "border-green-500/30 bg-green-500/10 text-green-300"}`}>{message}</div> : null}
 
-            <button type="submit" disabled={loading || registerButtonDisabled} className="w-full rounded-xl bg-green-500 px-5 py-4 font-black text-[#07111f] transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-40">{loading ? "İşlem yapılıyor..." : mode === "login" ? "Giriş Yap" : usernameChecking ? "Kontrol Ediliyor..." : "Hesap Oluştur"}</button>
+            <button type="submit" disabled={loading || resetLoading || registerButtonDisabled} className="w-full rounded-xl bg-green-500 px-5 py-4 font-black text-[#07111f] transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-40">{loading ? "İşlem yapılıyor..." : mode === "login" ? "Giriş Yap" : usernameChecking ? "Kontrol Ediliyor..." : "Hesap Oluştur"}</button>
           </form>
 
           <GoogleSignInButton />
