@@ -3,8 +3,28 @@ import { NextResponse } from "next/server";
 import { requireTicTacToeParticipant } from "@/lib/tic-tac-toe/duel-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
+const START_DELAY_MS = 3000;
+
 function inviteToken() {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+}
+
+async function readRematch(sourceId: number) {
+  const { data, error } = await supabaseAdmin
+    .from("tic_tac_toe_rematches")
+    .select("rematch_challenge_id")
+    .eq("source_challenge_id", sourceId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data?.rematch_challenge_id) return null;
+
+  const { data: challenge, error: challengeError } = await supabaseAdmin
+    .from("guest_challenges")
+    .select("id,invite_token,status,winner_side,started_at")
+    .eq("id", data.rematch_challenge_id)
+    .maybeSingle();
+  if (challengeError) throw challengeError;
+  return challenge ?? null;
 }
 
 export async function GET(
@@ -16,15 +36,22 @@ export async function GET(
     const access = await requireTicTacToeParticipant(token);
     if (!access.ok) return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
 
-    const { data, error } = await supabaseAdmin
-      .from("tic_tac_toe_rematches")
-      .select("rematch_challenge_id, guest_challenges!tic_tac_toe_rematches_rematch_challenge_id_fkey(invite_token)")
-      .eq("source_challenge_id", access.challenge.id)
-      .maybeSingle();
+    const rematch = await readRematch(access.challenge.id);
+    if (!rematch) return NextResponse.json({ ok: true, state: "none", token: null, role: access.role });
 
-    if (error) throw error;
-    const relation = data?.guest_challenges as unknown as { invite_token?: string } | null;
-    return NextResponse.json({ ok: true, token: relation?.invite_token ?? null });
+    const requestedBy = rematch.status === "waiting" && (rematch.winner_side === "challenger" || rematch.winner_side === "opponent")
+      ? rematch.winner_side
+      : null;
+    const accepted = rematch.status === "playing";
+
+    return NextResponse.json({
+      ok: true,
+      state: accepted ? "accepted" : rematch.status === "waiting" ? "pending" : rematch.status,
+      role: access.role,
+      requestedBy,
+      token: accepted ? rematch.invite_token : null,
+      startsAt: accepted ? rematch.started_at : null,
+    });
   } catch (error) {
     console.error("Tic Tac Toe rematch read error:", error);
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Rövanş okunamadı." }, { status: 500 });
@@ -42,28 +69,19 @@ export async function POST(
 
     const source = access.challenge;
     if (source.status !== "completed") {
-      return NextResponse.json({ ok: false, error: "Rövanş yalnızca biten maçtan sonra başlatılabilir." }, { status: 409 });
+      return NextResponse.json({ ok: false, error: "Rövanş yalnızca biten maçtan sonra istenebilir." }, { status: 409 });
     }
 
-    const existing = await supabaseAdmin
-      .from("tic_tac_toe_rematches")
-      .select("rematch_challenge_id")
-      .eq("source_challenge_id", source.id)
-      .maybeSingle();
-    if (existing.error) throw existing.error;
-
-    if (existing.data?.rematch_challenge_id) {
-      const found = await supabaseAdmin
-        .from("guest_challenges")
-        .select("invite_token")
-        .eq("id", existing.data.rematch_challenge_id)
-        .single();
-      if (found.error) throw found.error;
-      return NextResponse.json({ ok: true, token: found.data.invite_token, existing: true });
+    const existing = await readRematch(source.id);
+    if (existing) {
+      if (existing.status === "playing") {
+        return NextResponse.json({ ok: true, state: "accepted", token: existing.invite_token, startsAt: existing.started_at, existing: true });
+      }
+      return NextResponse.json({ ok: true, state: "pending", token: null, requestedBy: existing.winner_side, existing: true });
     }
 
     const now = new Date().toISOString();
-    const expiresAt = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     const newToken = inviteToken();
 
     const { data: created, error: createError } = await supabaseAdmin
@@ -71,7 +89,7 @@ export async function POST(
       .insert({
         invite_token: newToken,
         game_code: "tic_tac_toe",
-        status: "playing",
+        status: "waiting",
         challenger_user_id: source.challenger_user_id,
         challenger_guest_id: source.challenger_guest_id,
         challenger_name: source.challenger_name,
@@ -80,42 +98,82 @@ export async function POST(
         opponent_name: source.opponent_name,
         challenger_score: 0,
         opponent_score: 0,
-        winner_side: null,
-        joined_at: now,
-        started_at: now,
+        winner_side: access.role,
+        joined_at: null,
+        started_at: null,
         completed_at: null,
         expires_at: expiresAt,
         updated_at: now,
       })
-      .select("id, invite_token")
+      .select("id")
       .single();
-    if (createError || !created) throw createError ?? new Error("Rövanş oluşturulamadı.");
+    if (createError || !created) throw createError ?? new Error("Rövanş isteği oluşturulamadı.");
 
     const { error: mapError } = await supabaseAdmin
       .from("tic_tac_toe_rematches")
       .insert({ source_challenge_id: source.id, rematch_challenge_id: created.id });
     if (mapError) {
+      await supabaseAdmin.from("guest_challenges").delete().eq("id", created.id);
       if ((mapError as { code?: string }).code === "23505") {
-        const retry = await supabaseAdmin
-          .from("tic_tac_toe_rematches")
-          .select("rematch_challenge_id")
-          .eq("source_challenge_id", source.id)
-          .single();
-        if (retry.error) throw retry.error;
-        const found = await supabaseAdmin
-          .from("guest_challenges")
-          .select("invite_token")
-          .eq("id", retry.data.rematch_challenge_id)
-          .single();
-        if (found.error) throw found.error;
-        return NextResponse.json({ ok: true, token: found.data.invite_token, existing: true });
+        return NextResponse.json({ ok: true, state: "pending", token: null, existing: true });
       }
       throw mapError;
     }
 
-    return NextResponse.json({ ok: true, token: created.invite_token, existing: false });
+    return NextResponse.json({ ok: true, state: "pending", token: null, requestedBy: access.role });
   } catch (error) {
     console.error("Tic Tac Toe rematch create error:", error);
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Rövanş oluşturulamadı." }, { status: 500 });
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Rövanş isteği oluşturulamadı." }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  request: Request,
+  context: { params: Promise<{ token: string }> },
+) {
+  try {
+    const { token } = await context.params;
+    const access = await requireTicTacToeParticipant(token);
+    if (!access.ok) return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
+
+    const body = await request.json().catch(() => ({}));
+    const action = body?.action === "accept" ? "accept" : body?.action === "decline" ? "decline" : null;
+    if (!action) return NextResponse.json({ ok: false, error: "Geçersiz rövanş işlemi." }, { status: 400 });
+
+    const rematch = await readRematch(access.challenge.id);
+    if (!rematch || rematch.status !== "waiting") {
+      return NextResponse.json({ ok: false, error: "Bekleyen rövanş isteği bulunamadı." }, { status: 409 });
+    }
+    if (rematch.winner_side === access.role) {
+      return NextResponse.json({ ok: false, error: "Kendi rövanş isteğini onaylayamazsın." }, { status: 409 });
+    }
+
+    if (action === "decline") {
+      await supabaseAdmin.from("tic_tac_toe_rematches").delete().eq("source_challenge_id", access.challenge.id);
+      await supabaseAdmin.from("guest_challenges").delete().eq("id", rematch.id);
+      return NextResponse.json({ ok: true, state: "declined" });
+    }
+
+    const now = new Date();
+    const startsAt = new Date(now.getTime() + START_DELAY_MS).toISOString();
+    const { data: started, error } = await supabaseAdmin
+      .from("guest_challenges")
+      .update({
+        status: "playing",
+        winner_side: null,
+        joined_at: now.toISOString(),
+        started_at: startsAt,
+        updated_at: now.toISOString(),
+      })
+      .eq("id", rematch.id)
+      .eq("status", "waiting")
+      .select("invite_token,started_at")
+      .single();
+    if (error) throw error;
+
+    return NextResponse.json({ ok: true, state: "accepted", token: started.invite_token, startsAt: started.started_at });
+  } catch (error) {
+    console.error("Tic Tac Toe rematch response error:", error);
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Rövanş yanıtlanamadı." }, { status: 500 });
   }
 }
