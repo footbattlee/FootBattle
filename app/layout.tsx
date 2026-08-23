@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Analytics } from "@vercel/analytics/next";
 
 import "./globals.css";
@@ -65,7 +66,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <MobileHomeDashboard />
         <MobileAppShell />
         <RankedMatchChromeFix />
-        <RankedReconnectBanner />
+        <Suspense fallback={null}>
+          <RankedReconnectBanner />
+        </Suspense>
         <MobileKeyboardGuard />
         <DirectDuelLinkInvite />
         <ClubClashChallengeUX />
