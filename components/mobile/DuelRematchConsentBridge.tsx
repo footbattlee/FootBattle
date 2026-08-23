@@ -46,44 +46,57 @@ function readContext(): Context | null {
   return null;
 }
 
+function important(el: HTMLElement, property: string, value: string) {
+  el.style.setProperty(property, value, "important");
+}
+
 function forceHorizontalPlayerResults() {
   if (typeof window === "undefined" || !window.location.pathname.startsWith("/tic-tac-toe/duel/")) return;
   const buttons = Array.from(document.querySelectorAll("button"));
   for (const button of buttons) {
     if (!button.textContent?.includes("Seç →")) continue;
     const el = button as HTMLButtonElement;
-    el.style.display = "flex";
-    el.style.width = "100%";
-    el.style.minWidth = "0";
-    el.style.flexDirection = "row";
-    el.style.alignItems = "center";
-    el.style.justifyContent = "space-between";
-    el.style.gap = "12px";
-    el.style.whiteSpace = "nowrap";
-    el.style.wordBreak = "normal";
-    el.style.writingMode = "horizontal-tb";
+    const parent = el.parentElement;
+    if (parent) {
+      important(parent, "display", "block");
+      important(parent, "width", "100%");
+      important(parent, "min-width", "0");
+    }
+    important(el, "display", "grid");
+    important(el, "grid-template-columns", "minmax(0, 1fr) max-content");
+    important(el, "align-items", "center");
+    important(el, "width", "100%");
+    important(el, "min-width", "0");
+    important(el, "max-width", "100%");
+    important(el, "gap", "12px");
+    important(el, "white-space", "nowrap");
+    important(el, "word-break", "normal");
+    important(el, "overflow-wrap", "normal");
+    important(el, "writing-mode", "horizontal-tb");
+
     const first = el.querySelector("span:first-child") as HTMLElement | null;
     const last = el.querySelector("span:last-child") as HTMLElement | null;
     if (first) {
-      first.style.display = "block";
-      first.style.flex = "1 1 auto";
-      first.style.minWidth = "0";
-      first.style.width = "auto";
-      first.style.whiteSpace = "nowrap";
-      first.style.wordBreak = "normal";
-      first.style.overflowWrap = "normal";
-      first.style.writingMode = "horizontal-tb";
-      first.style.overflow = "hidden";
-      first.style.textOverflow = "ellipsis";
+      important(first, "display", "block");
+      important(first, "width", "100%");
+      important(first, "min-width", "0");
+      important(first, "max-width", "100%");
+      important(first, "white-space", "nowrap");
+      important(first, "word-break", "normal");
+      important(first, "overflow-wrap", "normal");
+      important(first, "writing-mode", "horizontal-tb");
+      important(first, "overflow", "hidden");
+      important(first, "text-overflow", "ellipsis");
+      important(first, "line-height", "1.25");
     }
     if (last) {
-      last.style.display = "block";
-      last.style.flex = "0 0 auto";
-      last.style.width = "auto";
-      last.style.whiteSpace = "nowrap";
-      last.style.wordBreak = "normal";
-      last.style.overflowWrap = "normal";
-      last.style.writingMode = "horizontal-tb";
+      important(last, "display", "block");
+      important(last, "width", "auto");
+      important(last, "min-width", "max-content");
+      important(last, "white-space", "nowrap");
+      important(last, "word-break", "normal");
+      important(last, "overflow-wrap", "normal");
+      important(last, "writing-mode", "horizontal-tb");
     }
   }
 }
