@@ -1,0 +1,91 @@
+.shell :global(main > div) {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .shell :global(main) {
+    padding-left: 24px;
+    padding-right: 24px;
+    padding-bottom: 48px;
+    padding-top: 32px;
+  }
+
+  .shell :global(main > div) {
+    display: grid;
+    max-width: 1180px;
+    grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+    column-gap: 28px;
+    align-items: start;
+  }
+
+  .shell :global(main > div > header) {
+    grid-column: 1 / -1;
+    margin-bottom: 8px;
+  }
+
+  .shell :global(main > div > header > div) {
+    margin-top: 18px;
+  }
+
+  .shell :global(main > div > header h1) {
+    font-size: 2.5rem;
+    line-height: 1.05;
+  }
+
+  .shell :global(main > div > section:first-of-type) {
+    grid-column: 1;
+    grid-row: 2 / span 5;
+    position: sticky;
+    top: 24px;
+    margin-top: 20px;
+    padding: 22px;
+  }
+
+  .shell :global(main > div > section:first-of-type > div:nth-of-type(2)) {
+    grid-template-columns: 1fr;
+  }
+
+  .shell :global(#leaderboard) {
+    grid-column: 2;
+    grid-row: 2;
+    margin-top: 20px;
+  }
+
+  .shell :global(#leaderboard + div) {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  .shell :global(#leaderboard + div + div) {
+    grid-column: 2;
+    grid-row: 4;
+  }
+
+  .shell :global(#leaderboard + div + div + div) {
+    grid-column: 2;
+    grid-row: 5;
+  }
+
+  .shell :global(#leaderboard + div + div + div + section) {
+    grid-column: 2;
+    grid-row: 6;
+    min-height: 420px;
+  }
+
+  .shell :global(#leaderboard + div + div + div + section a),
+  .shell :global(#leaderboard + div + div + div + section > div > div) {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+}
+
+@media (min-width: 1100px) {
+  .shell :global(main > div) {
+    grid-template-columns: 430px minmax(0, 1fr);
+    column-gap: 36px;
+  }
+
+  .shell :global(main > div > section:first-of-type) {
+    padding: 26px;
+  }
+}
