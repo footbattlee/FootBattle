@@ -24,6 +24,7 @@ import GlobalLegalFooter from "@/components/GlobalLegalFooter";
 import AdminBackButton from "@/components/AdminBackButton";
 import MobileAppShell from "@/components/mobile/MobileAppShell";
 import MobileHomeDashboard from "@/components/mobile/MobileHomeDashboard";
+import RankedReconnectBanner from "@/components/mobile/RankedReconnectBanner";
 import GuessThePlayerMobileAutoScroll from "@/components/mobile/GuessThePlayerMobileAutoScroll";
 import MobileKeyboardGuard from "@/components/mobile/MobileKeyboardGuard";
 import DirectDuelLinkInvite from "@/components/mobile/DirectDuelLinkInvite";
@@ -61,6 +62,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         {children}
         <MobileHomeDashboard />
         <MobileAppShell />
+        <RankedReconnectBanner />
         <MobileKeyboardGuard />
         <DirectDuelLinkInvite />
         <ClubClashChallengeUX />
