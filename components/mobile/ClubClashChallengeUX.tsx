@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { GAME_NAMES, trackPlayAgain, trackShared } from "@/lib/analytics/game-analytics";
 
 type Side = "challenger" | "opponent";
 type Round = {
@@ -82,6 +83,7 @@ export default function ClubClashChallengeUX() {
     if (!token || busy) return;
     try {
       setBusy(true);
+      await trackPlayAgain(GAME_NAMES.CLUB_CLASH, token);
       const response = await fetch(`/api/challenges/${encodeURIComponent(token)}/club-clash/rematch`, { method: "POST" });
       const result = await response.json() as Rematch;
       if (!response.ok || !result.ok || !result.token) throw new Error(result.error ?? "Rövanş oluşturulamadı.");
@@ -132,11 +134,13 @@ export default function ClubClashChallengeUX() {
         const file = new File([blob], "footbattle-2-takim-1-oyuncu.png", { type: "image/png" });
         if (navigator.share && navigator.canShare?.({ files: [file] })) {
           await navigator.share({ title: "2 Takım 1 Oyuncu · FootBattle", text, url, files: [file] });
+          await trackShared(GAME_NAMES.CLUB_CLASH, token);
           return;
         }
       }
       if (navigator.share) await navigator.share({ title: "2 Takım 1 Oyuncu · FootBattle", text, url });
       else await navigator.clipboard.writeText(`${text}\n${url}`);
+      await trackShared(GAME_NAMES.CLUB_CLASH, token);
     } catch { /* cancelled */ }
   }
 
