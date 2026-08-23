@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 type RangeKey = "today" | "7d" | "30d" | "all";
@@ -159,6 +160,7 @@ export default function AdminAnalyticsPage() {
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">Başlatma, tamamlama, tahmini terk, oyun süresi, tekrar oynama, paylaşım, düello funnel ve Survivor performansını takip et.</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Link href="/admin/analytics/ranked" className="rounded-xl border border-green-400/30 bg-green-400/10 px-4 py-2.5 text-xs font-black text-green-300 transition hover:bg-green-400/15 sm:text-sm">🏆 Ranked</Link>
             {RANGE_OPTIONS.map((option) => (
               <button key={option.key} type="button" onClick={() => setRange(option.key)} className={`rounded-xl px-4 py-2.5 text-xs font-black transition sm:text-sm ${range === option.key ? "bg-green-500 text-[#07111f]" : "border border-white/10 bg-white/[0.03] text-slate-400 hover:text-white"}`}>{option.label}</button>
             ))}
