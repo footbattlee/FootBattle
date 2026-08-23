@@ -26,14 +26,22 @@ type DuelRow = {
 };
 
 const ABANDON_AFTER_MS = 15 * 60 * 1000;
+const PAGE_SIZE = 1000;
 
 function getStartDate(range: RangeKey) {
   const now = new Date();
 
   if (range === "today") {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    return start.toISOString();
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Istanbul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(now);
+    const year = parts.find((part) => part.type === "year")?.value;
+    const month = parts.find((part) => part.type === "month")?.value;
+    const day = parts.find((part) => part.type === "day")?.value;
+    if (year && month && day) return new Date(`${year}-${month}-${day}T00:00:00+03:00`).toISOString();
   }
 
   if (range === "7d" || range === "30d") {
@@ -56,6 +64,24 @@ function inRange(value: string | null | undefined, startDate: string | null) {
   return new Date(value).getTime() >= new Date(startDate).getTime();
 }
 
+async function fetchAllAnalyticsRows(startDate: string | null) {
+  const rows: AnalyticsRow[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    let query = supabaseAdmin
+      .from("analytics_events")
+      .select("event_name, game_name, session_id, created_at")
+      .order("created_at", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (startDate) query = query.gte("created_at", startDate);
+    const { data, error } = await query;
+    if (error) throw error;
+    const batch = (data ?? []) as AnalyticsRow[];
+    rows.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) {
@@ -67,17 +93,7 @@ export async function GET(request: NextRequest) {
     const range: RangeKey = rawRange === "today" || rawRange === "30d" || rawRange === "all" ? rawRange : "7d";
     const startDate = getStartDate(range);
 
-    let query = supabaseAdmin
-      .from("analytics_events")
-      .select("event_name, game_name, session_id, created_at")
-      .order("created_at", { ascending: true });
-
-    if (startDate) query = query.gte("created_at", startDate);
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    const rows = (data ?? []) as AnalyticsRow[];
+    const rows = await fetchAllAnalyticsRows(startDate);
     const summary = {
       totalStarted: 0,
       totalCompleted: 0,
@@ -99,7 +115,6 @@ export async function GET(request: NextRequest) {
       }
     >();
 
-    // Aynı oturum aynı oyunu tekrar oynayabilir. Eşleşmemiş başlangıçları FIFO tutuyoruz.
     const unmatchedStarts = new Map<string, number[]>();
     const allDurations: number[] = [];
 
@@ -156,9 +171,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // "Tahmini terk" artık doğrudan started-completed değildir. Yeni/halen oynanan
-    // oturumları yanlışlıkla terk saymamak için yalnızca 15 dakikadan eski, completion
-    // eventiyle eşleşmemiş başlangıçları terk kabul ediyoruz.
     const cutoff = Date.now() - ABANDON_AFTER_MS;
     const abandonedByGame = new Map<string, number>();
     for (const [sessionKey, starts] of unmatchedStarts.entries()) {
@@ -190,8 +202,6 @@ export async function GET(request: NextRequest) {
     summary.totalAbandoned = Array.from(abandonedByGame.values()).reduce((sum, value) => sum + value, 0);
     summary.averageDurationSeconds = average(allDurations);
 
-    // Duel funnel'u doğrudan source-of-truth olan duels tablosundan hesaplıyoruz.
-    // Böylece analytics trigger'ından önce oluşmuş düellolar da raporda görünür.
     const { data: duelData, error: duelError } = await supabaseAdmin
       .from("duels")
       .select("id,challenger_id,opponent_id,game_code,status,created_at,accepted_at,started_at,completed_at,updated_at");
