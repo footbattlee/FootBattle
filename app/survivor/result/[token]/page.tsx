@@ -51,6 +51,7 @@ export default async function SurvivorResultPage({ params }: { params: Promise<{
         <div className="mx-auto mt-6 grid max-w-xl gap-2 sm:grid-cols-2">
           {set?.slug && <Link href={`/survivor/${set.slug}`} className="flex min-h-12 items-center justify-center rounded-xl bg-green-500 px-5 font-black text-[#07111f]">⚔️ Ben de Oynayayım</Link>}
           <Link href="/survivor" className="flex min-h-12 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-5 font-black">🏆 Diğer Survivor'lar</Link>
+          <Link href="/" className="flex min-h-12 items-center justify-center rounded-xl border border-purple-400/30 bg-purple-400/[0.08] px-5 font-black text-purple-200 sm:col-span-2">⌂ Ana Sayfa</Link>
         </div>
       </div>
     </main>
