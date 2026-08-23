@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 
+import { GAME_NAMES, trackShared } from "@/lib/analytics/game-analytics";
 import { createGlobalFootBattleShareCard } from "@/lib/global-share-card";
 
 const FOOTBATTLE_URL_PATTERN =
@@ -25,6 +26,15 @@ function withFootBattleLink(text: string) {
   const shareUrl = buildShareUrl();
   if (!shareUrl || FOOTBATTLE_URL_PATTERN.test(text)) return text;
   return `${text.trim()}\n\n⚽ Hemen oyna: ${shareUrl}`;
+}
+
+function trackTicTacToeDuelResultShare(text: unknown) {
+  if (typeof window === "undefined" || typeof text !== "string") return;
+  if (!/^\/tic-tac-toe\/duel\/[^/]+/.test(window.location.pathname)) return;
+  if (!/Tic Tac Toe düellosu:/i.test(text)) return;
+
+  const token = window.location.pathname.match(/^\/tic-tac-toe\/duel\/([^/]+)/)?.[1] ?? null;
+  void trackShared(GAME_NAMES.TIC_TAC_TOE, token ? `duel:${token}` : null);
 }
 
 export default function GlobalShareEnhancer() {
@@ -57,7 +67,10 @@ export default function GlobalShareEnhancer() {
               // PNG card is enhancement-only. Text/link sharing remains available.
             }
           }
-          return originalShare(nextData);
+
+          const result = await originalShare(nextData);
+          trackTicTacToeDuelResultShare(data.text);
+          return result;
         };
       } catch {
         // Some browsers expose navigator.share as read-only.
@@ -67,7 +80,9 @@ export default function GlobalShareEnhancer() {
     if (clipboard && originalWriteText) {
       try {
         clipboard.writeText = async (text: string) => {
-          return originalWriteText(shouldEnhanceText(text) ? withFootBattleLink(text) : text);
+          const result = await originalWriteText(shouldEnhanceText(text) ? withFootBattleLink(text) : text);
+          trackTicTacToeDuelResultShare(text);
+          return result;
         };
       } catch {
         // Clipboard method may be read-only.
