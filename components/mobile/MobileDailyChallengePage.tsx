@@ -87,7 +87,7 @@ export default function MobileDailyChallengePage({ locale }: { locale: Locale })
               <div className="mt-3 grid grid-cols-7 gap-1">
                 {(streak?.week ?? Array.from({ length: 7 }, () => null)).map((day, index) => {
                   const done = Boolean(day?.completed); const today = Boolean(day?.today); const future = Boolean(day?.future);
-                  return <div key={day?.date ?? index} className="text-center"><p className={`text-[8px] font-black ${today ? "text-yellow-300" : "text-slate-600"}`}>{dayLabels[index]}</p><div className={`mx-auto mt-1 flex h-7 w-7 items-center justify-center rounded-full border text-[10px] ${done ? "border-green-400/50 bg-green-400/15 text-green-300" : today ? "border-yellow-400/50 text-yellow-300" : future ? "border-white/[0.05] text-slate-800" : "border-white/10 text-slate-600"}`}>{done ? "✓" : today ? "🔥" : "·"}</div></div>;
+                  return <div key={day?.date ?? index} className="text-center"><p className={`text-[8px] font-black ${today ? "text-yellow-300" : "text-slate-600"}`}>{dayLabels[index]}</p><div className={`mx-auto mt-1 flex h-7 w-7 items-center justify-center rounded-full border text-[10px] ${done ? "border-green-400/50 bg-green-400/15 text-green-300" : today ? "border-yellow-400/50 text-yellow-300" : future ? "border-white/[0.05] text-slate-800" : "border-white/10 text-slate-600"}`}>{done ? "✓" : today ? "○" : "·"}</div></div>;
                 })}
               </div>
               <p className="mt-2 text-center text-[9px] text-slate-500">{data?.perfectCompleted ? (tr ? "Mükemmel 4/4 ✓" : "Perfect 4/4 ✓") : data?.challengeCompleted ? (tr ? "Bugünkü görev tamamlandı ✓" : "Today's challenge completed ✓") : `${required} ${tr ? "tamamlama gerekli" : "needed"}`}</p>
