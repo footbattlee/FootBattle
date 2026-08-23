@@ -19,6 +19,18 @@ type RankEntry = {
   gamesPlayed: number;
 };
 type RankData = { ok?: boolean; error?: string; season?: { title?: string } | null; leaderboard?: RankEntry[]; me?: RankEntry | null };
+type SoloEntry = {
+  position: number | null;
+  userId: string;
+  username?: string | null;
+  displayName?: string;
+  avatarUrl?: string | null;
+  rating: number;
+  gamesPlayed: number;
+  gamesCount: number;
+  wins: number;
+};
+type SoloData = { ok?: boolean; error?: string; leaderboard?: SoloEntry[]; me?: SoloEntry | null };
 type Friend = { user: { id: string; username: string | null; displayName: string; avatarUrl?: string | null } };
 type FriendsData = { ok?: boolean; friends?: Friend[] };
 type GameCode = "tic_tac_toe" | "club_clash";
@@ -39,8 +51,10 @@ const games: Array<{ code: GameCode; icon: string; tr: string; en: string; descT
 export default function MobileRankPage({ locale }: { locale: Locale }) {
   const tr = locale === "tr";
   const router = useRouter();
-  const [tab, setTab] = useState<"global" | "friends">("global");
+  const [scope, setScope] = useState<"global" | "friends">("global");
+  const [leaderboardMode, setLeaderboardMode] = useState<"ranked" | "solo">("ranked");
   const [rank, setRank] = useState<RankData | null>(null);
+  const [solo, setSolo] = useState<SoloData | null>(null);
   const [friends, setFriends] = useState<FriendsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedGame, setSelectedGame] = useState<GameCode>("tic_tac_toe");
@@ -53,8 +67,13 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
   useEffect(() => {
     void Promise.all([
       fetch("/api/rank/leaderboard", { cache: "no-store" }).then((r) => r.json() as Promise<RankData>),
+      fetch("/api/solo/leaderboard", { cache: "no-store" }).then((r) => r.json() as Promise<SoloData>).catch(() => ({ ok: false, leaderboard: [] })),
       fetch("/api/friends", { cache: "no-store" }).then(async (r) => r.ok ? (r.json() as Promise<FriendsData>) : ({ ok: false } as FriendsData)),
-    ]).then(([rankData, friendData]) => { setRank(rankData); setFriends(friendData); }).finally(() => setLoading(false));
+    ]).then(([rankData, soloData, friendData]) => {
+      setRank(rankData);
+      setSolo(soloData);
+      setFriends(friendData);
+    }).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -80,7 +99,7 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
 
     if (result.state === "matched" && result.match) {
       setMatchMessage(result.match.opponent_kind === "bot"
-        ? (tr ? `Rakip bulundu: ${result.match.bot_name ?? "Mehmet"} • Bot` : `Opponent found: ${result.match.bot_name ?? "Mehmet"} • Bot`)
+        ? (tr ? `Rakip bulundu: ${result.match.bot_name ?? "Bot Mehmet"} • Bot` : `Opponent found: ${result.match.bot_name ?? "Bot Mehmet"} • Bot`)
         : (tr ? "Gerçek oyuncu bulundu!" : "Real player found!"));
       setBotCountdown(null);
       pollRef.current = window.setTimeout(() => {
@@ -116,13 +135,22 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
     setMatchMessage("");
   }
 
-  const globalEntries = rank?.leaderboard ?? [];
   const friendIds = new Set((friends?.friends ?? []).map((item) => item.user.id));
   if (rank?.me?.userId) friendIds.add(rank.me.userId);
-  const friendEntries = globalEntries.filter((entry) => friendIds.has(entry.userId));
-  if (rank?.me && !friendEntries.some((entry) => entry.userId === rank.me?.userId)) friendEntries.push(rank.me);
-  friendEntries.sort((a, b) => Number(b.lp ?? 0) - Number(a.lp ?? 0));
-  const entries = tab === "global" ? globalEntries : friendEntries;
+  if (solo?.me?.userId) friendIds.add(solo.me.userId);
+
+  const rankedGlobal = rank?.leaderboard ?? [];
+  const rankedFriends = rankedGlobal.filter((entry) => friendIds.has(entry.userId));
+  if (rank?.me && !rankedFriends.some((entry) => entry.userId === rank.me?.userId)) rankedFriends.push(rank.me);
+  rankedFriends.sort((a, b) => Number(b.lp ?? 0) - Number(a.lp ?? 0));
+
+  const soloGlobal = solo?.leaderboard ?? [];
+  const soloFriends = soloGlobal.filter((entry) => friendIds.has(entry.userId));
+  if (solo?.me && !soloFriends.some((entry) => entry.userId === solo.me?.userId)) soloFriends.push(solo.me);
+  soloFriends.sort((a, b) => Number(b.rating ?? 1000) - Number(a.rating ?? 1000));
+
+  const rankedEntries = scope === "global" ? rankedGlobal : rankedFriends;
+  const soloEntries = scope === "global" ? soloGlobal : soloFriends;
 
   return (
     <main className="min-h-screen bg-[#07111f] px-4 pb-24 pt-5 text-white">
@@ -173,26 +201,55 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
           {!searching && matchMessage && <p className="mt-3 text-center text-xs font-bold text-red-300">{matchMessage}</p>}
         </section>
 
-        <div id="leaderboard" className="scroll-mt-6 mt-7 flex items-end justify-between gap-3">
-          <div><p className="text-[10px] font-black uppercase tracking-[0.18em] text-yellow-300">{tr ? "Sıralama" : "Leaderboard"}</p><h2 className="mt-1 text-xl font-black">{rank?.season?.title ?? (tr ? "Sezon sıralaması" : "Season leaderboard")}</h2></div>
-          <p className="max-w-[180px] text-right text-[10px] leading-4 text-slate-600">{tr ? "ELO yalnızca gerçek oyuncular arasındaki Ranked maçlarda değişir." : "ELO changes only in Ranked matches between real players."}</p>
+        <div id="leaderboard" className="scroll-mt-6 mt-7">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-yellow-300">{tr ? "Sıralama" : "Leaderboard"}</p>
+          <h2 className="mt-1 text-2xl font-black">{tr ? "FootBattle Sıralaması" : "FootBattle Leaderboard"}</h2>
         </div>
 
         <div className="mt-4 grid grid-cols-2 rounded-2xl border border-white/10 bg-white/[0.025] p-1">
-          <button onClick={() => setTab("global")} className={`rounded-xl px-3 py-2.5 text-xs font-black ${tab === "global" ? "bg-green-500 text-[#07111f]" : "text-slate-500"}`}>{tr ? "🌍 Genel" : "🌍 Global"}</button>
-          <button onClick={() => setTab("friends")} className={`rounded-xl px-3 py-2.5 text-xs font-black ${tab === "friends" ? "bg-green-500 text-[#07111f]" : "text-slate-500"}`}>{tr ? "👥 Arkadaşlar" : "👥 Friends"}</button>
+          <button type="button" onClick={() => setLeaderboardMode("ranked")} className={`rounded-xl px-3 py-3 text-xs font-black ${leaderboardMode === "ranked" ? "bg-green-500 text-[#07111f]" : "text-slate-500"}`}>🏆 Ranked</button>
+          <button type="button" onClick={() => setLeaderboardMode("solo")} className={`rounded-xl px-3 py-3 text-xs font-black ${leaderboardMode === "solo" ? "bg-yellow-400 text-[#07111f]" : "text-slate-500"}`}>🎮 Solo</button>
+        </div>
+
+        <div className="mt-3 flex items-end justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-black">{leaderboardMode === "ranked" ? (rank?.season?.title ?? (tr ? "Ranked ELO" : "Ranked ELO")) : (tr ? "Solo Rating" : "Solo Rating")}</h3>
+            <p className="mt-1 text-[10px] text-slate-500">{leaderboardMode === "ranked"
+              ? (tr ? "Yalnızca gerçek oyuncular arasındaki Ranked maçlar." : "Ranked matches between real players only.")
+              : (tr ? "Solo oyunlarda performans + oyun çeşitliliği. Oynama sayısı tek başına avantaj sağlamaz." : "Solo performance + game variety. Grinding alone does not give an advantage.")}</p>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 rounded-2xl border border-white/10 bg-white/[0.025] p-1">
+          <button onClick={() => setScope("global")} className={`rounded-xl px-3 py-2.5 text-xs font-black ${scope === "global" ? "bg-white/10 text-white" : "text-slate-500"}`}>{tr ? "🌍 Genel" : "🌍 Global"}</button>
+          <button onClick={() => setScope("friends")} className={`rounded-xl px-3 py-2.5 text-xs font-black ${scope === "friends" ? "bg-white/10 text-white" : "text-slate-500"}`}>{tr ? "👥 Arkadaşlar" : "👥 Friends"}</button>
         </div>
 
         <section className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
-          {loading ? <p className="p-8 text-center text-sm text-slate-500">{tr ? "Yükleniyor..." : "Loading..."}</p> : entries.length === 0 ? <p className="p-8 text-center text-sm text-slate-500">{tab === "friends" ? (tr ? "Sıralamada görünen arkadaşın yok." : "No ranked friends yet.") : (tr ? "Sıralama boş." : "Leaderboard is empty.")}</p> : (
+          {loading ? <p className="p-8 text-center text-sm text-slate-500">{tr ? "Yükleniyor..." : "Loading..."}</p> : leaderboardMode === "ranked" ? (
+            rankedEntries.length === 0 ? <p className="p-8 text-center text-sm text-slate-500">{scope === "friends" ? (tr ? "Ranked sıralamasında görünen arkadaşın yok." : "No ranked friends yet.") : (tr ? "Ranked sıralaması boş." : "Ranked leaderboard is empty.")}</p> :
             <div className="divide-y divide-white/[0.06]">
-              {entries.map((entry, index) => {
-                const position = tab === "global" ? entry.position : index + 1;
+              {rankedEntries.map((entry, index) => {
+                const position = scope === "global" ? entry.position : index + 1;
                 const content = <>
                   <span className="w-7 shrink-0 text-center text-xs font-black">#{position ?? "-"}</span>
                   <img src={entry.rankIcon} alt={entry.rankName} className="h-10 w-10 shrink-0 object-contain" />
-                  <div className="min-w-0 flex-1"><p className="truncate text-sm font-black">{entry.displayName ?? entry.username ?? "FootBattle"}</p><p className="mt-0.5 truncate text-[9px] text-slate-600">{entry.rankName} · {entry.gamesPlayed} {tr ? "oyun" : "games"} · {entry.wins}G/{entry.losses}M</p></div>
-                  <div className="shrink-0 text-right"><p className="text-sm font-black text-yellow-300">{nf.format(entry.lp)}</p><p className="text-[8px] font-black text-slate-600">ELO</p></div>
+                  <div className="min-w-0 flex-1"><p className="truncate text-sm font-black">{entry.displayName ?? entry.username ?? "FootBattle"}</p><p className="mt-0.5 truncate text-[9px] text-slate-600">{entry.rankName} · {entry.gamesPlayed} {tr ? "maç" : "matches"} · {entry.wins}G/{entry.losses}M</p></div>
+                  <div className="shrink-0 text-right"><p className="text-sm font-black text-green-300">{nf.format(entry.lp)}</p><p className="text-[8px] font-black text-slate-600">ELO</p></div>
+                </>;
+                return entry.username ? <Link key={entry.userId} href={`/u/${encodeURIComponent(entry.username)}`} className="flex items-center gap-2.5 px-3 py-3 active:bg-white/[0.04]">{content}</Link> : <div key={entry.userId} className="flex items-center gap-2.5 px-3 py-3">{content}</div>;
+              })}
+            </div>
+          ) : (
+            soloEntries.length === 0 ? <p className="p-8 text-center text-sm text-slate-500">{scope === "friends" ? (tr ? "Solo sıralamasında görünen arkadaşın yok." : "No solo-ranked friends yet.") : (tr ? "Solo sıralaması henüz boş." : "Solo leaderboard is empty.")}</p> :
+            <div className="divide-y divide-white/[0.06]">
+              {soloEntries.map((entry, index) => {
+                const position = scope === "global" ? entry.position : index + 1;
+                const content = <>
+                  <span className="w-7 shrink-0 text-center text-xs font-black">#{position ?? "-"}</span>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 text-xl">🎮</span>
+                  <div className="min-w-0 flex-1"><p className="truncate text-sm font-black">{entry.displayName ?? entry.username ?? "FootBattle"}</p><p className="mt-0.5 truncate text-[9px] text-slate-600">{entry.gamesCount} {tr ? "oyun türü" : "game types"} · {entry.gamesPlayed} {tr ? "oyun" : "games"} · {entry.wins} {tr ? "başarı" : "wins"}</p></div>
+                  <div className="shrink-0 text-right"><p className="text-sm font-black text-yellow-300">{nf.format(entry.rating)}</p><p className="text-[8px] font-black text-slate-600">RATING</p></div>
                 </>;
                 return entry.username ? <Link key={entry.userId} href={`/u/${encodeURIComponent(entry.username)}`} className="flex items-center gap-2.5 px-3 py-3 active:bg-white/[0.04]">{content}</Link> : <div key={entry.userId} className="flex items-center gap-2.5 px-3 py-3">{content}</div>;
               })}
