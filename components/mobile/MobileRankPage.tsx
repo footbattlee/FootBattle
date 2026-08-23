@@ -57,6 +57,14 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
     ]).then(([rankData, friendData]) => { setRank(rankData); setFriends(friendData); }).finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (window.location.hash !== "#leaderboard") return;
+    const timer = window.setTimeout(() => {
+      document.getElementById("leaderboard")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   useEffect(() => () => {
     if (pollRef.current) window.clearTimeout(pollRef.current);
   }, []);
@@ -158,14 +166,14 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
             <div className="mt-4 rounded-2xl border border-purple-400/20 bg-purple-500/[0.08] p-4 text-center">
               <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-white/10 border-t-purple-400" />
               <p className="mt-3 font-black">{matchMessage}</p>
-              {botCountdown !== null && botCountdown > 0 && <p className="mt-1 text-xs text-slate-500">{tr ? `${botCountdown} sn içinde oyuncu bulunmazsa Mehmet devreye girer.` : `Mehmet joins in ${botCountdown}s if no player is found.`}</p>}
+              {botCountdown !== null && botCountdown > 0 && <p className="mt-1 text-xs text-slate-500">{tr ? `${botCountdown} sn içinde oyuncu bulunmazsa Bot Mehmet devreye girer.` : `Bot Mehmet joins in ${botCountdown}s if no player is found.`}</p>}
               <button type="button" onClick={() => void cancelSearch()} className="mt-3 rounded-xl border border-white/10 px-4 py-2 text-xs font-black text-slate-400">{tr ? "Aramayı İptal Et" : "Cancel"}</button>
             </div>
           )}
           {!searching && matchMessage && <p className="mt-3 text-center text-xs font-bold text-red-300">{matchMessage}</p>}
         </section>
 
-        <div className="mt-7 flex items-end justify-between gap-3">
+        <div id="leaderboard" className="scroll-mt-6 mt-7 flex items-end justify-between gap-3">
           <div><p className="text-[10px] font-black uppercase tracking-[0.18em] text-yellow-300">{tr ? "Sıralama" : "Leaderboard"}</p><h2 className="mt-1 text-xl font-black">{rank?.season?.title ?? (tr ? "Sezon sıralaması" : "Season leaderboard")}</h2></div>
           <p className="max-w-[180px] text-right text-[10px] leading-4 text-slate-600">{tr ? "ELO yalnızca gerçek oyuncular arasındaki Ranked maçlarda değişir." : "ELO changes only in Ranked matches between real players."}</p>
         </div>
