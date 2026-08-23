@@ -148,6 +148,43 @@
     line-height: 1.1 !important;
   }
 
+  /* Tic Tac Toe search sheet: some Android WebViews shrink the first result span
+     down to a few pixels. Force every result into a real two-column horizontal row. */
+  body[data-mobile-route="tic-tac-toe-duel"] section:has(input[placeholder="Futbolcu ara..."]) .mt-2 > button,
+  body[data-mobile-route="tic-tac-toe-solo"] section:has(input[placeholder="Futbolcu ara..."]) .mt-2 > button {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) max-content !important;
+    align-items: center !important;
+    gap: 12px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    writing-mode: horizontal-tb !important;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] section:has(input[placeholder="Futbolcu ara..."]) .mt-2 > button > span:first-child,
+  body[data-mobile-route="tic-tac-toe-solo"] section:has(input[placeholder="Futbolcu ara..."]) .mt-2 > button > span:first-child {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+    overflow-wrap: normal !important;
+    writing-mode: horizontal-tb !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 1.25 !important;
+  }
+
+  body[data-mobile-route="tic-tac-toe-duel"] section:has(input[placeholder="Futbolcu ara..."]) .mt-2 > button > span:last-child,
+  body[data-mobile-route="tic-tac-toe-solo"] section:has(input[placeholder="Futbolcu ara..."]) .mt-2 > button > span:last-child {
+    width: auto !important;
+    min-width: max-content !important;
+    white-space: nowrap !important;
+    writing-mode: horizontal-tb !important;
+  }
+
   @media (max-width: 380px) {
     input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
     select,
