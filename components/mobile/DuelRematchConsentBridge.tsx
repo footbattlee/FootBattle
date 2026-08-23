@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Side = "challenger" | "opponent";
 type RematchState = {
@@ -54,6 +54,7 @@ function forceHorizontalPlayerResults() {
     const el = button as HTMLButtonElement;
     el.style.display = "flex";
     el.style.width = "100%";
+    el.style.minWidth = "0";
     el.style.flexDirection = "row";
     el.style.alignItems = "center";
     el.style.justifyContent = "space-between";
@@ -62,6 +63,7 @@ function forceHorizontalPlayerResults() {
     el.style.wordBreak = "normal";
     el.style.writingMode = "horizontal-tb";
     const first = el.querySelector("span:first-child") as HTMLElement | null;
+    const last = el.querySelector("span:last-child") as HTMLElement | null;
     if (first) {
       first.style.display = "block";
       first.style.flex = "1 1 auto";
@@ -74,6 +76,15 @@ function forceHorizontalPlayerResults() {
       first.style.overflow = "hidden";
       first.style.textOverflow = "ellipsis";
     }
+    if (last) {
+      last.style.display = "block";
+      last.style.flex = "0 0 auto";
+      last.style.width = "auto";
+      last.style.whiteSpace = "nowrap";
+      last.style.wordBreak = "normal";
+      last.style.overflowWrap = "normal";
+      last.style.writingMode = "horizontal-tb";
+    }
   }
 }
 
@@ -82,6 +93,8 @@ export default function DuelRematchConsentBridge() {
   const [rematch, setRematch] = useState<RematchState | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [startCountdown, setStartCountdown] = useState<number | null>(null);
+  const navigationScheduled = useRef<string | null>(null);
 
   useEffect(() => {
     const sync = () => setContext(readContext());
@@ -100,10 +113,27 @@ export default function DuelRematchConsentBridge() {
     };
   }, []);
 
+  function scheduleAcceptedStart(result: RematchState, ctx: Context) {
+    if (!result.token) return;
+    const key = `${result.token}:${result.startsAt ?? "now"}`;
+    if (navigationScheduled.current === key) return;
+    navigationScheduled.current = key;
+
+    const target = result.startsAt ? new Date(result.startsAt).getTime() : Date.now();
+    const tick = () => setStartCountdown(Math.max(0, Math.ceil((target - Date.now()) / 1000)));
+    tick();
+    const countdownId = window.setInterval(tick, 100);
+    const wait = Math.max(0, target - Date.now());
+    window.setTimeout(() => {
+      window.clearInterval(countdownId);
+      setStartCountdown(0);
+      window.location.replace(ctx.targetPath(result.token!));
+    }, wait);
+  }
+
   useEffect(() => {
     if (!context) { setRematch(null); return; }
     let cancelled = false;
-    let redirectTimer: number | null = null;
 
     const load = async () => {
       try {
@@ -111,21 +141,15 @@ export default function DuelRematchConsentBridge() {
         const result = await response.json() as RematchState;
         if (cancelled || !response.ok || !result.ok) return;
         setRematch(result);
-        if (result.state === "accepted" && result.token) {
-          const wait = result.startsAt ? Math.max(0, new Date(result.startsAt).getTime() - Date.now()) : 0;
-          redirectTimer = window.setTimeout(() => {
-            window.location.href = context.targetPath(result.token!);
-          }, wait);
-        }
+        if (result.state === "accepted" && result.token) scheduleAcceptedStart(result, context);
       } catch { /* page stays usable */ }
     };
 
     void load();
-    const id = window.setInterval(load, 1100);
+    const id = window.setInterval(load, 700);
     return () => {
       cancelled = true;
       window.clearInterval(id);
-      if (redirectTimer) window.clearTimeout(redirectTimer);
     };
   }, [context]);
 
@@ -173,9 +197,8 @@ export default function DuelRematchConsentBridge() {
       setRematch(result);
       if (action === "decline") setMessage("Rövanş isteği reddedildi.");
       if (action === "accept" && result.token) {
-        setMessage("Rövanş kabul edildi. Maç başlıyor…");
-        const wait = result.startsAt ? Math.max(0, new Date(result.startsAt).getTime() - Date.now()) : 0;
-        window.setTimeout(() => { window.location.href = context.targetPath(result.token!); }, wait);
+        setMessage("Rövanş kabul edildi. İki oyuncu birlikte başlıyor…");
+        scheduleAcceptedStart(result, context);
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Rövanş yanıtlanamadı.");
@@ -187,6 +210,18 @@ export default function DuelRematchConsentBridge() {
     [rematch],
   );
   const outgoing = rematch?.state === "pending" && rematch.role && rematch.requestedBy === rematch.role;
+
+  if (startCountdown !== null && rematch?.state === "accepted") {
+    return (
+      <div className="fixed inset-0 z-[360] flex items-center justify-center bg-[#07111f]/95 px-5 text-center text-white backdrop-blur-sm">
+        <section className="w-full max-w-sm rounded-3xl border border-green-400/30 bg-[#101c2c] p-6 shadow-2xl">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-green-300">🔁 Rövanş kabul edildi</p>
+          <h2 className="mt-2 text-2xl font-black">Maç birlikte başlıyor</h2>
+          <div className="mt-5 text-6xl font-black tabular-nums text-green-300">{startCountdown}</div>
+        </section>
+      </div>
+    );
+  }
 
   if (!context || (!incoming && !outgoing && !message)) return null;
 
