@@ -65,8 +65,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         {children}
         <MobileHomeDashboard />
         <MobileAppShell />
-        <RankedMatchChromeFix />
         <Suspense fallback={null}>
+          <RankedMatchChromeFix />
           <RankedReconnectBanner />
         </Suspense>
         <MobileKeyboardGuard />
