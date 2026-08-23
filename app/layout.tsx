@@ -34,6 +34,7 @@ import AndroidNetworkGuard from "@/components/mobile/AndroidNetworkGuard";
 import RankedMatchChromeFix from "@/components/mobile/RankedMatchChromeFix";
 import RankedReconnectBanner from "@/components/mobile/RankedReconnectBanner";
 import DuelRematchConsentBridge from "@/components/mobile/DuelRematchConsentBridge";
+import RankedStartSyncGate from "@/components/mobile/RankedStartSyncGate";
 import { SITE_URL, SiteJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -74,6 +75,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <DirectDuelLinkInvite />
         <ClubClashChallengeUX />
         <DuelRematchConsentBridge />
+        <RankedStartSyncGate />
         <AndroidNetworkGuard />
         <GuessThePlayerMobileAutoScroll />
         <HomeSuperLigAndMobileOrder />
