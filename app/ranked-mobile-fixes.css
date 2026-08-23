@@ -29,19 +29,28 @@
   body.ranked-club-clash-active main [class*="min-h-"] { min-height: 0 !important; }
   body.ranked-club-clash-active main [class*="space-y-"] > div { padding-top: 8px !important; padding-bottom: 8px !important; }
 
-  /* Solo Tic Tac Toe answer sheet: compact bottom sheet, normal action buttons, full-width results. */
+  /* iOS Solo Tic Tac Toe: use one stable scrollable sheet; no overlapping layers. */
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 {
+    display: flex !important;
     align-items: flex-end !important;
     justify-content: center !important;
     padding: 8px !important;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom)) !important;
+    overflow: hidden !important;
     pointer-events: auto !important;
   }
 
+  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 > form,
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 > div {
+    position: relative !important;
+    inset: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
     width: calc(100vw - 16px) !important;
     max-width: 520px !important;
-    max-height: min(62vh, 500px) !important;
+    min-width: 0 !important;
+    max-height: calc(100dvh - 24px - env(safe-area-inset-bottom)) !important;
+    height: auto !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
@@ -50,35 +59,56 @@
   }
 
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
-    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    gap: 0 !important;
   }
 
-  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 input {
-    position: relative !important;
-    z-index: 60 !important;
+  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > input {
+    display: block !important;
+    position: static !important;
+    order: 2 !important;
+    z-index: auto !important;
     width: 100% !important;
     min-width: 0 !important;
-    min-height: 50px !important;
-    font-size: 16px !important;
+    min-height: 52px !important;
+    margin-top: 14px !important;
+    flex: 0 0 auto !important;
+    opacity: 1 !important;
+    visibility: visible !important;
     pointer-events: auto !important;
     touch-action: manipulation !important;
+    font-size: 16px !important;
   }
 
-  /* Search dropdown only: keep suggestions horizontal and readable. */
-  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form .absolute {
-    left: 0 !important;
-    right: 0 !important;
+  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > p {
+    order: 3 !important;
+    flex: 0 0 auto !important;
+  }
+
+  /* Suggestion list is part of document flow on iOS, never absolute. */
+  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > div:nth-of-type(2) {
+    position: static !important;
+    inset: auto !important;
+    order: 4 !important;
     width: 100% !important;
     max-width: 100% !important;
-    z-index: 70 !important;
-    pointer-events: auto !important;
+    min-width: 0 !important;
+    max-height: 32dvh !important;
+    overflow-y: auto !important;
     overflow-x: hidden !important;
+    margin-top: 8px !important;
+    flex: 0 1 auto !important;
   }
 
-  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form .absolute button {
+  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > div:nth-of-type(2) button {
     width: 100% !important;
     min-width: 0 !important;
     display: flex !important;
@@ -86,34 +116,49 @@
     align-items: center !important;
     justify-content: space-between !important;
     gap: 10px !important;
-    text-align: left !important;
     white-space: normal !important;
     word-break: normal !important;
     overflow-wrap: normal !important;
+    text-align: left !important;
     line-height: 1.25 !important;
-    pointer-events: auto !important;
-    touch-action: manipulation !important;
   }
 
-  /* Keep close/submit controls as normal controls; do not stretch them like suggestion rows. */
+  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > div:first-child {
+    order: 1 !important;
+    flex: 0 0 auto !important;
+  }
+
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > div:last-child {
+    position: static !important;
+    inset: auto !important;
+    order: 6 !important;
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr) !important;
     gap: 10px !important;
     width: 100% !important;
+    margin-top: 14px !important;
+    padding: 0 !important;
+    flex: 0 0 auto !important;
   }
 
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > div:last-child > button {
+    position: static !important;
     width: 100% !important;
     min-width: 0 !important;
-    min-height: 50px !important;
+    min-height: 52px !important;
+    margin: 0 !important;
+    padding: 0 12px !important;
     justify-content: center !important;
     text-align: center !important;
+  }
+
+  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > p[class*="green"] {
+    order: 5 !important;
   }
 
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 h2,
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 h3 {
     line-height: 1.15 !important;
-    margin-bottom: 8px !important;
+    margin-bottom: 0 !important;
   }
 }
