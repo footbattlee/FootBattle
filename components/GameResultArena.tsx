@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
-import type { GameCompletedDetail } from "@/lib/analytics/game-analytics";
+import {
+  trackPlayAgain,
+  trackShared,
+  type GameCompletedDetail,
+} from "@/lib/analytics/game-analytics";
 
 const GAME_META: Record<string, { label: string; icon: string; playHref: string; challenge: boolean }> = {
   wordle: { label: "Wordle", icon: "🟩", playHref: "/wordle", challenge: false },
@@ -147,6 +151,11 @@ export default function GameResultArena() {
   const score = summary?.result?.score ?? fallbackScore;
   const won = summary?.result?.won ?? Boolean(detail?.metadata?.won);
 
+  async function recordShared() {
+    if (!detail) return;
+    await trackShared(detail.gameName, detail.sessionId);
+  }
+
   async function shareText(url?: string) {
     if (!game || score === null) return;
     const targetUrl = url ?? `${window.location.origin}${game.playHref}?utm_source=share&utm_medium=result&utm_campaign=arena_result`;
@@ -155,20 +164,29 @@ export default function GameResultArena() {
     try {
       if (navigator.share) {
         await navigator.share({ title: "FootBattle Meydan Okuma", text, url: targetUrl });
+        await recordShared();
         setMessage("Paylaşım açıldı ✓");
         return;
       }
       await navigator.clipboard.writeText(`${text}\n${targetUrl}`);
+      await recordShared();
       setMessage("Mesaj ve link kopyalandı ✓");
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       try {
         await navigator.clipboard.writeText(`${text}\n${targetUrl}`);
+        await recordShared();
         setMessage("Mesaj ve link kopyalandı ✓");
       } catch {
         setMessage("Paylaşım açılamadı.");
       }
     }
+  }
+
+  async function replay() {
+    if (!detail) return;
+    await trackPlayAgain(detail.gameName, detail.sessionId);
+    window.location.reload();
   }
 
   async function createChallengeAndShare() {
@@ -266,7 +284,7 @@ export default function GameResultArena() {
             </button>
           )}
           <button type="button" onClick={() => void shareText()} className="min-h-12 rounded-xl border border-cyan-400/25 bg-cyan-400/10 px-4 text-sm font-black text-cyan-200 transition hover:bg-cyan-400/15">📱 Sonucumu Paylaş</button>
-          <button type="button" onClick={() => window.location.reload()} className="min-h-12 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-black text-slate-200 transition hover:bg-white/[0.08]">🔄 Tekrar Oyna</button>
+          <button type="button" onClick={() => void replay()} className="min-h-12 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-black text-slate-200 transition hover:bg-white/[0.08]">🔄 Tekrar Oyna</button>
           <button type="button" onClick={() => { window.location.href = NEXT_GAME[detail.gameName] ?? "/"; }} className="min-h-12 rounded-xl bg-green-500 px-4 text-sm font-black text-[#07111f] transition hover:bg-green-400">🎮 Sonraki Oyuna Geç</button>
           <button type="button" onClick={() => { window.location.href = "/"; }} className="min-h-12 rounded-xl border border-purple-400/30 bg-purple-400/[0.08] px-4 text-sm font-black text-purple-200 transition hover:bg-purple-400/[0.14] sm:col-span-2">⌂ Ana Sayfa</button>
         </div>
