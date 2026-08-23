@@ -8,6 +8,7 @@ import "./mobile-game-fixes.css";
 import "./mobile-home-dashboard.css";
 import "./mobile-input-fixes.css";
 import "./must-mobile-fixes.css";
+import "./ranked-mobile-fixes.css";
 
 import PresenceHeartbeat from "@/components/PresenceHeartbeat";
 import HomeProgressionSpotlight from "@/components/HomeProgressionSpotlight";
@@ -24,12 +25,13 @@ import GlobalLegalFooter from "@/components/GlobalLegalFooter";
 import AdminBackButton from "@/components/AdminBackButton";
 import MobileAppShell from "@/components/mobile/MobileAppShell";
 import MobileHomeDashboard from "@/components/mobile/MobileHomeDashboard";
-import RankedReconnectBanner from "@/components/mobile/RankedReconnectBanner";
 import GuessThePlayerMobileAutoScroll from "@/components/mobile/GuessThePlayerMobileAutoScroll";
 import MobileKeyboardGuard from "@/components/mobile/MobileKeyboardGuard";
 import DirectDuelLinkInvite from "@/components/mobile/DirectDuelLinkInvite";
 import ClubClashChallengeUX from "@/components/mobile/ClubClashChallengeUX";
 import AndroidNetworkGuard from "@/components/mobile/AndroidNetworkGuard";
+import RankedMatchChromeFix from "@/components/mobile/RankedMatchChromeFix";
+import RankedReconnectBanner from "@/components/mobile/RankedReconnectBanner";
 import { SITE_URL, SiteJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -62,6 +64,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         {children}
         <MobileHomeDashboard />
         <MobileAppShell />
+        <RankedMatchChromeFix />
         <RankedReconnectBanner />
         <MobileKeyboardGuard />
         <DirectDuelLinkInvite />
