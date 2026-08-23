@@ -84,6 +84,56 @@ jobs:
           npx cap update android
           npx cap sync android
 
+      - name: Apply controlled Android release version
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          version_file = Path('android-ci/release-version.env')
+          if not version_file.exists():
+              raise SystemExit('android-ci/release-version.env is missing')
+
+          values = {}
+          for raw in version_file.read_text().splitlines():
+              line = raw.strip()
+              if not line or line.startswith('#'):
+                  continue
+              if '=' not in line:
+                  raise SystemExit(f'Invalid release version line: {line}')
+              key, value = line.split('=', 1)
+              values[key.strip()] = value.strip()
+
+          version_code_raw = values.get('VERSION_CODE', '')
+          version_name = values.get('VERSION_NAME', '')
+          if not version_code_raw.isdigit() or int(version_code_raw) < 1:
+              raise SystemExit('VERSION_CODE must be a positive integer')
+          if not re.fullmatch(r'[0-9]+(?:\.[0-9]+){1,3}(?:[-+][0-9A-Za-z.-]+)?', version_name):
+              raise SystemExit('VERSION_NAME must look like 1.0.0')
+
+          version_code = int(version_code_raw)
+          gradle = Path('android/app/build.gradle')
+          text = gradle.read_text()
+
+          text, code_count = re.subn(
+              r'(?m)^(\s*)versionCode\s+\d+\s*$',
+              rf'\1versionCode {version_code}',
+              text,
+              count=1,
+          )
+          text, name_count = re.subn(
+              r'(?m)^(\s*)versionName\s+["\'][^"\']+["\']\s*$',
+              rf'\1versionName "{version_name}"',
+              text,
+              count=1,
+          )
+          if code_count != 1 or name_count != 1:
+              raise SystemExit('Could not patch versionCode/versionName in android/app/build.gradle')
+
+          gradle.write_text(text)
+          print(f'Android release version: versionCode={version_code}, versionName={version_name}')
+          PY
+
       - name: Apply Firebase Crashlytics and Messaging
         run: |
           python - <<'PY'
@@ -181,7 +231,7 @@ jobs:
         run: |
           if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "Release signing secrets are not configured; unsigned AAB audit will be built."
+            echo "::warning::Release signing secrets are not configured; generated release AAB is audit-only and must not be uploaded to Google Play."
             exit 0
           fi
           echo "$KEYSTORE_B64" | base64 --decode > android/app/footbattle-release.jks
@@ -211,6 +261,8 @@ jobs:
           grep -q "targetSdkVersion = 36" android/variables.gradle
           grep -q "windowSoftInputMode=\"adjustResize\"" android/app/src/main/AndroidManifest.xml
           grep -q "playfootbattle.com" android/app/src/main/AndroidManifest.xml
+          grep -Eq '^[[:space:]]*versionCode[[:space:]]+[1-9][0-9]*[[:space:]]*$' android/app/build.gradle
+          grep -Eq '^[[:space:]]*versionName[[:space:]]+"[0-9]+(\.[0-9]+){1,3}([-+][0-9A-Za-z.-]+)?"[[:space:]]*$' android/app/build.gradle
           ! grep -R "FootBattle Push Test\|integration test: non-fatal probe" -n android/app/src/main/java
 
       - name: Make Gradle wrapper executable
@@ -268,6 +320,14 @@ jobs:
       - name: Print signing fingerprints
         working-directory: android
         run: ./gradlew signingReport
+
+      - name: Print release readiness summary
+        run: |
+          echo "Release signing configured: ${{ steps.signing.outputs.configured }}"
+          cat android-ci/release-version.env
+          if [ "${{ steps.signing.outputs.configured }}" != "true" ]; then
+            echo "::warning::AAB passed build audit but is not Play-upload-ready until release signing secrets are configured."
+          fi
 
       - name: Upload Android audit artifacts
         uses: actions/upload-artifact@v4
