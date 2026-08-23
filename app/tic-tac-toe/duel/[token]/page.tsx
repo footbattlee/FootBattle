@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import MobilePlayerSearchSheet from "@/components/tic-tac-toe/MobilePlayerSearchSheet";
 
 type Side = "challenger" | "opponent";
 type Role = Side | "visitor";
@@ -366,23 +367,17 @@ export default function TicTacToeDuelPage({ params }: { params: Promise<{ token:
         </> : null}
       </div>
 
-      {showPlayerSheet && <div className="fixed inset-0 z-[100] flex items-end bg-black/45" onClick={() => { setSelectedCell(null); setQuery(""); setPlayers([]); }}>
-        <section className="w-full rounded-t-3xl border border-white/10 bg-[#0d1828] px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-4 shadow-2xl" style={{ maxHeight: "min(62dvh, 520px)" }} onClick={(e) => e.stopPropagation()}>
-          <div className="mx-auto max-w-3xl">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div><p className="text-[11px] font-black uppercase tracking-[0.18em] text-yellow-300">Oyuncuyu seç</p><p className="mt-1 text-sm text-slate-400">Seçtiğin hücre için futbolcu ara.</p></div>
-              <button type="button" onClick={() => { setSelectedCell(null); setQuery(""); setPlayers([]); }} className="rounded-full border border-white/10 px-3 py-2 text-sm font-black text-slate-300">✕</button>
-            </div>
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Futbolcu ara..." inputMode="search" enterKeyHint="search" className="w-full rounded-2xl border border-white/10 bg-[#07111f] px-4 py-3 text-base outline-none focus:border-yellow-300/50" />
-            <div className="mt-2 min-h-[56px] max-h-[220px] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 bg-[#07111f] p-1">
-              {query.trim().length < 2 && <p className="px-3 py-4 text-sm text-slate-500">En az 2 harf yaz.</p>}
-              {searching && <p className="px-3 py-4 text-sm text-slate-500">Aranıyor...</p>}
-              {!searching && query.trim().length >= 2 && players.length === 0 && <p className="px-3 py-4 text-sm text-slate-500">Oyuncu bulunamadı.</p>}
-              {players.map((player) => <button key={player.id} disabled={busy} onClick={() => answer(player)} className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left active:bg-white/[0.06]"><span className="truncate font-bold">{player.name}</span><span className="ml-3 shrink-0 text-xs text-slate-500">Seç →</span></button>)}
-            </div>
-          </div>
-        </section>
-      </div>}
+      {showPlayerSheet && (
+        <MobilePlayerSearchSheet
+          query={query}
+          players={players}
+          searching={searching}
+          busy={busy}
+          onQueryChange={setQuery}
+          onSelect={(player) => void answer(player)}
+          onClose={() => { setSelectedCell(null); setQuery(""); setPlayers([]); }}
+        />
+      )}
     </main>
   );
 }
