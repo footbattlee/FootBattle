@@ -19,6 +19,15 @@ type ResponseData = {
   attempted?: Progress;
   error?: string;
 };
+type StreakDay = { date: string; completed: boolean; today: boolean; future: boolean };
+type StreakData = {
+  ok?: boolean;
+  authenticated?: boolean;
+  currentStreak?: number;
+  bestStreak?: number;
+  totalCompletedDays?: number;
+  week?: StreakDay[];
+};
 
 const dailyGames = [
   { key: "guessThePlayer" as const, icon: "🕵️", titleTr: "Futbolcuyu Tahmin Et", titleEn: "Guess The Player", path: "/guess-the-player" },
@@ -26,16 +35,24 @@ const dailyGames = [
   { key: "ticTacToe" as const, icon: "⭕", titleTr: "Futbol Tic Tac Toe", titleEn: "Football Tic Tac Toe", path: "/tic-tac-toe" },
   { key: "wordle" as const, icon: "🟩", titleTr: "Futbol Wordle", titleEn: "Football Wordle", path: "/wordle" },
 ];
+const dayLabelsTr = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+const dayLabelsEn = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default function MobileDailyChallengePage({ locale }: { locale: Locale }) {
   const tr = locale === "tr";
   const [data, setData] = useState<ResponseData | null>(null);
+  const [streak, setStreak] = useState<StreakData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    void fetch("/api/daily-challenge", { cache: "no-store" })
-      .then(async (response) => ({ response, body: (await response.json()) as ResponseData }))
-      .then(({ body }) => setData(body))
+    void Promise.all([
+      fetch("/api/daily-challenge", { cache: "no-store" }).then((response) => response.json() as Promise<ResponseData>),
+      fetch("/api/daily-streak", { cache: "no-store" }).then((response) => response.json() as Promise<StreakData>).catch(() => ({ ok: false })),
+    ])
+      .then(([daily, streakData]) => {
+        setData(daily);
+        setStreak(streakData);
+      })
       .catch(() => setData({ ok: false, error: tr ? "Günlük görev yüklenemedi." : "Daily challenge could not be loaded." }))
       .finally(() => setLoading(false));
   }, [tr]);
@@ -44,6 +61,7 @@ export default function MobileDailyChallengePage({ locale }: { locale: Locale })
   const total = Number(data?.totalGames ?? 4);
   const required = Number(data?.required ?? 3);
   const pct = Math.min(100, Math.round((completed / Math.max(1, total)) * 100));
+  const dayLabels = tr ? dayLabelsTr : dayLabelsEn;
 
   return (
     <main className="min-h-screen bg-[#07111f] px-4 pb-24 pt-5 text-white">
@@ -67,7 +85,41 @@ export default function MobileDailyChallengePage({ locale }: { locale: Locale })
           </section>
         ) : (
           <>
-            <section className="mt-5 rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+            <section className="mt-5 rounded-2xl border border-orange-400/20 bg-gradient-to-br from-orange-400/[0.10] to-yellow-400/[0.03] p-4">
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-wider text-orange-300/70">{tr ? "Mevcut Seri" : "Current Streak"}</p>
+                  <p className="mt-1 text-2xl font-black text-orange-300">🔥 {loading ? "…" : Number(streak?.currentStreak ?? 0)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">{tr ? "En İyi" : "Best"}</p>
+                  <p className="mt-1 text-2xl font-black">🏅 {loading ? "…" : Number(streak?.bestStreak ?? 0)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">{tr ? "Toplam Gün" : "Total Days"}</p>
+                  <p className="mt-1 text-2xl font-black">{loading ? "…" : Number(streak?.totalCompletedDays ?? 0)}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-7 gap-1.5">
+                {(streak?.week ?? Array.from({ length: 7 }, () => null)).map((day, index) => {
+                  const completedDay = Boolean(day?.completed);
+                  const isToday = Boolean(day?.today);
+                  const future = Boolean(day?.future);
+                  return (
+                    <div key={day?.date ?? index} className="text-center">
+                      <p className={`text-[9px] font-black ${isToday ? "text-yellow-300" : "text-slate-500"}`}>{dayLabels[index]}</p>
+                      <div className={`mx-auto mt-1.5 flex h-8 w-8 items-center justify-center rounded-full border text-xs font-black ${completedDay ? "border-green-400/50 bg-green-400/15 text-green-300" : isToday ? "border-yellow-400/50 bg-yellow-400/10 text-yellow-300" : future ? "border-white/[0.06] bg-white/[0.02] text-slate-700" : "border-white/10 bg-white/[0.035] text-slate-600"}`}>
+                        {completedDay ? "✓" : isToday ? "🔥" : "·"}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-3 text-[10px] leading-4 text-slate-500">{tr ? "Seriyi korumak için her gün günlük görevi tamamla. Bugün gün bitene kadar serin korunur." : "Complete the daily challenge each day to keep your streak. Your streak stays safe until today ends."}</p>
+            </section>
+
+            <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.035] p-4">
               <div className="flex items-end justify-between"><div><p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{tr ? "İlerleme" : "Progress"}</p><p className="mt-1 text-2xl font-black">{loading ? "…" : `${completed}/${total}`}</p></div><p className="text-right text-xs font-bold text-yellow-300">{data?.perfectCompleted ? (tr ? "Mükemmel 4/4 ✓" : "Perfect 4/4 ✓") : data?.challengeCompleted ? (tr ? "Bonus kazanıldı ✓" : "Bonus earned ✓") : `${required} ${tr ? "tamamlama gerekli" : "needed"}`}</p></div>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-yellow-400 transition-all" style={{ width: `${pct}%` }} /></div>
             </section>
