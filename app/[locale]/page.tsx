@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import UnifiedHomePage from "@/components/UnifiedHomePage";
+import DesktopHomeOnly from "@/components/mobile/DesktopHomeOnly";
 import { isLocale, type Locale } from "@/lib/i18n/config";
 
 export default async function LocaleHomePage({
@@ -11,5 +11,5 @@ export default async function LocaleHomePage({
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
 
-  return <UnifiedHomePage locale={locale as Locale} />;
+  return <DesktopHomeOnly locale={locale as Locale} />;
 }
