@@ -230,23 +230,49 @@ export default function MobileAppShell() {
         body[data-mobile-route="tic-tac-toe-duel"] main { padding-left: 10px !important; padding-right: 10px !important; }
         body[data-mobile-route="tic-tac-toe-duel"] main > div { max-width: 680px !important; }
         body[data-mobile-route="tic-tac-toe-duel"] main section { border-radius: 20px !important; }
-        body[data-mobile-route="tic-tac-toe-duel"] main section button span.truncate {
-          white-space: normal !important;
-          overflow: visible !important;
-          text-overflow: clip !important;
-          line-height: 1.12 !important;
-          display: block !important;
-          overflow-wrap: anywhere !important;
-        }
         body[data-mobile-route="tic-tac-toe-duel"] main section button.aspect-square {
           aspect-ratio: auto !important;
           min-height: 82px !important;
           height: 82px !important;
         }
         body[data-mobile-route="tic-tac-toe-duel"] main section button.aspect-square span:nth-child(2) {
+          white-space: normal !important;
+          overflow: visible !important;
+          text-overflow: clip !important;
+          line-height: 1.12 !important;
+          display: block !important;
+          overflow-wrap: anywhere !important;
           font-size: 8px !important;
           padding-left: 3px !important;
           padding-right: 3px !important;
+        }
+        body[data-mobile-route="tic-tac-toe-duel"] main section:has(input[placeholder="Futbolcu ara..."]) button:not(.aspect-square) {
+          display: flex !important;
+          flex-direction: row !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          width: 100% !important;
+          min-width: 0 !important;
+          gap: 12px !important;
+        }
+        body[data-mobile-route="tic-tac-toe-duel"] main section:has(input[placeholder="Futbolcu ara..."]) button:not(.aspect-square) span:first-child {
+          flex: 1 1 auto !important;
+          width: auto !important;
+          min-width: 0 !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+          overflow-wrap: normal !important;
+          word-break: normal !important;
+          writing-mode: horizontal-tb !important;
+        }
+        body[data-mobile-route="tic-tac-toe-duel"] main section:has(input[placeholder="Futbolcu ara..."]) button:not(.aspect-square) span:last-child {
+          flex: 0 0 auto !important;
+          width: auto !important;
+          white-space: nowrap !important;
+          overflow-wrap: normal !important;
+          word-break: normal !important;
+          writing-mode: horizontal-tb !important;
         }
         @media (min-width: 640px) {
           body[data-mobile-route="tic-tac-toe-duel"] main section button.aspect-square { height: auto !important; aspect-ratio: 1 / 1 !important; }
