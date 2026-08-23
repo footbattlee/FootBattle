@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import LocalizedCareerPath from "@/components/i18n/LocalizedCareerPath";
@@ -22,5 +23,12 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  return <div data-game="career-path"><LocalizedCareerPath locale={locale as Locale} /></div>;
+
+  return (
+    <div data-game="career-path">
+      <Suspense fallback={null}>
+        <LocalizedCareerPath locale={locale as Locale} />
+      </Suspense>
+    </div>
+  );
 }
