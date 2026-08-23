@@ -268,6 +268,7 @@ export default function GameResultArena() {
           <button type="button" onClick={() => void shareText()} className="min-h-12 rounded-xl border border-cyan-400/25 bg-cyan-400/10 px-4 text-sm font-black text-cyan-200 transition hover:bg-cyan-400/15">📱 Sonucumu Paylaş</button>
           <button type="button" onClick={() => window.location.reload()} className="min-h-12 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-black text-slate-200 transition hover:bg-white/[0.08]">🔄 Tekrar Oyna</button>
           <button type="button" onClick={() => { window.location.href = NEXT_GAME[detail.gameName] ?? "/"; }} className="min-h-12 rounded-xl bg-green-500 px-4 text-sm font-black text-[#07111f] transition hover:bg-green-400">🎮 Sonraki Oyuna Geç</button>
+          <button type="button" onClick={() => { window.location.href = "/"; }} className="min-h-12 rounded-xl border border-purple-400/30 bg-purple-400/[0.08] px-4 text-sm font-black text-purple-200 transition hover:bg-purple-400/[0.14] sm:col-span-2">⌂ Ana Sayfa</button>
         </div>
 
         {message && <p className="mt-3 text-center text-xs font-bold text-green-300">{message}</p>}
