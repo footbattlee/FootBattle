@@ -1,4 +1,5 @@
 import { createGameMetadata, GameJsonLd } from "@/lib/seo";
+import "./mobile.css";
 
 const title = "Futbolcu Bilgi Yarışması | Player Quiz | FootBattle";
 const description = "Futbolcunun ülkesi, kulüpleri, doğum yılı ve kariyer ipuçlarını kullanarak oyuncuyu bul. Ücretsiz futbol bilgi yarışmasını FootBattle'da oyna.";
@@ -11,5 +12,5 @@ export const metadata = createGameMetadata({
 });
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  return <>{children}<GameJsonLd name="Player Quiz" description={description} path="/player-quiz" /></>;
+  return <div className="player-quiz-mobile-scope">{children}<GameJsonLd name="Player Quiz" description={description} path="/player-quiz" /></div>;
 }
