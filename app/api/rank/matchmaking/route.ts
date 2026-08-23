@@ -4,6 +4,9 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 
 const BOT_FALLBACK_MS = 7000;
 const CHALLENGE_LIFETIME_HOURS = 6;
+const STALE_MATCH_MS = 15 * 60 * 1000;
+const STALE_QUEUE_MS = 60 * 1000;
+const HUMAN_QUEUE_FRESH_MS = 30 * 1000;
 const VALID_GAMES = new Set(["tic_tac_toe", "club_clash"]);
 
 type MatchRow = {
@@ -16,6 +19,7 @@ type MatchRow = {
   bot_name: string | null;
   challenge_token: string | null;
   created_at: string;
+  updated_at?: string | null;
 };
 
 async function getUserId() {
@@ -95,31 +99,97 @@ async function ensureChallenge(match: MatchRow) {
     .update({ challenge_token: challengeToken, status: "active", started_at: now, updated_at: now })
     .eq("id", match.id)
     .is("challenge_token", null)
-    .select("id,game_code,status,player_a_id,player_b_id,opponent_kind,bot_name,challenge_token,created_at")
+    .select("id,game_code,status,player_a_id,player_b_id,opponent_kind,bot_name,challenge_token,created_at,updated_at")
     .maybeSingle();
   if (error) throw error;
   if (data) return data as MatchRow;
 
   const { data: latest, error: latestError } = await supabaseAdmin
     .from("ranked_matches")
-    .select("id,game_code,status,player_a_id,player_b_id,opponent_kind,bot_name,challenge_token,created_at")
+    .select("id,game_code,status,player_a_id,player_b_id,opponent_kind,bot_name,challenge_token,created_at,updated_at")
     .eq("id", match.id)
     .single();
   if (latestError) throw latestError;
   return latest as MatchRow;
 }
 
+async function closeStaleMatch(match: MatchRow) {
+  const now = new Date().toISOString();
+  if (match.challenge_token) {
+    await supabaseAdmin
+      .from("guest_challenges")
+      .update({
+        status: "completed",
+        winner_side: "draw",
+        completed_at: now,
+        updated_at: now,
+      })
+      .eq("invite_token", match.challenge_token)
+      .neq("status", "completed");
+  }
+
+  await supabaseAdmin
+    .from("ranked_matches")
+    .update({
+      status: "completed",
+      winner_user_id: null,
+      completed_at: now,
+      updated_at: now,
+    })
+    .eq("id", match.id)
+    .in("status", ["ready", "active"]);
+}
+
 async function getExistingMatch(userId: string, gameCode: string) {
   const { data } = await supabaseAdmin
     .from("ranked_matches")
-    .select("id,game_code,status,player_a_id,player_b_id,opponent_kind,bot_name,challenge_token,created_at")
+    .select("id,game_code,status,player_a_id,player_b_id,opponent_kind,bot_name,challenge_token,created_at,updated_at")
     .eq("game_code", gameCode)
     .in("status", ["ready", "active"])
     .or(`player_a_id.eq.${userId},player_b_id.eq.${userId}`)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  return data ? (data as MatchRow) : null;
+
+  if (!data) return null;
+  const match = data as MatchRow;
+
+  if (!match.challenge_token) {
+    const age = Date.now() - new Date(match.updated_at ?? match.created_at).getTime();
+    if (Number.isFinite(age) && age > STALE_MATCH_MS) {
+      await closeStaleMatch(match);
+      return null;
+    }
+    return match;
+  }
+
+  const { data: challenge } = await supabaseAdmin
+    .from("guest_challenges")
+    .select("status,updated_at,opponent_name")
+    .eq("invite_token", match.challenge_token)
+    .maybeSingle();
+
+  if (!challenge || challenge.status === "completed" || challenge.status === "expired") {
+    await closeStaleMatch(match);
+    return null;
+  }
+
+  if (match.opponent_kind === "bot" && challenge.opponent_name !== "Bot Mehmet") {
+    await Promise.all([
+      supabaseAdmin.from("guest_challenges").update({ opponent_name: "Bot Mehmet" }).eq("invite_token", match.challenge_token),
+      supabaseAdmin.from("ranked_matches").update({ bot_name: "Bot Mehmet" }).eq("id", match.id),
+    ]);
+    match.bot_name = "Bot Mehmet";
+  }
+
+  const lastActivity = new Date(challenge.updated_at ?? match.updated_at ?? match.created_at).getTime();
+  const idleMs = Date.now() - lastActivity;
+  if (Number.isFinite(idleMs) && idleMs > STALE_MATCH_MS) {
+    await closeStaleMatch(match);
+    return null;
+  }
+
+  return match;
 }
 
 async function createRankedMatch(input: {
@@ -150,7 +220,7 @@ async function createRankedMatch(input: {
       started_at: now,
       updated_at: now,
     })
-    .select("id,game_code,status,player_a_id,player_b_id,opponent_kind,bot_name,challenge_token,created_at")
+    .select("id,game_code,status,player_a_id,player_b_id,opponent_kind,bot_name,challenge_token,created_at,updated_at")
     .single();
   if (error) {
     await supabaseAdmin.from("guest_challenges").delete().eq("invite_token", challengeToken);
@@ -173,7 +243,7 @@ export async function POST(request: Request) {
     const existing = await getExistingMatch(userId, gameCode);
     if (existing) {
       const bridged = await ensureChallenge(existing);
-      return NextResponse.json({ ok: true, state: "matched", match: bridged });
+      return NextResponse.json({ ok: true, state: "matched", match: bridged, resumed: true });
     }
 
     const { data: mine } = await supabaseAdmin
@@ -182,11 +252,13 @@ export async function POST(request: Request) {
       .eq("user_id", userId)
       .maybeSingle();
 
+    const freshCandidateSince = new Date(Date.now() - HUMAN_QUEUE_FRESH_MS).toISOString();
     const { data: candidate } = await supabaseAdmin
       .from("ranked_match_queue")
       .select("user_id,game_code,created_at")
       .eq("game_code", gameCode)
       .neq("user_id", userId)
+      .gte("created_at", freshCandidateSince)
       .order("created_at", { ascending: true })
       .limit(1)
       .maybeSingle();
@@ -208,16 +280,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, state: "searching", elapsedMs: 0, botInMs: BOT_FALLBACK_MS });
     }
 
-    if (mine.game_code !== gameCode) {
+    const mineAgeMs = Math.max(0, Date.now() - new Date(mine.created_at).getTime());
+    if (mine.game_code !== gameCode || mineAgeMs > STALE_QUEUE_MS) {
+      const now = new Date().toISOString();
       const { error } = await supabaseAdmin
         .from("ranked_match_queue")
-        .update({ game_code: gameCode, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .update({ game_code: gameCode, created_at: now, updated_at: now })
         .eq("user_id", userId);
       if (error) throw error;
       return NextResponse.json({ ok: true, state: "searching", elapsedMs: 0, botInMs: BOT_FALLBACK_MS });
     }
 
-    const elapsedMs = Math.max(0, Date.now() - new Date(mine.created_at).getTime());
+    const elapsedMs = mineAgeMs;
     if (elapsedMs >= BOT_FALLBACK_MS) {
       const match = await createRankedMatch({
         gameCode,
