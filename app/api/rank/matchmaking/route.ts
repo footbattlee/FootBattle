@@ -22,6 +22,27 @@ type MatchRow = {
   updated_at?: string | null;
 };
 
+async function trackRankEvent(input: {
+  eventName: "ranked_queue_joined" | "ranked_match_found" | "ranked_search_cancelled";
+  gameCode: string | null;
+  userId: string;
+  sessionId?: string | null;
+  metadata?: Record<string, unknown>;
+}) {
+  try {
+    await supabaseAdmin.from("analytics_events").insert({
+      event_name: input.eventName,
+      game_name: input.gameCode,
+      user_id: input.userId,
+      session_id: input.sessionId ?? null,
+      page_path: "/rank",
+      metadata: input.metadata ?? {},
+    });
+  } catch (error) {
+    console.error("Ranked analytics error:", error);
+  }
+}
+
 async function getUserId() {
   const auth = await createAuthServerClient();
   const { data: { user } } = await auth.auth.getUser();
@@ -213,7 +234,32 @@ async function createRankedMatch(input: {
     await supabaseAdmin.from("guest_challenges").delete().eq("invite_token", challengeToken);
     throw error;
   }
-  return data as MatchRow;
+
+  const match = data as MatchRow;
+  void trackRankEvent({
+    eventName: "ranked_match_found",
+    gameCode: input.gameCode,
+    userId: input.playerAId,
+    sessionId: match.id,
+    metadata: {
+      opponentKind: input.opponentKind,
+      opponentUserId: input.playerBId,
+    },
+  });
+  if (input.playerBId) {
+    void trackRankEvent({
+      eventName: "ranked_match_found",
+      gameCode: input.gameCode,
+      userId: input.playerBId,
+      sessionId: match.id,
+      metadata: {
+        opponentKind: "human",
+        opponentUserId: input.playerAId,
+      },
+    });
+  }
+
+  return match;
 }
 
 export async function POST(request: Request) {
@@ -251,15 +297,11 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (candidate?.user_id) {
-      // Both phones can see each other during the same polling window. Without a deterministic
-      // coordinator each request creates its own match/challenge. Only the lexicographically
-      // smaller user id is allowed to create; the other phone waits one poll and resumes it.
       const coordinatorId = [userId, candidate.user_id].sort()[0];
       if (userId !== coordinatorId) {
         return NextResponse.json({ ok: true, state: "searching", elapsedMs: 0, botInMs: BOT_FALLBACK_MS });
       }
 
-      // Re-check immediately before creating in case another request already completed the pair.
       const alreadyMatched = await getExistingMatch(userId, gameCode);
       if (alreadyMatched) {
         const bridged = await ensureChallenge(alreadyMatched);
@@ -279,6 +321,13 @@ export async function POST(request: Request) {
     if (!mine) {
       const { error } = await supabaseAdmin.from("ranked_match_queue").insert({ user_id: userId, game_code: gameCode });
       if (error && (error as { code?: string }).code !== "23505") throw error;
+      if (!error) {
+        void trackRankEvent({
+          eventName: "ranked_queue_joined",
+          gameCode,
+          userId,
+        });
+      }
       return NextResponse.json({ ok: true, state: "searching", elapsedMs: 0, botInMs: BOT_FALLBACK_MS });
     }
 
@@ -290,11 +339,16 @@ export async function POST(request: Request) {
         .update({ game_code: gameCode, created_at: now, updated_at: now })
         .eq("user_id", userId);
       if (error) throw error;
+      void trackRankEvent({
+        eventName: "ranked_queue_joined",
+        gameCode,
+        userId,
+        metadata: { restarted: true },
+      });
       return NextResponse.json({ ok: true, state: "searching", elapsedMs: 0, botInMs: BOT_FALLBACK_MS });
     }
 
     if (mineAgeMs >= BOT_FALLBACK_MS) {
-      // One final human-match check prevents bot fallback from racing a just-created human match.
       const humanMatch = await getExistingMatch(userId, gameCode);
       if (humanMatch) {
         const bridged = await ensureChallenge(humanMatch);
@@ -328,7 +382,21 @@ export async function DELETE() {
   try {
     const userId = await getUserId();
     if (!userId) return NextResponse.json({ ok: false, error: "Giriş yapmalısın." }, { status: 401 });
+
+    const { data: queued } = await supabaseAdmin
+      .from("ranked_match_queue")
+      .select("game_code")
+      .eq("user_id", userId)
+      .maybeSingle();
+
     await supabaseAdmin.from("ranked_match_queue").delete().eq("user_id", userId);
+    if (queued?.game_code) {
+      void trackRankEvent({
+        eventName: "ranked_search_cancelled",
+        gameCode: String(queued.game_code),
+        userId,
+      });
+    }
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Arama iptal edilemedi." }, { status: 500 });
