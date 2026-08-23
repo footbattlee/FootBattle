@@ -23,7 +23,7 @@ function stripLocale(pathname: string) {
 }
 
 function shouldShowShell(pathname: string) {
-  return ["/", "/daily", "/duels", "/rank", "/profile"].includes(stripLocale(pathname));
+  return ["/", "/daily", "/duels", "/rank", "/ranking", "/profile"].includes(stripLocale(pathname));
 }
 
 function routeName(plain: string) {
@@ -35,6 +35,7 @@ function routeName(plain: string) {
   if (plain === "/daily") return "daily";
   if (plain === "/duels") return "duels";
   if (plain === "/rank") return "rank";
+  if (plain === "/ranking") return "ranking";
   if (plain === "/profile") return "profile";
   if (plain === "/") return "home";
   return "other";
@@ -203,7 +204,7 @@ export default function MobileAppShell() {
       { key: "daily", label: tr ? "Günlük" : "Daily", icon: "🔥", href: `/${locale}/daily` },
       { key: "ranked", label: "Ranked", icon: "🏆", href: `/${locale}/rank` },
       { key: "duels", label: tr ? "Düello" : "Duel", icon: "⚔", href: `/${locale}/duels` },
-      { key: "leaderboard", label: tr ? "Sıralama" : "Ranks", icon: "♛", href: `/${locale}/rank#leaderboard` },
+      { key: "leaderboard", label: tr ? "Sıralama" : "Ranks", icon: "♛", href: `/${locale}/ranking` },
       { key: "profile", label: tr ? "Profil" : "Profile", icon: "●", href: `/${locale}/profile` },
     ];
   }, [locale]);
@@ -259,6 +260,7 @@ export default function MobileAppShell() {
     if (item.key === "daily") return plainPath === "/daily";
     if (item.key === "ranked") return plainPath === "/rank";
     if (item.key === "duels") return plainPath === "/duels";
+    if (item.key === "leaderboard") return plainPath === "/ranking";
     if (item.key === "profile") return plainPath === "/profile";
     return false;
   }
