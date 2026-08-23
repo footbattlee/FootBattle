@@ -13,8 +13,8 @@ export async function GET() {
 
     const { data: rows, error } = await supabaseAdmin
       .from("user_rank_progress")
-      .select("user_id, lp, peak_lp, rank_code, wins, losses, games_played")
-      .eq("season_id", season.id).order("lp", { ascending: false }).order("wins", { ascending: false }).limit(100);
+      .select("user_id, elo, peak_elo, rank_code, wins, losses, games_played")
+      .eq("season_id", season.id).order("elo", { ascending: false }).order("wins", { ascending: false }).limit(100);
     if (error) throw error;
 
     const ids = (rows ?? []).map((r) => r.user_id);
@@ -24,14 +24,14 @@ export async function GET() {
     const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
 
     const leaderboard = (rows ?? []).map((row, index) => {
-      const rank = getRankForLp(Number(row.lp ?? 0));
+      const rank = getRankForLp(Number(row.elo ?? 1000));
       const profile = profileMap.get(row.user_id);
       return {
         position: index + 1, userId: row.user_id,
         username: profile?.username ?? null,
         displayName: profile?.display_name ?? profile?.username ?? "FootBattle Oyuncusu",
         avatarUrl: profile?.avatar_url ?? null,
-        lp: rank.lp, peakLp: Number(row.peak_lp ?? 0), rankCode: rank.code, rankName: rank.name, rankIcon: rank.icon,
+        lp: rank.lp, elo: rank.lp, peakLp: Number(row.peak_elo ?? 1000), peakElo: Number(row.peak_elo ?? 1000), rankCode: rank.code, rankName: rank.name, rankIcon: rank.icon,
         wins: Number(row.wins ?? 0), losses: Number(row.losses ?? 0), gamesPlayed: Number(row.games_played ?? 0),
         progressPercent: rank.progressPercent, nextRankName: rank.next?.name ?? null, nextRankLp: rank.next?.minLp ?? null,
       };
@@ -45,11 +45,11 @@ export async function GET() {
       if (found) me = found;
       else {
         const { data: mine } = await supabaseAdmin.from("user_rank_progress")
-          .select("lp, peak_lp, rank_code, wins, losses, games_played")
+          .select("elo, peak_elo, rank_code, wins, losses, games_played")
           .eq("user_id", user.id).eq("season_id", season.id).maybeSingle();
         if (mine) {
-          const rank = getRankForLp(Number(mine.lp ?? 0));
-          me = { position: null, userId: user.id, lp: rank.lp, peakLp: Number(mine.peak_lp ?? 0), rankCode: rank.code, rankName: rank.name, rankIcon: rank.icon, wins: Number(mine.wins ?? 0), losses: Number(mine.losses ?? 0), gamesPlayed: Number(mine.games_played ?? 0), progressPercent: rank.progressPercent, nextRankName: rank.next?.name ?? null, nextRankLp: rank.next?.minLp ?? null };
+          const rank = getRankForLp(Number(mine.elo ?? 1000));
+          me = { position: null, userId: user.id, lp: rank.lp, elo: rank.lp, peakLp: Number(mine.peak_elo ?? 1000), peakElo: Number(mine.peak_elo ?? 1000), rankCode: rank.code, rankName: rank.name, rankIcon: rank.icon, wins: Number(mine.wins ?? 0), losses: Number(mine.losses ?? 0), gamesPlayed: Number(mine.games_played ?? 0), progressPercent: rank.progressPercent, nextRankName: rank.next?.name ?? null, nextRankLp: rank.next?.minLp ?? null };
         }
       }
     }
