@@ -1,59 +1,36 @@
 @media (max-width: 767px) {
-  /* Ranked match ekranındayken eski geri chrome'unu gizle; reconnect banner maçtan çıktıktan sonra devreye girer. */
-  body.ranked-match-active a[href$="/rank"] {
-    display: none !important;
-  }
+  body.ranked-match-active a[href$="/rank"] { display: none !important; }
 
-  /* 2 Takım 1 Oyuncu ranked: masaüstü challenge bloklarını daha kompakt hale getir. */
+  /* Ranked 2 Takım 1 Oyuncu: skor + round + takım çifti + input mümkün olduğunca aynı ekranda. */
   body.ranked-club-clash-active main {
-    padding-left: 8px !important;
-    padding-right: 8px !important;
-    padding-top: 8px !important;
-    padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
+    padding: 6px 8px calc(18px + env(safe-area-inset-bottom)) !important;
   }
-
-  body.ranked-club-clash-active main > div {
-    max-width: 680px !important;
-  }
-
+  body.ranked-club-clash-active main > div { max-width: 680px !important; }
   body.ranked-club-clash-active main .mt-8,
   body.ranked-club-clash-active main .mt-7,
-  body.ranked-club-clash-active main .mt-6 {
-    margin-top: 10px !important;
-  }
-
+  body.ranked-club-clash-active main .mt-6,
   body.ranked-club-clash-active main .mt-5,
-  body.ranked-club-clash-active main .mt-4 {
-    margin-top: 8px !important;
-  }
-
+  body.ranked-club-clash-active main .mt-4 { margin-top: 7px !important; }
   body.ranked-club-clash-active main .p-6,
-  body.ranked-club-clash-active main .p-5 {
-    padding: 12px !important;
-  }
-
+  body.ranked-club-clash-active main .p-5,
+  body.ranked-club-clash-active main .p-4 { padding: 10px !important; }
+  body.ranked-club-clash-active main .gap-6,
+  body.ranked-club-clash-active main .gap-5,
   body.ranked-club-clash-active main .gap-4,
-  body.ranked-club-clash-active main .gap-3 {
-    gap: 8px !important;
-  }
-
+  body.ranked-club-clash-active main .gap-3 { gap: 7px !important; }
   body.ranked-club-clash-active main h1,
-  body.ranked-club-clash-active main .text-3xl {
-    font-size: 22px !important;
-    line-height: 1.15 !important;
-  }
-
+  body.ranked-club-clash-active main .text-3xl,
+  body.ranked-club-clash-active main .text-4xl { font-size: 20px !important; line-height: 1.08 !important; }
+  body.ranked-club-clash-active main .text-2xl { font-size: 18px !important; line-height: 1.1 !important; }
   body.ranked-club-clash-active main p.text-slate-400,
-  body.ranked-club-clash-active main p.text-slate-500 {
-    margin-top: 4px !important;
-  }
+  body.ranked-club-clash-active main p.text-slate-500 { margin-top: 2px !important; line-height: 1.25 !important; }
+  body.ranked-club-clash-active main input { min-height: 46px !important; font-size: 16px !important; }
+  body.ranked-club-clash-active main section { scroll-margin-top: 8px; }
+  body.ranked-club-clash-active main [class*="min-h-"] { min-height: 0 !important; }
+  /* Geçmiş roundlar oyunun alt özeti; canlı cevap alanından daha az yer kaplasın. */
+  body.ranked-club-clash-active main [class*="space-y-"] > div { padding-top: 8px !important; padding-bottom: 8px !important; }
 
-  body.ranked-club-clash-active main input {
-    min-height: 48px !important;
-    font-size: 16px !important;
-  }
-
-  /* Solo Tic Tac Toe answer sheet: iOS Safari'de input ve sonuçlar dokunulabilir kalsın. */
+  /* Solo Tic Tac Toe answer sheet: tek kolon, tam genişlik, isimler yatay okunur. */
   body[data-mobile-route="tic-tac-toe-solo"] main > div + div.fixed,
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 {
     align-items: flex-end !important;
@@ -61,30 +38,51 @@
     padding-bottom: calc(10px + env(safe-area-inset-bottom)) !important;
     pointer-events: auto !important;
   }
-
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 > div {
-    max-height: min(78vh, 620px) !important;
+    width: calc(100vw - 16px) !important;
+    max-width: none !important;
+    max-height: min(72vh, 560px) !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    padding: 16px !important;
+    padding: 14px !important;
     pointer-events: auto !important;
   }
-
+  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form,
+  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > div,
+  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form [class*="grid"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 input {
     position: relative !important;
     z-index: 60 !important;
-    min-height: 52px !important;
+    width: 100% !important;
+    min-height: 50px !important;
     font-size: 16px !important;
     pointer-events: auto !important;
     touch-action: manipulation !important;
   }
-
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form .absolute {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
     z-index: 70 !important;
     pointer-events: auto !important;
   }
-
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form button {
+    width: 100% !important;
+    min-width: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    text-align: left !important;
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: anywhere !important;
+    line-height: 1.2 !important;
     pointer-events: auto !important;
     touch-action: manipulation !important;
   }
