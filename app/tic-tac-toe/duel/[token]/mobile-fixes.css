@@ -1,0 +1,50 @@
+@media (max-width: 640px) {
+  .ttt-duel-scope .fixed.inset-0.z-\[100\] > section {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  .ttt-duel-scope .fixed.inset-0.z-\[100\] > section > div {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+
+  .ttt-duel-scope .fixed.inset-0.z-\[100\] > section > div > div:first-child {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: start !important;
+    width: 100% !important;
+  }
+
+  .ttt-duel-scope .fixed.inset-0.z-\[100\] input {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .ttt-duel-scope .fixed.inset-0.z-\[100\] .overflow-y-auto {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .ttt-duel-scope .fixed.inset-0.z-\[100\] .overflow-y-auto button {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 12px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    align-items: center !important;
+  }
+
+  .ttt-duel-scope .fixed.inset-0.z-\[100\] .overflow-y-auto button span:first-child {
+    min-width: 0 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    overflow-wrap: anywhere !important;
+    line-height: 1.25 !important;
+  }
+}
