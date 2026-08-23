@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import MobileRankPage from "@/components/mobile/MobileRankPage";
 import { isLocale, type Locale } from "@/lib/i18n/config";
 import { SITE_URL } from "@/lib/seo";
+import styles from "./rank-parity.module.css";
 
 type Params = Promise<{ locale: string }>;
 
@@ -30,8 +31,9 @@ export default async function RankLocalePage({ params }: { params: Params }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
 
-  // Ranked is a product feature, not a mobile-only feature. Use the same
-  // matchmaking/leaderboard implementation on desktop and mobile so bot
-  // fallback, game selection, Solo/Ranked and Friends/Global never drift.
-  return <MobileRankPage locale={locale as Locale} />;
+  return (
+    <div className={styles.shell}>
+      <MobileRankPage locale={locale as Locale} />
+    </div>
+  );
 }
