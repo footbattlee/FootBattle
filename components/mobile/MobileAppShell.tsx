@@ -211,6 +211,17 @@ export default function MobileAppShell() {
   const rankedMatchChrome = rankedContext && (plainPath.startsWith("/tic-tac-toe/duel/") || plainPath.startsWith("/challenge/"));
 
   if (!shouldShowShell(pathname)) {
+    if (plainPath === "/tic-tac-toe") {
+      return (
+        <Link
+          href={`/${locale}`}
+          aria-label={locale === "tr" ? "Ana sayfaya dön" : "Back home"}
+          className="fixed left-3 top-[calc(env(safe-area-inset-top)+10px)] z-[120] flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-[#07111f]/90 text-2xl font-black text-slate-200 shadow-xl backdrop-blur-md md:hidden"
+        >
+          ‹
+        </Link>
+      );
+    }
     if (!rankedMatchChrome) return null;
     return <>
       <Link href={`/${locale}/rank`} className="fixed left-3 top-[calc(env(safe-area-inset-top)+10px)] z-[120] rounded-full border border-white/15 bg-[#07111f]/90 px-3 py-2 text-xs font-black text-green-300 shadow-xl backdrop-blur-md">← Ranked&apos;e Dön</Link>
