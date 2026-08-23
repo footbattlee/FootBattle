@@ -122,6 +122,20 @@ export async function POST(
       throw mapError;
     }
 
+    const requesterUserId = access.role === "challenger" ? source.challenger_user_id : source.opponent_user_id;
+    await supabaseAdmin.from("analytics_events").insert({
+      event_name: "play_again",
+      game_name: "tic_tac_toe",
+      user_id: requesterUserId ?? null,
+      session_id: String(source.id),
+      page_path: `/tic-tac-toe/duel/${token}`,
+      metadata: {
+        mode: "duel",
+        action: "rematch_requested",
+        rematchChallengeId: created.id,
+      },
+    });
+
     return NextResponse.json({ ok: true, state: "pending", token: null, requestedBy: access.role });
   } catch (error) {
     console.error("Tic Tac Toe rematch create error:", error);
