@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 import { requireTicTacToeParticipant } from "@/lib/tic-tac-toe/duel-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-const START_DELAY_MS = 3000;
+// Polling runs roughly every 1.1s on both phones. A 5s gate gives the requester
+// enough time to observe the accepted state before either client navigates.
+const START_DELAY_MS = 5000;
 
 function inviteToken() {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 12);
