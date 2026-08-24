@@ -99,7 +99,7 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
 
     if (result.state === "matched" && result.match) {
       setMatchMessage(result.match.opponent_kind === "bot"
-        ? (tr ? `Rakip bulundu: ${result.match.bot_name ?? "Bot Mehmet"} • Bot` : `Opponent found: ${result.match.bot_name ?? "Bot Mehmet"} • Bot`)
+        ? (tr ? `Rakip bulundu: ${result.match.bot_name ?? "Eren :)"} • Bot` : `Opponent found: ${result.match.bot_name ?? "Eren :)"} • Bot`)
         : (tr ? "Gerçek oyuncu bulundu!" : "Real player found!"));
       setBotCountdown(null);
       pollRef.current = window.setTimeout(() => {
@@ -194,7 +194,7 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
             <div className="mt-4 rounded-2xl border border-purple-400/20 bg-purple-500/[0.08] p-4 text-center">
               <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-white/10 border-t-purple-400" />
               <p className="mt-3 font-black">{matchMessage}</p>
-              {botCountdown !== null && botCountdown > 0 && <p className="mt-1 text-xs text-slate-500">{tr ? `${botCountdown} sn içinde oyuncu bulunmazsa Bot Mehmet devreye girer.` : `Bot Mehmet joins in ${botCountdown}s if no player is found.`}</p>}
+              {botCountdown !== null && botCountdown > 0 && <p className="mt-1 text-xs text-slate-500">{tr ? `${botCountdown} sn içinde oyuncu bulunmazsa Eren :) devreye girer.` : `Eren :) joins in ${botCountdown}s if no player is found.`}</p>}
               <button type="button" onClick={() => void cancelSearch()} className="mt-3 rounded-xl border border-white/10 px-4 py-2 text-xs font-black text-slate-400">{tr ? "Aramayı İptal Et" : "Cancel"}</button>
             </div>
           )}

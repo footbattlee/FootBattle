@@ -73,7 +73,7 @@ async function createSharedChallenge(input: {
   const expiresAt = new Date(Date.now() + CHALLENGE_LIFETIME_HOURS * 60 * 60 * 1000).toISOString();
   const challengerName = await getDisplayName(input.playerAId);
   const opponentName = input.opponentKind === "bot"
-    ? (input.botName ?? "Bot Mehmet")
+    ? (input.botName ?? "Eren :)")
     : input.playerBId
       ? await getDisplayName(input.playerBId)
       : "Rakip";
@@ -184,12 +184,12 @@ async function getExistingMatch(userId: string, gameCode: string) {
     return null;
   }
 
-  if (match.opponent_kind === "bot" && challenge.opponent_name !== "Bot Mehmet") {
+  if (match.opponent_kind === "bot" && challenge.opponent_name !== "Eren :)") {
     await Promise.all([
-      supabaseAdmin.from("guest_challenges").update({ opponent_name: "Bot Mehmet" }).eq("invite_token", match.challenge_token),
-      supabaseAdmin.from("ranked_matches").update({ bot_name: "Bot Mehmet" }).eq("id", match.id),
+      supabaseAdmin.from("guest_challenges").update({ opponent_name: "Eren :)" }).eq("invite_token", match.challenge_token),
+      supabaseAdmin.from("ranked_matches").update({ bot_name: "Eren :)" }).eq("id", match.id),
     ]);
-    match.bot_name = "Bot Mehmet";
+    match.bot_name = "Eren :)";
   }
 
   const idleMs = Date.now() - new Date(challenge.updated_at ?? match.updated_at ?? match.created_at).getTime();
@@ -223,7 +223,7 @@ async function createRankedMatch(input: {
       player_a_id: input.playerAId,
       player_b_id: input.playerBId,
       opponent_kind: input.opponentKind,
-      bot_name: input.opponentKind === "bot" ? (input.botName ?? "Bot Mehmet") : null,
+      bot_name: input.opponentKind === "bot" ? (input.botName ?? "Eren :)") : null,
       challenge_token: challengeToken,
       started_at: now,
       updated_at: now,
@@ -360,7 +360,7 @@ export async function POST(request: Request) {
         playerAId: userId,
         playerBId: null,
         opponentKind: "bot",
-        botName: "Bot Mehmet",
+        botName: "Eren :)",
       });
       await supabaseAdmin.from("ranked_match_queue").delete().eq("user_id", userId);
       return NextResponse.json({ ok: true, state: "matched", match });

@@ -88,7 +88,7 @@ export default function RankedReconnectBanner() {
     return (
       <Link href={returnHref} className="fixed left-3 right-3 top-[calc(env(safe-area-inset-top)+10px)] z-[140] mx-auto max-w-xl rounded-2xl border border-green-400/30 bg-[#0d1828]/95 px-4 py-3 shadow-2xl backdrop-blur-xl md:hidden">
         <div className="flex items-center justify-between gap-3">
-          <div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-green-300">🏆 {tr ? "Devam Eden Ranked Maç" : "Active Ranked Match"}</p><p className="mt-1 text-sm font-black text-white">{gameLabel}{active.opponentKind === "bot" ? ` · ${active.botName ?? "Bot Mehmet"}` : ""}</p></div>
+          <div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-green-300">🏆 {tr ? "Devam Eden Ranked Maç" : "Active Ranked Match"}</p><p className="mt-1 text-sm font-black text-white">{gameLabel}{active.opponentKind === "bot" ? ` · ${active.botName ?? "Eren :)"}` : ""}</p></div>
           <span className="rounded-xl bg-green-400 px-3 py-2 text-xs font-black text-[#07111f]">{tr ? "Maça Dön" : "Resume"}</span>
         </div>
       </Link>

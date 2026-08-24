@@ -94,7 +94,7 @@ export async function runRankedClubClashBotTick(token: string) {
   if (sharedIds.length === 0) return false;
   const playerId = sharedIds[Math.floor(Math.random() * sharedIds.length)];
   const { data: player } = await supabaseAdmin.from("guess_players").select("name").eq("player_id", playerId).maybeSingle();
-  const answer = String(player?.name ?? "Bot Mehmet'in cevabı");
+  const answer = String(player?.name ?? "Eren :)'in cevabı");
   const now = new Date().toISOString();
   const { data: claimed, error: claimError } = await supabaseAdmin.from("challenge_rounds").update({ winner_side: "opponent", opponent_answer: answer, opponent_answer_player_id: playerId, opponent_answered_at: now, completed_at: now }).eq("id", current.id).is("completed_at", null).select("id").maybeSingle();
   if (claimError) throw claimError;
