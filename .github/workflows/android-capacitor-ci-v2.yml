@@ -2,12 +2,9 @@ name: Android Capacitor Release Audit
 
 on:
   push:
-    branches:
-      - main
-      - android/capacitor
+    branches: [main, android/capacitor]
   pull_request:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -56,13 +53,11 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import re
-
-          variables = Path('android/variables.gradle')
-          text = variables.read_text()
+          p = Path('android/variables.gradle')
+          text = p.read_text()
           marker = 'ext {'
           if marker not in text:
               raise SystemExit('ext block not found in android/variables.gradle')
-
           required = {
               'minSdkVersion': '23',
               'compileSdkVersion': '36',
@@ -78,7 +73,7 @@ jobs:
               else:
                   idx = text.find(marker) + len(marker)
                   text = text[:idx] + '\n' + replacement + text[idx:]
-          variables.write_text(text)
+          p.write_text(text)
           PY
 
       - name: Add Firebase Android configuration
@@ -96,8 +91,6 @@ jobs:
           RES="android/app/src/main/res"
           test -s "$SOURCE"
 
-          # Launcher icons are generated from the repository logo on every build,
-          # so a clean CI run can never silently fall back to Capacitor defaults.
           for spec in "mdpi 48" "hdpi 72" "xhdpi 96" "xxhdpi 144" "xxxhdpi 192"; do
             set -- $spec
             density="$1"
@@ -108,9 +101,9 @@ jobs:
             cp "$dir/ic_launcher.png" "$dir/ic_launcher_round.png"
           done
 
-          # Adaptive icon: full-size foreground on FootBattle navy background.
           mkdir -p "$RES/drawable-nodpi" "$RES/mipmap-anydpi-v26" "$RES/values"
           convert "$SOURCE" -resize '300x300' -gravity center -background none -extent '432x432' "$RES/drawable-nodpi/ic_launcher_foreground.png"
+
           cat > "$RES/mipmap-anydpi-v26/ic_launcher.xml" <<'XML'
           <?xml version="1.0" encoding="utf-8"?>
           <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
@@ -120,28 +113,28 @@ jobs:
           XML
           cp "$RES/mipmap-anydpi-v26/ic_launcher.xml" "$RES/mipmap-anydpi-v26/ic_launcher_round.xml"
 
-          COLORS="$RES/values/colors.xml"
-          if [ -f "$COLORS" ]; then
-            python - <<'PY'
-          from pathlib import Path
-          p = Path('android/app/src/main/res/values/colors.xml')
-          text = p.read_text()
-          if 'name="ic_launcher_background"' not in text:
-              text = text.replace('</resources>', '    <color name="ic_launcher_background">#07111F</color>\n</resources>')
-              p.write_text(text)
-          PY
-          else
-            cat > "$COLORS" <<'XML'
+          # Capacitor 8 generates values/ic_launcher_background.xml itself.
+          # Keep exactly one definition of this resource instead of adding a
+          # second copy to colors.xml, which breaks mergeDebugResources.
+          cat > "$RES/values/ic_launcher_background.xml" <<'XML'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <color name="ic_launcher_background">#07111F</color>
           </resources>
           XML
+
+          # Remove stale duplicate definitions if a template/plugin added one.
+          if [ -f "$RES/values/colors.xml" ]; then
+            python - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('android/app/src/main/res/values/colors.xml')
+          text = p.read_text()
+          text = re.sub(r'\s*<color\s+name=["\']ic_launcher_background["\'][^>]*>.*?</color>\s*', '\n', text, flags=re.S)
+          p.write_text(text)
+          PY
           fi
 
-          # Legacy/pre-Android-12 launch screen fallback. Android 12+ uses the
-          # adaptive launcher icon automatically during the system splash.
-          mkdir -p "$RES/drawable-nodpi"
           convert "$SOURCE" -resize '420x420' -gravity center -background '#07111f' -extent '1080x1920' "$RES/drawable-nodpi/splash.png"
           find "$RES" -type f -name 'splash.png' ! -path "$RES/drawable-nodpi/splash.png" -print0 | while IFS= read -r -d '' target; do
             cp "$RES/drawable-nodpi/splash.png" "$target"
@@ -152,11 +145,9 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import re
-
           version_file = Path('android-ci/release-version.env')
           if not version_file.exists():
               raise SystemExit('android-ci/release-version.env is missing')
-
           values = {}
           for raw in version_file.read_text().splitlines():
               line = raw.strip()
@@ -166,55 +157,48 @@ jobs:
                   raise SystemExit(f'Invalid release version line: {line}')
               key, value = line.split('=', 1)
               values[key.strip()] = value.strip()
-
-          version_code_raw = values.get('VERSION_CODE', '')
-          version_name = values.get('VERSION_NAME', '')
-          if not version_code_raw.isdigit() or int(version_code_raw) < 1:
+          code_raw = values.get('VERSION_CODE', '')
+          name = values.get('VERSION_NAME', '')
+          if not code_raw.isdigit() or int(code_raw) < 1:
               raise SystemExit('VERSION_CODE must be a positive integer')
-          if not re.fullmatch(r'[0-9]+(?:\.[0-9]+){1,3}(?:[-+][0-9A-Za-z.-]+)?', version_name):
+          if not re.fullmatch(r'[0-9]+(?:\.[0-9]+){1,3}(?:[-+][0-9A-Za-z.-]+)?', name):
               raise SystemExit('VERSION_NAME must look like 1.0.0')
-
-          version_code = int(version_code_raw)
-          gradle = Path('android/app/build.gradle')
-          text = gradle.read_text()
-
-          text, code_count = re.subn(r'(?m)^(\s*)versionCode\s+\d+\s*$', rf'\1versionCode {version_code}', text, count=1)
-          text, name_count = re.subn(r'(?m)^(\s*)versionName\s+["\'][^"\']+["\']\s*$', rf'\1versionName "{version_name}"', text, count=1)
-          if code_count != 1 or name_count != 1:
-              raise SystemExit('Could not patch versionCode/versionName in android/app/build.gradle')
-          gradle.write_text(text)
-          print(f'Android release version: versionCode={version_code}, versionName={version_name}')
+          p = Path('android/app/build.gradle')
+          text = p.read_text()
+          text, n1 = re.subn(r'(?m)^(\s*)versionCode\s+\d+\s*$', rf'\1versionCode {int(code_raw)}', text, count=1)
+          text, n2 = re.subn(r'(?m)^(\s*)versionName\s+["\'][^"\']+["\']\s*$', rf'\1versionName "{name}"', text, count=1)
+          if n1 != 1 or n2 != 1:
+              raise SystemExit('Could not patch Android release version')
+          p.write_text(text)
           PY
 
       - name: Apply Firebase Crashlytics and Messaging
         run: |
           python - <<'PY'
           from pathlib import Path
-
-          root_gradle = Path('android/build.gradle')
-          text = root_gradle.read_text()
+          root = Path('android/build.gradle')
+          text = root.read_text()
           if 'com.google.firebase:firebase-crashlytics-gradle' not in text:
               marker = "classpath 'com.google.gms:google-services:"
               idx = text.find(marker)
               if idx >= 0:
-                  line_end = text.find('\n', idx)
-                  text = text[:line_end+1] + "        classpath 'com.google.firebase:firebase-crashlytics-gradle:3.0.7'\n" + text[line_end+1:]
+                  end = text.find('\n', idx)
+                  text = text[:end+1] + "        classpath 'com.google.firebase:firebase-crashlytics-gradle:3.0.7'\n" + text[end+1:]
               else:
                   marker = "classpath 'com.android.tools.build:gradle:"
                   idx = text.find(marker)
                   if idx < 0:
                       raise SystemExit('Unable to find root Gradle classpath block')
-                  line_end = text.find('\n', idx)
-                  text = text[:line_end+1] + "        classpath 'com.google.gms:google-services:4.5.0'\n        classpath 'com.google.firebase:firebase-crashlytics-gradle:3.0.7'\n" + text[line_end+1:]
-              root_gradle.write_text(text)
-
-          app_gradle = Path('android/app/build.gradle')
-          app = app_gradle.read_text()
-          if "apply plugin: 'com.google.firebase.crashlytics'" not in app:
-              app += "\napply plugin: 'com.google.firebase.crashlytics'\n"
-          if 'firebase-bom:34.17.0' not in app:
-              app += "\ndependencies {\n    implementation platform('com.google.firebase:firebase-bom:34.17.0')\n    implementation 'com.google.firebase:firebase-crashlytics'\n    implementation 'com.google.firebase:firebase-messaging'\n}\n"
-          app_gradle.write_text(app)
+                  end = text.find('\n', idx)
+                  text = text[:end+1] + "        classpath 'com.google.gms:google-services:4.5.0'\n        classpath 'com.google.firebase:firebase-crashlytics-gradle:3.0.7'\n" + text[end+1:]
+              root.write_text(text)
+          app = Path('android/app/build.gradle')
+          a = app.read_text()
+          if "apply plugin: 'com.google.firebase.crashlytics'" not in a:
+              a += "\napply plugin: 'com.google.firebase.crashlytics'\n"
+          if 'firebase-bom:34.17.0' not in a:
+              a += "\ndependencies {\n    implementation platform('com.google.firebase:firebase-bom:34.17.0')\n    implementation 'com.google.firebase:firebase-crashlytics'\n    implementation 'com.google.firebase:firebase-messaging'\n}\n"
+          app.write_text(a)
           PY
 
       - name: Apply FootBattle Android integration
@@ -223,38 +207,32 @@ jobs:
           python - <<'PY'
           import xml.etree.ElementTree as ET
           from pathlib import Path
-
           manifest = Path('android/app/src/main/AndroidManifest.xml')
-          android_ns = 'http://schemas.android.com/apk/res/android'
-          ET.register_namespace('android', android_ns)
+          ns = 'http://schemas.android.com/apk/res/android'
+          ET.register_namespace('android', ns)
           tree = ET.parse(manifest)
           root = tree.getroot()
-
-          def a(name): return f'{{{android_ns}}}{name}'
+          def a(name): return f'{{{ns}}}{name}'
           target = None
           for activity in root.findall('./application/activity'):
               if activity.get(a('name')) in ('.MainActivity', 'com.playfootbattle.app.MainActivity'):
                   target = activity
                   break
-          if target is None: raise SystemExit('MainActivity not found in AndroidManifest.xml')
+          if target is None:
+              raise SystemExit('MainActivity not found in AndroidManifest.xml')
           target.set(a('screenOrientation'), 'portrait')
           target.set(a('windowSoftInputMode'), 'adjustResize')
-
-          hosts = set()
-          for intent_filter in target.findall('intent-filter'):
-              for data in intent_filter.findall('data'):
-                  host = data.get(a('host'))
-                  if host: hosts.add(host)
+          hosts = {d.get(a('host')) for f in target.findall('intent-filter') for d in f.findall('data') if d.get(a('host'))}
           if 'playfootbattle.com' not in hosts:
-              app_links = ET.SubElement(target, 'intent-filter')
-              app_links.set(a('autoVerify'), 'true')
-              action = ET.SubElement(app_links, 'action'); action.set(a('name'), 'android.intent.action.VIEW')
-              category_default = ET.SubElement(app_links, 'category'); category_default.set(a('name'), 'android.intent.category.DEFAULT')
-              category_browsable = ET.SubElement(app_links, 'category'); category_browsable.set(a('name'), 'android.intent.category.BROWSABLE')
+              f = ET.SubElement(target, 'intent-filter')
+              f.set(a('autoVerify'), 'true')
+              x = ET.SubElement(f, 'action'); x.set(a('name'), 'android.intent.action.VIEW')
+              x = ET.SubElement(f, 'category'); x.set(a('name'), 'android.intent.category.DEFAULT')
+              x = ET.SubElement(f, 'category'); x.set(a('name'), 'android.intent.category.BROWSABLE')
               for host in ('playfootbattle.com', 'www.playfootbattle.com'):
-                  data = ET.SubElement(app_links, 'data'); data.set(a('scheme'), 'https'); data.set(a('host'), host)
+                  x = ET.SubElement(f, 'data'); x.set(a('scheme'), 'https'); x.set(a('host'), host)
           if not any(p.get(a('name')) == 'android.permission.POST_NOTIFICATIONS' for p in root.findall('uses-permission')):
-              perm = ET.SubElement(root, 'uses-permission'); perm.set(a('name'), 'android.permission.POST_NOTIFICATIONS')
+              p = ET.SubElement(root, 'uses-permission'); p.set(a('name'), 'android.permission.POST_NOTIFICATIONS')
           tree.write(manifest, encoding='utf-8', xml_declaration=True)
           PY
 
@@ -302,7 +280,6 @@ jobs:
           grep -Eq '^[[:space:]]*versionCode[[:space:]]+[1-9][0-9]*[[:space:]]*$' android/app/build.gradle
           grep -Eq '^[[:space:]]*versionName[[:space:]]+"[0-9]+(\.[0-9]+){1,3}([-+][0-9A-Za-z.-]+)?"[[:space:]]*$' android/app/build.gradle
           ! grep -R "FootBattle Push Test\|integration test: non-fatal probe" -n android/app/src/main/java
-
           test -s public/footbattle-logo.png
           for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
             test -s "android/app/src/main/res/mipmap-$density/ic_launcher.png"
@@ -311,9 +288,8 @@ jobs:
           test -s android/app/src/main/res/drawable-nodpi/ic_launcher_foreground.png
           test -s android/app/src/main/res/drawable-nodpi/splash.png
           grep -q 'ic_launcher_background' android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
-          grep -q '#07111F' android/app/src/main/res/values/colors.xml
-
-          # Fail if generated launchers still match Capacitor's clean-template icon.
+          grep -q '#07111F' android/app/src/main/res/values/ic_launcher_background.xml
+          [ "$(grep -R 'name=["'"']ic_launcher_background["'"']' android/app/src/main/res/values --include='*.xml' | wc -l)" -eq 1 ]
           SOURCE_SHA=$(sha256sum public/footbattle-logo.png | cut -d' ' -f1)
           ICON_SHA=$(sha256sum android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png | cut -d' ' -f1)
           echo "FootBattle source asset sha256: $SOURCE_SHA"
@@ -341,20 +317,22 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import re
-
           manifests = list(Path('android/app/build/intermediates').rglob('AndroidManifest.xml'))
-          if not manifests: raise SystemExit('Merged AndroidManifest.xml not found')
+          if not manifests:
+              raise SystemExit('Merged AndroidManifest.xml not found')
           candidates = [p for p in manifests if 'release' in str(p).lower()]
           manifest = candidates[-1] if candidates else manifests[-1]
           text = manifest.read_text(errors='ignore')
           permissions = sorted(set(re.findall(r'android.permission.[A-Z0-9_]+', text)))
           print('Merged release permissions:')
-          for permission in permissions: print(' -', permission)
+          for permission in permissions:
+              print(' -', permission)
           forbidden = {
               'android.permission.CAMERA','android.permission.RECORD_AUDIO','android.permission.ACCESS_FINE_LOCATION','android.permission.ACCESS_COARSE_LOCATION','android.permission.ACCESS_BACKGROUND_LOCATION','android.permission.READ_CONTACTS','android.permission.WRITE_CONTACTS','android.permission.CALL_PHONE','android.permission.READ_EXTERNAL_STORAGE','android.permission.WRITE_EXTERNAL_STORAGE','android.permission.READ_MEDIA_IMAGES','android.permission.READ_MEDIA_VIDEO','android.permission.READ_MEDIA_AUDIO',
           }
           unexpected = sorted(forbidden.intersection(permissions))
-          if unexpected: raise SystemExit('Unexpected sensitive permissions: ' + ', '.join(unexpected))
+          if unexpected:
+              raise SystemExit('Unexpected sensitive permissions: ' + ', '.join(unexpected))
           PY
 
       - name: Print signing fingerprints
