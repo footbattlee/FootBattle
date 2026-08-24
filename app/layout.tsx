@@ -31,15 +31,14 @@ import GuessThePlayerMobileAutoScroll from "@/components/mobile/GuessThePlayerMo
 import MobileKeyboardGuard from "@/components/mobile/MobileKeyboardGuard";
 import DirectDuelLinkInvite from "@/components/mobile/DirectDuelLinkInvite";
 import ClubClashChallengeUX from "@/components/mobile/ClubClashChallengeUX";
-import ClubNationModesEnhancer from "@/components/mobile/ClubNationModesEnhancer";
 import ClubNationMobileSkin from "@/components/mobile/ClubNationMobileSkin";
-import ClubNationResultUX from "@/components/mobile/ClubNationResultUX";
 import AndroidNetworkGuard from "@/components/mobile/AndroidNetworkGuard";
 import RankedMatchChromeFix from "@/components/mobile/RankedMatchChromeFix";
 import RankedReconnectBanner from "@/components/mobile/RankedReconnectBanner";
 import RankedSharedChallengeBridge from "@/components/mobile/RankedSharedChallengeBridge";
 import DuelRematchConsentBridge from "@/components/mobile/DuelRematchConsentBridge";
 import RankedStartSyncGate from "@/components/mobile/RankedStartSyncGate";
+import ClubNationChallengeUX from "@/components/mobile/ClubNationChallengeUX";
 import { SITE_URL, SiteJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -80,9 +79,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <MobileKeyboardGuard />
         <DirectDuelLinkInvite />
         <ClubClashChallengeUX />
-        <ClubNationModesEnhancer />
         <ClubNationMobileSkin />
-        <ClubNationResultUX />
+        <ClubNationChallengeUX />
         <DuelRematchConsentBridge />
         <RankedStartSyncGate />
         <AndroidNetworkGuard />
