@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import AccountDeletionPanel from "@/components/account/AccountDeletionPanel";
 import LocalizedProfilePage from "@/components/i18n/LocalizedProfilePage";
 import MobileProfilePage from "@/components/mobile/MobileProfilePage";
 import { isLocale, type Locale } from "@/lib/i18n/config";
@@ -22,10 +23,14 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 export default async function ProfileLocalePage({ params }: { params: Params }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
+  const typedLocale = locale as Locale;
   return (
     <>
-      <div className="md:hidden"><MobileProfilePage locale={locale as Locale} /></div>
-      <div className="hidden md:block"><LocalizedProfilePage locale={locale as Locale} /></div>
+      <div className="md:hidden"><MobileProfilePage locale={typedLocale} /></div>
+      <div className="hidden md:block"><LocalizedProfilePage locale={typedLocale} /></div>
+      <div className="bg-[#07111f] px-4 pb-24 text-white">
+        <AccountDeletionPanel locale={typedLocale} />
+      </div>
     </>
   );
 }
