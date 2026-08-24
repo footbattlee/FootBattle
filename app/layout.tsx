@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import "./halisaha-mobile-fix.css";
 import "./club-clash-mobile.css";
+import "./club-nation-mobile.css";
 import "./mobile-game-fixes.css";
 import "./mobile-home-dashboard.css";
 import "./mobile-input-fixes.css";
@@ -31,9 +32,11 @@ import MobileKeyboardGuard from "@/components/mobile/MobileKeyboardGuard";
 import DirectDuelLinkInvite from "@/components/mobile/DirectDuelLinkInvite";
 import ClubClashChallengeUX from "@/components/mobile/ClubClashChallengeUX";
 import ClubNationModesEnhancer from "@/components/mobile/ClubNationModesEnhancer";
+import ClubNationMobileSkin from "@/components/mobile/ClubNationMobileSkin";
 import AndroidNetworkGuard from "@/components/mobile/AndroidNetworkGuard";
 import RankedMatchChromeFix from "@/components/mobile/RankedMatchChromeFix";
 import RankedReconnectBanner from "@/components/mobile/RankedReconnectBanner";
+import RankedSharedChallengeBridge from "@/components/mobile/RankedSharedChallengeBridge";
 import DuelRematchConsentBridge from "@/components/mobile/DuelRematchConsentBridge";
 import RankedStartSyncGate from "@/components/mobile/RankedStartSyncGate";
 import { SITE_URL, SiteJsonLd } from "@/lib/seo";
@@ -71,11 +74,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <Suspense fallback={null}>
           <RankedMatchChromeFix />
           <RankedReconnectBanner />
+          <RankedSharedChallengeBridge />
         </Suspense>
         <MobileKeyboardGuard />
         <DirectDuelLinkInvite />
         <ClubClashChallengeUX />
         <ClubNationModesEnhancer />
+        <ClubNationMobileSkin />
         <DuelRematchConsentBridge />
         <RankedStartSyncGate />
         <AndroidNetworkGuard />
