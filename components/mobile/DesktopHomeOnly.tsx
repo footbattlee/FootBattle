@@ -5,8 +5,6 @@ import UnifiedHomePage from "@/components/UnifiedHomePage";
 import type { Locale } from "@/lib/i18n/config";
 
 export default function DesktopHomeOnly({ locale }: { locale: Locale }) {
-  // Keep SSR/desktop content intact, then unmount the heavy desktop home on mobile.
-  // This stops its hidden friends/daily polling while MobileHomeDashboard is visible.
   const [showDesktopHome, setShowDesktopHome] = useState(true);
 
   useEffect(() => {
@@ -21,9 +19,9 @@ export default function DesktopHomeOnly({ locale }: { locale: Locale }) {
     if (!showDesktopHome) return;
 
     const rankedHref = `/${locale}/rank`;
+    const duelsHref = `/${locale}/duels`;
 
-    const decorateDesktopRankedAccess = () => {
-      // 1) Put Ranked in the existing desktop navbar, next to Oyunlar/Games.
+    const decorateDesktopParity = () => {
       const nav = document.querySelector("header nav");
       if (nav && !nav.querySelector('[data-desktop-ranked-nav="true"]')) {
         const link = document.createElement("a");
@@ -31,7 +29,6 @@ export default function DesktopHomeOnly({ locale }: { locale: Locale }) {
         link.dataset.desktopRankedNav = "true";
         link.className = "transition hover:text-yellow-300 text-yellow-300";
         link.textContent = "🏆 Ranked";
-
         const gamesButton = Array.from(nav.children).find((child) => {
           const text = child.textContent?.trim().toLocaleLowerCase("tr-TR");
           return text === "oyunlar" || text === "games";
@@ -40,26 +37,27 @@ export default function DesktopHomeOnly({ locale }: { locale: Locale }) {
         else nav.appendChild(link);
       }
 
-      // 2) Ranked is currently supported by Tic Tac Toe and 2 Clubs 1 Player.
-      // Add the entry beside their existing Oyna/Düello actions on desktop cards.
-      const rankedGameTitles = new Set([
-        "Futbol Tic Tac Toe",
-        "Football Tic Tac Toe",
-        "2 Takım 1 Oyuncu",
-        "2 Clubs 1 Player",
-      ]);
+      const rankedGameTitles = new Set(["Futbol Tic Tac Toe", "Football Tic Tac Toe", "2 Takım 1 Oyuncu", "2 Clubs 1 Player"]);
+      const unsupportedDuelTitles = new Set(["Player Quiz", "1 Takım 1 Millet", "1 Club 1 Nation"]);
+      const clubClashTitles = new Set(["2 Takım 1 Oyuncu", "2 Clubs 1 Player"]);
 
       document.querySelectorAll("#oyunlar article").forEach((card) => {
         const title = card.querySelector("h3")?.textContent?.trim() ?? "";
-        if (!rankedGameTitles.has(title)) return;
-        if (card.querySelector('[data-desktop-ranked-card="true"]')) return;
+        const actionLinks = Array.from(card.querySelectorAll("a"));
+        const duelLinks = actionLinks.filter((link) => link.textContent?.includes("Düello") || link.textContent?.includes("Duel"));
 
-        const actionRows = Array.from(card.querySelectorAll("div")).filter((node) =>
-          node.className.includes("flex") && node.className.includes("flex-wrap") && node.className.includes("gap-2"),
-        );
+        if (unsupportedDuelTitles.has(title)) {
+          duelLinks.forEach((link) => link.remove());
+          const modeBadge = Array.from(card.querySelectorAll("span")).find((span) => span.textContent?.includes("Düello") || span.textContent?.includes("Duel"));
+          if (modeBadge) modeBadge.textContent = locale === "tr" ? "TEK OYUNCU" : "SOLO";
+        }
+
+        if (clubClashTitles.has(title)) duelLinks.forEach((link) => link.setAttribute("href", duelsHref));
+
+        if (!rankedGameTitles.has(title) || card.querySelector('[data-desktop-ranked-card="true"]')) return;
+        const actionRows = Array.from(card.querySelectorAll("div")).filter((node) => node.className.includes("flex") && node.className.includes("flex-wrap") && node.className.includes("gap-2"));
         const actions = actionRows[actionRows.length - 1];
         if (!actions) return;
-
         const link = document.createElement("a");
         link.href = rankedHref;
         link.dataset.desktopRankedCard = "true";
@@ -67,12 +65,21 @@ export default function DesktopHomeOnly({ locale }: { locale: Locale }) {
         link.textContent = "🏆 Ranked";
         actions.appendChild(link);
       });
+
+      // Remove stale desktop copy that still says Tic Tac Toe duel is upcoming.
+      document.querySelectorAll("p").forEach((node) => {
+        const text = node.textContent ?? "";
+        if (text.includes("Tic Tac Toe düello modu") || text.includes("Tic Tac Toe duel mode")) {
+          node.textContent = locale === "tr"
+            ? "Yeni rekabetçi oyun modları ve FootBattle özellikleri geliştirmeye devam ediyor."
+            : "New competitive game modes and FootBattle features are continuing to grow.";
+        }
+      });
     };
 
-    decorateDesktopRankedAccess();
-    const firstRetry = window.setTimeout(decorateDesktopRankedAccess, 50);
-    const secondRetry = window.setTimeout(decorateDesktopRankedAccess, 300);
-
+    decorateDesktopParity();
+    const firstRetry = window.setTimeout(decorateDesktopParity, 50);
+    const secondRetry = window.setTimeout(decorateDesktopParity, 300);
     return () => {
       window.clearTimeout(firstRetry);
       window.clearTimeout(secondRetry);
