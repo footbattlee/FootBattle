@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { footballLocaleFromRequest, localizeFootballAxisValue, type FootballLocale } from "@/lib/football/localization";
 import { generateCachedBalancedTicTacToeGrid } from "@/lib/tic-tac-toe/cached-balanced-grid";
 import { type TicTacToeAxisItem } from "@/lib/tic-tac-toe/grid-generator";
+import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const GAME_DURATION_SECONDS = 120;
@@ -56,6 +57,13 @@ export async function POST(request: Request) {
     const locale = footballLocaleFromRequest(request);
     const url = new URL(request.url);
     const dailyMode = url.searchParams.get("daily") === "1";
+
+    // Solo oyun anonim oynanabilir; giriş yapan kullanıcı varsa session'a bağla.
+    // Böylece gerçek oyun puanı Solo Rating'e güvenli biçimde dahil edilir.
+    const authSupabase = await createAuthServerClient();
+    const { data: { user } } = await authSupabase.auth.getUser();
+    const userId = user?.id ?? null;
+
     let preparedGrid: PreparedGrid;
 
     if (dailyMode) {
@@ -111,8 +119,16 @@ export async function POST(request: Request) {
 
     const { data: session, error: sessionError } = await supabaseAdmin
       .from("tic_tac_toe_sessions")
-      .insert({ mode: "solo", score: 0, correct_count: 0, wrong_count: 0, duration_seconds: GAME_DURATION_SECONDS, completed: false })
-      .select("id, mode, score, correct_count, wrong_count, duration_seconds, completed, created_at")
+      .insert({
+        user_id: userId,
+        mode: "solo",
+        score: 0,
+        correct_count: 0,
+        wrong_count: 0,
+        duration_seconds: GAME_DURATION_SECONDS,
+        completed: false,
+      })
+      .select("id, user_id, mode, score, correct_count, wrong_count, duration_seconds, completed, created_at")
       .single();
     if (sessionError || !session) return NextResponse.json({ ok: false, error: "TicTacToe oturumu oluşturulamadı." }, { status: 500 });
 
