@@ -3,8 +3,6 @@
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
-const DUEL_HREF = "/tic-tac-toe/duel";
-
 function homeLocale(pathname: string) {
   if (pathname === "/en") return "en" as const;
   if (pathname === "/" || pathname === "/tr") return "tr" as const;
@@ -35,7 +33,7 @@ export default function HomeTicTacToeDuelEnhancer() {
         if (!actions || actions.querySelector('[data-tic-tac-toe-duel="1"]')) continue;
 
         const duelLink = document.createElement("a");
-        duelLink.href = DUEL_HREF;
+        duelLink.href = `/${locale}/duels`;
         duelLink.dataset.ticTacToeDuel = "1";
         duelLink.textContent = locale === "en" ? "⚔️ Duel" : "⚔️ Düello";
         duelLink.className =
