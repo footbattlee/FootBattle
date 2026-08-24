@@ -49,6 +49,19 @@ async function readRematch(sourceId: number) {
   return challenge ?? null;
 }
 
+async function sourceRankedMatch(challengeToken: string) {
+  const { data, error } = await supabaseAdmin
+    .from("ranked_matches")
+    .select("id,player_a_id,player_b_id,opponent_kind,bot_name")
+    .eq("challenge_token", challengeToken)
+    .eq("game_code", "club_nation")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data ?? null;
+}
+
 export async function GET(
   _request: Request,
   context: { params: Promise<{ token: string }> },
@@ -102,8 +115,12 @@ export async function POST(
       return NextResponse.json({ ok: true, state: "pending", token: null, requestedBy: existing.winner_side, existing: true });
     }
 
-    const now = new Date().toISOString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const rankedSource = await sourceRankedMatch(source.invite_token);
+    const isBot = rankedSource?.opponent_kind === "bot";
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const startsAt = new Date(now.getTime() + START_DELAY_MS).toISOString();
+    const expiresAt = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
     const newToken = inviteToken();
 
     const { data: created, error: createError } = await supabaseAdmin
@@ -111,7 +128,7 @@ export async function POST(
       .insert({
         invite_token: newToken,
         game_code: "club_nation",
-        status: "waiting",
+        status: isBot ? "playing" : "waiting",
         challenger_user_id: source.challenger_user_id,
         challenger_guest_id: source.challenger_guest_id,
         challenger_name: source.challenger_name,
@@ -120,14 +137,14 @@ export async function POST(
         opponent_name: source.opponent_name,
         challenger_score: 0,
         opponent_score: 0,
-        winner_side: access.role,
-        joined_at: null,
-        started_at: null,
+        winner_side: isBot ? null : access.role,
+        joined_at: isBot ? nowIso : null,
+        started_at: isBot ? startsAt : null,
         completed_at: null,
         expires_at: expiresAt,
-        updated_at: now,
+        updated_at: nowIso,
       })
-      .select("id")
+      .select("id,invite_token,started_at")
       .single();
     if (createError || !created) throw createError ?? new Error("Rövanş isteği oluşturulamadı.");
 
@@ -142,7 +159,28 @@ export async function POST(
       throw mapError;
     }
 
-    return NextResponse.json({ ok: true, state: "pending", token: null, requestedBy: access.role });
+    if (isBot && rankedSource) {
+      const { error: rankedError } = await supabaseAdmin.from("ranked_matches").insert({
+        game_code: "club_nation",
+        status: "active",
+        player_a_id: rankedSource.player_a_id,
+        player_b_id: null,
+        opponent_kind: "bot",
+        bot_name: rankedSource.bot_name ?? "Bot Eren :)",
+        challenge_token: newToken,
+        started_at: startsAt,
+        updated_at: nowIso,
+      });
+      if (rankedError) {
+        await supabaseAdmin.from("club_nation_rematches").delete().eq("source_challenge_id", source.id);
+        await supabaseAdmin.from("guest_challenges").delete().eq("id", created.id);
+        throw rankedError;
+      }
+
+      return NextResponse.json({ ok: true, state: "accepted", token: newToken, startsAt, bot: true });
+    }
+
+    return NextResponse.json({ ok: true, state: "pending", token: null, requestedBy: access.role, bot: false });
   } catch (error) {
     console.error("Club Nation rematch create error:", error);
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Rövanş isteği oluşturulamadı." }, { status: 500 });
