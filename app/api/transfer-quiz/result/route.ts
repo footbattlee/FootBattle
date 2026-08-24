@@ -10,7 +10,7 @@ import { nationalitiesAreEquivalent } from "@/lib/player-quiz/nationalities";
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-const COMPLETION_SCORE = 500;
+const COMPLETION_SCORE = 250;
 type FinishReason = "won" | "lost";
 type ResultRequest = {
   sessionId?: string;
