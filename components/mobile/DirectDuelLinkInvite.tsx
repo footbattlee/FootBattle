@@ -3,20 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-type GameCode = "tic_tac_toe" | "club_clash";
+type GameCode = "tic_tac_toe" | "club_clash" | "club_nation";
 
 type CreateResponse = {
   ok?: boolean;
   error?: string;
-  challenge?: {
-    shareUrl?: string;
-    sharePath?: string;
-  };
+  challenge?: { shareUrl?: string; sharePath?: string };
 };
 
 const GAME_LABEL: Record<GameCode, string> = {
   tic_tac_toe: "Futbol Tic Tac Toe",
   club_clash: "2 Takım 1 Oyuncu",
+  club_nation: "1 Takım 1 Millet",
 };
 
 export default function DirectDuelLinkInvite() {
@@ -28,14 +26,11 @@ export default function DirectDuelLinkInvite() {
 
   useEffect(() => {
     let nextGameCode: GameCode | null = null;
-
-    if (pathname === "/tic-tac-toe/duel") {
-      nextGameCode = "tic_tac_toe";
-    } else if (pathname === "/duels/challenge") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("game") === "club_clash") nextGameCode = "club_clash";
+    if (pathname === "/tic-tac-toe/duel") nextGameCode = "tic_tac_toe";
+    else if (pathname === "/duels/challenge") {
+      const game = new URLSearchParams(window.location.search).get("game");
+      if (game === "club_clash" || game === "club_nation") nextGameCode = game;
     }
-
     startedRef.current = false;
     setError("");
     setGameCode(nextGameCode);
@@ -67,31 +62,21 @@ export default function DirectDuelLinkInvite() {
 
         if (navigator.share) {
           try {
-            await navigator.share({
-              title: `${gameLabel} · FootBattle`,
-              text: shareText,
-              url: shareUrl,
-            });
+            await navigator.share({ title: `${gameLabel} · FootBattle`, text: shareText, url: shareUrl });
           } catch (shareError) {
             if (!(shareError instanceof DOMException && shareError.name === "AbortError")) {
-              try {
-                await navigator.clipboard.writeText(clipboardText);
-              } catch {
-                // Paylaşım ekranı açılamadıysa challenge sayfasına yine devam edilir.
-              }
+              try { await navigator.clipboard.writeText(clipboardText); } catch { /* challenge sayfasına devam et */ }
             }
           }
         } else {
           await navigator.clipboard.writeText(clipboardText);
         }
-
         router.replace(sharePath);
       } catch (reason) {
         startedRef.current = false;
         setError(reason instanceof Error ? reason.message : "Düello linki oluşturulamadı.");
       }
     }
-
     void createAndShare();
   }, [gameCode, router]);
 
@@ -100,30 +85,15 @@ export default function DirectDuelLinkInvite() {
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#07111f] px-5 text-white">
       <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#101c2c] p-6 text-center shadow-2xl">
-        {error ? (
-          <>
-            <p className="text-lg font-black text-red-300">Link oluşturulamadı</p>
-            <p className="mt-2 text-sm text-slate-400">{error}</p>
-            <button
-              type="button"
-              onClick={() => {
-                startedRef.current = false;
-                setError("");
-                setGameCode(null);
-                window.setTimeout(() => setGameCode(gameCode), 0);
-              }}
-              className="mt-5 min-h-12 w-full rounded-xl bg-green-500 font-black text-[#07111f]"
-            >
-              Tekrar Dene
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="mx-auto h-11 w-11 animate-spin rounded-full border-4 border-white/10 border-t-green-400" />
-            <p className="mt-5 text-lg font-black">Davet linki hazırlanıyor...</p>
-            <p className="mt-2 text-sm text-slate-500">Birazdan paylaşım ekranı otomatik açılacak.</p>
-          </>
-        )}
+        {error ? <>
+          <p className="text-lg font-black text-red-300">Link oluşturulamadı</p>
+          <p className="mt-2 text-sm text-slate-400">{error}</p>
+          <button type="button" onClick={() => { startedRef.current = false; setError(""); const retry = gameCode; setGameCode(null); window.setTimeout(() => setGameCode(retry), 0); }} className="mt-5 min-h-12 w-full rounded-xl bg-green-500 font-black text-[#07111f]">Tekrar Dene</button>
+        </> : <>
+          <div className="mx-auto h-11 w-11 animate-spin rounded-full border-4 border-white/10 border-t-green-400" />
+          <p className="mt-5 text-lg font-black">Davet linki hazırlanıyor...</p>
+          <p className="mt-2 text-sm text-slate-500">Birazdan paylaşım ekranı otomatik açılacak.</p>
+        </>}
       </div>
     </div>
   );
