@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-const BOT_FALLBACK_MS = 7000;
+const BOT_FALLBACK_MS = 10000;
 const FRESH_MS = 30000;
 
 async function userId() {
@@ -102,7 +102,7 @@ export async function POST() {
 
     const age = Math.max(0, Date.now() - new Date(mine.created_at).getTime());
 
-    // 7 saniye dolduysa başka bir istemcinin koordinasyonuna bağımlı kalma.
+    // 10 saniye dolduysa başka bir istemcinin koordinasyonuna bağımlı kalma.
     // Aktif maç yoksa Bot Eren :) kesin olarak devreye girer.
     if (age >= BOT_FALLBACK_MS) {
       const again = await existing(id);
@@ -113,7 +113,7 @@ export async function POST() {
       return NextResponse.json({ ok: true, state: "matched", match });
     }
 
-    // İlk 7 saniye boyunca gerçek oyuncuya öncelik ver.
+    // İlk 10 saniye boyunca gerçek oyuncuya öncelik ver.
     const since = new Date(Date.now() - FRESH_MS).toISOString();
     const { data: candidate } = await supabaseAdmin.from("ranked_match_queue")
       .select("user_id,created_at")
