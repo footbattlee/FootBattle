@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
-const BOT_FALLBACK_MS = 7000;
+const BOT_FALLBACK_MS = 10000;
 const CHALLENGE_LIFETIME_HOURS = 6;
 const STALE_MATCH_MS = 15 * 60 * 1000;
 const STALE_QUEUE_MS = 60 * 1000;
@@ -73,7 +73,7 @@ async function createSharedChallenge(input: {
   const expiresAt = new Date(Date.now() + CHALLENGE_LIFETIME_HOURS * 60 * 60 * 1000).toISOString();
   const challengerName = await getDisplayName(input.playerAId);
   const opponentName = input.opponentKind === "bot"
-    ? (input.botName ?? "Eren :)")
+    ? (input.botName ?? "Bot Eren :)")
     : input.playerBId
       ? await getDisplayName(input.playerBId)
       : "Rakip";
@@ -184,12 +184,12 @@ async function getExistingMatch(userId: string, gameCode: string) {
     return null;
   }
 
-  if (match.opponent_kind === "bot" && challenge.opponent_name !== "Eren :)") {
+  if (match.opponent_kind === "bot" && challenge.opponent_name !== "Bot Eren :)") {
     await Promise.all([
-      supabaseAdmin.from("guest_challenges").update({ opponent_name: "Eren :)" }).eq("invite_token", match.challenge_token),
-      supabaseAdmin.from("ranked_matches").update({ bot_name: "Eren :)" }).eq("id", match.id),
+      supabaseAdmin.from("guest_challenges").update({ opponent_name: "Bot Eren :)" }).eq("invite_token", match.challenge_token),
+      supabaseAdmin.from("ranked_matches").update({ bot_name: "Bot Eren :)" }).eq("id", match.id),
     ]);
-    match.bot_name = "Eren :)";
+    match.bot_name = "Bot Eren :)";
   }
 
   const idleMs = Date.now() - new Date(challenge.updated_at ?? match.updated_at ?? match.created_at).getTime();
@@ -223,7 +223,7 @@ async function createRankedMatch(input: {
       player_a_id: input.playerAId,
       player_b_id: input.playerBId,
       opponent_kind: input.opponentKind,
-      bot_name: input.opponentKind === "bot" ? (input.botName ?? "Eren :)") : null,
+      bot_name: input.opponentKind === "bot" ? (input.botName ?? "Bot Eren :)") : null,
       challenge_token: challengeToken,
       started_at: now,
       updated_at: now,
@@ -299,7 +299,8 @@ export async function POST(request: Request) {
     if (candidate?.user_id) {
       const coordinatorId = [userId, candidate.user_id].sort()[0];
       if (userId !== coordinatorId) {
-        return NextResponse.json({ ok: true, state: "searching", elapsedMs: 0, botInMs: BOT_FALLBACK_MS });
+        const elapsedMs = mine ? Math.max(0, Date.now() - new Date(mine.created_at).getTime()) : 0;
+        return NextResponse.json({ ok: true, state: "searching", elapsedMs, botInMs: Math.max(0, BOT_FALLBACK_MS - elapsedMs) });
       }
 
       const alreadyMatched = await getExistingMatch(userId, gameCode);
@@ -360,7 +361,7 @@ export async function POST(request: Request) {
         playerAId: userId,
         playerBId: null,
         opponentKind: "bot",
-        botName: "Eren :)",
+        botName: "Bot Eren :)",
       });
       await supabaseAdmin.from("ranked_match_queue").delete().eq("user_id", userId);
       return NextResponse.json({ ok: true, state: "matched", match });
