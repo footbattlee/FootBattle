@@ -3,6 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
+declare global {
+  interface Window {
+    FootBattleAndroid?: {
+      share?: (title: string, text: string, url: string) => void;
+    };
+  }
+}
+
 type Side = "challenger" | "opponent";
 type ChallengeResponse = {
   ok?: boolean;
@@ -181,12 +189,20 @@ export default function ClubNationResultUX() {
     const text = `🌍 FootBattle 1 Takım 1 Millet düellosu: ${title}\n${cName} ${cScore} - ${oScore} ${oName}`;
     const url = `https://playfootbattle.com/challenge/${token}`;
     const fullText = `${text}\n${url}`;
+    const shareTitle = "1 Takım 1 Millet · FootBattle";
 
     setShareMessage("");
 
+    if (window.FootBattleAndroid?.share) {
+      try {
+        window.FootBattleAndroid.share(shareTitle, text, url);
+        return;
+      } catch { /* fall through to web share */ }
+    }
+
     if (navigator.share) {
       try {
-        await navigator.share({ title: "1 Takım 1 Millet · FootBattle", text, url });
+        await navigator.share({ title: shareTitle, text, url });
         return;
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
