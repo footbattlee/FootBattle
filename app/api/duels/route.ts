@@ -34,6 +34,7 @@ type ProfileRow = {
 
 const GAME_LABELS: Record<string, string> = {
   club_clash: "2 Takım 1 Oyuncu",
+  club_nation: "1 Takım 1 Millet",
   tic_tac_toe: "Football Tic Tac Toe",
   country_club: "Ülke + Takım",
   player_duel: "Test Düellosu",
@@ -55,6 +56,7 @@ function presence(lastSeenAt: string | null) {
 
 function canonicalGameUrl(duel: DuelRow) {
   if (duel.game_code === "tic_tac_toe" && duel.challenge_token) return `/tic-tac-toe/duel/${duel.challenge_token}`;
+  if (duel.game_code === "club_nation" && duel.challenge_token) return `/challenge/${duel.challenge_token}`;
   return `/duels/${duel.id}`;
 }
 
