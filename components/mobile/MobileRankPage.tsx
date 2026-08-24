@@ -33,7 +33,7 @@ type SoloEntry = {
 type SoloData = { ok?: boolean; error?: string; leaderboard?: SoloEntry[]; me?: SoloEntry | null };
 type Friend = { user: { id: string; username: string | null; displayName: string; avatarUrl?: string | null } };
 type FriendsData = { ok?: boolean; friends?: Friend[] };
-type GameCode = "tic_tac_toe" | "club_clash";
+type GameCode = "tic_tac_toe" | "club_clash" | "club_nation";
 type MatchmakingResponse = {
   ok?: boolean;
   error?: string;
@@ -46,6 +46,7 @@ type MatchmakingResponse = {
 const games: Array<{ code: GameCode; icon: string; tr: string; en: string; descTr: string; descEn: string }> = [
   { code: "tic_tac_toe", icon: "⭕", tr: "Futbol Tic Tac Toe", en: "Football Tic Tac Toe", descTr: "Düellodaki aynı 3x3 mekanik.", descEn: "The same 3x3 duel rules." },
   { code: "club_clash", icon: "⚽", tr: "2 Takım 1 Oyuncu", en: "2 Clubs 1 Player", descTr: "İlk 3 roundu alan kazanır.", descEn: "First to 3 rounds wins." },
+  { code: "club_nation", icon: "🌍", tr: "1 Takım 1 Millet", en: "1 Club 1 Nation", descTr: "İlk 3 roundu alan kazanır.", descEn: "First to 3 rounds wins." },
 ];
 
 export default function MobileRankPage({ locale }: { locale: Locale }) {
@@ -88,11 +89,16 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
     if (pollRef.current) window.clearTimeout(pollRef.current);
   }, []);
 
+  function matchmakingEndpoint(gameCode: GameCode) {
+    return gameCode === "club_nation" ? "/api/rank/club-nation-matchmaking" : "/api/rank/matchmaking";
+  }
+
   async function matchmakingTick(gameCode: GameCode) {
-    const response = await fetch("/api/rank/matchmaking", {
+    const endpoint = matchmakingEndpoint(gameCode);
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ gameCode }),
+      ...(gameCode === "club_nation" ? {} : { body: JSON.stringify({ gameCode }) }),
     });
     const result = await response.json() as MatchmakingResponse;
     if (!response.ok || !result.ok) throw new Error(result.error ?? (tr ? "Rakip aranamadı." : "Could not search for an opponent."));
@@ -129,7 +135,7 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
   async function cancelSearch() {
     if (pollRef.current) window.clearTimeout(pollRef.current);
     pollRef.current = null;
-    await fetch("/api/rank/matchmaking", { method: "DELETE" }).catch(() => null);
+    await fetch(matchmakingEndpoint(selectedGame), { method: "DELETE" }).catch(() => null);
     setSearching(false);
     setBotCountdown(null);
     setMatchMessage("");
