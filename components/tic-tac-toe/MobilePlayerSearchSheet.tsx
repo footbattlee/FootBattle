@@ -29,6 +29,16 @@ export default function MobilePlayerSearchSheet({
 }: Props) {
   const hasQuery = query.trim().length >= 2;
 
+  function selectPlayer(player: Player) {
+    if (busy) return;
+
+    // Submit first while the parent still has the selected cell in state.
+    // Then close the sheet immediately so the answer result is visible on the board
+    // without requiring the user to manually press X.
+    onSelect(player);
+    onClose();
+  }
+
   return (
     <div
       className="fixed inset-0 z-[220] flex items-end bg-black/65 md:items-center md:justify-center md:p-6"
@@ -76,7 +86,7 @@ export default function MobilePlayerSearchSheet({
                 key={player.id}
                 type="button"
                 disabled={busy}
-                onClick={() => onSelect(player)}
+                onClick={() => selectPlayer(player)}
                 className="mb-1 grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-left active:border-white/10 active:bg-white/[0.06] disabled:opacity-50"
               >
                 <span
