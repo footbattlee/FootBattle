@@ -33,6 +33,7 @@ import DirectDuelLinkInvite from "@/components/mobile/DirectDuelLinkInvite";
 import ClubClashChallengeUX from "@/components/mobile/ClubClashChallengeUX";
 import ClubNationModesEnhancer from "@/components/mobile/ClubNationModesEnhancer";
 import ClubNationMobileSkin from "@/components/mobile/ClubNationMobileSkin";
+import ClubNationResultUX from "@/components/mobile/ClubNationResultUX";
 import AndroidNetworkGuard from "@/components/mobile/AndroidNetworkGuard";
 import RankedMatchChromeFix from "@/components/mobile/RankedMatchChromeFix";
 import RankedReconnectBanner from "@/components/mobile/RankedReconnectBanner";
@@ -81,6 +82,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <ClubClashChallengeUX />
         <ClubNationModesEnhancer />
         <ClubNationMobileSkin />
+        <ClubNationResultUX />
         <DuelRematchConsentBridge />
         <RankedStartSyncGate />
         <AndroidNetworkGuard />
