@@ -15,7 +15,7 @@ import "./ranked-mobile-fixes.css";
 import PresenceHeartbeat from "@/components/PresenceHeartbeat";
 import HomeProgressionSpotlight from "@/components/HomeProgressionSpotlight";
 import HomeTicTacToeDuelEnhancer from "@/components/HomeTicTacToeDuelEnhancer";
-import HomeSuperLigAndMobileOrder from "@/components/mobile/HomeSuperLigAndMobileOrder";
+import HomeSuperLigAndMobileOrder from "@/components/HomeSuperLigAndMobileOrder";
 import GuessThePlayerSearchEnhancer from "@/components/GuessThePlayerSearchEnhancer";
 import GlobalShareEnhancer from "@/components/GlobalShareEnhancer";
 import GameResultArena from "@/components/GameResultArena";
