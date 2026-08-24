@@ -1,0 +1,54 @@
+name: Enforce Ranked Bot Name
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  enforce-bot-name:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Replace legacy ranked bot name
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          files = [
+              Path('app/api/rank/matchmaking/route.ts'),
+              Path('components/mobile/MobileRankPage.tsx'),
+              Path('components/mobile/RankedReconnectBanner.tsx'),
+              Path('lib/ranked/shared-engine.ts'),
+          ]
+
+          changed = []
+          for path in files:
+              text = path.read_text(encoding='utf-8')
+              updated = text.replace('Bot Mehmet', 'Eren :)')
+              if updated != text:
+                  path.write_text(updated, encoding='utf-8')
+                  changed.append(str(path))
+
+          print('Updated:', ', '.join(changed) if changed else 'none')
+          PY
+
+      - name: Commit normalized bot name
+        run: |
+          if git diff --quiet; then
+            echo "No legacy ranked bot names found."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/api/rank/matchmaking/route.ts components/mobile/MobileRankPage.tsx components/mobile/RankedReconnectBanner.tsx lib/ranked/shared-engine.ts
+          git commit -m "fix: show Eren bot name across ranked"
+          git push
