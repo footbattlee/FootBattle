@@ -6,7 +6,7 @@ import type { Locale } from "@/lib/i18n/config";
 
 type Duel = {
   id: number;
-  gameCode: "tic_tac_toe" | "club_clash" | string;
+  gameCode: "tic_tac_toe" | "club_clash" | "club_nation" | string;
   gameLabel: string;
   status: "pending" | "accepted" | "active" | "completed" | "rejected" | "cancelled";
   viewerRole: "challenger" | "opponent";
@@ -31,7 +31,7 @@ type Friend = {
 };
 type FriendsData = { ok?: boolean; error?: string; friends?: Friend[] };
 type ActionResponse = { ok?: boolean; error?: string; message?: string; game?: { url?: string } };
-type GameCode = "tic_tac_toe" | "club_clash";
+type GameCode = "tic_tac_toe" | "club_clash" | "club_nation";
 
 const FAST_POLL_MS = 2_500;
 const IDLE_POLL_MS = 9_000;
@@ -52,6 +52,14 @@ const GAME_INFO: Record<GameCode, { icon: string; titleTr: string; titleEn: stri
     textTr: "Ortak futbolcuyu rakibinden önce bul.",
     textEn: "Find the shared player before your rival.",
     linkHref: "/duels/challenge?game=club_clash",
+  },
+  club_nation: {
+    icon: "🌍",
+    titleTr: "1 Takım 1 Millet",
+    titleEn: "1 Club 1 Nation",
+    textTr: "Takım ve milliyete uyan futbolcuyu rakibinden önce bul.",
+    textEn: "Find a player matching the club and nation before your rival.",
+    linkHref: "/duels/challenge?game=club_nation",
   },
 };
 
