@@ -29,7 +29,9 @@ function normalizeGuess(value: string) {
 export async function POST(request: Request) {
   try {
     const authClient = await createAuthServerClient();
-    const { data: { user }, error: userError } = await authClient.auth.getUser();
+    const {
+      data: { user },
+    } = await authClient.auth.getUser();
 
     const body = (await request.json()) as ResultRequest;
     const sessionId = body.sessionId?.trim();
@@ -47,20 +49,16 @@ export async function POST(request: Request) {
       .maybeSingle();
     if (sessionError || !session) return NextResponse.json({ ok: false, error: "Wordle oyunu bulunamadı." }, { status: 404 });
 
+    if (session.user_id && session.user_id !== user?.id) {
+      return NextResponse.json({ ok: false, error: "Bu oyun oturumu başka bir kullanıcıya ait." }, { status: 403 });
+    }
+
     const { data: answerPlayer } = await supabaseAdmin
       .from("guess_players")
       .select("player_id, name")
       .eq("player_id", session.player_id)
       .maybeSingle();
     const answerPlayerName = answerPlayer?.name ?? null;
-
-    if (userError || !user) {
-      return NextResponse.json({ ok: false, error: "Puanını kaydetmek için giriş yapmalısın.", answerPlayerName }, { status: 401 });
-    }
-
-    if (session.user_id && session.user_id !== user.id) {
-      return NextResponse.json({ ok: false, error: "Bu oyun oturumu başka bir kullanıcıya ait." }, { status: 403 });
-    }
 
     if (session.result_applied) {
       const security = await getGameSecurityStatus("wordle", sessionId).catch(() => null);
@@ -97,19 +95,51 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
     const { data: completedSession, error: completeError } = await supabaseAdmin
       .from("wordle_sessions")
-      .update({ completed: true, result_applied: true, won, score, attempt_count: guesses.length, user_id: user.id, completed_at: now })
+      .update({
+        completed: true,
+        result_applied: true,
+        won,
+        score,
+        attempt_count: guesses.length,
+        user_id: user?.id ?? session.user_id ?? null,
+        completed_at: now,
+      })
       .eq("id", sessionId)
       .eq("result_applied", false)
       .select("id")
       .maybeSingle();
     if (completeError) return NextResponse.json({ ok: false, error: "Oyun sonucu kaydedilemedi." }, { status: 500 });
 
+    const security = await getGameSecurityStatus("wordle", sessionId).catch(() => null);
+
     if (!completedSession) {
-      const security = await getGameSecurityStatus("wordle", sessionId).catch(() => null);
-      return NextResponse.json({ ok: true, alreadyRecorded: true, won, score, attemptCount: guesses.length, answerPlayerName, scoreEligible: !security?.scoreBlocked, security });
+      return NextResponse.json({
+        ok: true,
+        alreadyRecorded: true,
+        won,
+        score,
+        attemptCount: guesses.length,
+        answerPlayerName,
+        scoreEligible: !security?.scoreBlocked,
+        security,
+      });
     }
 
-    const security = await getGameSecurityStatus("wordle", sessionId).catch(() => null);
+    if (!user) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Puanını kaydetmek için giriş yapmalısın.",
+          completed: true,
+          won,
+          score,
+          attemptCount: guesses.length,
+          answerPlayerName,
+        },
+        { status: 401 },
+      );
+    }
+
     const awardedScore = security?.scoreBlocked ? 0 : score;
 
     const { data: profile, error: profileError } = await supabaseAdmin
