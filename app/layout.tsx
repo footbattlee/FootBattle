@@ -15,7 +15,7 @@ import "./ranked-mobile-fixes.css";
 import PresenceHeartbeat from "@/components/PresenceHeartbeat";
 import HomeProgressionSpotlight from "@/components/HomeProgressionSpotlight";
 import HomeTicTacToeDuelEnhancer from "@/components/HomeTicTacToeDuelEnhancer";
-import HomeSuperLigAndMobileOrder from "@/components/HomeSuperLigAndMobileOrder";
+import HomeSuperLigAndMobileOrder from "@/components/mobile/HomeSuperLigAndMobileOrder";
 import GuessThePlayerSearchEnhancer from "@/components/GuessThePlayerSearchEnhancer";
 import GlobalShareEnhancer from "@/components/GlobalShareEnhancer";
 import GameResultArena from "@/components/GameResultArena";
@@ -38,7 +38,7 @@ import RankedReconnectBanner from "@/components/mobile/RankedReconnectBanner";
 import RankedSharedChallengeBridge from "@/components/mobile/RankedSharedChallengeBridge";
 import DuelRematchConsentBridge from "@/components/mobile/DuelRematchConsentBridge";
 import RankedStartSyncGate from "@/components/mobile/RankedStartSyncGate";
-import ClubNationChallengeUX from "@/components/mobile/ClubNationChallengeUX";
+import ClubNationResultUX from "@/components/mobile/ClubNationResultUX";
 import { SITE_URL, SiteJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -80,7 +80,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <DirectDuelLinkInvite />
         <ClubClashChallengeUX />
         <ClubNationMobileSkin />
-        <ClubNationChallengeUX />
+        <ClubNationResultUX />
         <DuelRematchConsentBridge />
         <RankedStartSyncGate />
         <AndroidNetworkGuard />
