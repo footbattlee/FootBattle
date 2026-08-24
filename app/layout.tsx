@@ -30,6 +30,7 @@ import GuessThePlayerMobileAutoScroll from "@/components/mobile/GuessThePlayerMo
 import MobileKeyboardGuard from "@/components/mobile/MobileKeyboardGuard";
 import DirectDuelLinkInvite from "@/components/mobile/DirectDuelLinkInvite";
 import ClubClashChallengeUX from "@/components/mobile/ClubClashChallengeUX";
+import ClubNationModesEnhancer from "@/components/mobile/ClubNationModesEnhancer";
 import AndroidNetworkGuard from "@/components/mobile/AndroidNetworkGuard";
 import RankedMatchChromeFix from "@/components/mobile/RankedMatchChromeFix";
 import RankedReconnectBanner from "@/components/mobile/RankedReconnectBanner";
@@ -74,6 +75,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <MobileKeyboardGuard />
         <DirectDuelLinkInvite />
         <ClubClashChallengeUX />
+        <ClubNationModesEnhancer />
         <DuelRematchConsentBridge />
         <RankedStartSyncGate />
         <AndroidNetworkGuard />
