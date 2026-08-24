@@ -11,13 +11,13 @@ import {
 
 const GAME_META: Record<string, { label: string; icon: string; playHref: string; challenge: boolean }> = {
   wordle: { label: "Wordle", icon: "🟩", playHref: "/wordle", challenge: false },
-  guess_the_player: { label: "Guess the Player", icon: "🕵️", playHref: "/guess-the-player", challenge: true },
-  player_quiz: { label: "Player Quiz", icon: "🧠", playHref: "/player-quiz", challenge: true },
+  guess_the_player: { label: "Guess the Player", icon: "🕵️", playHref: "/guess-the-player", challenge: false },
+  player_quiz: { label: "Player Quiz", icon: "🧠", playHref: "/player-quiz", challenge: false },
   transfer_quiz: { label: "Transfer Quiz", icon: "🔥", playHref: "/transfer-quiz", challenge: false },
   tic_tac_toe: { label: "Futbol Tic Tac Toe", icon: "⭕", playHref: "/tic-tac-toe", challenge: true },
-  club_nation: { label: "1 Takım 1 Millet", icon: "🌍", playHref: "/club-nation", challenge: true },
+  club_nation: { label: "1 Takım 1 Millet", icon: "🌍", playHref: "/club-nation", challenge: false },
   club_clash: { label: "2 Takım 1 Oyuncu", icon: "⚔️", playHref: "/club-clash", challenge: true },
-  career_path: { label: "Career Path", icon: "🛣️", playHref: "/career-path", challenge: true },
+  career_path: { label: "Career Path", icon: "🛣️", playHref: "/career-path", challenge: false },
 };
 
 const NEXT_GAME: Record<string, string> = {
@@ -64,14 +64,6 @@ type SummaryResponse = {
   }>;
 };
 
-type ChallengeResponse = {
-  ok?: boolean;
-  error?: string;
-  challenge?: {
-    shareUrl?: string;
-  };
-};
-
 function number(value: number) {
   return new Intl.NumberFormat("tr-TR").format(value);
 }
@@ -84,7 +76,6 @@ export default function GameResultArena() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [sharing, setSharing] = useState(false);
   const [message, setMessage] = useState("");
   const [detail, setDetail] = useState<GameCompletedDetail | null>(null);
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
@@ -189,29 +180,9 @@ export default function GameResultArena() {
     window.location.reload();
   }
 
-  async function createChallengeAndShare() {
-    if (!detail || !game?.challenge || sharing) return;
-    setSharing(true);
-    setMessage("");
-    try {
-      const response = await fetch("/api/challenges/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          gameCode: detail.gameName,
-          challengerName: summary?.playerName ?? "FootBattle Oyuncusu",
-        }),
-      });
-      const result = (await response.json()) as ChallengeResponse;
-      if (!response.ok || !result.ok || !result.challenge?.shareUrl) {
-        throw new Error(result.error ?? "Meydan okuma oluşturulamadı.");
-      }
-      await shareText(result.challenge.shareUrl);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Meydan okuma oluşturulamadı.");
-    } finally {
-      setSharing(false);
-    }
+  function openUnifiedDuelFlow() {
+    const locale = pathname === "/en" || pathname.startsWith("/en/") ? "en" : "tr";
+    window.location.href = `/${locale}/duels`;
   }
 
   if (!open || !detail || !game) return null;
@@ -279,8 +250,8 @@ export default function GameResultArena() {
 
         <div className="mt-5 grid gap-2 sm:grid-cols-2">
           {game.challenge && (
-            <button type="button" onClick={() => void createChallengeAndShare()} disabled={sharing} className="min-h-12 rounded-xl bg-purple-500 px-4 text-sm font-black text-white transition hover:bg-purple-400 disabled:opacity-50">
-              {sharing ? "Meydan okuma hazırlanıyor..." : "⚔️ Arkadaşına Meydan Oku"}
+            <button type="button" onClick={openUnifiedDuelFlow} className="min-h-12 rounded-xl bg-purple-500 px-4 text-sm font-black text-white transition hover:bg-purple-400">
+              ⚔️ Düello Başlat
             </button>
           )}
           <button type="button" onClick={() => void shareText()} className="min-h-12 rounded-xl border border-cyan-400/25 bg-cyan-400/10 px-4 text-sm font-black text-cyan-200 transition hover:bg-cyan-400/15">📱 Sonucumu Paylaş</button>
