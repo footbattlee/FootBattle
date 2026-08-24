@@ -156,29 +156,18 @@ export async function POST(request: Request) {
       });
     }
 
-    const awardedScore = user && !security?.scoreBlocked ? score : 0;
-
     if (!user) {
-      return NextResponse.json({
-        ok: true,
-        won,
-        score,
-        awardedScore: 0,
-        scoreEligible: !security?.scoreBlocked,
-        wrongCount,
-        attemptCount,
-        alreadyRecorded: false,
-        player,
-        allClubs: seniorCareer,
-        currentStreak: null,
-        bestStreak: null,
-        totalScore: null,
-        gamesPlayed: null,
-        gamesWon: null,
-        security,
-      });
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Puanını kaydetmek için giriş yapmalısın.",
+          completed: true,
+        },
+        { status: 401 },
+      );
     }
 
+    const awardedScore = security?.scoreBlocked ? 0 : score;
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select("id, total_score, games_played, games_won, current_streak, best_streak")
