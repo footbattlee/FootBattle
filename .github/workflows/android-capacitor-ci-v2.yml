@@ -56,7 +56,7 @@ jobs:
           p = Path('android/variables.gradle')
           text = p.read_text()
           required = {
-              'minSdkVersion': '23',
+              'minSdkVersion': '24',
               'compileSdkVersion': '36',
               'targetSdkVersion': '36',
               'rgcfaIncludeGoogle': 'true',
@@ -265,6 +265,7 @@ jobs:
       - name: Verify release configuration and assets
         run: |
           set -euo pipefail
+          grep -q "minSdkVersion = 24" android/variables.gradle
           grep -q "compileSdkVersion = 36" android/variables.gradle
           grep -q "targetSdkVersion = 36" android/variables.gradle
           grep -q "playfootbattle.com" android/app/src/main/AndroidManifest.xml
