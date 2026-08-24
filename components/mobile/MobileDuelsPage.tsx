@@ -30,10 +30,18 @@ type Friend = {
   user: { id: string; displayName: string; username?: string | null; online?: boolean; lastSeenText?: string };
 };
 type FriendsData = { ok?: boolean; error?: string; friends?: Friend[] };
-type ActionResponse = { ok?: boolean; error?: string; message?: string; game?: { url?: string } };
+type ActionResponse = {
+  ok?: boolean;
+  error?: string;
+  message?: string;
+  startsAt?: string | null;
+  duel?: { started_at?: string | null };
+  game?: { url?: string };
+};
 type GameCode = "tic_tac_toe" | "club_clash" | "club_nation";
+type SharedStart = { duelId: number; url: string; startsAt: string };
 
-const FAST_POLL_MS = 2_500;
+const FAST_POLL_MS = 600;
 const IDLE_POLL_MS = 9_000;
 
 const GAME_INFO: Record<GameCode, { icon: string; titleTr: string; titleEn: string; textTr: string; textEn: string; linkHref: string }> = {
@@ -63,17 +71,12 @@ const GAME_INFO: Record<GameCode, { icon: string; titleTr: string; titleEn: stri
   },
 };
 
-function sleep(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
 export default function MobileDuelsPage({ locale }: { locale: Locale }) {
   const tr = locale === "tr";
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionDuelId, setActionDuelId] = useState<number | null>(null);
   const [preparingDuelId, setPreparingDuelId] = useState<number | null>(null);
-  const [prepareSeconds, setPrepareSeconds] = useState(3);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [selectedGame, setSelectedGame] = useState<GameCode | null>(null);
@@ -81,7 +84,11 @@ export default function MobileDuelsPage({ locale }: { locale: Locale }) {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [friendsLoading, setFriendsLoading] = useState(false);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
+  const [sharedStart, setSharedStart] = useState<SharedStart | null>(null);
+  const [startCountdown, setStartCountdown] = useState(3);
   const autoOpened = useRef(new Set<number>());
+  const navigationTimer = useRef<number | null>(null);
+  const countdownTimer = useRef<number | null>(null);
   const dataRef = useRef<Data | null>(null);
   const loadInFlight = useRef(false);
 
@@ -103,6 +110,34 @@ export default function MobileDuelsPage({ locale }: { locale: Locale }) {
     }
   }, []);
 
+  const scheduleSharedStart = useCallback((duelId: number, url: string, startsAt: string) => {
+    if (autoOpened.current.has(duelId)) return;
+    autoOpened.current.add(duelId);
+
+    if (navigationTimer.current !== null) window.clearTimeout(navigationTimer.current);
+    if (countdownTimer.current !== null) window.clearInterval(countdownTimer.current);
+
+    const target = new Date(startsAt).getTime();
+    const safeTarget = Number.isFinite(target) ? target : Date.now();
+    setSharedStart({ duelId, url, startsAt });
+
+    const tick = () => {
+      const remainingMs = Math.max(0, safeTarget - Date.now());
+      setStartCountdown(Math.max(1, Math.ceil(remainingMs / 1000)));
+    };
+    tick();
+    countdownTimer.current = window.setInterval(tick, 100);
+    navigationTimer.current = window.setTimeout(() => {
+      if (countdownTimer.current !== null) window.clearInterval(countdownTimer.current);
+      window.location.replace(url);
+    }, Math.max(0, safeTarget - Date.now()));
+  }, []);
+
+  useEffect(() => () => {
+    if (navigationTimer.current !== null) window.clearTimeout(navigationTimer.current);
+    if (countdownTimer.current !== null) window.clearInterval(countdownTimer.current);
+  }, []);
+
   useEffect(() => {
     let stopped = false;
     let timer: number | null = null;
@@ -117,13 +152,13 @@ export default function MobileDuelsPage({ locale }: { locale: Locale }) {
     function nextDelay() {
       const snapshot = dataRef.current;
       const hasIncoming = (snapshot?.incoming?.length ?? 0) > 0;
-      const hasPreparing = (snapshot?.outgoing ?? []).some((duel) => duel.status === "accepted");
+      const hasAccepted = (snapshot?.active ?? []).some((duel) => duel.status === "accepted");
       const hasFreshActive = (snapshot?.active ?? []).some((duel) => {
         if (!duel.startedAt) return false;
         const started = new Date(duel.startedAt).getTime();
-        return Number.isFinite(started) && Date.now() - started < 15_000;
+        return Number.isFinite(started) && Math.abs(Date.now() - started) < 15_000;
       });
-      return hasIncoming || hasPreparing || hasFreshActive ? FAST_POLL_MS : IDLE_POLL_MS;
+      return hasIncoming || hasAccepted || hasFreshActive ? FAST_POLL_MS : IDLE_POLL_MS;
     }
 
     async function poll(showLoading = false) {
@@ -155,12 +190,11 @@ export default function MobileDuelsPage({ locale }: { locale: Locale }) {
     const justStarted = active.find((duel) => {
       if (duel.status !== "active" || !duel.gameUrl || !duel.startedAt || autoOpened.current.has(duel.id)) return false;
       const started = new Date(duel.startedAt).getTime();
-      return Number.isFinite(started) && now - started >= 0 && now - started < 12_000;
+      return Number.isFinite(started) && started > now - 12_000 && started < now + 15_000;
     });
-    if (!justStarted) return;
-    autoOpened.current.add(justStarted.id);
-    window.location.href = justStarted.gameUrl!;
-  }, [data?.active]);
+    if (!justStarted?.gameUrl || !justStarted.startedAt) return;
+    scheduleSharedStart(justStarted.id, justStarted.gameUrl, justStarted.startedAt);
+  }, [data?.active, scheduleSharedStart]);
 
   async function startDuel(duelId: number) {
     const response = await fetch("/api/duels/start", {
@@ -171,7 +205,10 @@ export default function MobileDuelsPage({ locale }: { locale: Locale }) {
     const result = (await response.json()) as ActionResponse;
     if (!response.ok || !result.ok) throw new Error(result.error ?? "Düello başlatılamadı.");
     await loadDuels(false);
-    if (result.game?.url) window.location.href = result.game.url;
+    const url = result.game?.url;
+    const startsAt = result.startsAt ?? result.duel?.started_at ?? null;
+    if (url && startsAt) scheduleSharedStart(duelId, url, startsAt);
+    else if (url) window.location.replace(url);
   }
 
   async function respondToDuel(duelId: number, action: "accept" | "reject") {
@@ -195,12 +232,7 @@ export default function MobileDuelsPage({ locale }: { locale: Locale }) {
       }
 
       setPreparingDuelId(duelId);
-      setPrepareSeconds(3);
-      setMessage(tr ? "Kabul edildi. Maç hazırlanıyor…" : "Accepted. Preparing match…");
-      for (let second = 3; second > 0; second -= 1) {
-        setPrepareSeconds(second);
-        await sleep(second === 1 ? 500 : 1000);
-      }
+      setMessage(tr ? "Kabul edildi. Oyun hazırlanıyor…" : "Accepted. Preparing match…");
       await startDuel(duelId);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Düello işlemi başarısız.");
@@ -263,7 +295,7 @@ export default function MobileDuelsPage({ locale }: { locale: Locale }) {
           <div><p className="text-[10px] font-black uppercase tracking-[0.18em] text-green-300">⚔️ FootBattle Arena</p><h1 className="mt-2 text-3xl font-black">{tr ? "Düello" : "Duel"}</h1></div>
           {incoming.length ? <span className="rounded-full bg-red-500 px-3 py-1.5 text-xs font-black">🔔 {incoming.length}</span> : null}
         </div>
-        <p className="mt-2 text-sm leading-6 text-slate-400">{tr ? "Oyunu seç, arkadaşına davet gönder. Kabul edildiğinde maç otomatik başlar." : "Choose a game and invite a friend. The match starts automatically after acceptance."}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-400">{tr ? "Oyunu seç, arkadaşına davet gönder. Kabul edildiğinde maç hazırlanır ve iki tarafta aynı anda başlar." : "Choose a game and invite a friend. After acceptance, the match is prepared and starts for both players together."}</p>
 
         {message ? <div className="mt-4 rounded-xl border border-green-400/20 bg-green-400/10 p-3 text-xs font-bold text-green-200">{message}</div> : null}
         {error ? <div className="mt-4 rounded-xl border border-red-400/20 bg-red-500/10 p-3 text-xs font-bold text-red-200">{error}</div> : null}
@@ -274,7 +306,7 @@ export default function MobileDuelsPage({ locale }: { locale: Locale }) {
             <div className="mt-3 space-y-3">
               {incoming.map((duel) => (
                 <article key={duel.id} className="rounded-xl border border-white/10 bg-[#07111f]/80 p-3">
-                  <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-black">{duel.otherPlayer?.displayName ?? (tr ? "Rakip" : "Opponent")}</p><p className="mt-1 text-[11px] font-bold text-slate-400">{duel.gameLabel}</p></div>{preparingDuelId === duel.id ? <span className="rounded-lg bg-green-400 px-3 py-2 text-sm font-black text-[#07111f]">{prepareSeconds}</span> : null}</div>
+                  <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-black">{duel.otherPlayer?.displayName ?? (tr ? "Rakip" : "Opponent")}</p><p className="mt-1 text-[11px] font-bold text-slate-400">{duel.gameLabel}</p></div>{preparingDuelId === duel.id ? <span className="rounded-lg bg-green-400 px-3 py-2 text-[10px] font-black text-[#07111f]">{tr ? "HAZIRLANIYOR" : "PREPARING"}</span> : null}</div>
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <button type="button" disabled={actionDuelId !== null} onClick={() => void respondToDuel(duel.id, "accept")} className="rounded-xl bg-green-400 px-3 py-3 text-xs font-black text-[#07111f] disabled:opacity-50">✓ {preparingDuelId === duel.id ? (tr ? "Hazırlanıyor" : "Preparing") : (tr ? "Kabul Et" : "Accept")}</button>
                     <button type="button" disabled={actionDuelId !== null} onClick={() => void respondToDuel(duel.id, "reject")} className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-3 text-xs font-black text-red-200 disabled:opacity-50">✕ {tr ? "Reddet" : "Reject"}</button>
@@ -316,10 +348,25 @@ export default function MobileDuelsPage({ locale }: { locale: Locale }) {
           </div>
         </div>
       ) : null}
+
+      {sharedStart ? (
+        <div className="fixed inset-0 z-[360] flex items-center justify-center bg-[#07111f]/95 px-5 text-center text-white backdrop-blur-sm">
+          <section className="w-full max-w-sm rounded-3xl border border-green-400/30 bg-[#101c2c] p-6 shadow-2xl">
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-green-300">⚔️ {tr ? "Oyun hazır" : "Game ready"}</p>
+            <h2 className="mt-2 text-2xl font-black">{tr ? "İki oyuncu birlikte başlıyor" : "Both players start together"}</h2>
+            <div className="mt-5 text-7xl font-black tabular-nums text-green-300">{startCountdown}</div>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }
 
 function DuelList({ title, items, empty, tr }: { title: string; items: Duel[]; empty: string; tr: boolean }) {
-  return <section><h3 className="text-xs font-black uppercase tracking-wider text-slate-400">{title}</h3>{items.length ? <div className="mt-2 space-y-2">{items.map((duel) => <article key={duel.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3"><div className="min-w-0"><p className="truncate text-sm font-black">{duel.otherPlayer?.displayName ?? (tr ? "Rakip" : "Opponent")}</p><p className="mt-1 truncate text-[10px] text-slate-500">{duel.gameLabel} · {duel.status === "accepted" ? (tr ? "Hazırlanıyor" : "Preparing") : duel.status === "active" ? (tr ? "Devam ediyor" : "Active") : duel.status}</p></div>{duel.status === "active" || duel.status === "accepted" ? <Link href={duel.gameUrl ?? `/duels/${duel.id}`} className="shrink-0 rounded-lg bg-green-400 px-3 py-2 text-[11px] font-black text-[#07111f]">{tr ? "Oyuna Gir" : "Play"}</Link> : null}</article>)}</div> : <p className="mt-2 rounded-xl border border-dashed border-white/10 p-3 text-xs text-slate-600">{empty}</p>}</section>;
+  const now = Date.now();
+  return <section><h3 className="text-xs font-black uppercase tracking-wider text-slate-400">{title}</h3>{items.length ? <div className="mt-2 space-y-2">{items.map((duel) => {
+    const starts = duel.startedAt ? new Date(duel.startedAt).getTime() : null;
+    const waitingForSharedStart = duel.status === "accepted" || (duel.status === "active" && starts !== null && Number.isFinite(starts) && starts > now);
+    return <article key={duel.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3"><div className="min-w-0"><p className="truncate text-sm font-black">{duel.otherPlayer?.displayName ?? (tr ? "Rakip" : "Opponent")}</p><p className="mt-1 truncate text-[10px] text-slate-500">{duel.gameLabel} · {waitingForSharedStart ? (tr ? "Hazırlanıyor" : "Preparing") : duel.status === "active" ? (tr ? "Devam ediyor" : "Active") : duel.status}</p></div>{duel.status === "active" && !waitingForSharedStart ? <Link href={duel.gameUrl ?? `/duels/${duel.id}`} className="shrink-0 rounded-lg bg-green-400 px-3 py-2 text-[11px] font-black text-[#07111f]">{tr ? "Oyuna Gir" : "Play"}</Link> : null}</article>;
+  })}</div> : <p className="mt-2 rounded-xl border border-dashed border-white/10 p-3 text-xs text-slate-600">{empty}</p>}</section>;
 }
