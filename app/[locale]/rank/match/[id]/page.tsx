@@ -27,7 +27,7 @@ export default async function RankedMatchPage({ params }: { params: Params }) {
     redirect(`/tic-tac-toe/duel/${token}?ranked=1&match=${encodeURIComponent(String(match.id))}`);
   }
 
-  if (match.game_code === "club_clash") {
+  if (match.game_code === "club_clash" || match.game_code === "club_nation") {
     redirect(`/challenge/${token}?ranked=1&match=${encodeURIComponent(String(match.id))}`);
   }
 
