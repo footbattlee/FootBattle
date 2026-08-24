@@ -57,8 +57,9 @@ export async function POST(request: Request) {
     }
 
     let token: string | null = duel.challenge_token ?? null;
+    const challengeBackedGame = duel.game_code === "tic_tac_toe" || duel.game_code === "club_nation";
 
-    if (duel.game_code === "tic_tac_toe" && !token) {
+    if (challengeBackedGame && !token) {
       const { data: profiles, error: profileError } = await supabaseAdmin
         .from("profiles")
         .select("id,display_name,username")
@@ -71,7 +72,7 @@ export async function POST(request: Request) {
 
       const { error: challengeError } = await supabaseAdmin.from("guest_challenges").insert({
         invite_token: token,
-        game_code: "tic_tac_toe",
+        game_code: duel.game_code,
         status: "ready",
         challenger_user_id: duel.challenger_id,
         challenger_guest_id: null,
@@ -86,19 +87,15 @@ export async function POST(request: Request) {
         expires_at: expiresAt,
       });
       if (challengeError) {
-        console.error("Tic Tac Toe direct challenge creation failed", challengeError);
-        return NextResponse.json({ ok: false, error: "Tic Tac Toe düellosu hazırlanamadı." }, { status: 500 });
+        console.error("Direct challenge creation failed", challengeError);
+        const label = duel.game_code === "club_nation" ? "1 Takım 1 Millet" : "Tic Tac Toe";
+        return NextResponse.json({ ok: false, error: `${label} düellosu hazırlanamadı.` }, { status: 500 });
       }
     }
 
     const { data: updated, error: updateError } = await supabaseAdmin
       .from("duels")
-      .update({
-        status: "accepted",
-        accepted_at: now,
-        updated_at: now,
-        challenge_token: token,
-      })
+      .update({ status: "accepted", accepted_at: now, updated_at: now, challenge_token: token })
       .eq("id", duelId)
       .eq("status", "pending")
       .select("id,challenger_id,opponent_id,game_code,status,challenge_token,accepted_at")
@@ -114,12 +111,13 @@ export async function POST(request: Request) {
       type: "duel_update",
     }).catch(() => undefined);
 
-    return NextResponse.json({
-      ok: true,
-      message: "Düello kabul edildi. Maç hazırlanıyor...",
-      duel: updated,
-      game: token && duel.game_code === "tic_tac_toe" ? { url: `/tic-tac-toe/duel/${token}` } : { url: `/duels/${duelId}` },
-    });
+    const gameUrl = token && duel.game_code === "tic_tac_toe"
+      ? `/tic-tac-toe/duel/${token}`
+      : token && duel.game_code === "club_nation"
+        ? `/challenge/${token}`
+        : `/duels/${duelId}`;
+
+    return NextResponse.json({ ok: true, message: "Düello kabul edildi. Maç hazırlanıyor...", duel: updated, game: { url: gameUrl } });
   } catch (error) {
     console.error("Duel respond endpoint hatası:", error);
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Düello daveti cevaplanamadı." }, { status: 500 });
