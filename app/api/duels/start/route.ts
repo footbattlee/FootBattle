@@ -18,6 +18,7 @@ async function prepareClubClash(request: Request, duelId: number) {
 
 function gameUrl(gameCode: string, duelId: number, token: string | null) {
   if (gameCode === "tic_tac_toe" && token) return `/tic-tac-toe/duel/${token}`;
+  if (gameCode === "club_nation" && token) return `/challenge/${token}`;
   return `/duels/${duelId}`;
 }
 
@@ -48,9 +49,10 @@ export async function POST(request: Request) {
     if (duel.status !== "accepted") return NextResponse.json({ ok: false, error: "Yalnızca kabul edilmiş düellolar başlatılabilir." }, { status: 409 });
 
     const now = new Date().toISOString();
+    const challengeBackedGame = duel.game_code === "tic_tac_toe" || duel.game_code === "club_nation";
 
-    if (duel.game_code === "tic_tac_toe") {
-      if (!duel.challenge_token) return NextResponse.json({ ok: false, error: "Tic Tac Toe oyun bağlantısı hazırlanmadı." }, { status: 409 });
+    if (challengeBackedGame) {
+      if (!duel.challenge_token) return NextResponse.json({ ok: false, error: "Oyun bağlantısı hazırlanmadı." }, { status: 409 });
       const { data: challenge, error: challengeError } = await supabaseAdmin
         .from("guest_challenges")
         .update({ status: "playing", started_at: now, updated_at: now })
@@ -58,7 +60,7 @@ export async function POST(request: Request) {
         .in("status", ["ready", "playing"])
         .select("id,status,invite_token")
         .maybeSingle();
-      if (challengeError || !challenge) return NextResponse.json({ ok: false, error: "Tic Tac Toe oyunu başlatılamadı." }, { status: 500 });
+      if (challengeError || !challenge) return NextResponse.json({ ok: false, error: "Düello oyunu başlatılamadı." }, { status: 500 });
     }
 
     const { data: updated, error: updateError } = await supabaseAdmin
