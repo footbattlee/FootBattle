@@ -16,21 +16,18 @@ export default function RankedSharedChallengeBridge() {
 
   useEffect(() => {
     if (!ranked || !token) return;
+    const activeToken = token;
 
     let cancelled = false;
     let timer: number | null = null;
     let inFlight = false;
 
-    const schedule = () => {
-      if (cancelled) return;
-      timer = window.setTimeout(() => void tick(), POLL_MS);
-    };
-
     async function tick() {
       if (cancelled || inFlight) return;
       inFlight = true;
+      let shouldContinue = true;
       try {
-        const challengeResponse = await fetch(`/api/challenges/${encodeURIComponent(token)}`, { cache: "no-store" });
+        const challengeResponse = await fetch(`/api/challenges/${encodeURIComponent(activeToken)}`, { cache: "no-store" });
         const challenge = await challengeResponse.json().catch(() => ({})) as ChallengeInfo;
         const gameCode = challenge.challenge?.gameCode ?? null;
 
@@ -38,23 +35,26 @@ export default function RankedSharedChallengeBridge() {
           await fetch("/api/rank/club-nation-bot", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token }),
+            body: JSON.stringify({ token: activeToken }),
           }).catch(() => null);
         }
 
         const syncResponse = await fetch("/api/rank/challenge-sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
+          body: JSON.stringify({ token: activeToken }),
         });
         const sync = await syncResponse.json().catch(() => ({})) as SyncResponse;
-        if (sync.ok && sync.completed) return;
+        if (sync.ok && sync.completed) shouldContinue = false;
       } catch {
         // Shared challenge page has its own error handling. This bridge retries quietly.
       } finally {
         inFlight = false;
       }
-      schedule();
+
+      if (!cancelled && shouldContinue) {
+        timer = window.setTimeout(() => void tick(), POLL_MS);
+      }
     }
 
     void tick();
