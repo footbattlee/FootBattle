@@ -31,6 +31,14 @@ type ProfileRow = {
   games_won: number | null;
   last_seen_at: string | null;
 };
+type ChallengeRow = {
+  invite_token: string;
+  status: string;
+  winner_side: "challenger" | "opponent" | "draw" | null;
+  challenger_score: number | null;
+  opponent_score: number | null;
+  completed_at: string | null;
+};
 
 const GAME_LABELS: Record<string, string> = {
   club_clash: "2 Takım 1 Oyuncu",
@@ -60,6 +68,73 @@ function canonicalGameUrl(duel: DuelRow) {
   return `/duels/${duel.id}`;
 }
 
+async function reconcileChallengeBackedDuels(duels: DuelRow[]) {
+  const candidates = duels.filter(
+    (duel) =>
+      (duel.status === "accepted" || duel.status === "active") &&
+      Boolean(duel.challenge_token) &&
+      (duel.game_code === "tic_tac_toe" || duel.game_code === "club_nation"),
+  );
+  const tokens = Array.from(new Set(candidates.map((duel) => duel.challenge_token).filter((value): value is string => Boolean(value))));
+  if (!tokens.length) return;
+
+  const { data, error } = await supabaseAdmin
+    .from("guest_challenges")
+    .select("invite_token,status,winner_side,challenger_score,opponent_score,completed_at")
+    .in("invite_token", tokens);
+  if (error) {
+    console.error("Duel completion reconcile challenge read failed", error);
+    return;
+  }
+
+  const challengeByToken = new Map((data ?? []).map((row) => [String(row.invite_token), row as ChallengeRow]));
+  const now = new Date().toISOString();
+
+  await Promise.all(
+    candidates.map(async (duel) => {
+      const token = duel.challenge_token;
+      if (!token) return;
+      const challenge = challengeByToken.get(token);
+      if (!challenge || challenge.status !== "completed") return;
+
+      const winnerId =
+        challenge.winner_side === "challenger"
+          ? duel.challenger_id
+          : challenge.winner_side === "opponent"
+            ? duel.opponent_id
+            : null;
+      const completedAt = challenge.completed_at ?? now;
+      const challengerScore = Number(challenge.challenger_score ?? duel.challenger_score ?? 0);
+      const opponentScore = Number(challenge.opponent_score ?? duel.opponent_score ?? 0);
+
+      const { error: updateError } = await supabaseAdmin
+        .from("duels")
+        .update({
+          status: "completed",
+          winner_id: winnerId,
+          challenger_score: challengerScore,
+          opponent_score: opponentScore,
+          completed_at: completedAt,
+          updated_at: now,
+        })
+        .eq("id", duel.id)
+        .in("status", ["accepted", "active"]);
+
+      if (updateError) {
+        console.error("Duel completion reconcile update failed", duel.id, updateError);
+        return;
+      }
+
+      duel.status = "completed";
+      duel.winner_id = winnerId;
+      duel.challenger_score = challengerScore;
+      duel.opponent_score = opponentScore;
+      duel.completed_at = completedAt;
+      duel.updated_at = now;
+    }),
+  );
+}
+
 export async function GET() {
   try {
     const auth = await createAuthServerClient();
@@ -74,6 +149,8 @@ export async function GET() {
       .order("created_at", { ascending: false });
     if (duelError) return NextResponse.json({ ok: false, error: "Düellolar okunamadı." }, { status: 500 });
     const duels = (rows ?? []) as DuelRow[];
+
+    await reconcileChallengeBackedDuels(duels);
 
     const profileIds = Array.from(new Set(duels.flatMap((duel) => [duel.challenger_id, duel.opponent_id])));
     let profiles: ProfileRow[] = [];
