@@ -33,13 +33,13 @@ function dayKey(value: string) { return new Intl.DateTimeFormat("en-CA", { timeZ
 function platformOf(metadata: Record<string, unknown> | null) { const p = metadata?.platform; return p === "android" ? "android" : p === "web" ? "web" : "unknown"; }
 
 async function fetchAll(table: string, select: string, startDate?: string | null, dateColumn = "created_at") {
-  const rows: Record<string, unknown>[] = [];
+  const rows: unknown[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
     let query = supabaseAdmin.from(table).select(select).order(dateColumn, { ascending: true }).range(from, from + PAGE_SIZE - 1);
     if (startDate) query = query.gte(dateColumn, startDate);
     const { data, error } = await query;
     if (error) throw error;
-    const batch = (data ?? []) as Record<string, unknown>[];
+    const batch = (data ?? []) as unknown[];
     rows.push(...batch);
     if (batch.length < PAGE_SIZE) break;
   }
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     const startDate = getStartDate(range);
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
 
-    const rows = (await fetchAll("analytics_events", "event_name,game_name,user_id,session_id,created_at,metadata", startDate)) as unknown as AnalyticsRow[];
+    const rows = (await fetchAll("analytics_events", "event_name,game_name,user_id,session_id,created_at,metadata", startDate)) as AnalyticsRow[];
     const summary = { totalStarted: 0, totalCompleted: 0, totalPlayAgain: 0, totalShared: 0, totalAbandoned: 0, averageDurationSeconds: 0 };
     const gameMap = new Map<string, { gameName: string; started: number; completed: number; playAgain: number; shared: number; durations: number[]; users: Set<string> }>();
     const unmatchedStarts = new Map<string, number[]>();
@@ -92,10 +92,10 @@ export async function GET(request: NextRequest) {
     const wau = new Set(wauRows.map((r) => r.user_id).filter(Boolean)).size;
     const today = dayKey(new Date().toISOString());
     const dau = dailyUsers.get(today)?.size ?? new Set(wauRows.filter((r) => dayKey(r.created_at) === today).map((r) => r.user_id).filter(Boolean)).size;
-    const profileRows = (await fetchAll("profiles", "id,created_at", startDate)) as unknown as ProfileRow[];
+    const profileRows = (await fetchAll("profiles", "id,created_at", startDate)) as ProfileRow[];
     const audience = { dau, wau, uniquePlayers: selectedUsers.size, newUsers: profileRows.length, platforms };
 
-    const duelRows = (await fetchAll("duels", "id,challenger_id,opponent_id,game_code,status,created_at,accepted_at,started_at,completed_at,updated_at")) as unknown as DuelRow[];
+    const duelRows = (await fetchAll("duels", "id,challenger_id,opponent_id,game_code,status,created_at,accepted_at,started_at,completed_at,updated_at")) as DuelRow[];
     const duelParticipants = new Set<string>();
     const duelGameMap = new Map<string, { gameCode: string; created: number; accepted: number; started: number; completed: number; rejected: number; cancelled: number }>();
     const duelSummary = { created: 0, accepted: 0, started: 0, completed: 0, rejected: 0, cancelled: 0, uniquePlayers: 0 };
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
 
     const { data: sets, error: setsError } = await supabaseAdmin.from("survivor_sets").select("id,slug,title,title_tr,is_active").order("created_at", { ascending: false }); if (setsError) throw setsError;
     const survivorRows = await fetchAll("survivor_results", "set_id,created_at", startDate);
-    const survivorCounts = new Map<string, number>(); for (const r of survivorRows) { const id = String(r.set_id); survivorCounts.set(id, (survivorCounts.get(id) ?? 0) + 1); }
+    const survivorCounts = new Map<string, number>(); for (const r of survivorRows as Array<{ set_id: string | number }>) { const id = String(r.set_id); survivorCounts.set(id, (survivorCounts.get(id) ?? 0) + 1); }
     const survivors = (sets ?? []).map((s) => ({ id: s.id, slug: s.slug, title: s.title_tr || s.title, isActive: s.is_active, completions: survivorCounts.get(s.id) ?? 0 })).sort((a, b) => b.completions - a.completions);
 
     return NextResponse.json({ ok: true, range, summary, audience, games, duelSummary, duelGames, survivors });
