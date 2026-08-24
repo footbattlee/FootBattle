@@ -222,8 +222,8 @@ export default function ClubNationResultUX() {
             <h2 className="mt-3 text-2xl font-black">Rövanş isteği</h2>
             <p className="mt-2 text-sm leading-6 text-slate-400">Rakibin yeniden oynamak istiyor. Kabul ederseniz maç iki cihazda aynı anda başlayacak.</p>
             <div className="mt-5 grid grid-cols-2 gap-2">
-              <button type="button" disabled={busy} onClick={() => void respondRematch("decline")} className="min-h-12 rounded-2xl border border-red-400/30 bg-red-400/10 font-black text-red-300 disabled:opacity-50">Reddet</button>
-              <button type="button" disabled={busy} onClick={() => void respondRematch("accept")} className="min-h-12 rounded-2xl bg-green-500 font-black text-[#07111f] disabled:opacity-50">Kabul Et</button>
+              <button type="button" data-rematch-consent-action="true" disabled={busy} onClick={() => void respondRematch("decline")} className="min-h-12 rounded-2xl border border-red-400/30 bg-red-400/10 font-black text-red-300 disabled:opacity-50">Reddet</button>
+              <button type="button" data-rematch-consent-action="true" disabled={busy} onClick={() => void respondRematch("accept")} className="min-h-12 rounded-2xl bg-green-500 font-black text-[#07111f] disabled:opacity-50">Kabul Et</button>
             </div>
           </section>
         </div>
@@ -236,7 +236,7 @@ export default function ClubNationResultUX() {
           </div>
         ) : null}
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => void requestRematch()} disabled={busy || Boolean(outgoing)} className="min-h-12 rounded-xl bg-yellow-400 px-3 font-black text-[#07111f] disabled:opacity-50">{busy ? "Hazırlanıyor..." : "🔁 Rövanş"}</button>
+          <button type="button" data-rematch-consent-action="true" onClick={() => void requestRematch()} disabled={busy || Boolean(outgoing)} className="min-h-12 rounded-xl bg-yellow-400 px-3 font-black text-[#07111f] disabled:opacity-50">{busy ? "Hazırlanıyor..." : "🔁 Rövanş"}</button>
           <button type="button" onClick={() => void shareResult()} className="min-h-12 rounded-xl border border-green-400/30 bg-green-400/10 px-3 font-black text-green-200">↗ Sonucu Paylaş</button>
         </div>
         <button type="button" onClick={() => router.push("/")} className="mt-2 min-h-12 w-full rounded-xl border border-white/15 bg-white/5 px-3 font-black text-white">⌂ Ana Sayfa</button>
