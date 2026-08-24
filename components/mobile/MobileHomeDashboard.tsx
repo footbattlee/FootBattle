@@ -21,6 +21,7 @@ const GAMES: Game[] = [
   { icon: "⭕", titleTr: "Futbol Tic Tac Toe", titleEn: "Football Tic Tac Toe", tr: "3×3 futbol gridini doğru oyuncularla doldur.", en: "Complete the 3×3 football grid.", href: (locale) => `/${locale}/tic-tac-toe` },
   { icon: "🟩", titleTr: "Futbol Wordle", titleEn: "Football Wordle", tr: "Futbolcunun soyadını 5 tahminde bul.", en: "Guess the footballer's surname in 5 tries.", href: (locale) => `/${locale}/wordle` },
   { icon: "⚔️", titleTr: "2 Takım 1 Oyuncu", titleEn: "2 Clubs 1 Player", tr: "İki takımda da oynamış futbolcuyu bul.", en: "Find a player who represented both clubs.", href: () => "/club-clash" },
+  { icon: "🌍", titleTr: "1 Takım 1 Millet", titleEn: "1 Club 1 Nation", tr: "Takım ve milliyet eşleşmesine uyan futbolcuyu bul.", en: "Find a player matching the club and nation.", href: () => "/club-nation", tag: "Yeni" },
   { icon: "⚽", titleTr: "Halısaha Kadro", titleEn: "Pickup Squad", tr: "Arkadaşlarını sahaya diz, kadronu paylaş.", en: "Build and share your pickup squad.", href: () => "/halisaha-kadro" },
   { icon: "🏆", titleTr: "O mu Bu mu?", titleEn: "Survivor", tr: "Futbol dünyasının ikilemlerinde seçimini yap.", en: "Test your football knowledge in elimination rounds.", href: (locale) => `/${locale}/survivor` },
   { icon: "🔥", titleTr: "Günün Kapışması", titleEn: "Daily Faceoff", tr: "Günün futbol sorusunda kapış.", en: "Take on today's football faceoff.", href: (locale) => `/${locale}/daily-faceoff` },
