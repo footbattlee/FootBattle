@@ -1,0 +1,140 @@
+@media (max-width: 767px) {
+  body.club-nation-mobile main {
+    padding-left: 0.6rem !important;
+    padding-right: 0.6rem !important;
+    padding-top: 0.75rem !important;
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom)) !important;
+  }
+
+  body.club-nation-mobile main > div {
+    max-width: 680px !important;
+  }
+
+  body.club-nation-mobile main > div > a:first-child {
+    margin-bottom: 0.65rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  body.club-nation-mobile main .mb-5 {
+    margin-bottom: 0.75rem !important;
+  }
+
+  body.club-nation-mobile main .mt-8 {
+    margin-top: 1rem !important;
+  }
+
+  body.club-nation-mobile main .mt-7,
+  body.club-nation-mobile main .mt-6 {
+    margin-top: 0.85rem !important;
+  }
+
+  body.club-nation-mobile main .mt-5 {
+    margin-top: 0.7rem !important;
+  }
+
+  body.club-nation-mobile main .gap-3 {
+    gap: 0.4rem !important;
+  }
+
+  body.club-nation-mobile main .grid-cols-3 > div {
+    border-radius: 0.85rem !important;
+    padding: 0.55rem 0.4rem !important;
+  }
+
+  body.club-nation-mobile main .grid-cols-3 > div > div:first-child {
+    font-size: 0.6rem !important;
+  }
+
+  body.club-nation-mobile main .grid-cols-3 > div > div:last-child,
+  body.club-nation-mobile main .grid-cols-3 > div > div.text-2xl {
+    margin-top: 0.1rem !important;
+    font-size: 1rem !important;
+    line-height: 1.2rem !important;
+  }
+
+  body.club-nation-mobile main .rounded-3xl {
+    border-radius: 1.1rem !important;
+  }
+
+  body.club-nation-mobile main .rounded-3xl.p-5,
+  body.club-nation-mobile main .rounded-3xl.p-6 {
+    padding: 0.75rem !important;
+  }
+
+  body.club-nation-mobile main .grid-cols-\[1fr_auto_1fr\] {
+    grid-template-columns: minmax(0, 1fr) 2rem minmax(0, 1fr) !important;
+    gap: 0.4rem !important;
+    margin-top: 0.65rem !important;
+  }
+
+  body.club-nation-mobile main .grid-cols-\[1fr_auto_1fr\] > div:nth-child(1),
+  body.club-nation-mobile main .grid-cols-\[1fr_auto_1fr\] > div:nth-child(3) {
+    min-height: 72px !important;
+    border-radius: 0.85rem !important;
+    padding: 0.6rem 0.35rem !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+  }
+
+  body.club-nation-mobile main .grid-cols-\[1fr_auto_1fr\] > div:nth-child(1) > div:first-child,
+  body.club-nation-mobile main .grid-cols-\[1fr_auto_1fr\] > div:nth-child(3) > div:first-child {
+    font-size: 0.52rem !important;
+  }
+
+  body.club-nation-mobile main .grid-cols-\[1fr_auto_1fr\] > div:nth-child(1) > div:last-child,
+  body.club-nation-mobile main .grid-cols-\[1fr_auto_1fr\] > div:nth-child(3) > div:last-child {
+    margin-top: 0.2rem !important;
+    font-size: 0.9rem !important;
+    line-height: 1.1rem !important;
+  }
+
+  body.club-nation-mobile main .grid-cols-\[1fr_auto_1fr\] > div:nth-child(2) {
+    width: 2rem !important;
+    text-align: center !important;
+    align-self: center !important;
+    font-size: 0.95rem !important;
+  }
+
+  body.club-nation-mobile main form {
+    margin-top: 0.8rem !important;
+  }
+
+  body.club-nation-mobile main input {
+    min-height: 52px !important;
+    border-radius: 0.85rem !important;
+    padding: 0.75rem 0.9rem !important;
+    padding-right: 3.25rem !important;
+    font-size: 16px !important;
+  }
+
+  body.club-nation-mobile main form .mt-4.grid {
+    margin-top: 0.65rem !important;
+    gap: 0.45rem !important;
+  }
+
+  body.club-nation-mobile main form .mt-4.grid button {
+    min-height: 48px !important;
+    border-radius: 0.8rem !important;
+    padding: 0.7rem 0.8rem !important;
+  }
+
+  body.club-nation-mobile main form + div {
+    margin-top: 0.65rem !important;
+    border-radius: 0.8rem !important;
+    padding: 0.65rem 0.75rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  body.club-nation-mobile main section.mt-8 {
+    display: none !important;
+  }
+
+  body.club-nation-duel-mobile main {
+    padding-bottom: calc(5.25rem + env(safe-area-inset-bottom)) !important;
+  }
+
+  body.club-nation-duel-mobile main input {
+    font-size: 16px !important;
+  }
+}
