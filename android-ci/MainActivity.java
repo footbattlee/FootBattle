@@ -7,6 +7,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
@@ -17,7 +18,7 @@ import com.getcapacitor.BridgeActivity;
  *
  * Keeps the remote Next.js app intact while adding the native behavior required
  * by the Android release: persistent cookies, Android back navigation, portrait
- * orientation, resize-on-keyboard behavior and exact App Link routing.
+ * orientation, resize-on-keyboard behavior, exact App Link routing and native sharing.
  */
 public class MainActivity extends BridgeActivity {
 
@@ -45,6 +46,29 @@ public class MainActivity extends BridgeActivity {
             cookies.setAcceptThirdPartyCookies(webView, true);
         }
         cookies.flush();
+
+        webView.addJavascriptInterface(new FootBattleAndroidBridge(), "FootBattleAndroid");
+    }
+
+    private final class FootBattleAndroidBridge {
+        @JavascriptInterface
+        public void share(String title, String text, String url) {
+            runOnUiThread(() -> {
+                StringBuilder body = new StringBuilder();
+                if (text != null && !text.trim().isEmpty()) body.append(text.trim());
+                if (url != null && !url.trim().isEmpty()) {
+                    if (body.length() > 0) body.append("\n");
+                    body.append(url.trim());
+                }
+
+                Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                shareIntent.setType("text/plain");
+                shareIntent.putExtra(Intent.EXTRA_SUBJECT,
+                    title == null || title.trim().isEmpty() ? "FootBattle" : title.trim());
+                shareIntent.putExtra(Intent.EXTRA_TEXT, body.toString());
+                startActivity(Intent.createChooser(shareIntent, "FootBattle ile paylaş"));
+            });
+        }
     }
 
     private void handleIncomingIntent(Intent intent) {
