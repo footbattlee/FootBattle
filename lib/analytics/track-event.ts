@@ -1,3 +1,5 @@
+import { Capacitor } from "@capacitor/core";
+
 import { createClient } from "@/lib/supabase/client";
 
 export type AnalyticsEventName =
@@ -107,6 +109,25 @@ function readCampaignAttribution(): AttributionEnvelope | null {
   }
 }
 
+function getPlatformMetadata() {
+  if (typeof window === "undefined") return { platform: "server" };
+  try {
+    if (Capacitor.isNativePlatform()) {
+      return {
+        platform: "android",
+        runtime: "capacitor",
+      };
+    }
+  } catch {
+    // Web fallback below.
+  }
+
+  return {
+    platform: "web",
+    runtime: "browser",
+  };
+}
+
 export async function trackEvent({
   eventName,
   gameName,
@@ -129,6 +150,7 @@ export async function trackEvent({
         page_path: pagePath ?? (typeof window !== "undefined" ? window.location.pathname : null),
         metadata: {
           ...metadata,
+          ...getPlatformMetadata(),
           ...(attribution ? { attribution } : {}),
         },
       });
