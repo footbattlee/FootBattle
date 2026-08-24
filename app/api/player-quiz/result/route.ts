@@ -25,8 +25,9 @@ export async function POST(request: Request) {
   try {
     const locale = footballLocaleFromRequest(request);
     const authClient = await createAuthServerClient();
-    const { data: { user }, error: userError } = await authClient.auth.getUser();
-    if (userError || !user) return NextResponse.json({ ok: false, error: "Sonucu kaydetmek için giriş yapmalısın." }, { status: 401 });
+    const {
+      data: { user },
+    } = await authClient.auth.getUser();
 
     const body = (await request.json()) as ResultRequest;
     const sessionId = body.sessionId?.trim();
@@ -36,7 +37,10 @@ export async function POST(request: Request) {
     const solvedClubIds = Array.isArray(body.solvedClubIds)
       ? Array.from(new Set(body.solvedClubIds.map(Number).filter((id) => Number.isInteger(id) && id > 0)))
       : [];
-    const attemptCount = typeof body.attemptCount === "number" && Number.isInteger(body.attemptCount) && body.attemptCount >= 0 ? body.attemptCount : 0;
+    const attemptCount =
+      typeof body.attemptCount === "number" && Number.isInteger(body.attemptCount) && body.attemptCount >= 0
+        ? body.attemptCount
+        : 0;
 
     const { data: session, error: sessionError } = await supabaseAdmin
       .from("player_quiz_sessions")
@@ -44,7 +48,9 @@ export async function POST(request: Request) {
       .eq("id", sessionId)
       .maybeSingle();
     if (sessionError || !session) return NextResponse.json({ ok: false, error: "Player Quiz oturumu bulunamadı." }, { status: 404 });
-    if (session.user_id && session.user_id !== user.id) return NextResponse.json({ ok: false, error: "Bu oyun oturumu başka bir kullanıcıya ait." }, { status: 403 });
+    if (session.user_id && session.user_id !== user?.id) {
+      return NextResponse.json({ ok: false, error: "Bu oyun oturumu başka bir kullanıcıya ait." }, { status: 403 });
+    }
 
     const playerId = Number(session.player_id);
     const [detailResult, playerResult, clubsResult] = await Promise.all([
@@ -61,11 +67,16 @@ export async function POST(request: Request) {
     const birthYearCorrect = Number(body.birthYear) === Number(detailResult.data.birth_year);
     const nationalityCorrect = nationalitiesAreEquivalent(player.nationality, body.nationality);
     const targetClubIds = new Set(seniorCareer.map((club) => club.id));
-    if (!solvedClubIds.every((id) => targetClubIds.has(id))) return NextResponse.json({ ok: false, error: "Gönderilen kulüp bilgilerinden biri oyuncunun A takım kariyerine ait değil." }, { status: 400 });
+    if (!solvedClubIds.every((id) => targetClubIds.has(id))) {
+      return NextResponse.json({ ok: false, error: "Gönderilen kulüp bilgilerinden biri oyuncunun A takım kariyerine ait değil." }, { status: 400 });
+    }
 
     const allClubsSolved = targetClubIds.size > 0 && solvedClubIds.length === targetClubIds.size;
     const won = birthYearCorrect && nationalityCorrect && allClubsSolved;
-    if (body.finishReason === "won" && !won) return NextResponse.json({ ok: false, error: "Player Quiz tamamlanmış görünmüyor." }, { status: 400 });
+    if (body.finishReason === "won" && !won) {
+      return NextResponse.json({ ok: false, error: "Player Quiz tamamlanmış görünmüyor." }, { status: 400 });
+    }
+
     const score = won ? COMPLETION_SCORE : 0;
     const correctAnswers = {
       birthYear: Number(detailResult.data.birth_year),
@@ -90,7 +101,15 @@ export async function POST(request: Request) {
 
     const { data: completedSession, error: completeError } = await supabaseAdmin
       .from("player_quiz_sessions")
-      .update({ completed: true, result_applied: true, won, score, attempt_count: attemptCount, user_id: user.id, completed_at: new Date().toISOString() })
+      .update({
+        completed: true,
+        result_applied: true,
+        won,
+        score,
+        attempt_count: attemptCount,
+        user_id: user?.id ?? session.user_id ?? null,
+        completed_at: new Date().toISOString(),
+      })
       .eq("id", sessionId)
       .eq("result_applied", false)
       .select("id")
@@ -98,7 +117,33 @@ export async function POST(request: Request) {
     if (completeError) return NextResponse.json({ ok: false, error: "Player Quiz sonucu kaydedilemedi." }, { status: 500 });
 
     const security = await getGameSecurityStatus("player_quiz", sessionId).catch(() => null);
-    if (!completedSession) return NextResponse.json({ ok: true, alreadyRecorded: true, won, score, attemptCount, correctAnswers, scoreEligible: !security?.scoreBlocked, security });
+    if (!completedSession) {
+      return NextResponse.json({
+        ok: true,
+        alreadyRecorded: true,
+        won,
+        score,
+        attemptCount,
+        correctAnswers,
+        scoreEligible: !security?.scoreBlocked,
+        security,
+      });
+    }
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Puanını kaydetmek için giriş yapmalısın.",
+          completed: true,
+          won,
+          score,
+          attemptCount,
+          correctAnswers,
+        },
+        { status: 401 },
+      );
+    }
 
     const awardedScore = security?.scoreBlocked ? 0 : score;
     const { data: profile, error: profileError } = await supabaseAdmin
