@@ -9,6 +9,7 @@ type RequestBody = { opponentId?: string; gameCode?: string };
 const GAME_LABELS: Record<string, string> = {
   tic_tac_toe: "Futbol Tic Tac Toe",
   club_clash: "2 Takım 1 Oyuncu",
+  club_nation: "1 Takım 1 Millet",
 };
 
 export async function POST(request: Request) {
