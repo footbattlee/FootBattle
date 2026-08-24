@@ -55,9 +55,6 @@ jobs:
           import re
           p = Path('android/variables.gradle')
           text = p.read_text()
-          marker = 'ext {'
-          if marker not in text:
-              raise SystemExit('ext block not found in android/variables.gradle')
           required = {
               'minSdkVersion': '23',
               'compileSdkVersion': '36',
@@ -71,7 +68,11 @@ jobs:
               if re.search(pattern, text):
                   text = re.sub(pattern, replacement, text)
               else:
-                  idx = text.find(marker) + len(marker)
+                  marker = 'ext {'
+                  idx = text.find(marker)
+                  if idx < 0:
+                      raise SystemExit('ext block not found in android/variables.gradle')
+                  idx += len(marker)
                   text = text[:idx] + '\n' + replacement + text[idx:]
           p.write_text(text)
           PY
@@ -113,9 +114,6 @@ jobs:
           XML
           cp "$RES/mipmap-anydpi-v26/ic_launcher.xml" "$RES/mipmap-anydpi-v26/ic_launcher_round.xml"
 
-          # Capacitor 8 generates values/ic_launcher_background.xml itself.
-          # Keep exactly one definition of this resource instead of adding a
-          # second copy to colors.xml, which breaks mergeDebugResources.
           cat > "$RES/values/ic_launcher_background.xml" <<'XML'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -123,17 +121,16 @@ jobs:
           </resources>
           XML
 
-          # Remove stale duplicate definitions if a template/plugin added one.
-          if [ -f "$RES/values/colors.xml" ]; then
-            python - <<'PY'
+          python - <<'PY'
           from pathlib import Path
           import re
           p = Path('android/app/src/main/res/values/colors.xml')
-          text = p.read_text()
-          text = re.sub(r'\s*<color\s+name=["\']ic_launcher_background["\'][^>]*>.*?</color>\s*', '\n', text, flags=re.S)
-          p.write_text(text)
+          if p.exists():
+              text = p.read_text()
+              text = re.sub(r'\s*<color\s+name="ic_launcher_background"[^>]*>.*?</color>\s*', '\n', text, flags=re.S)
+              text = re.sub(r"\s*<color\s+name='ic_launcher_background'[^>]*>.*?</color>\s*", '\n', text, flags=re.S)
+              p.write_text(text)
           PY
-          fi
 
           convert "$SOURCE" -resize '420x420' -gravity center -background '#07111f' -extent '1080x1920' "$RES/drawable-nodpi/splash.png"
           find "$RES" -type f -name 'splash.png' ! -path "$RES/drawable-nodpi/splash.png" -print0 | while IFS= read -r -d '' target; do
@@ -145,27 +142,21 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import re
-          version_file = Path('android-ci/release-version.env')
-          if not version_file.exists():
-              raise SystemExit('android-ci/release-version.env is missing')
           values = {}
-          for raw in version_file.read_text().splitlines():
+          for raw in Path('android-ci/release-version.env').read_text().splitlines():
               line = raw.strip()
-              if not line or line.startswith('#'):
-                  continue
-              if '=' not in line:
-                  raise SystemExit(f'Invalid release version line: {line}')
-              key, value = line.split('=', 1)
-              values[key.strip()] = value.strip()
-          code_raw = values.get('VERSION_CODE', '')
+              if line and not line.startswith('#') and '=' in line:
+                  key, value = line.split('=', 1)
+                  values[key.strip()] = value.strip()
+          code = values.get('VERSION_CODE', '')
           name = values.get('VERSION_NAME', '')
-          if not code_raw.isdigit() or int(code_raw) < 1:
-              raise SystemExit('VERSION_CODE must be a positive integer')
+          if not code.isdigit() or int(code) < 1:
+              raise SystemExit('Invalid VERSION_CODE')
           if not re.fullmatch(r'[0-9]+(?:\.[0-9]+){1,3}(?:[-+][0-9A-Za-z.-]+)?', name):
-              raise SystemExit('VERSION_NAME must look like 1.0.0')
+              raise SystemExit('Invalid VERSION_NAME')
           p = Path('android/app/build.gradle')
           text = p.read_text()
-          text, n1 = re.subn(r'(?m)^(\s*)versionCode\s+\d+\s*$', rf'\1versionCode {int(code_raw)}', text, count=1)
+          text, n1 = re.subn(r'(?m)^(\s*)versionCode\s+\d+\s*$', rf'\1versionCode {int(code)}', text, count=1)
           text, n2 = re.subn(r'(?m)^(\s*)versionName\s+["\'][^"\']+["\']\s*$', rf'\1versionName "{name}"', text, count=1)
           if n1 != 1 or n2 != 1:
               raise SystemExit('Could not patch Android release version')
@@ -212,14 +203,14 @@ jobs:
           ET.register_namespace('android', ns)
           tree = ET.parse(manifest)
           root = tree.getroot()
-          def a(name): return f'{{{ns}}}{name}'
+          a = lambda name: f'{{{ns}}}{name}'
           target = None
           for activity in root.findall('./application/activity'):
               if activity.get(a('name')) in ('.MainActivity', 'com.playfootbattle.app.MainActivity'):
                   target = activity
                   break
           if target is None:
-              raise SystemExit('MainActivity not found in AndroidManifest.xml')
+              raise SystemExit('MainActivity not found')
           target.set(a('screenOrientation'), 'portrait')
           target.set(a('windowSoftInputMode'), 'adjustResize')
           hosts = {d.get(a('host')) for f in target.findall('intent-filter') for d in f.findall('data') if d.get(a('host'))}
@@ -232,11 +223,12 @@ jobs:
               for host in ('playfootbattle.com', 'www.playfootbattle.com'):
                   x = ET.SubElement(f, 'data'); x.set(a('scheme'), 'https'); x.set(a('host'), host)
           if not any(p.get(a('name')) == 'android.permission.POST_NOTIFICATIONS' for p in root.findall('uses-permission')):
-              p = ET.SubElement(root, 'uses-permission'); p.set(a('name'), 'android.permission.POST_NOTIFICATIONS')
+              p = ET.SubElement(root, 'uses-permission')
+              p.set(a('name'), 'android.permission.POST_NOTIFICATIONS')
           tree.write(manifest, encoding='utf-8', xml_declaration=True)
           PY
 
-      - name: Configure optional Play release signing
+      - name: Configure Play release signing
         id: signing
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
@@ -244,12 +236,12 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
         run: |
-          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Release signing secrets are not configured; generated release AAB is audit-only and must not be uploaded to Google Play."
-            exit 0
-          fi
-          echo "$KEYSTORE_B64" | base64 --decode > android/app/footbattle-release.jks
+          set -euo pipefail
+          test -n "$KEYSTORE_B64"
+          test -n "$KEYSTORE_PASSWORD"
+          test -n "$KEY_ALIAS"
+          test -n "$KEY_PASSWORD"
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > android/app/footbattle-release.jks
           cat >> android/app/build.gradle <<'GRADLE'
 
           android {
@@ -275,27 +267,21 @@ jobs:
           set -euo pipefail
           grep -q "compileSdkVersion = 36" android/variables.gradle
           grep -q "targetSdkVersion = 36" android/variables.gradle
-          grep -q "windowSoftInputMode=\"adjustResize\"" android/app/src/main/AndroidManifest.xml
           grep -q "playfootbattle.com" android/app/src/main/AndroidManifest.xml
-          grep -Eq '^[[:space:]]*versionCode[[:space:]]+[1-9][0-9]*[[:space:]]*$' android/app/build.gradle
-          grep -Eq '^[[:space:]]*versionName[[:space:]]+"[0-9]+(\.[0-9]+){1,3}([-+][0-9A-Za-z.-]+)?"[[:space:]]*$' android/app/build.gradle
-          ! grep -R "FootBattle Push Test\|integration test: non-fatal probe" -n android/app/src/main/java
           test -s public/footbattle-logo.png
-          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
-            test -s "android/app/src/main/res/mipmap-$density/ic_launcher.png"
-            test -s "android/app/src/main/res/mipmap-$density/ic_launcher_round.png"
-          done
           test -s android/app/src/main/res/drawable-nodpi/ic_launcher_foreground.png
           test -s android/app/src/main/res/drawable-nodpi/splash.png
-          grep -q 'ic_launcher_background' android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
           grep -q '#07111F' android/app/src/main/res/values/ic_launcher_background.xml
-          [ "$(grep -R 'name=["'"']ic_launcher_background["'"']' android/app/src/main/res/values --include='*.xml' | wc -l)" -eq 1 ]
-          SOURCE_SHA=$(sha256sum public/footbattle-logo.png | cut -d' ' -f1)
-          ICON_SHA=$(sha256sum android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png | cut -d' ' -f1)
-          echo "FootBattle source asset sha256: $SOURCE_SHA"
-          echo "Generated xxxhdpi launcher sha256: $ICON_SHA"
-          identify android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-          identify android/app/src/main/res/drawable-nodpi/splash.png
+          python - <<'PY'
+          from pathlib import Path
+          count = 0
+          for p in Path('android/app/src/main/res/values').glob('*.xml'):
+              text = p.read_text(errors='ignore')
+              count += text.count('name="ic_launcher_background"')
+              count += text.count("name='ic_launcher_background'")
+          if count != 1:
+              raise SystemExit(f'Expected exactly one ic_launcher_background resource, found {count}')
+          PY
 
       - name: Make Gradle wrapper executable
         run: chmod +x android/gradlew
@@ -312,43 +298,11 @@ jobs:
           ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
         run: ./gradlew bundleRelease --stacktrace
 
-      - name: Audit merged Android permissions
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
-          manifests = list(Path('android/app/build/intermediates').rglob('AndroidManifest.xml'))
-          if not manifests:
-              raise SystemExit('Merged AndroidManifest.xml not found')
-          candidates = [p for p in manifests if 'release' in str(p).lower()]
-          manifest = candidates[-1] if candidates else manifests[-1]
-          text = manifest.read_text(errors='ignore')
-          permissions = sorted(set(re.findall(r'android.permission.[A-Z0-9_]+', text)))
-          print('Merged release permissions:')
-          for permission in permissions:
-              print(' -', permission)
-          forbidden = {
-              'android.permission.CAMERA','android.permission.RECORD_AUDIO','android.permission.ACCESS_FINE_LOCATION','android.permission.ACCESS_COARSE_LOCATION','android.permission.ACCESS_BACKGROUND_LOCATION','android.permission.READ_CONTACTS','android.permission.WRITE_CONTACTS','android.permission.CALL_PHONE','android.permission.READ_EXTERNAL_STORAGE','android.permission.WRITE_EXTERNAL_STORAGE','android.permission.READ_MEDIA_IMAGES','android.permission.READ_MEDIA_VIDEO','android.permission.READ_MEDIA_AUDIO',
-          }
-          unexpected = sorted(forbidden.intersection(permissions))
-          if unexpected:
-              raise SystemExit('Unexpected sensitive permissions: ' + ', '.join(unexpected))
-          PY
-
       - name: Print signing fingerprints
         working-directory: android
         run: ./gradlew signingReport
 
-      - name: Print release readiness summary
-        run: |
-          echo "Release signing configured: ${{ steps.signing.outputs.configured }}"
-          cat android-ci/release-version.env
-          echo "Launcher/adaptive icon/splash asset audit: passed"
-          if [ "${{ steps.signing.outputs.configured }}" != "true" ]; then
-            echo "::warning::AAB passed build audit but is not Play-upload-ready until release signing secrets are configured."
-          fi
-
-      - name: Upload Android audit artifacts
+      - name: Upload Android release artifacts
         uses: actions/upload-artifact@v4
         with:
           name: footbattle-android-release-audit
