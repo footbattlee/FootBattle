@@ -3,12 +3,46 @@ import { NextResponse } from "next/server";
 import { recordGameSecurityEvent } from "@/lib/game-security/server";
 import {
   buildPlayerQuizSeniorCareer,
+  normalizePlayerQuizClubName,
   playerQuizClubsAreEquivalent,
   type RawPlayerQuizClub,
 } from "@/lib/player-quiz/clubs";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 type GuessRequest = { sessionId?: string; clubName?: string; solvedClubIds?: number[] };
+
+const CAREER_PATH_CLUB_ALIASES: Record<string, string> = {
+  "man utd": "manchester united",
+  "man united": "manchester united",
+  "manchester utd": "manchester united",
+  "manchester united": "manchester united",
+  "man city": "manchester city",
+  "manchester city": "manchester city",
+  "psg": "paris saint germain",
+  "paris sg": "paris saint germain",
+  "paris saint germain": "paris saint germain",
+  "inter": "inter milan",
+  "inter milan": "inter milan",
+  "internazionale": "inter milan",
+  "ac milan": "milan",
+  "milan": "milan",
+  "bayern": "bayern munich",
+  "bayern munich": "bayern munich",
+  "bayern munchen": "bayern munich",
+};
+
+function normalizeCareerPathClub(value: unknown) {
+  const normalized = normalizePlayerQuizClubName(value);
+  return CAREER_PATH_CLUB_ALIASES[normalized] ?? normalized;
+}
+
+function careerPathClubsAreEquivalent(firstValue: unknown, secondValue: unknown) {
+  if (playerQuizClubsAreEquivalent(firstValue, secondValue)) return true;
+
+  const first = normalizeCareerPathClub(firstValue);
+  const second = normalizeCareerPathClub(secondValue);
+  return Boolean(first && second && first === second);
+}
 
 export async function POST(request: Request) {
   try {
@@ -52,7 +86,7 @@ export async function POST(request: Request) {
     const careerClubs = buildPlayerQuizSeniorCareer((rawClubs ?? []) as RawPlayerQuizClub[]);
     if (!careerClubs.length) return NextResponse.json({ ok: false, error: "Oyuncunun A takım kariyeri bulunamadı." }, { status: 404 });
 
-    const matchedClub = careerClubs.find((club) => playerQuizClubsAreEquivalent(club.name, clubName));
+    const matchedClub = careerClubs.find((club) => careerPathClubsAreEquivalent(club.name, clubName));
     if (!matchedClub) return NextResponse.json({ ok: true, correct: false, duplicate: false, matchedClub: null });
     if (solvedClubIds.includes(matchedClub.id)) return NextResponse.json({ ok: true, correct: false, duplicate: true, matchedClub: null });
 
