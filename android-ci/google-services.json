@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:1082215741027:android:9b6d185d4339bc007c2a56",
         "android_client_info": {
-          "package_name": "com.playfootbattle.app"
+          "package_name": "com.footbattle.app"
         }
       },
       "oauth_client": [
@@ -17,7 +17,7 @@
           "client_id": "1082215741027-ihmgi906sn5cq3i6d3kpahgtkdf93moj.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.playfootbattle.app",
+            "package_name": "com.footbattle.app",
             "certificate_hash": "a312c50c11c5a369be6cea633e6114257df2e020"
           }
         },
