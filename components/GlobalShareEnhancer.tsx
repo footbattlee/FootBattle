@@ -5,6 +5,12 @@ import { useEffect } from "react";
 import { GAME_NAMES, trackShared } from "@/lib/analytics/game-analytics";
 import { createGlobalFootBattleShareCard } from "@/lib/global-share-card";
 
+declare global {
+  interface Window {
+    __footbattleNativeShare?: (data: ShareData) => Promise<void>;
+  }
+}
+
 const FOOTBATTLE_URL_PATTERN =
   /https?:\/\/(?:[^\s/]+\.)?(?:playfootbattle\.com|foot-battle\.vercel\.app)(?:\/[^\s]*)?/i;
 
@@ -13,18 +19,6 @@ function isHalisahaShareFlow() {
     typeof window !== "undefined" &&
     window.location.pathname.includes("/halisaha-kadro")
   );
-}
-
-function hasExplicitFootBattleLink(data: ShareData) {
-  return (
-    typeof data.url === "string" && FOOTBATTLE_URL_PATTERN.test(data.url)
-  ) || (
-    typeof data.text === "string" && FOOTBATTLE_URL_PATTERN.test(data.text)
-  );
-}
-
-function hasExplicitFiles(data: ShareData) {
-  return Array.isArray(data.files) && data.files.length > 0;
 }
 
 function buildShareUrl() {
@@ -65,27 +59,23 @@ export default function GlobalShareEnhancer() {
     const originalWriteText = clipboard?.writeText?.bind(clipboard);
 
     if (originalShare) {
+      window.__footbattleNativeShare = originalShare;
+
       try {
         navigator.share = async (data: ShareData) => {
-          // Feature-specific share flows that already provide their own destination
-          // and/or image are authoritative. Never inject a second UTM URL and never
-          // replace an existing image with the generic FootBattle social card.
-          if (
-            isHalisahaShareFlow() ||
-            hasExplicitFootBattleLink(data) ||
-            hasExplicitFiles(data)
-          ) {
-            const result = await originalShare(data);
-            trackTicTacToeDuelResultShare(data.text);
-            return result;
+          if (isHalisahaShareFlow()) {
+            return originalShare(data);
           }
 
           const nextData: ShareData = { ...data };
-          if (shouldEnhanceText(nextData.text)) {
-            if (!nextData.url && !FOOTBATTLE_URL_PATTERN.test(String(nextData.text ?? ""))) {
-              nextData.text = withFootBattleLink(String(nextData.text));
-              nextData.url = buildShareUrl();
-            }
+          const hasOwnLink =
+            (typeof nextData.url === "string" && FOOTBATTLE_URL_PATTERN.test(nextData.url)) ||
+            (typeof nextData.text === "string" && FOOTBATTLE_URL_PATTERN.test(nextData.text));
+          const hasOwnFiles = Array.isArray(nextData.files) && nextData.files.length > 0;
+
+          if (!hasOwnLink && !hasOwnFiles && shouldEnhanceText(nextData.text)) {
+            nextData.text = withFootBattleLink(String(nextData.text));
+            nextData.url = buildShareUrl();
 
             try {
               const card = await createGlobalFootBattleShareCard(nextData);
@@ -93,7 +83,7 @@ export default function GlobalShareEnhancer() {
                 nextData.files = [card];
               }
             } catch {
-              // PNG card is enhancement-only. Text/link sharing remains available.
+              // Enhancement only.
             }
           }
 
@@ -102,7 +92,7 @@ export default function GlobalShareEnhancer() {
           return result;
         };
       } catch {
-        // Some browsers expose navigator.share as read-only.
+        // navigator.share can be read-only on some browsers.
       }
     }
 
@@ -113,7 +103,9 @@ export default function GlobalShareEnhancer() {
             return originalWriteText(text);
           }
 
-          const result = await originalWriteText(shouldEnhanceText(text) ? withFootBattleLink(text) : text);
+          const result = await originalWriteText(
+            shouldEnhanceText(text) ? withFootBattleLink(text) : text,
+          );
           trackTicTacToeDuelResultShare(text);
           return result;
         };
@@ -124,10 +116,20 @@ export default function GlobalShareEnhancer() {
 
     return () => {
       if (originalShare) {
-        try { navigator.share = originalShare; } catch { /* noop */ }
+        try {
+          navigator.share = originalShare;
+        } catch {
+          // noop
+        }
       }
+      delete window.__footbattleNativeShare;
+
       if (clipboard && originalWriteText) {
-        try { clipboard.writeText = originalWriteText; } catch { /* noop */ }
+        try {
+          clipboard.writeText = originalWriteText;
+        } catch {
+          // noop
+        }
       }
     };
   }, []);
