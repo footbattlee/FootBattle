@@ -3,7 +3,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.playfootbattle.app',
+  appId: 'com.footbattle.app',
   appName: 'FootBattle',
   webDir: 'www',
   server: {
