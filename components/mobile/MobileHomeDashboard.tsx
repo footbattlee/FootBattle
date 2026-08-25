@@ -24,7 +24,7 @@ const GAMES: Game[] = [
   { icon: "🌍", titleTr: "1 Takım 1 Millet", titleEn: "1 Club 1 Nation", tr: "Takım ve milliyet eşleşmesine uyan futbolcuyu bul.", en: "Find a player matching the club and nation.", href: () => "/club-nation", tag: "Yeni" },
   { icon: "⚽", titleTr: "Halısaha Kadro", titleEn: "Pickup Squad", tr: "Arkadaşlarını sahaya diz, kadronu paylaş.", en: "Build and share your pickup squad.", href: () => "/halisaha-kadro" },
   { icon: "🏆", titleTr: "O mu Bu mu?", titleEn: "Survivor", tr: "Futbol dünyasının ikilemlerinde seçimini yap.", en: "Test your football knowledge in elimination rounds.", href: (locale) => `/${locale}/survivor` },
-  { icon: "🔥", titleTr: "Günün Kapışması", titleEn: "Daily Faceoff", tr: "Günün futbol sorusunda kapış.", en: "Take on today's football faceoff.", href: (locale) => `/${locale}/daily-faceoff` },
+  { icon: "🛣️", titleTr: "Kariyer Yolu", titleEn: "Career Path", tr: "Kulüp kariyerinden futbolcuyu bul.", en: "Guess the player from their club career path.", href: (locale) => `/${locale}/career-path` },
 ];
 
 export default function MobileHomeDashboard() {
