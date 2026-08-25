@@ -1,10 +1,20 @@
 "use client";
 
+import { toPng } from "html-to-image";
 import { useEffect } from "react";
 
-function buttonByText(text: string) {
-  return Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find((button) =>
-    button.textContent?.includes(text),
+declare global {
+  interface Window {
+    FootBattleAndroid?: {
+      shareImage?: (title: string, text: string, url: string, dataUrl: string) => void;
+      share?: (title: string, text: string, url: string) => void;
+    };
+  }
+}
+
+function buttonByExactText(text: string) {
+  return Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
+    (button) => button.textContent?.trim() === text,
   );
 }
 
@@ -24,26 +34,96 @@ function findMainPitch() {
     document.querySelectorAll<HTMLElement>("div.relative.mx-auto.aspect-\\[3\\/4\\].w-full"),
   );
 
-  return candidates
-    .map((element) => ({
-      element,
-      area: element.getBoundingClientRect().width * element.getBoundingClientRect().height,
-    }))
-    .sort((a, b) => b.area - a.area)[0]?.element ?? null;
+  return (
+    candidates
+      .map((element) => ({
+        element,
+        area: element.getBoundingClientRect().width * element.getBoundingClientRect().height,
+      }))
+      .sort((a, b) => b.area - a.area)[0]?.element ?? null
+  );
 }
 
-function triggerPrimaryShare() {
-  const nativeShareButton = buttonByText("Telefon / Uygulama ile Paylaş");
-  if (nativeShareButton) {
-    nativeShareButton.click();
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function ensureShareUrl() {
+  const shareInput = document.querySelector<HTMLInputElement>(
+    "input[placeholder*='Kopyala veya Paylaş']",
+  );
+
+  if (shareInput?.value) return shareInput.value;
+
+  const copyButton = buttonByExactText("Kopyala");
+  if (!copyButton) throw new Error("Paylaşım bağlantısı oluşturulamadı.");
+
+  copyButton.click();
+
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    await sleep(100);
+    if (shareInput?.value) return shareInput.value;
+  }
+
+  throw new Error("Paylaşım bağlantısı hazırlanamadı.");
+}
+
+async function dataUrlToFile(dataUrl: string, fileName: string) {
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  return new File([blob], fileName, { type: "image/png" });
+}
+
+async function shareSquadFromScratch(pitch: HTMLElement) {
+  const shareUrl = await ensureShareUrl();
+  const dataUrl = await toPng(pitch, {
+    cacheBust: true,
+    pixelRatio: 2,
+    backgroundColor: "#37a823",
+  });
+
+  const squadInput = document.querySelector<HTMLInputElement>("input[placeholder='Kadro adı']");
+  const squadName = squadInput?.value.trim() || "Halısaha Kadrosu";
+  const title = `${squadName} | FootBattle`;
+  const text = "Halısaha kadromu FootBattle ile oluşturdum! ⚽";
+
+  // Capacitor Android WebView does not reliably expose navigator.share.
+  // Use our native bridge so Android always opens the real system share sheet,
+  // with both the actual pitch PNG and the FootBattle link attached.
+  if (window.FootBattleAndroid?.shareImage) {
+    window.FootBattleAndroid.shareImage(title, text, shareUrl, dataUrl);
     return;
   }
 
-  const fallbackShareButton = Array.from(
-    document.querySelectorAll<HTMLButtonElement>("button"),
-  ).find((button) => button.textContent?.trim() === "Paylaş");
+  // iOS Safari / supported mobile browsers: share the real PNG file, not only
+  // an Open Graph URL. WhatsApp therefore receives the pitch itself.
+  const file = await dataUrlToFile(dataUrl, "footbattle-halisaha-kadrosu.png");
+  const shareData: ShareData = {
+    title,
+    text,
+    url: shareUrl,
+    files: [file],
+  };
 
-  fallbackShareButton?.click();
+  if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+    await navigator.share(shareData);
+    return;
+  }
+
+  // Last-resort web fallback: share link through the platform if possible,
+  // otherwise copy it. No duplicate share invocation and no false permission alert.
+  if (navigator.share) {
+    await navigator.share({ title, text, url: shareUrl });
+    return;
+  }
+
+  if (window.FootBattleAndroid?.share) {
+    window.FootBattleAndroid.share(title, text, shareUrl);
+    return;
+  }
+
+  await navigator.clipboard.writeText(`${text}\n${shareUrl}`);
+  window.alert("Paylaşım bağlantısı panoya kopyalandı.");
 }
 
 export default function HalisahaMobileEnhancer() {
@@ -73,7 +153,6 @@ export default function HalisahaMobileEnhancer() {
         return;
       }
 
-      // Mobile flow: header -> saha -> compact actions -> controls.
       content.classList.add("order-1");
       sidebar.classList.add("order-2");
       pitch.style.touchAction = "none";
@@ -83,11 +162,27 @@ export default function HalisahaMobileEnhancer() {
         node.style.touchAction = "none";
       });
 
-      // Full share card is too tall on mobile. Compact actions below the pitch replace it.
-      const shareCard = Array.from(content.children).find((child) =>
-        child instanceof HTMLElement && child.textContent?.includes("Kadronu Paylaş"),
+      const shareCard = Array.from(content.children).find(
+        (child) => child instanceof HTMLElement && child.textContent?.includes("Kadronu Paylaş"),
       ) as HTMLElement | undefined;
       if (shareCard) shareCard.style.display = "none";
+
+      let shareBusy = false;
+      const runShare = async () => {
+        if (shareBusy) return;
+        shareBusy = true;
+        try {
+          await shareSquadFromScratch(pitch);
+        } catch (error) {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          console.error("Halısaha paylaşımı başarısız:", error);
+          window.alert(
+            error instanceof Error ? error.message : "Paylaşım hazırlanırken bir hata oluştu.",
+          );
+        } finally {
+          shareBusy = false;
+        }
+      };
 
       const actions = document.createElement("div");
       actions.dataset.halMobileActions = "true";
@@ -98,7 +193,7 @@ export default function HalisahaMobileEnhancer() {
       shareButton.className =
         "flex min-h-11 items-center justify-center rounded-xl bg-yellow-400 px-3 py-2.5 text-sm font-black text-[#07111f]";
       shareButton.textContent = "⚽ Paylaş";
-      shareButton.addEventListener("click", triggerPrimaryShare);
+      shareButton.addEventListener("click", () => void runShare());
 
       const downloadButton = document.createElement("button");
       downloadButton.type = "button";
@@ -106,131 +201,98 @@ export default function HalisahaMobileEnhancer() {
         "flex min-h-11 items-center justify-center rounded-xl border border-white/10 bg-[#0d1828] px-3 py-2.5 text-sm font-black text-white";
       downloadButton.textContent = "↓ Görsel İndir";
       downloadButton.addEventListener("click", () => {
-        const button = buttonByText("Görseli İndir (PNG)") ?? buttonByText("Görseli İndir");
-        button?.click();
+        buttonByExactText("Görseli İndir")?.click() ?? buttonByExactText("Görseli İndir (PNG)")?.click();
       });
 
       actions.append(shareButton, downloadButton);
       pitchCard.insertAdjacentElement("afterend", actions);
 
-      // Replace "Nasıl Kullanılır?" with a top-level share CTA on mobile.
-      const howToButton = buttonByText("Nasıl Kullanılır?");
-      let topShareButton: HTMLButtonElement | null = null;
-      if (howToButton) {
-        howToButton.style.display = "none";
-        topShareButton = document.createElement("button");
-        topShareButton.type = "button";
-        topShareButton.dataset.halTopShare = "true";
-        topShareButton.className =
-          "inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-5 py-3 text-sm font-black text-[#07111f]";
-        topShareButton.textContent = "⚽ Paylaş";
-        topShareButton.addEventListener("click", triggerPrimaryShare);
-        howToButton.insertAdjacentElement("afterend", topShareButton);
+      // Header mobile CTA: replace "Nasıl Kullanılır?" with the same rebuilt share flow.
+      const header = grid.previousElementSibling as HTMLElement | null;
+      const helpButton = header
+        ? Array.from(header.querySelectorAll<HTMLButtonElement>("button")).find((button) =>
+            button.textContent?.includes("Nasıl Kullanılır?"),
+          )
+        : undefined;
+
+      let helpButtonOriginalHtml = "";
+      let helpButtonHandler: (() => void) | undefined;
+      if (helpButton) {
+        helpButtonOriginalHtml = helpButton.innerHTML;
+        helpButton.innerHTML = "⚽ Paylaş";
+        helpButtonHandler = () => void runShare();
+        helpButton.onclick = helpButtonHandler;
+        helpButton.classList.add(
+          "!border-yellow-400/60",
+          "!bg-yellow-400",
+          "!text-[#07111f]",
+        );
       }
 
-      // Tap a player to rename. Press + move keeps the normal free 2D drag behavior.
-      type GestureState = {
-        playerNode: HTMLElement;
-        index: number;
-        pointerId: number;
-        startX: number;
-        startY: number;
-        startedAt: number;
-        moved: boolean;
-      };
-
-      let gesture: GestureState | null = null;
+      // Gesture rule: tap a player = rename, drag/hold-and-move = reposition.
+      // We listen after the existing pointer handlers and only open rename when
+      // the pointer barely moved. This keeps two-dimensional dragging intact.
+      const pointerStarts = new Map<number, { x: number; y: number; player: HTMLElement }>();
 
       const onPointerDown = (event: PointerEvent) => {
-        if (window.innerWidth >= 1280) return;
         const target = event.target as HTMLElement | null;
-        const playerNode = target?.closest<HTMLElement>(".absolute.z-20");
-        if (!playerNode || !pitch.contains(playerNode)) return;
-
-        const currentNodes = Array.from(pitch.querySelectorAll<HTMLElement>(".absolute.z-20"));
-        const index = currentNodes.indexOf(playerNode);
-        if (index < 0) return;
-
-        gesture = {
-          playerNode,
-          index,
-          pointerId: event.pointerId,
-          startX: event.clientX,
-          startY: event.clientY,
-          startedAt: Date.now(),
-          moved: false,
-        };
-      };
-
-      const onPointerMove = (event: PointerEvent) => {
-        if (!gesture || gesture.pointerId !== event.pointerId) return;
-        const distance = Math.hypot(
-          event.clientX - gesture.startX,
-          event.clientY - gesture.startY,
-        );
-        if (distance > 8) gesture.moved = true;
+        const player = target?.closest<HTMLElement>(".absolute.z-20");
+        if (!player || !pitch.contains(player)) return;
+        pointerStarts.set(event.pointerId, { x: event.clientX, y: event.clientY, player });
       };
 
       const onPointerUp = (event: PointerEvent) => {
-        if (!gesture || gesture.pointerId !== event.pointerId) return;
-        const completedGesture = gesture;
-        gesture = null;
+        const start = pointerStarts.get(event.pointerId);
+        pointerStarts.delete(event.pointerId);
+        if (!start) return;
 
-        const duration = Date.now() - completedGesture.startedAt;
-        if (completedGesture.moved || duration > 500) return;
+        const distance = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+        if (distance > 7) return;
 
-        const label = completedGesture.playerNode.querySelector<HTMLElement>("div.mx-auto.mt-1");
-        const currentName = label?.textContent?.trim() ?? `Oyuncu ${completedGesture.index + 1}`;
+        const currentNodes = Array.from(pitch.querySelectorAll<HTMLElement>(".absolute.z-20"));
+        const index = currentNodes.indexOf(start.player);
+        if (index < 0) return;
 
-        window.setTimeout(() => {
-          const nextName = window.prompt("Oyuncu adını düzenle", currentName);
-          if (nextName === null) return;
+        const nameLabel = start.player.querySelector<HTMLElement>("div.mx-auto.mt-1");
+        const currentName = nameLabel?.textContent?.trim() ?? "";
+        const nextName = window.prompt("Oyuncu adını düzenle", currentName);
+        if (nextName === null) return;
 
-          const playerInputs = Array.from(
-            document.querySelectorAll<HTMLInputElement>("input[placeholder^='Oyuncu ']"),
-          );
-          const input = playerInputs[completedGesture.index];
-          if (!input) return;
-
-          setReactInputValue(input, nextName.trim());
-        }, 0);
-      };
-
-      const onPointerCancel = () => {
-        gesture = null;
+        const playerInputs = Array.from(
+          document.querySelectorAll<HTMLInputElement>("input[placeholder^='Oyuncu ']"),
+        );
+        const input = playerInputs[index];
+        if (!input) return;
+        setReactInputValue(input, nextName.trim());
       };
 
       pitch.addEventListener("pointerdown", onPointerDown, true);
-      pitch.addEventListener("pointermove", onPointerMove, true);
       pitch.addEventListener("pointerup", onPointerUp, true);
-      pitch.addEventListener("pointercancel", onPointerCancel, true);
+      pitch.addEventListener("pointercancel", (event) => pointerStarts.delete(event.pointerId), true);
 
-      // Compact mobile header so the pitch reaches the first viewport faster.
-      const header = grid.previousElementSibling as HTMLElement | null;
       if (header?.tagName === "HEADER") {
         header.classList.add("mb-3", "gap-2", "pb-3");
         header.querySelector("h1")?.classList.add("!text-2xl");
-        const brandBlock = Array.from(header.children).find((node) =>
-          node instanceof HTMLElement && node.textContent?.includes("arkadaşına fifada"),
-        ) as HTMLElement | undefined;
-        brandBlock?.classList.add("!my-0");
       }
 
       cleanup = () => {
         pitch.removeEventListener("pointerdown", onPointerDown, true);
-        pitch.removeEventListener("pointermove", onPointerMove, true);
         pitch.removeEventListener("pointerup", onPointerUp, true);
-        pitch.removeEventListener("pointercancel", onPointerCancel, true);
-        shareButton.removeEventListener("click", triggerPrimaryShare);
-        topShareButton?.removeEventListener("click", triggerPrimaryShare);
         actions.remove();
-        topShareButton?.remove();
-        if (howToButton) howToButton.style.removeProperty("display");
         pitch.style.removeProperty("touch-action");
         playerNodes.forEach((node) => node.style.removeProperty("touch-action"));
         content.classList.remove("order-1");
         sidebar.classList.remove("order-2");
         if (shareCard) shareCard.style.removeProperty("display");
+        if (helpButton) {
+          helpButton.innerHTML = helpButtonOriginalHtml;
+          helpButton.onclick = null;
+          helpButton.classList.remove(
+            "!border-yellow-400/60",
+            "!bg-yellow-400",
+            "!text-[#07111f]",
+          );
+        }
       };
     };
 
