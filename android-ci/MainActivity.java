@@ -1,5 +1,6 @@
 package com.playfootbattle.app;
 
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.net.Uri;
@@ -7,6 +8,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.MediaStore;
 import android.util.Base64;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
@@ -14,12 +16,9 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
-import androidx.core.content.FileProvider;
-
 import com.getcapacitor.BridgeActivity;
 
-import java.io.File;
-import java.io.FileOutputStream;
+import java.io.OutputStream;
 
 /**
  * Android-specific integration shell for FootBattle.
@@ -140,7 +139,7 @@ public class MainActivity extends BridgeActivity {
         public void shareImage(String title, String text, String url, String dataUrl) {
             runOnUiThread(() -> {
                 try {
-                    if (dataUrl == null || dataUrl.trim().isEmpty()) {
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || dataUrl == null || dataUrl.trim().isEmpty()) {
                         share(title, text, url);
                         return;
                     }
@@ -148,24 +147,29 @@ public class MainActivity extends BridgeActivity {
                     String base64Data = dataUrl;
                     int comma = base64Data.indexOf(',');
                     if (comma >= 0) base64Data = base64Data.substring(comma + 1);
-
                     byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
-                    File shareDir = new File(getCacheDir(), "shared_images");
-                    if (!shareDir.exists() && !shareDir.mkdirs()) {
-                        throw new IllegalStateException("Share cache directory could not be created");
-                    }
 
-                    File imageFile = new File(shareDir, "footbattle-halisaha.png");
-                    try (FileOutputStream output = new FileOutputStream(imageFile, false)) {
+                    ContentValues values = new ContentValues();
+                    values.put(MediaStore.Images.Media.DISPLAY_NAME, "footbattle-halisaha-" + System.currentTimeMillis() + ".png");
+                    values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
+                    values.put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/FootBattle");
+                    values.put(MediaStore.Images.Media.IS_PENDING, 1);
+
+                    Uri imageUri = getContentResolver().insert(
+                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                        values
+                    );
+                    if (imageUri == null) throw new IllegalStateException("Image URI could not be created");
+
+                    try (OutputStream output = getContentResolver().openOutputStream(imageUri)) {
+                        if (output == null) throw new IllegalStateException("Image output stream could not be opened");
                         output.write(bytes);
                         output.flush();
                     }
 
-                    Uri imageUri = FileProvider.getUriForFile(
-                        MainActivity.this,
-                        getPackageName() + ".fileprovider",
-                        imageFile
-                    );
+                    ContentValues ready = new ContentValues();
+                    ready.put(MediaStore.Images.Media.IS_PENDING, 0);
+                    getContentResolver().update(imageUri, ready, null, null);
 
                     Intent shareIntent = new Intent(Intent.ACTION_SEND);
                     shareIntent.setType("image/png");
@@ -176,7 +180,6 @@ public class MainActivity extends BridgeActivity {
                     );
                     shareIntent.putExtra(Intent.EXTRA_TEXT, buildShareBody(text, url));
                     shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
                     startActivity(Intent.createChooser(shareIntent, "FootBattle ile paylaş"));
                 } catch (Exception error) {
                     error.printStackTrace();
