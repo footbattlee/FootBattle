@@ -6,7 +6,8 @@ type PushPayload = {
   title: string;
   body: string;
   url: string;
-  type: "friend_request" | "duel_invite" | "duel_update";
+  type: "friend_request" | "duel_invite" | "duel_update" | "daily_tasks";
+  channelId?: "footbattle_social" | "footbattle_daily";
 };
 
 type ServiceAccount = {
@@ -16,34 +17,15 @@ type ServiceAccount = {
 };
 
 function base64Url(value: string | Buffer) {
-  return Buffer.from(value)
-    .toString("base64")
-    .replace(/=/g, "")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_");
+  return Buffer.from(value).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
 
 function serviceAccount(): ServiceAccount | null {
   const projectId = process.env.FIREBASE_PROJECT_ID?.trim();
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL?.trim();
   const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY?.trim();
-
-  console.info("[push] firebase env status", {
-    hasProjectId: Boolean(projectId),
-    hasClientEmail: Boolean(clientEmail),
-    hasPrivateKey: Boolean(rawPrivateKey),
-    projectId,
-    clientEmailDomain: clientEmail?.split("@")[1] ?? null,
-    privateKeyLooksPem: Boolean(rawPrivateKey?.includes("BEGIN PRIVATE KEY") && rawPrivateKey?.includes("END PRIVATE KEY")),
-  });
-
   if (!projectId || !clientEmail || !rawPrivateKey) return null;
-
-  return {
-    projectId,
-    clientEmail,
-    privateKey: rawPrivateKey.replace(/\\n/g, "\n"),
-  };
+  return { projectId, clientEmail, privateKey: rawPrivateKey.replace(/\\n/g, "\n") };
 }
 
 async function accessToken(account: ServiceAccount) {
@@ -60,115 +42,62 @@ async function accessToken(account: ServiceAccount) {
   const signer = createSign("RSA-SHA256");
   signer.update(unsigned);
   signer.end();
-
-  let signature: string;
-  try {
-    signature = base64Url(signer.sign(account.privateKey));
-  } catch (error) {
-    console.error("[push] private key signing failed", error instanceof Error ? error.message : String(error));
-    throw error;
-  }
-
-  const assertion = `${unsigned}.${signature}`;
+  const assertion = `${unsigned}.${base64Url(signer.sign(account.privateKey))}`;
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion,
-    }),
+    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth-type:jwt-bearer".replace("type", "grant-type"), assertion }),
     cache: "no-store",
   });
-
-  const raw = await response.text();
-  let result: { access_token?: string; error?: string; error_description?: string } = {};
-  try {
-    result = JSON.parse(raw) as typeof result;
-  } catch {
-    // keep raw text only for diagnostics below
-  }
-
-  if (!response.ok || !result.access_token) {
-    console.error("[push] oauth token failed", {
-      status: response.status,
-      error: result.error ?? null,
-      errorDescription: result.error_description ?? raw.slice(0, 500),
-    });
-    throw new Error(result.error_description ?? "Firebase access token alınamadı.");
-  }
-
-  console.info("[push] oauth token ok", { status: response.status });
+  const result = await response.json() as { access_token?: string; error_description?: string };
+  if (!response.ok || !result.access_token) throw new Error(result.error_description ?? "Firebase access token alınamadı.");
   return result.access_token;
 }
 
-export async function sendPushToUser(userId: string, payload: PushPayload) {
+async function sendToTokens(tokens: string[], payload: PushPayload) {
   const account = serviceAccount();
-  if (!account) {
-    console.warn("[push] skipped: firebase env missing");
-    return { sent: 0, skipped: true };
-  }
-
-  const { data: rows, error } = await supabaseAdmin
-    .from("push_tokens")
-    .select("token")
-    .eq("user_id", userId);
-  if (error) {
-    console.error("[push] token query failed", error.message);
-    throw error;
-  }
-
-  const tokens = Array.from(new Set((rows ?? []).map((row) => String(row.token ?? "").trim()).filter(Boolean)));
-  console.info("[push] send attempt", {
-    userIdSuffix: userId.slice(-6),
-    type: payload.type,
-    tokenCount: tokens.length,
-  });
-
-  if (!tokens.length) {
-    console.warn("[push] no device token for user", { userIdSuffix: userId.slice(-6) });
-    return { sent: 0, skipped: false };
-  }
+  if (!account) return { sent: 0, skipped: true, failedTokens: [] as string[] };
+  if (!tokens.length) return { sent: 0, skipped: false, failedTokens: [] as string[] };
 
   const bearer = await accessToken(account);
   let sent = 0;
-
-  for (const token of tokens) {
+  const failedTokens: string[] = [];
+  for (const token of Array.from(new Set(tokens.filter(Boolean)))) {
     const response = await fetch(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(account.projectId)}/messages:send`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${bearer}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${bearer}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         message: {
           token,
           notification: { title: payload.title, body: payload.body },
           data: { url: payload.url, type: payload.type },
-          android: {
-            priority: "high",
-            notification: { channel_id: "footbattle_social" },
-          },
+          android: { priority: "high", notification: { channel_id: payload.channelId ?? "footbattle_social" } },
         },
       }),
       cache: "no-store",
     });
-
-    const text = await response.text();
-    if (response.ok) {
-      sent += 1;
-      console.info("[push] FCM send ok", {
-        status: response.status,
-        tokenSuffix: token.slice(-8),
-      });
-    } else {
-      console.error("[push] FCM send failed", {
-        status: response.status,
-        tokenSuffix: token.slice(-8),
-        body: text.slice(0, 1200),
-      });
-    }
+    if (response.ok) sent += 1;
+    else failedTokens.push(token);
   }
+  return { sent, skipped: false, failedTokens };
+}
 
-  console.info("[push] send finished", { sent, total: tokens.length, type: payload.type });
-  return { sent, skipped: false };
+export async function sendPushToUser(userId: string, payload: PushPayload) {
+  const { data: rows, error } = await supabaseAdmin.from("push_tokens").select("token").eq("user_id", userId);
+  if (error) throw error;
+  const tokens = (rows ?? []).map((row) => String(row.token ?? "").trim()).filter(Boolean);
+  return sendToTokens(tokens, payload);
+}
+
+export async function sendDailyTasksPushToAll() {
+  const { data: rows, error } = await supabaseAdmin.from("push_tokens").select("token, platform").eq("platform", "android");
+  if (error) throw error;
+  const tokens = (rows ?? []).map((row) => String(row.token ?? "").trim()).filter(Boolean);
+  return sendToTokens(tokens, {
+    title: "⚽ Günlük görevler hazır!",
+    body: "Bugünün futbol mücadeleleri seni bekliyor. Serini bozma!",
+    url: "/tr/daily",
+    type: "daily_tasks",
+    channelId: "footbattle_daily",
+  });
 }
