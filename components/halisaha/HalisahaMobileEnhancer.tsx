@@ -12,6 +12,21 @@ declare global {
   }
 }
 
+type ShareApiResponse = {
+  ok?: boolean;
+  sharePath?: string;
+  error?: string;
+};
+
+type PlayerPosition = {
+  x: number;
+  y: number;
+};
+
+function clamp(value: number) {
+  return Math.max(0, Math.min(100, value));
+}
+
 function buttonByExactText(text: string) {
   return Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
     (button) => button.textContent?.trim() === text,
@@ -26,8 +41,12 @@ function setReactInputValue(input: HTMLInputElement, value: string) {
 }
 
 function findMainPitch() {
+  const candidates = Array.from(
+    document.querySelectorAll<HTMLElement>("div.relative.mx-auto.aspect-\\[3\\/4\\].w-full"),
+  ).filter((element) => element.querySelectorAll(".absolute.z-20").length >= 5);
+
   return (
-    Array.from(document.querySelectorAll<HTMLElement>("div.relative.mx-auto.aspect-\\[3\\/4\\].w-full"))
+    candidates
       .map((element) => ({
         element,
         area: element.getBoundingClientRect().width * element.getBoundingClientRect().height,
@@ -36,24 +55,87 @@ function findMainPitch() {
   );
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
+function getSquadName() {
+  return (
+    document.querySelector<HTMLInputElement>("input[placeholder='Kadro adı']")?.value.trim() ||
+    "Halısaha Kadrosu"
+  );
 }
 
-async function ensureShareUrl() {
-  const shareInput = document.querySelector<HTMLInputElement>("input[placeholder*='Kopyala veya Paylaş']");
-  if (shareInput?.value) return shareInput.value;
+function getTactic() {
+  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("button"));
+  const active = buttons.find((button) => {
+    const text = button.textContent?.trim();
+    return (
+      (text === "Dengeli" || text === "Hücum" || text === "Savunma") &&
+      (button.className.includes("border-yellow-400") || button.className.includes("bg-yellow-400/15"))
+    );
+  });
 
-  const copyButton = buttonByExactText("Kopyala");
-  if (!copyButton) throw new Error("Paylaşım bağlantısı oluşturulamadı.");
-  copyButton.click();
+  const label = active?.textContent?.trim();
+  if (label === "Hücum") return "offensive" as const;
+  if (label === "Savunma") return "defensive" as const;
+  return "balanced" as const;
+}
 
-  for (let attempt = 0; attempt < 30; attempt += 1) {
-    await sleep(100);
-    if (shareInput?.value) return shareInput.value;
+function getColors() {
+  const colorInputs = Array.from(document.querySelectorAll<HTMLInputElement>("input[type='color']"));
+  return {
+    bodyColor: colorInputs[0]?.value || "#c8101e",
+    sleeveColor: colorInputs[1]?.value || "#ffffff",
+  };
+}
+
+function getPlayersAndPositions(pitch: HTMLElement) {
+  const pitchRect = pitch.getBoundingClientRect();
+  const nodes = Array.from(pitch.querySelectorAll<HTMLElement>(".absolute.z-20"));
+
+  const players: string[] = [];
+  const positions: PlayerPosition[] = [];
+
+  nodes.forEach((node, index) => {
+    const name =
+      node.querySelector<HTMLElement>("div.mx-auto.mt-1")?.textContent?.trim() ||
+      `Oyuncu ${index + 1}`;
+    const rect = node.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    players.push(name);
+    positions.push({
+      x: clamp(((centerX - pitchRect.left) / pitchRect.width) * 100),
+      y: clamp(((centerY - pitchRect.top) / pitchRect.height) * 100),
+    });
+  });
+
+  return { players, positions };
+}
+
+async function createShareUrlFromLivePitch(pitch: HTMLElement) {
+  const { players, positions } = getPlayersAndPositions(pitch);
+  const { bodyColor, sleeveColor } = getColors();
+
+  const response = await fetch("/api/halisaha-share", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      squadName: getSquadName(),
+      playerCount: players.length,
+      players,
+      bodyColor,
+      sleeveColor,
+      tactic: getTactic(),
+      positions,
+      drawings: [],
+    }),
+  });
+
+  const result = (await response.json()) as ShareApiResponse;
+  if (!response.ok || !result.ok || !result.sharePath) {
+    throw new Error(result.error || "Paylaşım bağlantısı oluşturulamadı.");
   }
 
-  throw new Error("Paylaşım bağlantısı hazırlanamadı.");
+  return `${window.location.origin}${result.sharePath}`;
 }
 
 async function dataUrlToFile(dataUrl: string, fileName: string) {
@@ -63,55 +145,54 @@ async function dataUrlToFile(dataUrl: string, fileName: string) {
 }
 
 async function shareSquad(pitch: HTMLElement) {
-  const [shareUrl, dataUrl] = await Promise.all([
-    ensureShareUrl(),
-    toPng(pitch, {
-      cacheBust: true,
-      pixelRatio: 2,
-      backgroundColor: "#37a823",
-    }),
-  ]);
+  const dataUrl = await toPng(pitch, {
+    cacheBust: true,
+    pixelRatio: 2,
+    backgroundColor: "#37a823",
+  });
 
-  const squadInput = document.querySelector<HTMLInputElement>("input[placeholder='Kadro adı']");
-  const squadName = squadInput?.value.trim() || "Halısaha Kadrosu";
+  const shareUrl = await createShareUrlFromLivePitch(pitch);
+  const squadName = getSquadName();
   const title = `${squadName} | FootBattle`;
-  const text = "Halısaha kadromu FootBattle ile oluşturdum! ⚽";
-  const fullText = `${text}\n${shareUrl}`;
+  const text = `Halısaha kadromu FootBattle ile oluşturdum! ⚽\n${shareUrl}`;
 
-  // Native Android app: always use the real Android share chooser with
-  // the pitch PNG and the short FootBattle link attached.
+  // New Android shell: native chooser receives the real PNG + exactly one short link.
   if (window.FootBattleAndroid?.shareImage) {
-    window.FootBattleAndroid.shareImage(title, text, shareUrl, dataUrl);
+    window.FootBattleAndroid.shareImage(
+      title,
+      "Halısaha kadromu FootBattle ile oluşturdum! ⚽",
+      shareUrl,
+      dataUrl,
+    );
     return;
   }
 
-  // iOS Safari and modern mobile browsers: share the actual image file.
-  // Keeping the URL inside text is more reliable on iOS/WhatsApp than
-  // combining files + the separate Web Share API `url` field.
   const file = await dataUrlToFile(dataUrl, "footbattle-halisaha-kadrosu.png");
-  if (navigator.share) {
-    try {
-      const canShareFile = !navigator.canShare || navigator.canShare({ files: [file] });
-      if (canShareFile) {
-        await navigator.share({ title, text: fullText, files: [file] });
-        return;
-      }
 
-      await navigator.share({ title, text, url: shareUrl });
-      return;
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      throw error;
-    }
-  }
-
-  // Older Android shell: at least open its native text/link chooser.
-  if (window.FootBattleAndroid?.share) {
-    window.FootBattleAndroid.share(title, text, shareUrl);
+  // iOS Safari: Web Share API with a real file attachment. Do NOT pass a separate
+  // `url` field, otherwise some targets append the current page / create a second preview.
+  if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+    await navigator.share({ title, text, files: [file] });
     return;
   }
 
-  await navigator.clipboard.writeText(fullText);
+  // If file sharing is unsupported but the Android native text chooser exists, use it.
+  if (window.FootBattleAndroid?.share) {
+    window.FootBattleAndroid.share(
+      title,
+      "Halısaha kadromu FootBattle ile oluşturdum! ⚽",
+      shareUrl,
+    );
+    return;
+  }
+
+  // Browser fallback: open the system share sheet with the short link only.
+  if (navigator.share) {
+    await navigator.share({ title, text });
+    return;
+  }
+
+  await navigator.clipboard.writeText(text);
   window.alert("Bu cihaz doğrudan paylaşımı desteklemiyor. Bağlantı panoya kopyalandı.");
 }
 
@@ -176,16 +257,19 @@ export default function HalisahaMobileEnhancer() {
 
       const shareButton = document.createElement("button");
       shareButton.type = "button";
-      shareButton.className = "flex min-h-11 items-center justify-center rounded-xl bg-yellow-400 px-3 py-2.5 text-sm font-black text-[#07111f]";
+      shareButton.className =
+        "flex min-h-11 items-center justify-center rounded-xl bg-yellow-400 px-3 py-2.5 text-sm font-black text-[#07111f]";
       shareButton.textContent = "⚽ Paylaş";
       shareButton.addEventListener("click", () => void runShare());
 
       const downloadButton = document.createElement("button");
       downloadButton.type = "button";
-      downloadButton.className = "flex min-h-11 items-center justify-center rounded-xl border border-white/10 bg-[#0d1828] px-3 py-2.5 text-sm font-black text-white";
+      downloadButton.className =
+        "flex min-h-11 items-center justify-center rounded-xl border border-white/10 bg-[#0d1828] px-3 py-2.5 text-sm font-black text-white";
       downloadButton.textContent = "↓ Görsel İndir";
       downloadButton.addEventListener("click", () => {
-        buttonByExactText("Görseli İndir")?.click() ?? buttonByExactText("Görseli İndir (PNG)")?.click();
+        buttonByExactText("Görseli İndir")?.click() ??
+          buttonByExactText("Görseli İndir (PNG)")?.click();
       });
 
       actions.append(shareButton, downloadButton);
@@ -231,11 +315,14 @@ export default function HalisahaMobileEnhancer() {
         const index = currentNodes.indexOf(start.player);
         if (index < 0) return;
 
-        const currentName = start.player.querySelector<HTMLElement>("div.mx-auto.mt-1")?.textContent?.trim() ?? "";
+        const currentName =
+          start.player.querySelector<HTMLElement>("div.mx-auto.mt-1")?.textContent?.trim() ?? "";
         const nextName = window.prompt("Oyuncu adını düzenle", currentName);
         if (nextName === null) return;
 
-        const input = Array.from(document.querySelectorAll<HTMLInputElement>("input[placeholder^='Oyuncu ']"))[index];
+        const input = Array.from(
+          document.querySelectorAll<HTMLInputElement>("input[placeholder^='Oyuncu ']"),
+        )[index];
         if (input) setReactInputValue(input, nextName.trim());
       };
 
