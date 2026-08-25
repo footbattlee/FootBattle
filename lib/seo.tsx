@@ -27,21 +27,14 @@ type GameSeoConfig = {
   keywords: string[];
 };
 
-export function createGameMetadata({
-  path,
-  title,
-  description,
-  keywords,
-}: GameSeoConfig): Metadata {
+export function createGameMetadata({ path, title, description, keywords }: GameSeoConfig): Metadata {
   const canonical = `${SITE_URL}${path}`;
 
   return {
     title: { absolute: title },
     description,
     keywords,
-    alternates: {
-      canonical,
-    },
+    alternates: { canonical },
     openGraph: {
       type: "website",
       locale: "tr_TR",
@@ -49,19 +42,9 @@ export function createGameMetadata({
       title,
       description,
       url: canonical,
-      images: [
-        {
-          url: DEFAULT_OG_IMAGE,
-          alt: "FootBattle futbol oyunları",
-        },
-      ],
+      images: [{ url: DEFAULT_OG_IMAGE, alt: "FootBattle futbol oyunları" }],
     },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: [DEFAULT_OG_IMAGE],
-    },
+    twitter: { card: "summary_large_image", title, description, images: [DEFAULT_OG_IMAGE] },
   };
 }
 
@@ -71,8 +54,13 @@ export function SiteJsonLd() {
     "@type": "Organization",
     "@id": `${SITE_URL}/#organization`,
     name: "FootBattle",
+    alternateName: ["Play FootBattle", "playfootbattle"],
     url: SITE_URL,
-    logo: `${SITE_URL}/footbattle-logo.png`,
+    logo: {
+      "@type": "ImageObject",
+      url: `${SITE_URL}/footbattle-logo.png`,
+    },
+    description: "FootBattle is a football games and quiz platform with daily challenges, player guessing games, Career Path, Wordle, Tic Tac Toe, Survivor and competitive modes.",
   };
 
   const website = {
@@ -81,27 +69,37 @@ export function SiteJsonLd() {
     "@id": `${SITE_URL}/#website`,
     url: SITE_URL,
     name: "FootBattle",
+    alternateName: ["Play FootBattle", "playfootbattle.com"],
+    description: "Football games, quizzes, daily challenges and competitive football trivia on FootBattle.",
     publisher: { "@id": `${SITE_URL}/#organization` },
     inLanguage: ["tr-TR", "en"],
+  };
+
+  const webApplication = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "@id": `${SITE_URL}/#app`,
+    name: "FootBattle",
+    alternateName: "Play FootBattle",
+    url: SITE_URL,
+    applicationCategory: "GameApplication",
+    applicationSubCategory: "Football games and quizzes",
+    operatingSystem: "Web, Android",
+    browserRequirements: "Requires JavaScript",
+    description: "Play FootBattle football quizzes, player guessing games, Career Path, Wordle, Tic Tac Toe, Survivor and competitive challenges.",
+    publisher: { "@id": `${SITE_URL}/#organization` },
   };
 
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organization) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(website) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(webApplication) }} />
     </>
   );
 }
 
-export function GameJsonLd({
-  name,
-  description,
-  path,
-}: {
-  name: string;
-  description: string;
-  path: string;
-}) {
+export function GameJsonLd({ name, description, path }: { name: string; description: string; path: string }) {
   const schema = {
     "@context": "https://schema.org",
     "@type": "Game",
@@ -111,15 +109,8 @@ export function GameJsonLd({
     inLanguage: "tr-TR",
     applicationCategory: "Game",
     genre: ["Football", "Sports", "Quiz"],
-    publisher: {
-      "@id": `${SITE_URL}/#organization`,
-    },
+    publisher: { "@id": `${SITE_URL}/#organization` },
   };
 
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
-  );
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />;
 }
