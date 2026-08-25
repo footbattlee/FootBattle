@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { GAME_NAMES, trackGameCompleted, trackGameStarted } from "@/lib/analytics/game-analytics";
 import type { Locale } from "@/lib/i18n/config";
@@ -14,6 +14,7 @@ type GuessResponse = { ok?: boolean; error?: string; correct?: boolean; duplicat
 
 export default function LocalizedCareerPath({ locale }: { locale: Locale }) {
   const t = gameCopy[locale];
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -28,6 +29,7 @@ export default function LocalizedCareerPath({ locale }: { locale: Locale }) {
   const [message, setMessage] = useState(t.career.firstMessage);
   const [busy, setBusy] = useState(false);
   const [resultMessage, setResultMessage] = useState("");
+  const [inputFocused, setInputFocused] = useState(false);
 
   const progress = useMemo(
     () => (session?.clubSlots ? Math.round((solved.length / session.clubSlots) * 100) : 0),
@@ -47,6 +49,7 @@ export default function LocalizedCareerPath({ locale }: { locale: Locale }) {
     setStatus("playing");
     setResultMessage("");
     setMessage(t.career.firstMessage);
+    setInputFocused(false);
 
     try {
       const response = await fetch("/api/career-path/today", { cache: "no-store" });
@@ -89,7 +92,10 @@ export default function LocalizedCareerPath({ locale }: { locale: Locale }) {
           signal: controller.signal,
         });
         const data = await response.json();
-        if (response.ok && data.ok) setResults((data.clubs ?? []) as string[]);
+        if (response.ok && data.ok) {
+          const clubs = Array.isArray(data.clubs) ? (data.clubs as string[]) : [];
+          setResults(Array.from(new Set(clubs.map((club) => club.trim()).filter(Boolean))));
+        }
       } catch {
         // expected while typing
       }
@@ -118,8 +124,6 @@ export default function LocalizedCareerPath({ locale }: { locale: Locale }) {
       });
       const data = await response.json();
 
-      // Anonymous users can receive 401 after the server has already closed the session.
-      // Keep the completed board visible and only show the login-to-save-score message.
       if (response.status === 401 && data.completed) {
         if (Array.isArray(data.allClubs)) setRevealed(data.allClubs as Club[]);
         setResultMessage(t.common.loginSave);
@@ -201,7 +205,10 @@ export default function LocalizedCareerPath({ locale }: { locale: Locale }) {
         return;
       }
 
-      const nextSolved = [...solved, data.matchedClub].sort((a, b) => a.careerOrder - b.careerOrder);
+      const nextSolved = [...solved, data.matchedClub]
+        .filter((club, index, list) => list.findIndex((item) => item.id === club.id || item.careerOrder === club.careerOrder) === index)
+        .sort((a, b) => a.careerOrder - b.careerOrder);
+
       setSolved(nextSolved);
       if (nextSolved.length >= session.clubSlots) {
         setStatus("won");
@@ -218,17 +225,24 @@ export default function LocalizedCareerPath({ locale }: { locale: Locale }) {
     }
   }
 
+  function handleInputFocus() {
+    setInputFocused(true);
+    window.setTimeout(() => {
+      inputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 180);
+  }
+
   if (loading) {
-    return <main className="min-h-screen bg-[#07111f] p-6 text-white sm:p-8">{t.common.loading}</main>;
+    return <main className="min-h-[100lvh] bg-[#07111f] p-6 text-white sm:min-h-screen sm:p-8">{t.common.loading}</main>;
   }
 
   const board = revealed.length > 0 ? revealed : solved;
-  const getClubAt = (index: number) => board.find((item) => item.careerOrder === index + 1) ?? board[index];
+  const getClubAt = (index: number) => board.find((item) => item.careerOrder === index + 1);
 
   return (
-    <main className="min-h-screen bg-[#07111f] text-white">
-      <div className="mx-auto max-w-5xl px-3 py-3 sm:px-6 sm:py-9">
-        <div className="flex items-center justify-between gap-2 sm:gap-3">
+    <main className="min-h-[100lvh] bg-[#07111f] text-white sm:min-h-screen">
+      <div className="mx-auto max-w-5xl px-3 py-3 pb-8 sm:px-6 sm:py-9">
+        <div className={`${inputFocused ? "hidden sm:flex" : "flex"} items-center justify-between gap-2 sm:gap-3`}>
           <Link href={`/${locale}`} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-black text-slate-300 sm:rounded-xl sm:px-4 sm:text-sm">
             ← {t.common.home}
           </Link>
@@ -238,7 +252,7 @@ export default function LocalizedCareerPath({ locale }: { locale: Locale }) {
           </div>
         </div>
 
-        <header className="mt-3 text-center sm:mt-7">
+        <header className={`${inputFocused ? "hidden sm:block" : "block"} mt-3 text-center sm:mt-7`}>
           <p className="text-[9px] font-black uppercase tracking-[0.24em] text-blue-300 sm:text-xs">FootBattle</p>
           <h1 className="mt-1 text-2xl font-black sm:mt-2 sm:text-6xl">{t.career.title}</h1>
           <p className="mx-auto mt-1 max-w-2xl text-[11px] leading-4 text-slate-400 sm:mt-3 sm:text-base">{t.career.subtitle}</p>
@@ -251,7 +265,7 @@ export default function LocalizedCareerPath({ locale }: { locale: Locale }) {
           </div>
         ) : session && (
           <>
-            <section className="mx-auto mt-3 max-w-2xl rounded-2xl border border-white/10 bg-[#0c1929] p-3 sm:mt-8 sm:rounded-3xl sm:p-6">
+            <section className={`${inputFocused ? "mt-0 sm:mt-8" : "mt-3 sm:mt-8"} mx-auto max-w-2xl rounded-2xl border border-white/10 bg-[#0c1929] p-3 sm:rounded-3xl sm:p-6`}>
               <div className="flex items-center gap-3 text-left sm:flex-col sm:text-center">
                 {session.player.imageUrl ? (
                   <img src={session.player.imageUrl} alt={session.player.fullName} className="h-14 w-14 shrink-0 rounded-xl object-cover object-top sm:h-28 sm:w-28 sm:rounded-2xl" />
@@ -294,15 +308,33 @@ export default function LocalizedCareerPath({ locale }: { locale: Locale }) {
               {status === "playing" && (
                 <div className="relative mt-2.5 sm:mt-4">
                   <input
+                    ref={inputRef}
                     value={query}
+                    onFocus={handleInputFocus}
+                    onBlur={() => window.setTimeout(() => setInputFocused(false), 120)}
                     onChange={(e) => { setQuery(e.target.value); setSelected(false); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && selected && !busy) {
+                        e.preventDefault();
+                        void submitClub();
+                      }
+                    }}
                     placeholder={t.career.placeholder}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    enterKeyHint="search"
                     className="h-11 w-full rounded-lg border border-white/10 bg-[#07111f] px-3 text-sm font-bold outline-none focus:border-blue-400/50 sm:h-13 sm:rounded-xl sm:px-4"
                   />
                   {results.length > 0 && (
-                    <div className="absolute z-20 mt-1.5 max-h-40 w-full overflow-auto rounded-xl border border-white/10 bg-[#0b1726] p-1 shadow-2xl sm:mt-2 sm:max-h-64">
-                      {results.slice(0, 12).map((club) => (
-                        <button key={club} onClick={() => { setQuery(club); setSelected(true); setResults([]); }} className="block w-full rounded-lg px-3 py-2.5 text-left text-sm font-bold hover:bg-white/[0.06] sm:py-3">
+                    <div className="absolute bottom-[calc(100%+0.375rem)] z-30 max-h-32 w-full overflow-auto rounded-xl border border-white/10 bg-[#0b1726] p-1 shadow-2xl sm:bottom-auto sm:top-full sm:mt-2 sm:max-h-64">
+                      {results.slice(0, 10).map((club) => (
+                        <button
+                          key={club}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => { setQuery(club); setSelected(true); setResults([]); inputRef.current?.focus(); }}
+                          className="block w-full rounded-lg px-3 py-2.5 text-left text-sm font-bold hover:bg-white/[0.06] sm:py-3"
+                        >
                           {club}
                         </button>
                       ))}
