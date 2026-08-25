@@ -7,13 +7,19 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Base64;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
+import androidx.core.content.FileProvider;
+
 import com.getcapacitor.BridgeActivity;
+
+import java.io.File;
+import java.io.FileOutputStream;
 
 /**
  * Android-specific integration shell for FootBattle.
@@ -105,23 +111,77 @@ public class MainActivity extends BridgeActivity {
         connectivityHandler.postDelayed(connectivityWatcher, 1500);
     }
 
+    private String buildShareBody(String text, String url) {
+        StringBuilder body = new StringBuilder();
+        if (text != null && !text.trim().isEmpty()) body.append(text.trim());
+        if (url != null && !url.trim().isEmpty()) {
+            if (body.length() > 0) body.append("\n");
+            body.append(url.trim());
+        }
+        return body.toString();
+    }
+
     private final class FootBattleAndroidBridge {
         @JavascriptInterface
         public void share(String title, String text, String url) {
             runOnUiThread(() -> {
-                StringBuilder body = new StringBuilder();
-                if (text != null && !text.trim().isEmpty()) body.append(text.trim());
-                if (url != null && !url.trim().isEmpty()) {
-                    if (body.length() > 0) body.append("\n");
-                    body.append(url.trim());
-                }
-
                 Intent shareIntent = new Intent(Intent.ACTION_SEND);
                 shareIntent.setType("text/plain");
-                shareIntent.putExtra(Intent.EXTRA_SUBJECT,
-                    title == null || title.trim().isEmpty() ? "FootBattle" : title.trim());
-                shareIntent.putExtra(Intent.EXTRA_TEXT, body.toString());
+                shareIntent.putExtra(
+                    Intent.EXTRA_SUBJECT,
+                    title == null || title.trim().isEmpty() ? "FootBattle" : title.trim()
+                );
+                shareIntent.putExtra(Intent.EXTRA_TEXT, buildShareBody(text, url));
                 startActivity(Intent.createChooser(shareIntent, "FootBattle ile paylaş"));
+            });
+        }
+
+        @JavascriptInterface
+        public void shareImage(String title, String text, String url, String dataUrl) {
+            runOnUiThread(() -> {
+                try {
+                    if (dataUrl == null || dataUrl.trim().isEmpty()) {
+                        share(title, text, url);
+                        return;
+                    }
+
+                    String base64Data = dataUrl;
+                    int comma = base64Data.indexOf(',');
+                    if (comma >= 0) base64Data = base64Data.substring(comma + 1);
+
+                    byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
+                    File shareDir = new File(getCacheDir(), "shared_images");
+                    if (!shareDir.exists() && !shareDir.mkdirs()) {
+                        throw new IllegalStateException("Share cache directory could not be created");
+                    }
+
+                    File imageFile = new File(shareDir, "footbattle-halisaha.png");
+                    try (FileOutputStream output = new FileOutputStream(imageFile, false)) {
+                        output.write(bytes);
+                        output.flush();
+                    }
+
+                    Uri imageUri = FileProvider.getUriForFile(
+                        MainActivity.this,
+                        getPackageName() + ".fileprovider",
+                        imageFile
+                    );
+
+                    Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                    shareIntent.setType("image/png");
+                    shareIntent.putExtra(Intent.EXTRA_STREAM, imageUri);
+                    shareIntent.putExtra(
+                        Intent.EXTRA_SUBJECT,
+                        title == null || title.trim().isEmpty() ? "FootBattle" : title.trim()
+                    );
+                    shareIntent.putExtra(Intent.EXTRA_TEXT, buildShareBody(text, url));
+                    shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                    startActivity(Intent.createChooser(shareIntent, "FootBattle ile paylaş"));
+                } catch (Exception error) {
+                    error.printStackTrace();
+                    share(title, text, url);
+                }
             });
         }
     }
