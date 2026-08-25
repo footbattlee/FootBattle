@@ -12,26 +12,7 @@ declare global {
   }
 }
 
-type ShareApiResponse = {
-  ok?: boolean;
-  sharePath?: string;
-  error?: string;
-};
-
-type PlayerPosition = {
-  x: number;
-  y: number;
-};
-
-function clamp(value: number) {
-  return Math.max(0, Math.min(100, value));
-}
-
-function buttonByExactText(text: string) {
-  return Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
-    (button) => button.textContent?.trim() === text,
-  );
-}
+type Position = { x: number; y: number };
 
 function setReactInputValue(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
@@ -40,176 +21,137 @@ function setReactInputValue(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-function findMainPitch() {
+function findMainPitch(): HTMLElement | null {
   const candidates = Array.from(
     document.querySelectorAll<HTMLElement>("div.relative.mx-auto.aspect-\\[3\\/4\\].w-full"),
-  ).filter((element) => element.querySelectorAll(".absolute.z-20").length >= 5);
-
-  return (
-    candidates
-      .map((element) => ({
-        element,
-        area: element.getBoundingClientRect().width * element.getBoundingClientRect().height,
-      }))
-      .sort((a, b) => b.area - a.area)[0]?.element ?? null
   );
+
+  // The real editable pitch is the only large 3:4 field containing the draggable
+  // player nodes (.absolute.z-20). Mini previews / share cards are deliberately excluded.
+  const realPitch = candidates
+    .filter((element) => element.querySelectorAll(".absolute.z-20").length >= 5)
+    .filter((element) => !element.closest("[data-hal-mobile-actions='true']"))
+    .sort((a, b) => {
+      const ar = a.getBoundingClientRect();
+      const br = b.getBoundingClientRect();
+      return br.width * br.height - ar.width * ar.height;
+    })[0];
+
+  return realPitch ?? null;
 }
 
-function getSquadName() {
-  return (
-    document.querySelector<HTMLInputElement>("input[placeholder='Kadro adı']")?.value.trim() ||
-    "Halısaha Kadrosu"
-  );
-}
-
-function getTactic() {
-  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("button"));
-  const active = buttons.find((button) => {
-    const text = button.textContent?.trim();
-    return (
-      (text === "Dengeli" || text === "Hücum" || text === "Savunma") &&
-      (button.className.includes("border-yellow-400") || button.className.includes("bg-yellow-400/15"))
-    );
-  });
-
-  const label = active?.textContent?.trim();
-  if (label === "Hücum") return "offensive" as const;
-  if (label === "Savunma") return "defensive" as const;
-  return "balanced" as const;
-}
-
-function getColors() {
-  const colorInputs = Array.from(document.querySelectorAll<HTMLInputElement>("input[type='color']"));
-  return {
-    bodyColor: colorInputs[0]?.value || "#c8101e",
-    sleeveColor: colorInputs[1]?.value || "#ffffff",
-  };
-}
-
-function getPlayersAndPositions(pitch: HTMLElement) {
+function getLiveSnapshot(pitch: HTMLElement) {
+  const playerNodes = Array.from(pitch.querySelectorAll<HTMLElement>(".absolute.z-20"));
   const pitchRect = pitch.getBoundingClientRect();
-  const nodes = Array.from(pitch.querySelectorAll<HTMLElement>(".absolute.z-20"));
-
   const players: string[] = [];
-  const positions: PlayerPosition[] = [];
+  const positions: Position[] = [];
 
-  nodes.forEach((node, index) => {
-    const name =
-      node.querySelector<HTMLElement>("div.mx-auto.mt-1")?.textContent?.trim() ||
-      `Oyuncu ${index + 1}`;
-    const rect = node.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
+  for (const node of playerNodes) {
+    const label = node.querySelector<HTMLElement>("div.mx-auto.mt-1");
+    players.push(label?.textContent?.trim() || `Oyuncu ${players.length + 1}`);
 
-    players.push(name);
+    const nodeRect = node.getBoundingClientRect();
+    const centerX = nodeRect.left + nodeRect.width / 2;
+    const centerY = nodeRect.top + nodeRect.height / 2;
     positions.push({
-      x: clamp(((centerX - pitchRect.left) / pitchRect.width) * 100),
-      y: clamp(((centerY - pitchRect.top) / pitchRect.height) * 100),
+      x: Math.max(0, Math.min(100, ((centerX - pitchRect.left) / pitchRect.width) * 100)),
+      y: Math.max(0, Math.min(100, ((centerY - pitchRect.top) / pitchRect.height) * 100)),
     });
-  });
+  }
 
-  return { players, positions };
+  const squadName =
+    document.querySelector<HTMLInputElement>("input[placeholder='Kadro adı']")?.value.trim() ||
+    "Halısaha Kadrosu";
+
+  const colorInputs = Array.from(document.querySelectorAll<HTMLInputElement>("input[type='color']"));
+  const bodyColor = colorInputs.at(-2)?.value || "#c8101e";
+  const sleeveColor = colorInputs.at(-1)?.value || "#ffffff";
+
+  return { squadName, players, positions, bodyColor, sleeveColor };
 }
 
-async function createShareUrlFromLivePitch(pitch: HTMLElement) {
-  const { players, positions } = getPlayersAndPositions(pitch);
-  const { bodyColor, sleeveColor } = getColors();
-
+async function createShareSnapshot(pitch: HTMLElement) {
+  const live = getLiveSnapshot(pitch);
   const response = await fetch("/api/halisaha-share", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      squadName: getSquadName(),
-      playerCount: players.length,
-      players,
-      bodyColor,
-      sleeveColor,
-      tactic: getTactic(),
-      positions,
+      squadName: live.squadName,
+      playerCount: live.players.length,
+      players: live.players,
+      bodyColor: live.bodyColor,
+      sleeveColor: live.sleeveColor,
+      tactic: "balanced",
+      positions: live.positions,
       drawings: [],
     }),
   });
 
-  const result = (await response.json()) as ShareApiResponse;
+  const result = (await response.json()) as { ok?: boolean; sharePath?: string; error?: string };
   if (!response.ok || !result.ok || !result.sharePath) {
     throw new Error(result.error || "Paylaşım bağlantısı oluşturulamadı.");
   }
 
-  return `${window.location.origin}${result.sharePath}`;
+  return {
+    url: `${window.location.origin}${result.sharePath}`,
+    squadName: live.squadName,
+  };
 }
 
-async function dataUrlToFile(dataUrl: string, fileName: string) {
+async function dataUrlToFile(dataUrl: string) {
   const response = await fetch(dataUrl);
   const blob = await response.blob();
-  return new File([blob], fileName, { type: "image/png" });
+  return new File([blob], "footbattle-halisaha-kadrosu.png", { type: "image/png" });
 }
 
-async function shareSquad(pitch: HTMLElement) {
+async function shareLivePitch(pitch: HTMLElement) {
+  // Capture only the actual green pitch DOM. Never capture MiniPitchPreview or OG/share cards.
   const dataUrl = await toPng(pitch, {
     cacheBust: true,
     pixelRatio: 2,
     backgroundColor: "#37a823",
   });
-
-  const shareUrl = await createShareUrlFromLivePitch(pitch);
-  const squadName = getSquadName();
+  const { url, squadName } = await createShareSnapshot(pitch);
   const title = `${squadName} | FootBattle`;
-  const text = `Halısaha kadromu FootBattle ile oluşturdum! ⚽\n${shareUrl}`;
+  const text = `Halısaha kadromu FootBattle ile oluşturdum! ⚽\n${url}`;
 
-  // New Android shell: native chooser receives the real PNG + exactly one short link.
   if (window.FootBattleAndroid?.shareImage) {
-    window.FootBattleAndroid.shareImage(
-      title,
-      "Halısaha kadromu FootBattle ile oluşturdum! ⚽",
-      shareUrl,
-      dataUrl,
-    );
+    window.FootBattleAndroid.shareImage(title, "Halısaha kadromu FootBattle ile oluşturdum! ⚽", url, dataUrl);
     return;
   }
 
-  const file = await dataUrlToFile(dataUrl, "footbattle-halisaha-kadrosu.png");
-
-  // iOS Safari: Web Share API with a real file attachment. Do NOT pass a separate
-  // `url` field, otherwise some targets append the current page / create a second preview.
+  const file = await dataUrlToFile(dataUrl);
   if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
     await navigator.share({ title, text, files: [file] });
     return;
   }
 
-  // If file sharing is unsupported but the Android native text chooser exists, use it.
   if (window.FootBattleAndroid?.share) {
-    window.FootBattleAndroid.share(
-      title,
-      "Halısaha kadromu FootBattle ile oluşturdum! ⚽",
-      shareUrl,
-    );
+    window.FootBattleAndroid.share(title, "Halısaha kadromu FootBattle ile oluşturdum! ⚽", url);
     return;
   }
 
-  // Browser fallback: open the system share sheet with the short link only.
   if (navigator.share) {
     await navigator.share({ title, text });
     return;
   }
 
   await navigator.clipboard.writeText(text);
-  window.alert("Bu cihaz doğrudan paylaşımı desteklemiyor. Bağlantı panoya kopyalandı.");
+  window.alert("Paylaşım bağlantısı panoya kopyalandı.");
 }
 
 export default function HalisahaMobileEnhancer() {
   useEffect(() => {
-    if (window.location.pathname !== "/halisaha-kadro") return;
+    if (window.location.pathname !== "/halisaha-kadro" || window.innerWidth >= 1280) return;
 
     let cleanup: (() => void) | undefined;
-    let retryTimer: number | undefined;
+    let timer: number | undefined;
 
     const install = () => {
-      if (window.innerWidth >= 1280) return;
       if (document.querySelector("[data-hal-mobile-actions='true']")) return;
-
       const pitch = findMainPitch();
       if (!pitch) {
-        retryTimer = window.setTimeout(install, 300);
+        timer = window.setTimeout(install, 250);
         return;
       }
 
@@ -217,119 +159,90 @@ export default function HalisahaMobileEnhancer() {
       const content = pitchCard?.parentElement;
       const grid = content?.parentElement;
       const sidebar = grid?.querySelector<HTMLElement>(":scope > aside");
-      if (!pitchCard || !content || !grid || !sidebar) {
-        retryTimer = window.setTimeout(install, 300);
-        return;
-      }
+      const header = grid?.previousElementSibling as HTMLElement | null;
+      if (!pitchCard || !content || !grid || !sidebar) return;
 
       content.classList.add("order-1");
       sidebar.classList.add("order-2");
       pitch.style.touchAction = "none";
-
-      const playerNodes = Array.from(pitch.querySelectorAll<HTMLElement>(".absolute.z-20"));
-      playerNodes.forEach((node) => {
+      pitch.querySelectorAll<HTMLElement>(".absolute.z-20").forEach((node) => {
         node.style.touchAction = "none";
       });
 
       const shareCard = Array.from(content.children).find(
-        (child) => child instanceof HTMLElement && child.textContent?.includes("Kadronu Paylaş"),
+        (node) => node instanceof HTMLElement && node.textContent?.includes("Kadronu Paylaş"),
       ) as HTMLElement | undefined;
       if (shareCard) shareCard.style.display = "none";
 
-      let shareBusy = false;
+      let busy = false;
       const runShare = async () => {
-        if (shareBusy) return;
-        shareBusy = true;
+        if (busy) return;
+        busy = true;
         try {
-          await shareSquad(pitch);
+          await shareLivePitch(pitch);
         } catch (error) {
           if (error instanceof DOMException && error.name === "AbortError") return;
           console.error("Halısaha paylaşımı başarısız:", error);
-          window.alert(error instanceof Error ? error.message : "Paylaşım hazırlanırken bir hata oluştu.");
+          window.alert(error instanceof Error ? error.message : "Paylaşım hazırlanırken hata oluştu.");
         } finally {
-          shareBusy = false;
+          busy = false;
         }
       };
 
       const actions = document.createElement("div");
       actions.dataset.halMobileActions = "true";
       actions.className = "mt-2 grid grid-cols-2 gap-2 xl:hidden";
-
-      const shareButton = document.createElement("button");
-      shareButton.type = "button";
-      shareButton.className =
-        "flex min-h-11 items-center justify-center rounded-xl bg-yellow-400 px-3 py-2.5 text-sm font-black text-[#07111f]";
-      shareButton.textContent = "⚽ Paylaş";
-      shareButton.addEventListener("click", () => void runShare());
-
-      const downloadButton = document.createElement("button");
-      downloadButton.type = "button";
-      downloadButton.className =
-        "flex min-h-11 items-center justify-center rounded-xl border border-white/10 bg-[#0d1828] px-3 py-2.5 text-sm font-black text-white";
-      downloadButton.textContent = "↓ Görsel İndir";
-      downloadButton.addEventListener("click", () => {
-        buttonByExactText("Görseli İndir")?.click() ??
-          buttonByExactText("Görseli İndir (PNG)")?.click();
+      actions.innerHTML = `
+        <button type="button" data-action="share" class="flex min-h-11 items-center justify-center rounded-xl bg-yellow-400 px-3 py-2.5 text-sm font-black text-[#07111f]">⚽ Paylaş</button>
+        <button type="button" data-action="download" class="flex min-h-11 items-center justify-center rounded-xl border border-white/10 bg-[#0d1828] px-3 py-2.5 text-sm font-black text-white">↓ Görsel İndir</button>`;
+      actions.querySelector<HTMLButtonElement>("[data-action='share']")?.addEventListener("click", () => void runShare());
+      actions.querySelector<HTMLButtonElement>("[data-action='download']")?.addEventListener("click", async () => {
+        const dataUrl = await toPng(pitch, { cacheBust: true, pixelRatio: 2, backgroundColor: "#37a823" });
+        const anchor = document.createElement("a");
+        anchor.href = dataUrl;
+        anchor.download = "footbattle-halisaha-kadrosu.png";
+        anchor.click();
       });
-
-      actions.append(shareButton, downloadButton);
       pitchCard.insertAdjacentElement("afterend", actions);
 
-      const header = grid.previousElementSibling as HTMLElement | null;
       const helpButton = header
-        ? Array.from(header.querySelectorAll<HTMLButtonElement>("button")).find((button) =>
-            button.textContent?.includes("Nasıl Kullanılır?"),
-          )
+        ? Array.from(header.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.includes("Nasıl Kullanılır?"))
         : undefined;
-
-      let helpButtonOriginalHtml = "";
-      const interceptHeaderShare = (event: Event) => {
+      const oldHelpHtml = helpButton?.innerHTML ?? "";
+      const interceptShare = (event: Event) => {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
         void runShare();
       };
-
       if (helpButton) {
-        helpButtonOriginalHtml = helpButton.innerHTML;
         helpButton.innerHTML = "⚽ Paylaş";
         helpButton.classList.add("!border-yellow-400/60", "!bg-yellow-400", "!text-[#07111f]");
-        helpButton.addEventListener("click", interceptHeaderShare, true);
+        helpButton.addEventListener("click", interceptShare, true);
       }
 
-      const pointerStarts = new Map<number, { x: number; y: number; player: HTMLElement }>();
-      const onPointerDown = (event: PointerEvent) => {
-        const target = event.target as HTMLElement | null;
-        const player = target?.closest<HTMLElement>(".absolute.z-20");
-        if (!player || !pitch.contains(player)) return;
-        pointerStarts.set(event.pointerId, { x: event.clientX, y: event.clientY, player });
+      const starts = new Map<number, { x: number; y: number; player: HTMLElement }>();
+      const down = (event: PointerEvent) => {
+        const player = (event.target as HTMLElement | null)?.closest<HTMLElement>(".absolute.z-20");
+        if (player && pitch.contains(player)) starts.set(event.pointerId, { x: event.clientX, y: event.clientY, player });
       };
-
-      const onPointerUp = (event: PointerEvent) => {
-        const start = pointerStarts.get(event.pointerId);
-        pointerStarts.delete(event.pointerId);
-        if (!start) return;
-        if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 7) return;
-
-        const currentNodes = Array.from(pitch.querySelectorAll<HTMLElement>(".absolute.z-20"));
-        const index = currentNodes.indexOf(start.player);
+      const up = (event: PointerEvent) => {
+        const start = starts.get(event.pointerId);
+        starts.delete(event.pointerId);
+        if (!start || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 7) return;
+        const nodes = Array.from(pitch.querySelectorAll<HTMLElement>(".absolute.z-20"));
+        const index = nodes.indexOf(start.player);
         if (index < 0) return;
-
-        const currentName =
-          start.player.querySelector<HTMLElement>("div.mx-auto.mt-1")?.textContent?.trim() ?? "";
-        const nextName = window.prompt("Oyuncu adını düzenle", currentName);
-        if (nextName === null) return;
-
-        const input = Array.from(
-          document.querySelectorAll<HTMLInputElement>("input[placeholder^='Oyuncu ']"),
-        )[index];
-        if (input) setReactInputValue(input, nextName.trim());
+        const current = start.player.querySelector<HTMLElement>("div.mx-auto.mt-1")?.textContent?.trim() || "";
+        const next = window.prompt("Oyuncu adını düzenle", current);
+        if (next === null) return;
+        const input = Array.from(document.querySelectorAll<HTMLInputElement>("input[placeholder^='Oyuncu ']"))[index];
+        if (input) setReactInputValue(input, next.trim());
       };
-
-      const onPointerCancel = (event: PointerEvent) => pointerStarts.delete(event.pointerId);
-      pitch.addEventListener("pointerdown", onPointerDown, true);
-      pitch.addEventListener("pointerup", onPointerUp, true);
-      pitch.addEventListener("pointercancel", onPointerCancel, true);
+      const cancel = (event: PointerEvent) => starts.delete(event.pointerId);
+      pitch.addEventListener("pointerdown", down, true);
+      pitch.addEventListener("pointerup", up, true);
+      pitch.addEventListener("pointercancel", cancel, true);
 
       if (header?.tagName === "HEADER") {
         header.classList.add("mb-3", "gap-2", "pb-3");
@@ -337,38 +250,24 @@ export default function HalisahaMobileEnhancer() {
       }
 
       cleanup = () => {
-        pitch.removeEventListener("pointerdown", onPointerDown, true);
-        pitch.removeEventListener("pointerup", onPointerUp, true);
-        pitch.removeEventListener("pointercancel", onPointerCancel, true);
+        pitch.removeEventListener("pointerdown", down, true);
+        pitch.removeEventListener("pointerup", up, true);
+        pitch.removeEventListener("pointercancel", cancel, true);
         actions.remove();
-        pitch.style.removeProperty("touch-action");
-        playerNodes.forEach((node) => node.style.removeProperty("touch-action"));
         content.classList.remove("order-1");
         sidebar.classList.remove("order-2");
         if (shareCard) shareCard.style.removeProperty("display");
         if (helpButton) {
-          helpButton.removeEventListener("click", interceptHeaderShare, true);
-          helpButton.innerHTML = helpButtonOriginalHtml;
+          helpButton.removeEventListener("click", interceptShare, true);
+          helpButton.innerHTML = oldHelpHtml;
           helpButton.classList.remove("!border-yellow-400/60", "!bg-yellow-400", "!text-[#07111f]");
         }
       };
     };
 
     install();
-
-    const onResize = () => {
-      if (window.innerWidth >= 1280) {
-        cleanup?.();
-        cleanup = undefined;
-      } else {
-        install();
-      }
-    };
-
-    window.addEventListener("resize", onResize);
     return () => {
-      if (retryTimer) window.clearTimeout(retryTimer);
-      window.removeEventListener("resize", onResize);
+      if (timer) window.clearTimeout(timer);
       cleanup?.();
     };
   }, []);
