@@ -16,5 +16,6 @@ jobs:
       - name: Send one-off daily push
         run: |
           set -euo pipefail
+          # One-off production push test after Firebase OAuth fix.
           curl --show-error --silent -w '\nHTTP_STATUS:%{http_code}\n' \
             https://playfootbattle.com/api/push/test-once-7f3c2a9e
