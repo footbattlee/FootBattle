@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_SITE_URL: "https://playfootbattle.com",
+  },
+
   async redirects() {
     return [
       // Retire the old Vercel hostname while preserving deep links and query strings.
