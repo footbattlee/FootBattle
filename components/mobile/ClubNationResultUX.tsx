@@ -7,6 +7,7 @@ declare global {
   interface Window {
     FootBattleAndroid?: {
       share?: (title: string, text: string, url: string) => void;
+      shareImage?: (title: string, text: string, url: string, dataUrl: string) => void;
     };
   }
 }
@@ -57,7 +58,7 @@ export default function ClubNationResultUX() {
         const result = await response.json() as ChallengeResponse;
         if (cancelled || !response.ok || !result.ok || result.challenge?.gameCode !== "club_nation") return;
         setChallenge(result);
-      } catch { /* existing game UI handles errors */ }
+      } catch { }
     }
 
     void load();
@@ -90,7 +91,7 @@ export default function ClubNationResultUX() {
         if (cancelled || !response.ok || !result.ok) return;
         setRematch(result);
         if (result.state === "accepted" && result.token) scheduleStart(result);
-      } catch { /* result screen stays usable */ }
+      } catch { }
     }
 
     void loadRematch();
@@ -197,7 +198,7 @@ export default function ClubNationResultUX() {
       try {
         window.FootBattleAndroid.share(shareTitle, text, url);
         return;
-      } catch { /* fall through to web share */ }
+      } catch { }
     }
 
     if (navigator.share) {
