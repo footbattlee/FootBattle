@@ -1,0 +1,20 @@
+name: Push Test Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/push-test-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  send-test-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send one-off daily push
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent --retry 6 --retry-delay 10 \
+            https://playfootbattle.com/api/push/test-once-7f3c2a9e
