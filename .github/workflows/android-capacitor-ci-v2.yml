@@ -194,6 +194,7 @@ jobs:
 
       - name: Apply FootBattle Android integration
         run: |
+          mkdir -p android/app/src/main/java/com/playfootbattle/app
           cp android-ci/MainActivity.java android/app/src/main/java/com/playfootbattle/app/MainActivity.java
           python - <<'PY'
           import xml.etree.ElementTree as ET
@@ -211,6 +212,7 @@ jobs:
                   break
           if target is None:
               raise SystemExit('MainActivity not found')
+          target.set(a('name'), 'com.playfootbattle.app.MainActivity')
           target.set(a('screenOrientation'), 'portrait')
           target.set(a('windowSoftInputMode'), 'adjustResize')
           hosts = {d.get(a('host')) for f in target.findall('intent-filter') for d in f.findall('data') if d.get(a('host'))}
@@ -269,6 +271,7 @@ jobs:
           grep -q "compileSdkVersion = 36" android/variables.gradle
           grep -q "targetSdkVersion = 36" android/variables.gradle
           grep -q "playfootbattle.com" android/app/src/main/AndroidManifest.xml
+          grep -q "com.playfootbattle.app.MainActivity" android/app/src/main/AndroidManifest.xml
           test -s public/footbattle-logo.png
           test -s android/app/src/main/res/drawable-nodpi/ic_launcher_foreground.png
           test -s android/app/src/main/res/drawable-nodpi/splash.png
