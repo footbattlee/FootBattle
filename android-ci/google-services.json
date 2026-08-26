@@ -14,11 +14,27 @@
       },
       "oauth_client": [
         {
+          "client_id": "1082215741027-1eo29nv1jskrt28pvp0vjhs978jivc4a.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.footbattle.app",
+            "certificate_hash": "116f99a1b9c492bbc6da228dbb44519d87fce445"
+          }
+        },
+        {
           "client_id": "1082215741027-1tl6a8bg6uuit3k2r85ns8kbjp3qqsei.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.footbattle.app",
             "certificate_hash": "48a1efeaa9b83fdf1fb6a7575ef77814c088e36f"
+          }
+        },
+        {
+          "client_id": "1082215741027-4eoq3v5p10qn0v74684vinrasm0u8e7p.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.footbattle.app",
+            "certificate_hash": "754b2b8fa30be48c541f0be29618e6793ccc52a0"
           }
         },
         {
