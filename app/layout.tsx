@@ -26,6 +26,7 @@ import WordlePhysicalKeyboard from "@/components/WordlePhysicalKeyboard";
 import GlobalLegalFooter from "@/components/GlobalLegalFooter";
 import AdminBackButton from "@/components/AdminBackButton";
 import MobileAppShell from "@/components/mobile/MobileAppShell";
+import PushTokenSync from "@/components/mobile/PushTokenSync";
 import MobileHomeDashboard from "@/components/mobile/MobileHomeDashboard";
 import GuessThePlayerMobileAutoScroll from "@/components/mobile/GuessThePlayerMobileAutoScroll";
 import MobileKeyboardGuard from "@/components/mobile/MobileKeyboardGuard";
@@ -71,6 +72,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         {children}
         <MobileHomeDashboard />
         <MobileAppShell />
+        <PushTokenSync />
         <Suspense fallback={null}>
           <RankedMatchChromeFix />
           <RankedReconnectBanner />
