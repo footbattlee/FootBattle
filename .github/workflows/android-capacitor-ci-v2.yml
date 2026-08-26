@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
@@ -85,12 +87,22 @@ jobs:
           npx cap update android
           npx cap sync android
 
+      - name: Restore valid binary launcher source
+        run: |
+          set -euo pipefail
+          mkdir -p android-ci/runtime-assets
+          # The current repository path was accidentally written through a UTF-8 text API.
+          # Restore the last known-good binary PNG directly from git history for the build.
+          git show ee7a6d0c809f34a2e5d90a49c5e4e07dcb3f8e79:public/footbattle-logo.png > android-ci/runtime-assets/footbattle-logo.png
+          identify android-ci/runtime-assets/footbattle-logo.png
+
       - name: Generate FootBattle launcher and splash assets
         run: |
           set -euo pipefail
-          SOURCE="public/footbattle-logo.png"
+          SOURCE="android-ci/runtime-assets/footbattle-logo.png"
           RES="android/app/src/main/res"
           test -s "$SOURCE"
+          identify "$SOURCE"
 
           for spec in "mdpi 48" "hdpi 72" "xhdpi 96" "xxhdpi 144" "xxxhdpi 192"; do
             set -- $spec
@@ -274,7 +286,7 @@ jobs:
           grep -q "playfootbattle.com" android/app/src/main/AndroidManifest.xml
           grep -q "com.playfootbattle.app.MainActivity" android/app/src/main/AndroidManifest.xml
           grep -q "com.google.android.gms.permission.AD_ID" android/app/src/main/AndroidManifest.xml
-          test -s public/footbattle-logo.png
+          test -s android-ci/runtime-assets/footbattle-logo.png
           test -s android/app/src/main/res/drawable-nodpi/ic_launcher_foreground.png
           test -s android/app/src/main/res/drawable-nodpi/splash.png
           grep -q '#07111F' android/app/src/main/res/values/ic_launcher_background.xml
