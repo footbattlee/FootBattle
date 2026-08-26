@@ -68,8 +68,6 @@ export async function GET(request: NextRequest) {
     const startDate = getStartDate(range);
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
 
-    // Timed solo games are server-finalized independently of client analytics.
-    // Cron runs this every minute; this call makes the admin screen immediately consistent as well.
     const { error: reconcileError } = await supabaseAdmin.rpc("reconcile_solo_session_lifecycle");
     if (reconcileError) console.error("Solo lifecycle reconcile failed:", reconcileError);
 
@@ -78,10 +76,11 @@ export async function GET(request: NextRequest) {
       fetchAll("game_sessions", "id,game_code,source_session_id,user_id,mode,status,started_at,finished_at,duration_ms", startDate, "started_at") as Promise<SoloSessionRow[]>,
     ]);
 
-    // Analytics is now auxiliary: platform, replay/share, and route variant identity.
-    // Completion/start counts come only from canonical game_sessions.
+    // Analytics is auxiliary: platform/share and replay events.
+    // Starts/completions and replay eligibility come from canonical solo game_sessions.
     const sessionGameName = new Map<string, string>();
-    const auxiliaryMap = new Map<string, { playAgain: number; shared: number }>();
+    const sharedByGame = new Map<string, number>();
+    const playAgainRows: AnalyticsRow[] = [];
     const platforms = { web: 0, android: 0, unknown: 0 };
     const selectedUsers = new Set<string>();
     const dailyUsers = new Map<string, Set<string>>();
@@ -99,18 +98,18 @@ export async function GET(request: NextRequest) {
         set.add(row.user_id);
         dailyUsers.set(key, set);
       }
-      if (!auxiliaryMap.has(gameName)) auxiliaryMap.set(gameName, { playAgain: 0, shared: 0 });
-      const aux = auxiliaryMap.get(gameName)!;
-      if (row.event_name === "play_again") aux.playAgain += 1;
-      if (row.event_name === "shared" || row.event_name === "game_shared") aux.shared += 1;
+      if (row.event_name === "play_again") playAgainRows.push(row);
+      if (row.event_name === "shared" || row.event_name === "game_shared") {
+        sharedByGame.set(gameName, (sharedByGame.get(gameName) ?? 0) + 1);
+      }
     }
 
     const nowMs = Date.now();
+    const canonicalSoloSessionGame = new Map<string, string>();
     const gameMap = new Map<string, { gameName: string; started: number; completed: number; abandoned: number; inProgress: number; playAgain: number; shared: number; durations: number[]; users: Set<string> }>();
     const ensureGame = (gameName: string) => {
       if (!gameMap.has(gameName)) {
-        const aux = auxiliaryMap.get(gameName) ?? { playAgain: 0, shared: 0 };
-        gameMap.set(gameName, { gameName, started: 0, completed: 0, abandoned: 0, inProgress: 0, playAgain: aux.playAgain, shared: aux.shared, durations: [], users: new Set<string>() });
+        gameMap.set(gameName, { gameName, started: 0, completed: 0, abandoned: 0, inProgress: 0, playAgain: 0, shared: sharedByGame.get(gameName) ?? 0, durations: [], users: new Set<string>() });
       }
       return gameMap.get(gameName)!;
     };
@@ -120,6 +119,9 @@ export async function GET(request: NextRequest) {
       const sourceId = row.source_session_id ?? row.id;
       const gameName = sessionGameName.get(sourceId) ?? row.game_code;
       if (!SOLO_GAME_NAMES.has(gameName)) continue;
+
+      canonicalSoloSessionGame.set(row.id, gameName);
+      canonicalSoloSessionGame.set(sourceId, gameName);
 
       const game = ensureGame(gameName);
       game.started += 1;
@@ -141,8 +143,21 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Keep auxiliary-only rows visible even if a legacy event has no canonical session.
-    for (const [gameName] of auxiliaryMap) {
+    // Count at most one replay per canonical solo session in the selected range.
+    // Legacy/unmatched analytics events are ignored so replay is comparable with Start.
+    const replaySeen = new Set<string>();
+    for (const row of playAgainRows) {
+      if (!row.session_id) continue;
+      const gameName = canonicalSoloSessionGame.get(row.session_id);
+      if (!gameName) continue;
+      const replayKey = `${gameName}:${row.session_id}`;
+      if (replaySeen.has(replayKey)) continue;
+      replaySeen.add(replayKey);
+      ensureGame(gameName).playAgain += 1;
+    }
+
+    // Keep share-only rows visible, but unmatched replay-only legacy rows are intentionally excluded.
+    for (const [gameName] of sharedByGame) {
       if (SOLO_GAME_NAMES.has(gameName)) ensureGame(gameName);
     }
 
