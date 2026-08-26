@@ -224,9 +224,10 @@ jobs:
               x = ET.SubElement(f, 'category'); x.set(a('name'), 'android.intent.category.BROWSABLE')
               for host in ('playfootbattle.com', 'www.playfootbattle.com'):
                   x = ET.SubElement(f, 'data'); x.set(a('scheme'), 'https'); x.set(a('host'), host)
-          if not any(p.get(a('name')) == 'android.permission.POST_NOTIFICATIONS' for p in root.findall('uses-permission')):
-              p = ET.SubElement(root, 'uses-permission')
-              p.set(a('name'), 'android.permission.POST_NOTIFICATIONS')
+          for permission in ('android.permission.POST_NOTIFICATIONS', 'com.google.android.gms.permission.AD_ID'):
+              if not any(p.get(a('name')) == permission for p in root.findall('uses-permission')):
+                  p = ET.SubElement(root, 'uses-permission')
+                  p.set(a('name'), permission)
           tree.write(manifest, encoding='utf-8', xml_declaration=True)
           PY
 
@@ -272,6 +273,7 @@ jobs:
           grep -q "targetSdkVersion = 36" android/variables.gradle
           grep -q "playfootbattle.com" android/app/src/main/AndroidManifest.xml
           grep -q "com.playfootbattle.app.MainActivity" android/app/src/main/AndroidManifest.xml
+          grep -q "com.google.android.gms.permission.AD_ID" android/app/src/main/AndroidManifest.xml
           test -s public/footbattle-logo.png
           test -s android/app/src/main/res/drawable-nodpi/ic_launcher_foreground.png
           test -s android/app/src/main/res/drawable-nodpi/splash.png
