@@ -15,6 +15,7 @@ import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.widget.Toast;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -25,6 +26,8 @@ public class MainActivity extends BridgeActivity {
     private final Handler connectivityHandler = new Handler(Looper.getMainLooper());
     private Boolean lastOnlineState = null;
     private boolean connectivityWatcherRunning = false;
+    private long lastBackPressedAt = 0L;
+    private static final long BACK_EXIT_CONFIRM_WINDOW_MS = 2000L;
 
     private final Runnable connectivityWatcher = new Runnable() {
         @Override public void run() {
@@ -72,5 +75,19 @@ public class MainActivity extends BridgeActivity {
     @Override public void onPause(){stopConnectivityWatcher();CookieManager.getInstance().flush();super.onPause();}
     @Override public void onStop(){CookieManager.getInstance().flush();super.onStop();}
     @Override public void onDestroy(){stopConnectivityWatcher();super.onDestroy();}
-    @Override public void onBackPressed(){WebView webView=getBridge()!=null?getBridge().getWebView():null;if(webView!=null&&webView.canGoBack()){webView.goBack();return;}super.onBackPressed();}
+    @Override public void onBackPressed(){
+        WebView webView=getBridge()!=null?getBridge().getWebView():null;
+        if(webView!=null&&webView.canGoBack()){
+            lastBackPressedAt=0L;
+            webView.goBack();
+            return;
+        }
+        long now=System.currentTimeMillis();
+        if(now-lastBackPressedAt>BACK_EXIT_CONFIRM_WINDOW_MS){
+            lastBackPressedAt=now;
+            Toast.makeText(this,"Uygulamadan çıkmak için tekrar geri basın",Toast.LENGTH_SHORT).show();
+            return;
+        }
+        super.onBackPressed();
+    }
 }
