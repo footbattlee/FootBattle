@@ -1,52 +1,44 @@
 import { NextResponse } from "next/server";
 
-import { nationalityToDisplayName } from "@/lib/football/localization";
 import { startGameSecuritySession } from "@/lib/game-security/server";
-import {
-  buildPlayerQuizSeniorCareer,
-  type RawPlayerQuizClub,
-} from "@/lib/player-quiz/clubs";
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-
-const MAX_LIVES = 5;
-const GUESS_TIME_SECONDS = 30;
-const MINIMUM_SEARCH_LENGTH = 3;
+import {
+  TRANSFER_QUIZ_DURATION_SECONDS,
+  TRANSFER_QUIZ_MAX_PASSES,
+  TRANSFER_QUIZ_MIN_SEARCH_LENGTH,
+  TRANSFER_QUIZ_POINTS_PER_CORRECT,
+  pickNextTransferQuestion,
+} from "@/lib/transfer-quiz/game";
 
 export async function GET(request: Request) {
   try {
     const authClient = await createAuthServerClient();
     const { data: { user } } = await authClient.auth.getUser();
 
-    const { data: transferQuiz, error: transferError } = await supabaseAdmin
-      .from("transfer_quizzes")
-      .select("id, player_id, headline, club_name, created_at")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (transferError) return NextResponse.json({ ok: false, error: "Aktif transfer quiz okunamadı." }, { status: 500 });
-    if (!transferQuiz) return NextResponse.json({ ok: false, error: "Aktif transfer quiz bulunamadı." }, { status: 404 });
+    const picked = await pickNextTransferQuestion("easy", []);
+    if (!picked) {
+      return NextResponse.json({ ok: false, error: "Kolay transfer sorusu bulunamadı." }, { status: 404 });
+    }
 
-    const playerId = Number(transferQuiz.player_id);
-    const [playerResult, detailResult, clubsResult] = await Promise.all([
-      supabaseAdmin.from("guess_players").select("player_id, name, image_url, nationality, popularity_score").eq("player_id", playerId).maybeSingle(),
-      supabaseAdmin.from("player_quiz_details").select("birth_year").eq("player_id", playerId).maybeSingle(),
-      supabaseAdmin.from("player_quiz_clubs").select("id, club_name, career_order").eq("player_id", playerId).not("club_name", "is", null).order("career_order", { ascending: true }),
-    ]);
-    if (playerResult.error || !playerResult.data) return NextResponse.json({ ok: false, error: "Transfer Quiz oyuncusu bulunamadı." }, { status: 404 });
-    if (detailResult.error || !detailResult.data) return NextResponse.json({ ok: false, error: "Oyuncunun doğum yılı bulunamadı." }, { status: 404 });
-    if (clubsResult.error) return NextResponse.json({ ok: false, error: "Oyuncunun kariyer bilgileri okunamadı." }, { status: 500 });
-
-    const seniorCareer = buildPlayerQuizSeniorCareer((clubsResult.data ?? []) as RawPlayerQuizClub[]);
-    if (!seniorCareer.length) return NextResponse.json({ ok: false, error: "Oyuncunun A takım kariyeri bulunamadı." }, { status: 404 });
+    const startedAt = new Date();
+    const expiresAt = new Date(startedAt.getTime() + TRANSFER_QUIZ_DURATION_SECONDS * 1000);
 
     const { data: session, error: sessionError } = await supabaseAdmin
-      .from("player_quiz_sessions")
-      .insert({ player_id: playerId, max_lives: MAX_LIVES, guess_time_seconds: GUESS_TIME_SECONDS })
-      .select("id, max_lives, guess_time_seconds")
+      .from("transfer_quiz_sessions_v2")
+      .insert({
+        user_id: user?.id ?? null,
+        started_at: startedAt.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        current_transfer_id: picked.question.transferId,
+        used_source_player_ids: [picked.sourcePlayerId],
+      })
+      .select("id, started_at, score, correct_count, passes_used")
       .single();
-    if (sessionError || !session) return NextResponse.json({ ok: false, error: "Transfer Quiz oturumu oluşturulamadı." }, { status: 500 });
+
+    if (sessionError || !session) {
+      return NextResponse.json({ ok: false, error: "Transferi Bil oturumu oluşturulamadı." }, { status: 500 });
+    }
 
     await startGameSecuritySession({
       request,
@@ -54,34 +46,27 @@ export async function GET(request: Request) {
       sourceSessionId: String(session.id),
       userId: user?.id ?? null,
       mode: "solo",
-      metadata: { transferQuizId: transferQuiz.id, playerId },
+      metadata: { format: "transferi_bil_v1", durationSeconds: TRANSFER_QUIZ_DURATION_SECONDS },
     });
 
     return NextResponse.json({
       ok: true,
-      transferQuizId: transferQuiz.id,
-      headline: transferQuiz.headline ?? "Transfer Özel",
-      targetClub: transferQuiz.club_name ?? null,
       sessionId: session.id,
-      player: {
-        id: Number(playerResult.data.player_id),
-        fullName: playerResult.data.name,
-        imageUrl: playerResult.data.image_url ?? null,
-        nationality: nationalityToDisplayName(playerResult.data.nationality),
-      },
-      maxLives: session.max_lives,
-      guessTimeSeconds: session.guess_time_seconds,
-      minimumSearchLength: MINIMUM_SEARCH_LENGTH,
-      board: {
-        birthYearSlots: 1,
-        nationalitySlots: 1,
-        clubSlots: seniorCareer.length,
-        totalSlots: seniorCareer.length + 2,
-      },
-      scoring: { completionScore: 500 },
+      startedAt: session.started_at,
+      durationSeconds: TRANSFER_QUIZ_DURATION_SECONDS,
+      maxPasses: TRANSFER_QUIZ_MAX_PASSES,
+      pointsPerCorrect: TRANSFER_QUIZ_POINTS_PER_CORRECT,
+      minimumSearchLength: TRANSFER_QUIZ_MIN_SEARCH_LENGTH,
+      score: Number(session.score ?? 0),
+      correctCount: Number(session.correct_count ?? 0),
+      passesUsed: Number(session.passes_used ?? 0),
+      question: picked.question,
     });
   } catch (error) {
-    console.error("Transfer Quiz today endpoint hatası:", error);
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Transfer Quiz hazırlanırken hata oluştu." }, { status: 500 });
+    console.error("Transferi Bil start endpoint hatası:", error);
+    return NextResponse.json(
+      { ok: false, error: error instanceof Error ? error.message : "Transferi Bil başlatılamadı." },
+      { status: 500 },
+    );
   }
 }
