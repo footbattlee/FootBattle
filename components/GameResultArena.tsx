@@ -76,6 +76,7 @@ export default function GameResultArena() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [summaryUnavailable, setSummaryUnavailable] = useState(false);
   const [message, setMessage] = useState("");
   const [detail, setDetail] = useState<GameCompletedDetail | null>(null);
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
@@ -91,6 +92,7 @@ export default function GameResultArena() {
       lastKey.current = key;
       setDetail(next);
       setSummary(null);
+      setSummaryUnavailable(false);
       setMessage("");
       setOpen(true);
       setLoading(true);
@@ -114,6 +116,7 @@ export default function GameResultArena() {
             const result = (await response.json()) as SummaryResponse;
             if (response.ok && result.ok && result.ready) {
               setSummary(result);
+              setSummaryUnavailable(false);
               setLoading(false);
               return;
             }
@@ -122,6 +125,7 @@ export default function GameResultArena() {
           }
         }
         setLoading(false);
+        setSummaryUnavailable(true);
       })();
     }
 
@@ -132,6 +136,7 @@ export default function GameResultArena() {
   useEffect(() => {
     setOpen(false);
     setMessage("");
+    setSummaryUnavailable(false);
   }, [pathname]);
 
   const game = detail ? GAME_META[detail.gameName] : null;
@@ -156,20 +161,20 @@ export default function GameResultArena() {
       if (navigator.share) {
         await navigator.share({ title: "FootBattle Meydan Okuma", text, url: targetUrl });
         await recordShared();
-        setMessage("Paylaşım açıldı ✓");
+        setMessage("Paylaşım ekranı açıldı ✓");
         return;
       }
       await navigator.clipboard.writeText(`${text}\n${targetUrl}`);
       await recordShared();
-      setMessage("Mesaj ve link kopyalandı ✓");
+      setMessage("Sonuç ve link panoya kopyalandı ✓");
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       try {
         await navigator.clipboard.writeText(`${text}\n${targetUrl}`);
         await recordShared();
-        setMessage("Mesaj ve link kopyalandı ✓");
+        setMessage("Sonuç ve link panoya kopyalandı ✓");
       } catch {
-        setMessage("Paylaşım açılamadı.");
+        setMessage("Paylaşım şu anda açılamıyor. Tekrar deneyebilirsin.");
       }
     }
   }
@@ -194,7 +199,7 @@ export default function GameResultArena() {
 
   return (
     <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/70 p-2 backdrop-blur-sm sm:items-center sm:p-5" role="dialog" aria-modal="true" aria-label="Oyun sonucu">
-      <section className="relative max-h-[92dvh] w-full max-w-[620px] overflow-y-auto rounded-[28px] border border-green-400/20 bg-[#081523] p-5 text-white shadow-2xl sm:p-7">
+      <section className="relative max-h-[92dvh] w-full max-w-[620px] overflow-y-auto rounded-[28px] border border-green-400/20 bg-[#081523] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white shadow-2xl sm:p-7">
         <button type="button" onClick={() => setOpen(false)} className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-lg text-slate-400 transition hover:text-white" aria-label="Sonuç panelini kapat">×</button>
 
         <div className="pr-10">
@@ -219,7 +224,15 @@ export default function GameResultArena() {
         </div>
 
         {loading && (
-          <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-bold text-slate-400">Anti-cheat onaylı sonuç hazırlanıyor...</div>
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-bold text-slate-300">
+            <span className="mr-2 inline-block animate-pulse">●</span> Sonucun doğrulanıyor; skorun kaydedildi, istatistikler birazdan hazır olacak.
+          </div>
+        )}
+
+        {summaryUnavailable && (
+          <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-sm font-bold text-amber-100">
+            Skorun kaydedildi. Detaylı sıralama ve XP bilgisi şu an yüklenemedi; oyuna devam edebilirsin.
+          </div>
         )}
 
         {progress && (
@@ -248,20 +261,20 @@ export default function GameResultArena() {
           </div>
         )}
 
-        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+        <div className="mt-5 grid grid-cols-2 gap-2.5">
+          <button type="button" onClick={() => void shareText()} className="min-h-14 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 text-sm font-black text-cyan-100 transition active:scale-[0.98] hover:bg-cyan-400/15">📱 Paylaş</button>
+          <button type="button" onClick={() => void replay()} className="min-h-14 rounded-xl border border-white/15 bg-white/[0.055] px-3 text-sm font-black text-white transition active:scale-[0.98] hover:bg-white/[0.09]">🔄 Tekrar Oyna</button>
           {game.challenge && (
-            <button type="button" onClick={openUnifiedDuelFlow} className="min-h-12 rounded-xl bg-purple-500 px-4 text-sm font-black text-white transition hover:bg-purple-400">
+            <button type="button" onClick={openUnifiedDuelFlow} className="col-span-2 min-h-12 rounded-xl bg-purple-500 px-4 text-sm font-black text-white transition active:scale-[0.99] hover:bg-purple-400">
               ⚔️ Düello Başlat
             </button>
           )}
-          <button type="button" onClick={() => void shareText()} className="min-h-12 rounded-xl border border-cyan-400/25 bg-cyan-400/10 px-4 text-sm font-black text-cyan-200 transition hover:bg-cyan-400/15">📱 Sonucumu Paylaş</button>
-          <button type="button" onClick={() => void replay()} className="min-h-12 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-black text-slate-200 transition hover:bg-white/[0.08]">🔄 Tekrar Oyna</button>
-          <button type="button" onClick={() => { window.location.href = NEXT_GAME[detail.gameName] ?? "/"; }} className="min-h-12 rounded-xl bg-green-500 px-4 text-sm font-black text-[#07111f] transition hover:bg-green-400">🎮 Sonraki Oyuna Geç</button>
-          <button type="button" onClick={() => { window.location.href = "/"; }} className="min-h-12 rounded-xl border border-purple-400/30 bg-purple-400/[0.08] px-4 text-sm font-black text-purple-200 transition hover:bg-purple-400/[0.14] sm:col-span-2">⌂ Ana Sayfa</button>
+          <button type="button" onClick={() => { window.location.href = NEXT_GAME[detail.gameName] ?? "/"; }} className="col-span-2 min-h-12 rounded-xl bg-green-500 px-4 text-sm font-black text-[#07111f] transition active:scale-[0.99] hover:bg-green-400">🎮 Sonraki Oyuna Geç</button>
+          <button type="button" onClick={() => { window.location.href = "/"; }} className="col-span-2 min-h-12 rounded-xl border border-purple-400/30 bg-purple-400/[0.08] px-4 text-sm font-black text-purple-200 transition active:scale-[0.99] hover:bg-purple-400/[0.14]">⌂ Ana Sayfa</button>
         </div>
 
-        {message && <p className="mt-3 text-center text-xs font-bold text-green-300">{message}</p>}
-        {!summary?.authenticated && !loading && (
+        {message && <p className="mt-3 rounded-lg bg-green-400/[0.07] px-3 py-2 text-center text-xs font-bold text-green-200">{message}</p>}
+        {!summary?.authenticated && !loading && !summaryUnavailable && (
           <p className="mt-4 text-center text-xs leading-5 text-slate-500">Giriş yaparsan XP, seviye, seri ve rozet ilerlemen de burada görünür.</p>
         )}
       </section>
