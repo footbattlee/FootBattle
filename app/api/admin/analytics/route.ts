@@ -43,6 +43,7 @@ function average(values: number[]) { return values.length ? Math.round(values.re
 function inRange(value: string | null | undefined, startDate: string | null) { return Boolean(value && (!startDate || new Date(value).getTime() >= new Date(startDate).getTime())); }
 function dayKey(value: string) { return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value)); }
 function platformOf(metadata: Record<string, unknown> | null) { const p = metadata?.platform; return p === "android" ? "android" : p === "web" ? "web" : "unknown"; }
+function visitorIdOf(metadata: Record<string, unknown> | null) { const id = metadata?.visitor_id; return typeof id === "string" && id.length >= 8 ? id : null; }
 
 async function fetchAll(table: string, select: string, startDate?: string | null, dateColumn = "created_at") {
   const rows: unknown[] = [];
@@ -76,20 +77,25 @@ export async function GET(request: NextRequest) {
       fetchAll("game_sessions", "id,game_code,source_session_id,user_id,mode,status,started_at,finished_at,duration_ms", startDate, "started_at") as Promise<SoloSessionRow[]>,
     ]);
 
-    // Analytics is auxiliary: platform/share and replay events.
-    // Starts/completions and replay eligibility come from canonical solo game_sessions.
     const sessionGameName = new Map<string, string>();
+    const sessionIdentity = new Map<string, { userId: string | null; visitorId: string | null }>();
     const sharedByGame = new Map<string, number>();
     const playAgainRows: AnalyticsRow[] = [];
     const platforms = { web: 0, android: 0, unknown: 0 };
     const selectedUsers = new Set<string>();
+    const selectedAnonymousVisitors = new Set<string>();
     const dailyUsers = new Map<string, Set<string>>();
 
     for (const row of analyticsRows) {
       const gameName = row.game_name ?? "unknown";
+      const visitorId = visitorIdOf(row.metadata);
       if (row.event_name === "game_started") {
         platforms[platformOf(row.metadata)] += 1;
-        if (row.session_id && SOLO_GAME_NAMES.has(gameName)) sessionGameName.set(row.session_id, gameName);
+        if (row.session_id && SOLO_GAME_NAMES.has(gameName)) {
+          sessionGameName.set(row.session_id, gameName);
+          sessionIdentity.set(row.session_id, { userId: row.user_id, visitorId });
+        }
+        if (!row.user_id && visitorId) selectedAnonymousVisitors.add(visitorId);
       }
       if (row.user_id) {
         selectedUsers.add(row.user_id);
@@ -106,10 +112,10 @@ export async function GET(request: NextRequest) {
 
     const nowMs = Date.now();
     const canonicalSoloSessionGame = new Map<string, string>();
-    const gameMap = new Map<string, { gameName: string; started: number; completed: number; abandoned: number; inProgress: number; playAgain: number; shared: number; durations: number[]; users: Set<string> }>();
+    const gameMap = new Map<string, { gameName: string; started: number; completed: number; abandoned: number; inProgress: number; playAgain: number; shared: number; durations: number[]; users: Set<string>; anonymousVisitors: Set<string> }>();
     const ensureGame = (gameName: string) => {
       if (!gameMap.has(gameName)) {
-        gameMap.set(gameName, { gameName, started: 0, completed: 0, abandoned: 0, inProgress: 0, playAgain: 0, shared: sharedByGame.get(gameName) ?? 0, durations: [], users: new Set<string>() });
+        gameMap.set(gameName, { gameName, started: 0, completed: 0, abandoned: 0, inProgress: 0, playAgain: 0, shared: sharedByGame.get(gameName) ?? 0, durations: [], users: new Set<string>(), anonymousVisitors: new Set<string>() });
       }
       return gameMap.get(gameName)!;
     };
@@ -125,9 +131,14 @@ export async function GET(request: NextRequest) {
 
       const game = ensureGame(gameName);
       game.started += 1;
-      if (row.user_id) {
-        game.users.add(row.user_id);
-        selectedUsers.add(row.user_id);
+      const identity = sessionIdentity.get(sourceId) ?? sessionIdentity.get(row.id);
+      const effectiveUserId = row.user_id ?? identity?.userId ?? null;
+      if (effectiveUserId) {
+        game.users.add(effectiveUserId);
+        selectedUsers.add(effectiveUserId);
+      } else if (identity?.visitorId) {
+        game.anonymousVisitors.add(identity.visitorId);
+        selectedAnonymousVisitors.add(identity.visitorId);
       }
 
       const completed = row.status === "finished" || row.status === "rejected";
@@ -143,8 +154,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Count at most one replay per canonical solo session in the selected range.
-    // Legacy/unmatched analytics events are ignored so replay is comparable with Start.
     const replaySeen = new Set<string>();
     for (const row of playAgainRows) {
       if (!row.session_id) continue;
@@ -156,7 +165,6 @@ export async function GET(request: NextRequest) {
       ensureGame(gameName).playAgain += 1;
     }
 
-    // Keep share-only rows visible, but unmatched replay-only legacy rows are intentionally excluded.
     for (const [gameName] of sharedByGame) {
       if (SOLO_GAME_NAMES.has(gameName)) ensureGame(gameName);
     }
@@ -171,16 +179,15 @@ export async function GET(request: NextRequest) {
         playAgain: g.playAgain,
         shared: g.shared,
         uniqueUsers: g.users.size,
+        loggedInUsers: g.users.size,
+        anonymousVisitors: g.anonymousVisitors.size,
         completionRate: g.started ? Number(((g.completed / g.started) * 100).toFixed(1)) : 0,
         averageDurationSeconds: average(g.durations),
       }))
       .filter((g) => g.started || g.playAgain || g.shared)
       .sort((a, b) => b.started - a.started);
 
-    const allDurations = games.flatMap((g) => {
-      const source = gameMap.get(g.gameName);
-      return source?.durations ?? [];
-    });
+    const allDurations = games.flatMap((g) => gameMap.get(g.gameName)?.durations ?? []);
     const summary = {
       totalStarted: games.reduce((s, g) => s + g.started, 0),
       totalCompleted: games.reduce((s, g) => s + g.completed, 0),
@@ -196,7 +203,7 @@ export async function GET(request: NextRequest) {
     const today = dayKey(new Date().toISOString());
     const dau = dailyUsers.get(today)?.size ?? new Set(wauRows.filter((r) => dayKey(r.created_at) === today).map((r) => r.user_id).filter(Boolean)).size;
     const profileRows = (await fetchAll("profiles", "id,created_at", startDate)) as ProfileRow[];
-    const audience = { dau, wau, uniquePlayers: selectedUsers.size, newUsers: profileRows.length, platforms };
+    const audience = { dau, wau, uniquePlayers: selectedUsers.size, anonymousPlayers: selectedAnonymousVisitors.size, newUsers: profileRows.length, platforms };
 
     const duelRows = (await fetchAll("duels", "id,challenger_id,opponent_id,game_code,status,created_at,accepted_at,started_at,completed_at,updated_at")) as DuelRow[];
     const duelParticipants = new Set<string>();
