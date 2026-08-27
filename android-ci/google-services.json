@@ -16,140 +16,64 @@
         {
           "client_id": "1082215741027-1eo29nv1jskrt28pvp0vjhs978jivc4a.apps.googleusercontent.com",
           "client_type": 1,
-          "android_info": {
-            "package_name": "com.footbattle.app",
-            "certificate_hash": "116f99a1b9c492bbc6da228dbb44519d87fce445"
-          }
+          "android_info": {"package_name": "com.footbattle.app", "certificate_hash": "116f99a1b9c492bbc6da228dbb44519d87fce445"}
         },
         {
           "client_id": "1082215741027-1tl6a8bg6uuit3k2r85ns8kbjp3qqsei.apps.googleusercontent.com",
           "client_type": 1,
-          "android_info": {
-            "package_name": "com.footbattle.app",
-            "certificate_hash": "48a1efeaa9b83fdf1fb6a7575ef77814c088e36f"
-          }
+          "android_info": {"package_name": "com.footbattle.app", "certificate_hash": "48a1efeaa9b83fdf1fb6a7575ef77814c088e36f"}
         },
         {
           "client_id": "1082215741027-3jftlkmuliocvlse4a9vq886sucfleo2.apps.googleusercontent.com",
           "client_type": 1,
-          "android_info": {
-            "package_name": "com.footbattle.app",
-            "certificate_hash": "ea4136744669852ca498c3470ee4d606c78f00b0"
-          }
+          "android_info": {"package_name": "com.footbattle.app", "certificate_hash": "ea4136744669852ca498c3470ee4d606c78f00b0"}
         },
         {
           "client_id": "1082215741027-4eoq3v5p10qn0v74684vinrasm0u8e7p.apps.googleusercontent.com",
           "client_type": 1,
-          "android_info": {
-            "package_name": "com.footbattle.app",
-            "certificate_hash": "754b2b8fa30be48c541f0be29618e6793ccc52a0"
-          }
+          "android_info": {"package_name": "com.footbattle.app", "certificate_hash": "754b2b8fa30be48c541f0be29618e6793ccc52a0"}
+        },
+        {
+          "client_id": "1082215741027-ej1o8dgk5je6ki2m1hfnlgpjgtogj6p8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {"package_name": "com.footbattle.app", "certificate_hash": "38fd3d86aad758a7a9ea9c073378223e0370dde3"}
         },
         {
           "client_id": "1082215741027-k99is5434oortlqv9illa7cu6af2esp2.apps.googleusercontent.com",
           "client_type": 1,
-          "android_info": {
-            "package_name": "com.footbattle.app",
-            "certificate_hash": "a312c50c11c5a369be6cea633e6114257df2e020"
-          }
+          "android_info": {"package_name": "com.footbattle.app", "certificate_hash": "a312c50c11c5a369be6cea633e6114257df2e020"}
         },
         {
           "client_id": "1082215741027-tbc9bnfjtsd56o8gn66p0gre09hgr96s.apps.googleusercontent.com",
           "client_type": 1,
-          "android_info": {
-            "package_name": "com.footbattle.app",
-            "certificate_hash": "12c5a1a9a03467780d2138498871d137e3f73d2e"
-          }
+          "android_info": {"package_name": "com.footbattle.app", "certificate_hash": "12c5a1a9a03467780d2138498871d137e3f73d2e"}
         },
         {
           "client_id": "1082215741027-u4752utvg61nir8ech3gk7e7fossm07f.apps.googleusercontent.com",
           "client_type": 1,
-          "android_info": {
-            "package_name": "com.footbattle.app",
-            "certificate_hash": "898304097c85b328c93ba08df7f6e13b022f754b"
-          }
+          "android_info": {"package_name": "com.footbattle.app", "certificate_hash": "898304097c85b328c93ba08df7f6e13b022f754b"}
         },
         {
           "client_id": "1082215741027-uqam8h48vhuvs89bsab7e7jhqh5urfnm.apps.googleusercontent.com",
           "client_type": 1,
-          "android_info": {
-            "package_name": "com.footbattle.app",
-            "certificate_hash": "ae54cc431bc5a5749b981b26801563604e375fa1"
-          }
+          "android_info": {"package_name": "com.footbattle.app", "certificate_hash": "ae54cc431bc5a5749b981b26801563604e375fa1"}
         },
-        {
-          "client_id": "1082215741027-mr93a2l3575jvboekkrs4qrf7jmg3brf.apps.googleusercontent.com",
-          "client_type": 3
-        }
+        {"client_id": "1082215741027-mr93a2l3575jvboekkrs4qrf7jmg3brf.apps.googleusercontent.com", "client_type": 3}
       ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDdpRYbnhlB0tqdbsZ1qBkSF0OZg8_Vcio"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "1082215741027-jkfo3ih20lvh2ttpr167i5poq24d159e.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
-        }
-      }
+      "api_key": [{"current_key": "AIzaSyDdpRYbnhlB0tqdbsZ1qBkSF0OZg8_Vcio"}],
+      "services": {"appinvite_service": {"other_platform_oauth_client": [{"client_id": "1082215741027-jkfo3ih20lvh2ttpr167i5poq24d159e.apps.googleusercontent.com", "client_type": 3}]}}
     },
     {
-      "client_info": {
-        "mobilesdk_app_id": "1:1082215741027:android:9b6d185d4339bc007c2a56",
-        "android_client_info": {
-          "package_name": "com.playfootbattle.app"
-        }
-      },
+      "client_info": {"mobilesdk_app_id": "1:1082215741027:android:9b6d185d4339bc007c2a56", "android_client_info": {"package_name": "com.playfootbattle.app"}},
       "oauth_client": [
-        {
-          "client_id": "1082215741027-emej3dtn730hb2qqlcfi0ngj9imih1hn.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.playfootbattle.app",
-            "certificate_hash": "898304097c85b328c93ba08df7f6e13b022f754b"
-          }
-        },
-        {
-          "client_id": "1082215741027-ihmgi906sn5cq3i6d3kpahgtkdf93moj.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.playfootbattle.app",
-            "certificate_hash": "a312c50c11c5a369be6cea633e6114257df2e020"
-          }
-        },
-        {
-          "client_id": "1082215741027-t77nc8dtdmt6i94tak31ukv62ubk50rr.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.playfootbattle.app",
-            "certificate_hash": "48a1efeaa9b83fdf1fb6a7575ef77814c088e36f"
-          }
-        },
-        {
-          "client_id": "1082215741027-mr93a2l3575jvboekkrs4qrf7jmg3brf.apps.googleusercontent.com",
-          "client_type": 3
-        }
+        {"client_id": "1082215741027-37005qeo9n64tlr8asib2ueuc9m61v23.apps.googleusercontent.com", "client_type": 1, "android_info": {"package_name": "com.playfootbattle.app", "certificate_hash": "38fd3d86aad758a7a9ea9c073378223e0370dde3"}},
+        {"client_id": "1082215741027-emej3dtn730hb2qqlcfi0ngj9imih1hn.apps.googleusercontent.com", "client_type": 1, "android_info": {"package_name": "com.playfootbattle.app", "certificate_hash": "898304097c85b328c93ba08df7f6e13b022f754b"}},
+        {"client_id": "1082215741027-ihmgi906sn5cq3i6d3kpahgtkdf93moj.apps.googleusercontent.com", "client_type": 1, "android_info": {"package_name": "com.playfootbattle.app", "certificate_hash": "a312c50c11c5a369be6cea633e6114257df2e020"}},
+        {"client_id": "1082215741027-t77nc8dtdmt6i94tak31ukv62ubk50rr.apps.googleusercontent.com", "client_type": 1, "android_info": {"package_name": "com.playfootbattle.app", "certificate_hash": "48a1efeaa9b83fdf1fb6a7575ef77814c088e36f"}},
+        {"client_id": "1082215741027-mr93a2l3575jvboekkrs4qrf7jmg3brf.apps.googleusercontent.com", "client_type": 3}
       ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDdpRYbnhlB0tqdbsZ1qBkSF0OZg8_Vcio"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "1082215741027-jkfo3ih20lvh2ttpr167i5poq24d159e.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
-        }
-      }
+      "api_key": [{"current_key": "AIzaSyDdpRYbnhlB0tqdbsZ1qBkSF0OZg8_Vcio"}],
+      "services": {"appinvite_service": {"other_platform_oauth_client": [{"client_id": "1082215741027-jkfo3ih20lvh2ttpr167i5poq24d159e.apps.googleusercontent.com", "client_type": 3}]}}
     }
   ],
   "configuration_version": "1"
