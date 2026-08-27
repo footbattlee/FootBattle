@@ -29,18 +29,13 @@ function normalizeGuess(value: string) {
 export async function POST(request: Request) {
   try {
     const authClient = await createAuthServerClient();
-    const {
-      data: { user },
-    } = await authClient.auth.getUser();
-
+    const { data: { user } } = await authClient.auth.getUser();
     const body = (await request.json()) as ResultRequest;
     const sessionId = body.sessionId?.trim();
     if (!sessionId) return NextResponse.json({ ok: false, error: "Oyun oturumu bulunamadı." }, { status: 400 });
 
     const guesses = Array.isArray(body.guesses) ? body.guesses.map(normalizeGuess) : [];
-    if (guesses.length < 1 || guesses.length > MAX_ATTEMPTS) {
-      return NextResponse.json({ ok: false, error: "Tahmin sayısı geçersiz." }, { status: 400 });
-    }
+    if (guesses.length < 1 || guesses.length > MAX_ATTEMPTS) return NextResponse.json({ ok: false, error: "Tahmin sayısı geçersiz." }, { status: 400 });
 
     const { data: session, error: sessionError } = await supabaseAdmin
       .from("wordle_sessions")
@@ -48,62 +43,31 @@ export async function POST(request: Request) {
       .eq("id", sessionId)
       .maybeSingle();
     if (sessionError || !session) return NextResponse.json({ ok: false, error: "Wordle oyunu bulunamadı." }, { status: 404 });
+    if (session.user_id && session.user_id !== user?.id) return NextResponse.json({ ok: false, error: "Bu oyun oturumu başka bir kullanıcıya ait." }, { status: 403 });
 
-    if (session.user_id && session.user_id !== user?.id) {
-      return NextResponse.json({ ok: false, error: "Bu oyun oturumu başka bir kullanıcıya ait." }, { status: 403 });
-    }
-
-    const { data: answerPlayer } = await supabaseAdmin
-      .from("guess_players")
-      .select("player_id, name")
-      .eq("player_id", session.player_id)
-      .maybeSingle();
+    const { data: answerPlayer } = await supabaseAdmin.from("guess_players").select("player_id, name").eq("player_id", session.player_id).maybeSingle();
     const answerPlayerName = answerPlayer?.name ?? null;
 
     if (session.result_applied) {
       const security = await getGameSecurityStatus("wordle", sessionId).catch(() => null);
-      return NextResponse.json({
-        ok: true,
-        alreadyRecorded: true,
-        won: session.won,
-        score: session.score ?? 0,
-        attemptCount: session.attempt_count ?? guesses.length,
-        answerPlayerName,
-        scoreEligible: !security?.scoreBlocked,
-        security,
-      });
+      return NextResponse.json({ ok: true, alreadyRecorded: true, won: session.won, score: session.score ?? 0, attemptCount: session.attempt_count ?? guesses.length, answerPlayerName, scoreEligible: !security?.scoreBlocked, security });
     }
 
     const answer = String(session.answer_normalized ?? "");
     if (!answer) return NextResponse.json({ ok: false, error: "Wordle cevabı bulunamadı." }, { status: 500 });
-    if (guesses.some((guess) => guess.length !== answer.length)) {
-      return NextResponse.json({ ok: false, error: "Tahminlerden birinin harf sayısı geçersiz." }, { status: 400 });
-    }
+    if (guesses.some((guess) => guess.length !== answer.length)) return NextResponse.json({ ok: false, error: "Tahminlerden birinin harf sayısı geçersiz." }, { status: 400 });
 
     const { events } = await getGameSecurityEvents("wordle", sessionId, "guess");
     const recordedGuesses = events.map((event) => normalizeGuess(String(event.payload?.guess ?? "")));
-    if (recordedGuesses.length !== guesses.length || recordedGuesses.some((guess, index) => guess !== guesses[index])) {
-      return NextResponse.json({ ok: false, error: "Gönderilen tahmin geçmişi sunucu kayıtlarıyla eşleşmiyor." }, { status: 409 });
-    }
+    if (recordedGuesses.length !== guesses.length || recordedGuesses.some((guess, index) => guess !== guesses[index])) return NextResponse.json({ ok: false, error: "Gönderilen tahmin geçmişi sunucu kayıtlarıyla eşleşmiyor." }, { status: 409 });
 
     const won = guesses[guesses.length - 1] === answer;
-    if (!won && guesses.length < Number(session.max_attempts ?? MAX_ATTEMPTS)) {
-      return NextResponse.json({ ok: false, error: "Oyun henüz tamamlanmadı." }, { status: 400 });
-    }
+    if (!won && guesses.length < Number(session.max_attempts ?? MAX_ATTEMPTS)) return NextResponse.json({ ok: false, error: "Oyun henüz tamamlanmadı." }, { status: 400 });
 
     const score = won ? SCORE_TABLE[guesses.length - 1] ?? 0 : 0;
-    const now = new Date().toISOString();
     const { data: completedSession, error: completeError } = await supabaseAdmin
       .from("wordle_sessions")
-      .update({
-        completed: true,
-        result_applied: true,
-        won,
-        score,
-        attempt_count: guesses.length,
-        user_id: user?.id ?? session.user_id ?? null,
-        completed_at: now,
-      })
+      .update({ completed: true, result_applied: true, won, score, attempt_count: guesses.length, user_id: user?.id ?? session.user_id ?? null, completed_at: new Date().toISOString() })
       .eq("id", sessionId)
       .eq("result_applied", false)
       .select("id")
@@ -111,52 +75,16 @@ export async function POST(request: Request) {
     if (completeError) return NextResponse.json({ ok: false, error: "Oyun sonucu kaydedilemedi." }, { status: 500 });
 
     const security = await getGameSecurityStatus("wordle", sessionId).catch(() => null);
+    if (!completedSession) return NextResponse.json({ ok: true, alreadyRecorded: true, won, score, attemptCount: guesses.length, answerPlayerName, scoreEligible: !security?.scoreBlocked, security });
 
-    if (!completedSession) {
-      return NextResponse.json({
-        ok: true,
-        alreadyRecorded: true,
-        won,
-        score,
-        attemptCount: guesses.length,
-        answerPlayerName,
-        scoreEligible: !security?.scoreBlocked,
-        security,
-      });
-    }
-
-    if (!user) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Puanını kaydetmek için giriş yapmalısın.",
-          completed: true,
-          won,
-          score,
-          attemptCount: guesses.length,
-          answerPlayerName,
-        },
-        { status: 401 },
-      );
-    }
+    if (!user) return NextResponse.json({ ok: false, error: "Puanını kaydetmek için giriş yapmalısın.", completed: true, won, score, attemptCount: guesses.length, answerPlayerName }, { status: 401 });
 
     const awardedScore = security?.scoreBlocked ? 0 : score;
-
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("id, total_score, games_played, games_won, current_streak, best_streak")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (profileError || !profile) return NextResponse.json({ ok: false, error: "Kullanıcı profili okunamadı." }, { status: 500 });
-
-    const nextTotalScore = Number(profile.total_score ?? 0) + awardedScore;
-    const nextGamesPlayed = Number(profile.games_played ?? 0) + 1;
-    const nextGamesWon = Number(profile.games_won ?? 0) + (won ? 1 : 0);
-    const { error: profileUpdateError } = await supabaseAdmin
-      .from("profiles")
-      .update({ total_score: nextTotalScore, games_played: nextGamesPlayed, games_won: nextGamesWon })
-      .eq("id", user.id);
-    if (profileUpdateError) return NextResponse.json({ ok: false, error: "Kullanıcı istatistikleri güncellenemedi." }, { status: 500 });
+    const [{ data: profile, error: profileError }, { data: soloProgress, error: soloError }] = await Promise.all([
+      supabaseAdmin.from("profiles").select("current_streak, best_streak").eq("id", user.id).maybeSingle(),
+      supabaseAdmin.from("solo_rating_progress").select("rating, games_played, wins").eq("user_id", user.id).maybeSingle(),
+    ]);
+    if (profileError || soloError) return NextResponse.json({ ok: false, error: "Kullanıcı istatistikleri okunamadı." }, { status: 500 });
 
     return NextResponse.json({
       ok: true,
@@ -167,11 +95,11 @@ export async function POST(request: Request) {
       attemptCount: guesses.length,
       alreadyRecorded: false,
       answerPlayerName,
-      currentStreak: profile.current_streak ?? 0,
-      bestStreak: profile.best_streak ?? 0,
-      totalScore: nextTotalScore,
-      gamesPlayed: nextGamesPlayed,
-      gamesWon: nextGamesWon,
+      currentStreak: profile?.current_streak ?? 0,
+      bestStreak: profile?.best_streak ?? 0,
+      totalScore: Number(soloProgress?.rating ?? 0),
+      gamesPlayed: Number(soloProgress?.games_played ?? 0),
+      gamesWon: Number(soloProgress?.wins ?? 0),
       durationSeconds: typeof body.durationSeconds === "number" ? Math.max(0, Math.floor(body.durationSeconds)) : null,
       security,
     });
