@@ -2,7 +2,7 @@ name: Android Capacitor Release Audit
 
 on:
   push:
-    branches: [main, android/capacitor]
+    branches: [main, android/capacitor, mobile/auth-push-clean-v2]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -214,6 +214,16 @@ jobs:
               x = ET.SubElement(f, 'category'); x.set(a('name'), 'android.intent.category.BROWSABLE')
               for host in ('playfootbattle.com', 'www.playfootbattle.com'):
                   x = ET.SubElement(f, 'data'); x.set(a('scheme'), 'https'); x.set(a('host'), host)
+          has_auth_scheme = any(
+              d.get(a('scheme')) == 'footbattle' and d.get(a('host')) == 'auth'
+              for f in target.findall('intent-filter') for d in f.findall('data')
+          )
+          if not has_auth_scheme:
+              f = ET.SubElement(target, 'intent-filter')
+              x = ET.SubElement(f, 'action'); x.set(a('name'), 'android.intent.action.VIEW')
+              x = ET.SubElement(f, 'category'); x.set(a('name'), 'android.intent.category.DEFAULT')
+              x = ET.SubElement(f, 'category'); x.set(a('name'), 'android.intent.category.BROWSABLE')
+              x = ET.SubElement(f, 'data'); x.set(a('scheme'), 'footbattle'); x.set(a('host'), 'auth')
           for permission in ('android.permission.POST_NOTIFICATIONS', 'com.google.android.gms.permission.AD_ID'):
               if not any(p.get(a('name')) == permission for p in root.findall('uses-permission')):
                   p = ET.SubElement(root, 'uses-permission')
@@ -266,6 +276,8 @@ jobs:
           ! grep -q "com.playfootbattle.app.MainActivity" android/app/src/main/AndroidManifest.xml
           grep -q "package com.footbattle.app;" android/app/src/main/java/com/footbattle/app/MainActivity.java
           grep -q "playfootbattle.com" android/app/src/main/AndroidManifest.xml
+          grep -q "footbattle" android/app/src/main/AndroidManifest.xml
+          grep -q "auth" android/app/src/main/AndroidManifest.xml
           test -s android/app/src/main/res/drawable-nodpi/ic_launcher_foreground.png
 
       - name: Make Gradle wrapper executable
