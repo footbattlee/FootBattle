@@ -21,7 +21,7 @@ export default function GoogleSignInButton() {
 
       if (Capacitor.isNativePlatform()) {
         const result = await FirebaseAuthentication.signInWithGoogle({
-          useCredentialManager: false,
+          useCredentialManager: true,
         });
 
         const idToken = result.credential?.idToken;
@@ -53,10 +53,8 @@ export default function GoogleSignInButton() {
       if (oauthError) throw oauthError;
     } catch (err) {
       console.error("Google sign-in error:", err);
-      const message = err instanceof Error ? err.message : "Google ile giriş yapılamadı.";
-      setError(message.includes("28444") || message.includes("Developer console") || message === "10:" || message.includes("10:")
-        ? "Google Android kimlik doğrulaması uygulama imzasını tanımıyor. Play Signing / OAuth yapılandırmasını kontrol ediyoruz."
-        : message);
+      const message = err instanceof Error ? err.message : String(err || "Google ile giriş yapılamadı.");
+      setError(`Google giriş hatası: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -87,5 +85,4 @@ export default function GoogleSignInButton() {
       ) : null}
     </div>
   );
-
 }
