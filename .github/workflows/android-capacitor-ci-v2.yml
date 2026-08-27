@@ -85,11 +85,11 @@ jobs:
           npx cap update android
           npx cap sync android
 
-      - name: Restore valid binary launcher source
+      - name: Prepare current Play Store launcher source
         run: |
           set -euo pipefail
           mkdir -p android-ci/runtime-assets
-          git show ee7a6d0c809f34a2e5d90a49c5e4e07dcb3f8e79:public/footbattle-logo.png > android-ci/runtime-assets/footbattle-logo.png
+          cp public/footbattle-logo.png android-ci/runtime-assets/footbattle-logo.png
           identify android-ci/runtime-assets/footbattle-logo.png
 
       - name: Generate FootBattle launcher and splash assets
