@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GAME_NAMES, trackGameCompleted, trackGameStarted, trackPlayAgain } from "@/lib/analytics/game-analytics";
 
-type Difficulty = "easy" | "medium" | "hard";
+type Difficulty = "easy" | "medium";
 type Question = { transferId: number; fromClubName: string; toClubName: string; transferFee: number; transferSeason: string | null; difficulty: Difficulty };
 type SearchPlayer = { id: number; name: string; imageUrl: string | null };
 type StartResponse = { ok?: boolean; error?: string; sessionId?: string; startedAt?: string; durationSeconds?: number; maxPasses?: number; pointsPerCorrect?: number; minimumSearchLength?: number; score?: number; correctCount?: number; passesUsed?: number; question?: Question };
@@ -22,8 +22,7 @@ function formatFee(value: number) {
 
 function difficultyMeta(difficulty: Difficulty) {
   if (difficulty === "easy") return { label: "KOLAY", cls: "border-emerald-400/30 bg-emerald-500/15 text-emerald-300" };
-  if (difficulty === "medium") return { label: "ORTA", cls: "border-amber-400/30 bg-amber-500/15 text-amber-300" };
-  return { label: "ZOR", cls: "border-rose-400/30 bg-rose-500/15 text-rose-300" };
+  return { label: "ORTA", cls: "border-amber-400/30 bg-amber-500/15 text-amber-300" };
 }
 
 export default function TransferQuizPage() {
@@ -205,7 +204,7 @@ export default function TransferQuizPage() {
               <button onClick={()=>void usePass()} disabled={busy||passesLeft<=0} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3.5 font-black text-white/75 disabled:opacity-35">PAS GEÇ · {passesLeft}</button>
               <button onClick={()=>setShowSurrenderConfirm(true)} disabled={busy} className="rounded-2xl border border-rose-400/25 bg-rose-500/10 px-4 py-3.5 font-black text-rose-300 disabled:opacity-35">PES ET</button>
             </div>
-            <div className="mt-5 grid grid-cols-3 gap-2 text-center text-[11px] font-bold text-white/35"><div>0–80 sn<br/><span className="text-emerald-300/70">Kolay</span></div><div>80–100 sn<br/><span className="text-amber-300/70">Orta</span></div><div>100–120 sn<br/><span className="text-rose-300/70">Zor</span></div></div>
+            <div className="mt-5 grid grid-cols-2 gap-2 text-center text-[11px] font-bold text-white/35"><div>0–100 sn<br/><span className="text-emerald-300/70">Kolay</span></div><div>100–120 sn<br/><span className="text-amber-300/70">Orta</span></div></div>
           </div>
         </section>
       </div>
