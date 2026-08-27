@@ -102,32 +102,25 @@ export async function POST(request: Request) {
       });
     }
 
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("id, total_score, games_played, games_won")
-      .eq("id", user.id)
+    const { data: soloProgress, error: soloError } = await supabaseAdmin
+      .from("solo_rating_progress")
+      .select("rating, games_played, wins")
+      .eq("user_id", user.id)
       .maybeSingle();
 
-    if (profileError || !profile) {
+    if (soloError) {
       return NextResponse.json({
         ok: true,
         score,
         correctCount,
         passesUsed,
-        awardedScore: 0,
-        scoreEligible: false,
-        profileUpdated: false,
+        awardedScore: score,
+        scoreEligible: true,
+        totalScore: null,
+        gamesPlayed: null,
+        gamesWon: null,
       });
     }
-
-    const totalScore = Number(profile.total_score ?? 0) + score;
-    const gamesPlayed = Number(profile.games_played ?? 0) + 1;
-    const gamesWon = Number(profile.games_won ?? 0) + (won ? 1 : 0);
-
-    const { error: updateProfileError } = await supabaseAdmin
-      .from("profiles")
-      .update({ total_score: totalScore, games_played: gamesPlayed, games_won: gamesWon })
-      .eq("id", user.id);
 
     return NextResponse.json({
       ok: true,
@@ -136,10 +129,9 @@ export async function POST(request: Request) {
       passesUsed,
       awardedScore: score,
       scoreEligible: true,
-      profileUpdated: !updateProfileError,
-      totalScore,
-      gamesPlayed,
-      gamesWon,
+      totalScore: Number(soloProgress?.rating ?? 0),
+      gamesPlayed: Number(soloProgress?.games_played ?? 0),
+      gamesWon: Number(soloProgress?.wins ?? 0),
     });
   } catch (error) {
     console.error("Transferi Bil result endpoint hatası:", error);
