@@ -5,7 +5,15 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 
 type Body = { token?: string; platform?: string };
 
-async function requireUser() {
+async function requireUser(request: Request) {
+  const authorization = request.headers.get("authorization") ?? "";
+  const bearer = authorization.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+
+  if (bearer) {
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(bearer);
+    if (!error && user) return user;
+  }
+
   const auth = await createAuthServerClient();
   const { data: { user }, error } = await auth.auth.getUser();
   if (error || !user) return null;
@@ -14,7 +22,7 @@ async function requireUser() {
 
 export async function POST(request: Request) {
   try {
-    const user = await requireUser();
+    const user = await requireUser(request);
     if (!user) {
       return NextResponse.json({ ok: false, error: "Giriş yapmalısın." }, { status: 401 });
     }
@@ -49,7 +57,7 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const user = await requireUser();
+    const user = await requireUser(request);
     if (!user) {
       return NextResponse.json({ ok: false, error: "Giriş yapmalısın." }, { status: 401 });
     }
