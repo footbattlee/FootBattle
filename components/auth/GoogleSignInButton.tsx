@@ -5,8 +5,6 @@ import { Capacitor } from "@capacitor/core";
 
 import { createClient } from "@/lib/supabase/client";
 
-const MOBILE_REDIRECT = "footbattle://auth/callback";
-
 type FootBattleAndroidBridge = {
   openExternal: (url: string) => void;
   consumePendingAuthUrl: () => string | null;
@@ -34,22 +32,10 @@ export default function GoogleSignInButton() {
     if (providerError) throw new Error(providerError);
 
     const code = url.searchParams.get("code");
-    if (code) {
-      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-      if (exchangeError) throw exchangeError;
-    } else {
-      const hash = new URLSearchParams(url.hash.replace(/^#/, ""));
-      const accessToken = hash.get("access_token");
-      const refreshToken = hash.get("refresh_token");
-      if (!accessToken || !refreshToken) {
-        throw new Error("Google dönüşünde oturum bilgisi bulunamadı.");
-      }
-      const { error: sessionError } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-      if (sessionError) throw sessionError;
-    }
+    if (!code) throw new Error("Google dönüşünde oturum kodu bulunamadı.");
+
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    if (exchangeError) throw exchangeError;
 
     window.location.replace("/tr/profile");
   }
@@ -103,7 +89,7 @@ export default function GoogleSignInButton() {
         const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {
-            redirectTo: MOBILE_REDIRECT,
+            redirectTo: `${window.location.origin}/auth/mobile-callback`,
             skipBrowserRedirect: true,
           },
         });
