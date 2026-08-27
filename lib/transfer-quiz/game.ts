@@ -5,7 +5,7 @@ export const TRANSFER_QUIZ_MAX_PASSES = 5;
 export const TRANSFER_QUIZ_POINTS_PER_CORRECT = 20;
 export const TRANSFER_QUIZ_MIN_SEARCH_LENGTH = 3;
 
-export type TransferDifficulty = "easy" | "medium" | "hard";
+export type TransferDifficulty = "easy" | "medium";
 
 export type TransferQuestion = {
   transferId: number;
@@ -17,9 +17,8 @@ export type TransferQuestion = {
 };
 
 export function difficultyForElapsedSeconds(elapsedSeconds: number): TransferDifficulty {
-  if (elapsedSeconds < 80) return "easy";
-  if (elapsedSeconds < 100) return "medium";
-  return "hard";
+  if (elapsedSeconds < 100) return "easy";
+  return "medium";
 }
 
 export function elapsedSecondsFromStartedAt(startedAt: string) {
