@@ -89,13 +89,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p android-ci/runtime-assets
-          base64 --decode android-ci/play-store-icon.webp.b64 > android-ci/runtime-assets/footbattle-logo.webp
-          identify android-ci/runtime-assets/footbattle-logo.webp
+          cp public/footbattle-logo.png android-ci/runtime-assets/footbattle-logo.png
+          identify android-ci/runtime-assets/footbattle-logo.png
 
       - name: Generate FootBattle launcher and splash assets
         run: |
           set -euo pipefail
-          SOURCE="android-ci/runtime-assets/footbattle-logo.webp"
+          SOURCE="android-ci/runtime-assets/footbattle-logo.png"
           RES="android/app/src/main/res"
           for spec in "mdpi 48" "hdpi 72" "xhdpi 96" "xxhdpi 144" "xxxhdpi 192"; do
             set -- $spec
