@@ -20,9 +20,6 @@ export default function GoogleSignInButton() {
       const supabase = createClient();
 
       if (Capacitor.isNativePlatform()) {
-        // Credential Manager / One Tap is stricter about Android console setup
-        // and produced error 10 / 28444 in debug APKs. The classic native
-        // Google Sign-In path still returns the same ID token Supabase needs.
         const result = await FirebaseAuthentication.signInWithGoogle({
           useCredentialManager: false,
         });
@@ -57,8 +54,8 @@ export default function GoogleSignInButton() {
     } catch (err) {
       console.error("Google sign-in error:", err);
       const message = err instanceof Error ? err.message : "Google ile giriş yapılamadı.";
-      setError(message.includes("28444") || message.includes("Developer console")
-        ? "Google Android kimlik doğrulaması bu APK imzasını tanımıyor. Yeni sabit imzalı test APK'sını kurup tekrar dene."
+      setError(message.includes("28444") || message.includes("Developer console") || message === "10:" || message.includes("10:")
+        ? "Google Android kimlik doğrulaması uygulama imzasını tanımıyor. Play Signing / OAuth yapılandırmasını kontrol ediyoruz."
         : message);
     } finally {
       setLoading(false);
@@ -90,4 +87,5 @@ export default function GoogleSignInButton() {
       ) : null}
     </div>
   );
+
 }

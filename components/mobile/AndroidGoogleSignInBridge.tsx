@@ -47,27 +47,23 @@ export default function AndroidGoogleSignInBridge() {
 
       try {
         if (Capacitor.isNativePlatform()) {
-          const result = await FirebaseAuthentication.signInWithGoogle();
+          const result = await FirebaseAuthentication.signInWithGoogle({ useCredentialManager: false });
           const idToken = result.credential?.idToken;
+          const nonce = result.credential?.nonce;
 
-          if (!idToken) {
-            throw new Error("Google kimlik doğrulama tokenı alınamadı.");
-          }
+          if (!idToken) throw new Error("Google kimlik doğrulama tokenı alınamadı.");
 
           const { error } = await supabase.auth.signInWithIdToken({
             provider: "google",
             token: idToken,
+            ...(nonce ? { nonce } : {}),
           });
-
           if (error) throw error;
         } else {
           const { error } = await supabase.auth.signInWithOAuth({
             provider: "google",
-            options: {
-              redirectTo: `${window.location.origin}/auth/callback`,
-            },
+            options: { redirectTo: `${window.location.origin}/auth/callback` },
           });
-
           if (error) throw error;
           return;
         }
@@ -76,10 +72,7 @@ export default function AndroidGoogleSignInBridge() {
         window.location.href = "/";
       } catch (error) {
         console.error("Google sign-in failed", error);
-        setStatus(
-          error instanceof Error ? error.message : "Google ile giriş başarısız oldu.",
-          true,
-        );
+        setStatus(error instanceof Error ? error.message : "Google ile giriş başarısız oldu.", true);
         button.disabled = false;
         button.style.opacity = "1";
       }
@@ -87,10 +80,7 @@ export default function AndroidGoogleSignInBridge() {
 
     wrapper.append(divider, button, status);
     form.parentElement.insertBefore(wrapper, form);
-
-    return () => {
-      wrapper.remove();
-    };
+    return () => wrapper.remove();
   }, []);
 
   return null;
