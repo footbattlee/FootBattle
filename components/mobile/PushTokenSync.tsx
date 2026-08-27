@@ -23,11 +23,11 @@ export default function PushTokenSync() {
       const value = (token ?? window.localStorage.getItem(PUSH_TOKEN_STORAGE_KEY) ?? "").trim();
       if (value.length < 20) return;
 
-      if (!currentUserId) {
-        const { data } = await supabase.auth.getUser();
-        currentUserId = data.user?.id ?? null;
-      }
-      if (!currentUserId) return;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData.session;
+      currentUserId = session?.user?.id ?? null;
+      const accessToken = session?.access_token ?? "";
+      if (!currentUserId || !accessToken) return;
 
       const syncKey = `${currentUserId}:${value}`;
       if (syncKey === lastSyncedKey) return;
@@ -35,11 +35,18 @@ export default function PushTokenSync() {
       try {
         const response = await fetch("/api/push/register", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
           body: JSON.stringify({ token: value, platform: "android" }),
           cache: "no-store",
         });
-        if (response.ok) lastSyncedKey = syncKey;
+        if (response.ok) {
+          lastSyncedKey = syncKey;
+        } else {
+          console.warn("Push token sync rejected", response.status, await response.text().catch(() => ""));
+        }
       } catch (error) {
         console.warn("Push token sync failed", error);
       }
