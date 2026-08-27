@@ -62,13 +62,6 @@ export async function POST(request: Request) {
 
     if (session.result_applied) {
       const security = await getGameSecurityStatus("guess_the_player", sessionId).catch(() => null);
-
-      /*
-       * Sonuç daha önce kaydedilmiş olsa bile client tarafındaki günlük görev
-       * senkronizasyonunun devam etmesi gerekiyor. Bu nedenle frontend'in
-       * erken return etmesine sebep olan alreadyRecorded=true dönmüyoruz.
-       * Puan/profil tarafında tekrar işlem yapılmadığı için idempotent kalır.
-       */
       return NextResponse.json({
         ok: true,
         alreadyRecorded: false,
@@ -125,21 +118,11 @@ export async function POST(request: Request) {
     }
 
     const awardedScore = security?.scoreBlocked ? 0 : score;
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("id, total_score, games_played, games_won, current_streak, best_streak")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (profileError || !profile) throw profileError ?? new Error("Profil bulunamadı.");
-
-    const nextTotalScore = Number(profile.total_score ?? 0) + awardedScore;
-    const nextGamesPlayed = Number(profile.games_played ?? 0) + 1;
-    const nextGamesWon = Number(profile.games_won ?? 0) + (won ? 1 : 0);
-    const { error: profileUpdateError } = await supabaseAdmin
-      .from("profiles")
-      .update({ total_score: nextTotalScore, games_played: nextGamesPlayed, games_won: nextGamesWon })
-      .eq("id", user.id);
-    if (profileUpdateError) throw profileUpdateError;
+    const [{ data: profile, error: profileError }, { data: soloProgress, error: soloError }] = await Promise.all([
+      supabaseAdmin.from("profiles").select("current_streak, best_streak").eq("id", user.id).maybeSingle(),
+      supabaseAdmin.from("solo_rating_progress").select("rating, games_played, wins").eq("user_id", user.id).maybeSingle(),
+    ]);
+    if (profileError || soloError) throw profileError ?? soloError;
 
     return NextResponse.json({
       ok: true,
@@ -151,11 +134,11 @@ export async function POST(request: Request) {
       alreadyRecorded: false,
       targetPlayer: mappedTargetPlayer,
       authenticated: true,
-      currentStreak: profile.current_streak ?? 0,
-      bestStreak: profile.best_streak ?? 0,
-      totalScore: nextTotalScore,
-      gamesPlayed: nextGamesPlayed,
-      gamesWon: nextGamesWon,
+      currentStreak: profile?.current_streak ?? 0,
+      bestStreak: profile?.best_streak ?? 0,
+      totalScore: Number(soloProgress?.rating ?? 0),
+      gamesPlayed: Number(soloProgress?.games_played ?? 0),
+      gamesWon: Number(soloProgress?.wins ?? 0),
       durationSeconds: typeof body.durationSeconds === "number" ? Math.max(0, Math.floor(body.durationSeconds)) : null,
       security,
     });
