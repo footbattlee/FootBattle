@@ -1,73 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Capacitor } from "@capacitor/core";
+import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
 
 import { createClient } from "@/lib/supabase/client";
-
-type FootBattleAndroidBridge = {
-  openExternal?: (url: string) => void;
-  consumePendingAuthUrl?: () => string | null;
-};
-
-function getAndroidBridge() {
-  return (window as Window & { FootBattleAndroid?: FootBattleAndroidBridge }).FootBattleAndroid;
-}
-
-function authErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message) return error.message;
-  return "Google ile giriş yapılamadı.";
-}
 
 export default function GoogleSignInButton() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  async function finishMobileOAuth(callbackUrl: string) {
-    const supabase = createClient();
-    const url = new URL(callbackUrl);
-    const providerError = url.searchParams.get("error_description") || url.searchParams.get("error");
-    if (providerError) throw new Error(providerError);
-
-    const code = url.searchParams.get("code");
-    if (!code) throw new Error("Google dönüşünde oturum kodu bulunamadı.");
-
-    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-    if (exchangeError) throw exchangeError;
-
-    window.location.replace("/tr/profile");
-  }
-
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-
-    let active = true;
-    const onCallback = (event: Event) => {
-      const custom = event as CustomEvent<{ url?: string }>;
-      const callbackUrl = custom.detail?.url;
-      if (!active || !callbackUrl) return;
-      setLoading(true);
-      setError("");
-      void finishMobileOAuth(callbackUrl).catch((err) => {
-        if (!active) return;
-        console.error("Mobile Google OAuth callback failed", err);
-        setError(authErrorMessage(err));
-        setLoading(false);
-      });
-    };
-
-    window.addEventListener("footbattle:auth-callback", onCallback);
-
-    const pending = getAndroidBridge()?.consumePendingAuthUrl?.();
-    if (pending) {
-      onCallback(new CustomEvent("footbattle:auth-callback", { detail: { url: pending } }));
-    }
-
-    return () => {
-      active = false;
-      window.removeEventListener("footbattle:auth-callback", onCallback);
-    };
-  }, []);
 
   async function signInWithGoogle() {
     if (loading) return;
@@ -79,22 +20,26 @@ export default function GoogleSignInButton() {
       const supabase = createClient();
 
       if (Capacitor.isNativePlatform()) {
-        const bridge = getAndroidBridge();
-        if (!bridge?.openExternal) {
-          throw new Error("Android tarayıcı köprüsü hazır değil. Uygulamayı kapatıp tekrar aç.");
+        const result = await FirebaseAuthentication.signInWithGoogle({
+          useCredentialManager: false,
+        });
+
+        const idToken = result.credential?.idToken;
+        const nonce = result.credential?.nonce;
+
+        if (!idToken) {
+          throw new Error("Google kimlik doğrulama tokenı alınamadı.");
         }
 
-        const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        const { error: supabaseError } = await supabase.auth.signInWithIdToken({
           provider: "google",
-          options: {
-            redirectTo: `${window.location.origin}/auth/mobile-callback`,
-            skipBrowserRedirect: true,
-          },
+          token: idToken,
+          ...(nonce ? { nonce } : {}),
         });
-        if (oauthError) throw oauthError;
-        if (!data.url) throw new Error("Google giriş adresi oluşturulamadı.");
 
-        bridge.openExternal(data.url);
+        if (supabaseError) throw supabaseError;
+
+        window.location.replace("/tr/profile");
         return;
       }
 
@@ -104,10 +49,15 @@ export default function GoogleSignInButton() {
           redirectTo: `${window.location.origin}/auth/callback?next=/tr/profile`,
         },
       });
+
       if (oauthError) throw oauthError;
     } catch (err) {
       console.error("Google sign-in error:", err);
-      setError(authErrorMessage(err));
+      const message = err instanceof Error ? err.message : "Google ile giriş yapılamadı.";
+      setError(message.includes("28444") || message.includes("Developer console") || message === "10:" || message.includes("10:")
+        ? "Google Android kimlik doğrulaması uygulama imzasını tanımıyor. Play Signing / OAuth yapılandırmasını kontrol ediyoruz."
+        : message);
+    } finally {
       setLoading(false);
     }
   }
@@ -127,7 +77,7 @@ export default function GoogleSignInButton() {
         className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-white/15 bg-white px-4 font-black text-[#07111f] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-lg font-black">G</span>
-        {loading ? "Google girişi bekleniyor..." : "Google ile devam et"}
+        {loading ? "Google açılıyor..." : "Google ile devam et"}
       </button>
 
       {error ? (
@@ -137,4 +87,5 @@ export default function GoogleSignInButton() {
       ) : null}
     </div>
   );
+
 }
