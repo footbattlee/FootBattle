@@ -21,12 +21,15 @@ export default function Page() {
       ctaLabel="O Mu Bu Mu? Oyna 👑"
       sections={[
         { title: "Nasıl oynanır?", paragraphs: ["İlk turda 16 aday sekiz eşleşmeye ayrılır. Her eşleşmede bir tercih yaparsın. Seçtiklerin bir sonraki tura geçer; çeyrek final, yarı final ve final sonunda tek bir şampiyon kalır.", "Bilgi sorusundan farklı olarak burada doğru veya yanlış cevap yoktur. Oyun tamamen futbol zevkini ve tercihlerini yansıtır."] },
+        { title: "Turnuva neden her oyuncuda farklı sonuçlanır?", paragraphs: ["Eşleşmeler ilerledikçe sevdiğin iki futbolcu veya takım aynı turda karşı karşıya gelebilir. Bu durumda yalnızca popüler olanı değil, kendi futbol anlayışına göre favorini seçmen gerekir.", "Bir arkadaşın aynı adaylarla oynadığında başka tercihler yapabileceği için yarı final ve final eşleşmeleri tamamen değişebilir. Survivor formatını tekrar oynanabilir yapan taraf da bu kişisel seçim zinciridir."] },
         { title: "Hangi kategoriler var?", paragraphs: ["Süper Lig efsaneleri, unutulmaz yabancılar, dünyanın en iyi futbolcuları, kulüpler, 10 numaralar veya belirli dönemlerin yıldızları gibi farklı turnuvalar oynanabilir."], bullets: ["Süper Lig efsaneleri", "İkonik yabancılar", "Dünya yıldızları", "Kulüp turnuvaları", "Pozisyon ve dönem temaları"] },
+        { title: "Seçim yaparken neye bakabilirsin?", paragraphs: ["Survivor bir bilgi yarışması olmadığı için tek bir değerlendirme ölçütü yoktur. Kariyer başarısı, yetenek, sevdiğin takımda bıraktığı iz, izleme keyfi veya tamamen kişisel bağın seçimini belirleyebilir.", "Farklı kriterlerle aynı turnuvayı yeniden oynamak da sonucu değiştirebilir. Örneğin ilk turda 'en iyi kariyer', ikinci denemede 'izlemekten en çok keyif aldığım' yaklaşımını kullanarak farklı şampiyonlar çıkarabilirsin."] },
         { title: "Sonucunu paylaş", paragraphs: ["Finalde seçtiğin şampiyon için paylaşılabilir bir sonuç oluşur. Arkadaşların aynı 16'lıyı oynadığında tamamen farklı bir finale ulaşabilir; oyunun tartışma tarafı da burada başlar."] }
       ]}
       faqs={[
         { question: "Futbol Survivor kaç kişilik?", answer: "Her turnuva 16 futbolcu veya takımla başlar ve dört tur sonunda bir şampiyon belirlenir." },
         { question: "Doğru cevap var mı?", answer: "Hayır. O Mu Bu Mu? tercih tabanlı bir oyundur; kendi favorilerini seçersin." },
+        { question: "Aynı turnuvayı tekrar oynarsam sonuç değişebilir mi?", answer: "Evet. Eşleşmelerde yaptığın tercihler sonraki turları belirlediği için farklı seçimlerle başka bir finale ve şampiyona ulaşabilirsin." },
         { question: "Sonucu paylaşabilir miyim?", answer: "Evet. Tamamlanan turnuvaların sonuçları paylaşılabilir." }
       ]}
       relatedLinks={[
