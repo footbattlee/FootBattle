@@ -6,14 +6,12 @@ import { Capacitor } from "@capacitor/core";
 import { createClient } from "@/lib/supabase/client";
 
 type FootBattleAndroidBridge = {
-  openExternal: (url: string) => void;
-  consumePendingAuthUrl: () => string | null;
+  openExternal?: (url: string) => void;
+  consumePendingAuthUrl?: () => string | null;
 };
 
-declare global {
-  interface Window {
-    FootBattleAndroid?: FootBattleAndroidBridge;
-  }
+function getAndroidBridge() {
+  return (window as Window & { FootBattleAndroid?: FootBattleAndroidBridge }).FootBattleAndroid;
 }
 
 function authErrorMessage(error: unknown) {
@@ -60,7 +58,7 @@ export default function GoogleSignInButton() {
 
     window.addEventListener("footbattle:auth-callback", onCallback);
 
-    const pending = window.FootBattleAndroid?.consumePendingAuthUrl?.();
+    const pending = getAndroidBridge()?.consumePendingAuthUrl?.();
     if (pending) {
       onCallback(new CustomEvent("footbattle:auth-callback", { detail: { url: pending } }));
     }
@@ -81,7 +79,7 @@ export default function GoogleSignInButton() {
       const supabase = createClient();
 
       if (Capacitor.isNativePlatform()) {
-        const bridge = window.FootBattleAndroid;
+        const bridge = getAndroidBridge();
         if (!bridge?.openExternal) {
           throw new Error("Android tarayıcı köprüsü hazır değil. Uygulamayı kapatıp tekrar aç.");
         }
