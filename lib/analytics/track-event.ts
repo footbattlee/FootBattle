@@ -35,11 +35,27 @@ type AttributionEnvelope = {
 const LEGACY_KEY = "footbattle_campaign_attribution";
 const FIRST_TOUCH_KEY = "footbattle_campaign_first_touch";
 const LAST_TOUCH_KEY = "footbattle_campaign_last_touch";
+const VISITOR_ID_KEY = "footbattle_visitor_id_v1";
 
 function parseStored(value: string | null): CampaignAttribution | null {
   if (!value) return null;
   try {
     return JSON.parse(value) as CampaignAttribution;
+  } catch {
+    return null;
+  }
+}
+
+function getOrCreateVisitorId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const existing = window.localStorage.getItem(VISITOR_ID_KEY);
+    if (existing) return existing;
+    const id = typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `v_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+    window.localStorage.setItem(VISITOR_ID_KEY, id);
+    return id;
   } catch {
     return null;
   }
@@ -113,51 +129,36 @@ function getPlatformMetadata() {
   if (typeof window === "undefined") return { platform: "server" };
   try {
     if (Capacitor.isNativePlatform()) {
-      return {
-        platform: "android",
-        runtime: "capacitor",
-      };
+      return { platform: "android", runtime: "capacitor" };
     }
   } catch {
     // Web fallback below.
   }
-
-  return {
-    platform: "web",
-    runtime: "browser",
-  };
+  return { platform: "web", runtime: "browser" };
 }
 
-export async function trackEvent({
-  eventName,
-  gameName,
-  sessionId = null,
-  pagePath = null,
-  metadata = {},
-}: TrackEventParams) {
+export async function trackEvent({ eventName, gameName, sessionId = null, pagePath = null, metadata = {} }: TrackEventParams) {
   try {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const attribution = readCampaignAttribution();
+    const visitorId = getOrCreateVisitorId();
 
-    const { error } = await supabase
-      .from("analytics_events")
-      .insert({
-        event_name: eventName,
-        game_name: gameName,
-        user_id: user?.id ?? null,
-        session_id: sessionId,
-        page_path: pagePath ?? (typeof window !== "undefined" ? window.location.pathname : null),
-        metadata: {
-          ...metadata,
-          ...getPlatformMetadata(),
-          ...(attribution ? { attribution } : {}),
-        },
-      });
+    const { error } = await supabase.from("analytics_events").insert({
+      event_name: eventName,
+      game_name: gameName,
+      user_id: user?.id ?? null,
+      session_id: sessionId,
+      page_path: pagePath ?? (typeof window !== "undefined" ? window.location.pathname : null),
+      metadata: {
+        ...metadata,
+        ...getPlatformMetadata(),
+        ...(visitorId ? { visitor_id: visitorId } : {}),
+        ...(attribution ? { attribution } : {}),
+      },
+    });
 
-    if (error) {
-      console.error("Analytics event insert error:", error);
-    }
+    if (error) console.error("Analytics event insert error:", error);
   } catch (error) {
     console.error("Analytics trackEvent error:", error);
   }
