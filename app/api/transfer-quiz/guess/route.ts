@@ -1,73 +1,134 @@
 import { NextResponse } from "next/server";
 
 import { recordGameSecurityEvent } from "@/lib/game-security/server";
-import {
-  buildPlayerQuizSeniorCareer,
-  playerQuizClubsAreEquivalent,
-  type RawPlayerQuizClub,
-} from "@/lib/player-quiz/clubs";
-import { nationalitiesAreEquivalent } from "@/lib/player-quiz/nationalities";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import {
+  TRANSFER_QUIZ_DURATION_SECONDS,
+  TRANSFER_QUIZ_POINTS_PER_CORRECT,
+  difficultyForElapsedSeconds,
+  elapsedSecondsFromStartedAt,
+  pickNextTransferQuestion,
+} from "@/lib/transfer-quiz/game";
 
-type FieldType = "birthYear" | "nationality" | "club";
-type GuessRequest = { sessionId?: string; field?: FieldType; value?: string | number; solvedClubIds?: number[] };
-const ALLOWED_FIELDS: FieldType[] = ["birthYear", "nationality", "club"];
+type GuessRequest = {
+  sessionId?: string;
+  playerId?: number;
+};
 
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as GuessRequest;
     const sessionId = body.sessionId?.trim();
-    const field = body.field;
-    const rawValue = body.value;
-    if (!sessionId) return NextResponse.json({ ok: false, error: "Oyun oturumu bulunamadı." }, { status: 400 });
-    if (!field || !ALLOWED_FIELDS.includes(field)) return NextResponse.json({ ok: false, error: "Kontrol edilecek alan geçersiz." }, { status: 400 });
-    if (rawValue === undefined || rawValue === null || String(rawValue).trim() === "") return NextResponse.json({ ok: false, error: "Kontrol edilecek değer boş olamaz." }, { status: 400 });
+    const guessedPlayerId = Number(body.playerId);
+
+    if (!sessionId) {
+      return NextResponse.json({ ok: false, error: "Oyun oturumu bulunamadı." }, { status: 400 });
+    }
+    if (!Number.isInteger(guessedPlayerId) || guessedPlayerId <= 0) {
+      return NextResponse.json({ ok: false, error: "Geçerli bir oyuncu seçmelisin." }, { status: 400 });
+    }
 
     const eventResult = await recordGameSecurityEvent({
       request,
       gameCode: "transfer_quiz",
       sourceSessionId: sessionId,
       eventType: "guess",
-      payload: { field, value: String(rawValue).slice(0, 120) },
-      maxPerMinute: 70,
+      payload: { playerId: guessedPlayerId },
+      maxPerMinute: 90,
     });
-    if (!eventResult.allowed) return NextResponse.json({ ok: false, error: "Çok hızlı cevap gönderiyorsun." }, { status: 429 });
-
-    const { data: session, error: sessionError } = await supabaseAdmin.from("player_quiz_sessions").select("id, player_id, completed").eq("id", sessionId).maybeSingle();
-    if (sessionError || !session) return NextResponse.json({ ok: false, error: "Transfer Quiz oturumu bulunamadı." }, { status: 404 });
-    if (session.completed) return NextResponse.json({ ok: false, error: "Bu Transfer Quiz zaten tamamlandı." }, { status: 409 });
-    const playerId = Number(session.player_id);
-
-    if (field === "birthYear") {
-      const guessedBirthYear = Number(rawValue);
-      if (!Number.isInteger(guessedBirthYear) || guessedBirthYear < 1900 || guessedBirthYear > 2100) return NextResponse.json({ ok: false, error: "Geçerli bir doğum yılı gir." }, { status: 400 });
-      const { data, error } = await supabaseAdmin.from("player_quiz_details").select("birth_year").eq("player_id", playerId).maybeSingle();
-      if (error || !data) return NextResponse.json({ ok: false, error: "Doğum yılı kontrol edilemedi." }, { status: 500 });
-      return NextResponse.json({ ok: true, field, correct: guessedBirthYear === Number(data.birth_year) });
+    if (!eventResult.allowed) {
+      return NextResponse.json({ ok: false, error: "Çok hızlı cevap gönderiyorsun." }, { status: 429 });
     }
 
-    if (field === "nationality") {
-      const { data: player, error } = await supabaseAdmin.from("guess_players").select("nationality").eq("player_id", playerId).maybeSingle();
-      if (error || !player?.nationality) return NextResponse.json({ ok: false, error: "Milliyet kontrol edilemedi." }, { status: 500 });
-      return NextResponse.json({ ok: true, field, correct: nationalitiesAreEquivalent(player.nationality, rawValue) });
+    const { data: session, error: sessionError } = await supabaseAdmin
+      .from("transfer_quiz_sessions_v2")
+      .select("id, started_at, current_transfer_id, used_source_player_ids, score, correct_count, passes_used, completed")
+      .eq("id", sessionId)
+      .maybeSingle();
+
+    if (sessionError || !session) {
+      return NextResponse.json({ ok: false, error: "Transferi Bil oturumu bulunamadı." }, { status: 404 });
+    }
+    if (session.completed) {
+      return NextResponse.json({ ok: false, expired: true, error: "Bu oyun tamamlandı." }, { status: 409 });
     }
 
-    const solvedClubIds = Array.isArray(body.solvedClubIds) ? body.solvedClubIds.map(Number).filter((id) => Number.isInteger(id) && id > 0) : [];
-    const { data: rawClubs, error: clubsError } = await supabaseAdmin
-      .from("player_quiz_clubs")
-      .select("id, club_name, career_order")
-      .eq("player_id", playerId)
-      .not("club_name", "is", null)
-      .order("career_order", { ascending: true });
-    if (clubsError) return NextResponse.json({ ok: false, error: "Kulüp kontrol edilemedi." }, { status: 500 });
-    const seniorCareer = buildPlayerQuizSeniorCareer((rawClubs ?? []) as RawPlayerQuizClub[]);
-    if (!seniorCareer.length) return NextResponse.json({ ok: false, error: "Oyuncunun A takım kariyeri bulunamadı." }, { status: 404 });
-    const matchedClub = seniorCareer.find((club) => playerQuizClubsAreEquivalent(club.name, rawValue));
-    if (!matchedClub) return NextResponse.json({ ok: true, field, correct: false, duplicate: false, matchedClub: null });
-    if (solvedClubIds.includes(matchedClub.id)) return NextResponse.json({ ok: true, field, correct: false, duplicate: true, matchedClub: null });
-    return NextResponse.json({ ok: true, field, correct: true, duplicate: false, matchedClub });
+    const elapsed = elapsedSecondsFromStartedAt(session.started_at);
+    if (elapsed >= TRANSFER_QUIZ_DURATION_SECONDS) {
+      return NextResponse.json({
+        ok: true,
+        expired: true,
+        correct: false,
+        score: Number(session.score ?? 0),
+        correctCount: Number(session.correct_count ?? 0),
+        passesUsed: Number(session.passes_used ?? 0),
+      });
+    }
+
+    const { data: transfer, error: transferError } = await supabaseAdmin
+      .from("player_transfers")
+      .select("id, source_player_id")
+      .eq("id", session.current_transfer_id)
+      .maybeSingle();
+
+    if (transferError || !transfer) {
+      return NextResponse.json({ ok: false, error: "Aktif transfer sorusu bulunamadı." }, { status: 404 });
+    }
+
+    const correct = Number(transfer.source_player_id) === guessedPlayerId;
+    if (!correct) {
+      return NextResponse.json({
+        ok: true,
+        correct: false,
+        score: Number(session.score ?? 0),
+        correctCount: Number(session.correct_count ?? 0),
+        passesUsed: Number(session.passes_used ?? 0),
+      });
+    }
+
+    const usedPlayerIds = Array.isArray(session.used_source_player_ids)
+      ? session.used_source_player_ids.map(Number).filter(Number.isFinite)
+      : [];
+    const difficulty = difficultyForElapsedSeconds(elapsed);
+    const next = await pickNextTransferQuestion(difficulty, usedPlayerIds);
+
+    const nextScore = Number(session.score ?? 0) + TRANSFER_QUIZ_POINTS_PER_CORRECT;
+    const nextCorrectCount = Number(session.correct_count ?? 0) + 1;
+
+    const updatePayload: Record<string, unknown> = {
+      score: nextScore,
+      correct_count: nextCorrectCount,
+    };
+
+    if (next) {
+      updatePayload.current_transfer_id = next.question.transferId;
+      updatePayload.used_source_player_ids = [...usedPlayerIds, next.sourcePlayerId];
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from("transfer_quiz_sessions_v2")
+      .update(updatePayload)
+      .eq("id", sessionId)
+      .eq("current_transfer_id", session.current_transfer_id);
+
+    if (updateError) {
+      return NextResponse.json({ ok: false, error: "Oyun ilerletilemedi." }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      correct: true,
+      awardedPoints: TRANSFER_QUIZ_POINTS_PER_CORRECT,
+      score: nextScore,
+      correctCount: nextCorrectCount,
+      passesUsed: Number(session.passes_used ?? 0),
+      question: next?.question ?? null,
+    });
   } catch (error) {
-    console.error("Transfer Quiz guess endpoint hatası:", error);
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Cevap kontrol edilirken hata oluştu." }, { status: 500 });
+    console.error("Transferi Bil cevap kontrol hatası:", error);
+    return NextResponse.json(
+      { ok: false, error: error instanceof Error ? error.message : "Cevap kontrol edilemedi." },
+      { status: 500 },
+    );
   }
 }
