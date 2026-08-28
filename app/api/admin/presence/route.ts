@@ -20,11 +20,10 @@ export async function GET() {
 
   try {
     const { data, error } = await supabaseAdmin.rpc("get_active_user_presence", {
-      p_window_minutes: 5,
+      p_window_minutes: 2,
     });
 
     if (error) throw error;
-
     const row = ((data ?? [])[0] ?? null) as PresenceRow | null;
 
     return NextResponse.json({
@@ -33,7 +32,7 @@ export async function GET() {
         activeUsers: row?.active_users ?? 0,
         authenticatedUsers: row?.authenticated_users ?? 0,
         guestUsers: row?.guest_users ?? 0,
-        windowMinutes: row?.window_minutes ?? 5,
+        windowMinutes: row?.window_minutes ?? 2,
         measuredAt: row?.measured_at ?? new Date().toISOString(),
       },
     });
