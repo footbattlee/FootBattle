@@ -5,101 +5,54 @@ import { useEffect, useMemo, useState } from "react";
 import ActivePresenceCards from "@/components/admin/ActivePresenceCards";
 
 type RangeKey = "today" | "7d" | "30d" | "all";
-type GameAnalyticsRow = { gameName: string; started: number; completed: number; abandoned: number; inProgress: number; playAgain: number; shared: number; uniqueUsers: number; loggedInUsers: number; anonymousVisitors: number; completionRate: number; averageDurationSeconds: number };
-type DuelSummary = { created: number; accepted: number; started: number; completed: number; rejected: number; cancelled: number; uniquePlayers: number };
-type DuelGameRow = { gameCode: string; created: number; accepted: number; started: number; completed: number; rejected: number; cancelled: number };
-type SurvivorAnalyticsRow = { id: string; slug: string; title: string; isActive: boolean; completions: number };
-type AnalyticsSummary = { totalStarted: number; totalCompleted: number; totalAbandoned: number; totalInProgress: number; totalPlayAgain: number; totalShared: number; averageDurationSeconds: number };
-type Audience = { dau: number; wau: number; uniquePlayers: number; anonymousPlayers: number; newUsers: number; platforms: { web: number; android: number; unknown: number } };
-type AnalyticsResponse = { ok?: boolean; error?: string; source?: string; summary?: AnalyticsSummary; audience?: Audience; games?: GameAnalyticsRow[]; duelSummary?: DuelSummary; duelGames?: DuelGameRow[]; survivors?: SurvivorAnalyticsRow[] };
+type GameAnalyticsRow = { gameName:string; started:number; completed:number; abandoned:number; inProgress:number; playAgain:number; shared:number; uniqueUsers:number; loggedInUsers:number; anonymousVisitors:number; completionRate:number; averageDurationSeconds:number };
+type DuelSummary = { created:number; accepted:number; started:number; completed:number; rejected:number; cancelled:number; uniquePlayers:number };
+type DuelGameRow = { gameCode:string; created:number; accepted:number; started:number; completed:number; rejected:number; cancelled:number };
+type SurvivorAnalyticsRow = { id:string; slug:string; title:string; isActive:boolean; completions:number };
+type AnalyticsSummary = { totalStarted:number; totalCompleted:number; totalAbandoned:number; totalInProgress:number; totalPlayAgain:number; totalShared:number; averageDurationSeconds:number };
+type Audience = { dau:number; wau:number; uniquePlayers:number; anonymousPlayers:number; newUsers:number; platforms:{web:number;android:number;unknown:number} };
+type AnalyticsResponse = { ok?:boolean; error?:string; source?:string; summary?:AnalyticsSummary; audience?:Audience; games?:GameAnalyticsRow[]; duelSummary?:DuelSummary; duelGames?:DuelGameRow[]; survivors?:SurvivorAnalyticsRow[] };
 
-const RANGE_OPTIONS: Array<{ key: RangeKey; label: string }> = [
-  { key: "today", label: "Bugün" },
-  { key: "7d", label: "Son 7 Gün" },
-  { key: "30d", label: "Son 30 Gün" },
-  { key: "all", label: "Tümü" },
-];
-const GAME_LABELS: Record<string,string> = {
-  wordle:"Wordle",
-  guess_the_player:"Guess the Player",
-  super_lig_guess_the_player:"Süper Lig Guess the Player",
-  player_quiz:"Player Quiz",
-  transfer_quiz:"Transfer Quiz",
-  tic_tac_toe:"Futbol Tic Tac Toe",
-  club_nation:"1 Takım 1 Millet",
-  club_clash:"2 Takım 1 Oyuncu",
-  career_path:"Career Path",
-};
-const EMPTY_SUMMARY: AnalyticsSummary = { totalStarted:0,totalCompleted:0,totalAbandoned:0,totalInProgress:0,totalPlayAgain:0,totalShared:0,averageDurationSeconds:0 };
-const EMPTY_DUEL_SUMMARY: DuelSummary = { created:0,accepted:0,started:0,completed:0,rejected:0,cancelled:0,uniquePlayers:0 };
-const EMPTY_AUDIENCE: Audience = { dau:0,wau:0,uniquePlayers:0,anonymousPlayers:0,newUsers:0,platforms:{web:0,android:0,unknown:0} };
+const RANGE_OPTIONS:Array<{key:RangeKey;label:string}>=[{key:"today",label:"Bugün"},{key:"7d",label:"Son 7 Gün"},{key:"30d",label:"Son 30 Gün"},{key:"all",label:"Tümü"}];
+const GAME_LABELS:Record<string,string>={wordle:"Wordle",guess_the_player:"Guess the Player",super_lig_guess_the_player:"Süper Lig Guess the Player",player_quiz:"Player Quiz",transfer_quiz:"Transfer Quiz",tic_tac_toe:"Futbol Tic Tac Toe",club_nation:"1 Takım 1 Millet",club_clash:"2 Takım 1 Oyuncu",career_path:"Career Path"};
+const EMPTY_SUMMARY:AnalyticsSummary={totalStarted:0,totalCompleted:0,totalAbandoned:0,totalInProgress:0,totalPlayAgain:0,totalShared:0,averageDurationSeconds:0};
+const EMPTY_DUEL:DuelSummary={created:0,accepted:0,started:0,completed:0,rejected:0,cancelled:0,uniquePlayers:0};
+const EMPTY_AUDIENCE:Audience={dau:0,wau:0,uniquePlayers:0,anonymousPlayers:0,newUsers:0,platforms:{web:0,android:0,unknown:0}};
 
-function getGameLabel(n:string){return GAME_LABELS[n]??n}
-function formatNumber(v:number){return new Intl.NumberFormat("tr-TR").format(v)}
-function formatPercentage(v:number){return `%${new Intl.NumberFormat("tr-TR",{minimumFractionDigits:1,maximumFractionDigits:1}).format(v)}`}
-function formatDuration(s:number){if(!s)return "-";if(s<60)return `${s} sn`;const m=Math.floor(s/60),r=s%60;return r?`${m} dk ${r} sn`:`${m} dk`}
+function gameLabel(v:string){return GAME_LABELS[v]??v}
+function n(v:number){return new Intl.NumberFormat("tr-TR").format(v)}
+function pct(v:number){return `%${new Intl.NumberFormat("tr-TR",{maximumFractionDigits:1}).format(v)}`}
+function duration(s:number){if(!s)return "-";if(s<60)return `${s} sn`;const m=Math.floor(s/60),r=s%60;return r?`${m} dk ${r} sn`:`${m} dk`}
+function gameUsers(g:GameAnalyticsRow){return g.loggedInUsers+g.anonymousVisitors}
+function replayRate(g:GameAnalyticsRow){return g.started?(g.playAgain/g.started)*100:0}
+function abandonRate(g:GameAnalyticsRow){return g.started?(g.abandoned/g.started)*100:0}
+function health(g:GameAnalyticsRow){if(g.started<5)return {label:"Veri az",cls:"text-slate-300 bg-slate-500/10 border-slate-400/20"};if(g.completionRate>=70&&abandonRate(g)<=25)return {label:"İyi",cls:"text-emerald-300 bg-emerald-500/10 border-emerald-400/20"};if(g.completionRate<40||abandonRate(g)>=50)return {label:"Sorunlu",cls:"text-red-300 bg-red-500/10 border-red-400/20"};return {label:"İncele",cls:"text-yellow-200 bg-yellow-500/10 border-yellow-300/20"}}
 
 export default function AdminAnalyticsPage(){
-  const [range,setRange]=useState<RangeKey>("7d");
-  const [loading,setLoading]=useState(true);
-  const [error,setError]=useState("");
-  const [source,setSource]=useState("");
-  const [summary,setSummary]=useState(EMPTY_SUMMARY);
-  const [audience,setAudience]=useState(EMPTY_AUDIENCE);
-  const [games,setGames]=useState<GameAnalyticsRow[]>([]);
-  const [duelSummary,setDuelSummary]=useState(EMPTY_DUEL_SUMMARY);
-  const [duelGames,setDuelGames]=useState<DuelGameRow[]>([]);
-  const [survivors,setSurvivors]=useState<SurvivorAnalyticsRow[]>([]);
+ const [range,setRange]=useState<RangeKey>("7d"),[loading,setLoading]=useState(true),[error,setError]=useState("");
+ const [summary,setSummary]=useState(EMPTY_SUMMARY),[audience,setAudience]=useState(EMPTY_AUDIENCE),[games,setGames]=useState<GameAnalyticsRow[]>([]),[duelSummary,setDuelSummary]=useState(EMPTY_DUEL),[duelGames,setDuelGames]=useState<DuelGameRow[]>([]),[survivors,setSurvivors]=useState<SurvivorAnalyticsRow[]>([]);
+ const [details,setDetails]=useState(false);
+ useEffect(()=>{void load()},[range]);
+ async function load(){try{setLoading(true);setError("");const r=await fetch(`/api/admin/analytics?range=${encodeURIComponent(range)}`,{cache:"no-store"});const x=await r.json() as AnalyticsResponse;if(!r.ok||!x.ok)throw new Error(x.error??"Analytics verileri yüklenemedi.");setSummary(x.summary??EMPTY_SUMMARY);setAudience(x.audience??EMPTY_AUDIENCE);setGames(x.games??[]);setDuelSummary(x.duelSummary??EMPTY_DUEL);setDuelGames(x.duelGames??[]);setSurvivors(x.survivors??[])}catch(e){setError(e instanceof Error?e.message:"Analytics verileri yüklenemedi.")}finally{setLoading(false)}}
+ const completion=summary.totalStarted?(summary.totalCompleted/summary.totalStarted)*100:0;
+ const abandoned=summary.totalStarted?(summary.totalAbandoned/summary.totalStarted)*100:0;
+ const sorted=useMemo(()=>[...games].sort((a,b)=>b.started-a.started),[games]);
+ return <main className="min-h-screen bg-[#07111f] px-4 py-8 text-white sm:px-6"><div className="mx-auto max-w-7xl">
+  <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-xs font-black uppercase tracking-[.22em] text-green-400">FootBattle Admin</p><h1 className="mt-2 text-3xl font-black sm:text-4xl">Oyun Özeti</h1><p className="mt-2 text-sm text-slate-400">Önce sağlığı gör, gerektiğinde detaya in.</p></div><div className="flex flex-wrap gap-2"><Link href="/admin/analytics/ranked" className="rounded-xl border border-green-400/30 bg-green-400/10 px-4 py-2.5 text-xs font-black text-green-300">🏆 Ranked</Link>{RANGE_OPTIONS.map(o=><button key={o.key} onClick={()=>setRange(o.key)} className={`rounded-xl px-4 py-2.5 text-xs font-black ${range===o.key?"bg-green-500 text-[#07111f]":"border border-white/10 bg-white/[.03] text-slate-400"}`}>{o.label}</button>)}</div></header>
+  {error&&<div className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-bold text-red-300">{error}</div>}
+  <ActivePresenceCards/>
+  <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Card label="DAU" value={n(audience.dau)} sub="Bugünkü girişli tekil kullanıcı" loading={loading}/><Card label="Oyun Başlatma" value={n(summary.totalStarted)} sub="Seçili dönemde" loading={loading}/><Card label="Tamamlama" value={pct(completion)} sub={`${n(summary.totalCompleted)} tamamlanan oyun`} loading={loading}/><Card label="Terk" value={pct(abandoned)} sub={`${n(summary.totalAbandoned)} terk edilen oyun`} loading={loading}/></section>
 
-  useEffect(()=>{void loadAnalytics()},[range]);
+  <section className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-white/[.025]"><div className="flex items-center justify-between border-b border-white/10 p-5"><div><h2 className="font-black">Oyun Performansı</h2><p className="mt-1 text-xs text-slate-500">Ana karar tablosu. Oyuncu = girişli + tanımlanabilir guest tekil oyuncu.</p></div><button onClick={()=>void load()} disabled={loading} className="rounded-xl border border-white/10 px-4 py-2 text-xs font-black">Yenile</button></div><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left"><thead><tr className="text-xs text-slate-500"><th className="p-4">Durum</th><th>Oyun</th><th>Oyuncu</th><th>Başlatma</th><th>Tamamlandı</th><th>Terk</th><th>Tamamlama</th><th>Ort. Süre</th><th>Tekrar</th></tr></thead><tbody>{sorted.map(g=>{const h=health(g);return <tr key={g.gameName} className="border-t border-white/5"><td className="p-4"><span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase ${h.cls}`}>{h.label}</span></td><td className="font-black">{gameLabel(g.gameName)}</td><td>{n(gameUsers(g))}</td><td>{n(g.started)}</td><td>{n(g.completed)}</td><td>{n(g.abandoned)}</td><td className="font-black">{pct(g.completionRate)}</td><td>{duration(g.averageDurationSeconds)}</td><td>{pct(replayRate(g))}</td></tr>})}</tbody></table></div></section>
 
-  async function loadAnalytics(){
-    try{
-      setLoading(true);setError("");
-      const response=await fetch(`/api/admin/analytics?range=${encodeURIComponent(range)}`,{cache:"no-store"});
-      const result=await response.json() as AnalyticsResponse;
-      if(!response.ok||!result.ok)throw new Error(result.error??"Analytics verileri yüklenemedi.");
-      setSource(result.source??"");
-      setSummary(result.summary??EMPTY_SUMMARY);
-      setAudience(result.audience??EMPTY_AUDIENCE);
-      setGames(result.games??[]);
-      setDuelSummary(result.duelSummary??EMPTY_DUEL_SUMMARY);
-      setDuelGames(result.duelGames??[]);
-      setSurvivors(result.survivors??[]);
-    }catch(e){setError(e instanceof Error?e.message:"Analytics verileri yüklenemedi.")}
-    finally{setLoading(false)}
-  }
-
-  const overall=summary.totalStarted?(summary.totalCompleted/summary.totalStarted)*100:0;
-  const mostPlayed=useMemo(()=>[...games].sort((a,b)=>b.started-a.started)[0]??null,[games]);
-  const mostAbandoned=useMemo(()=>[...games].sort((a,b)=>b.abandoned-a.abandoned)[0]??null,[games]);
-  const accept=duelSummary.created?(duelSummary.accepted/duelSummary.created)*100:0;
-  const start=duelSummary.accepted?(duelSummary.started/duelSummary.accepted)*100:0;
-  const complete=duelSummary.started?(duelSummary.completed/duelSummary.started)*100:0;
-  const known=audience.platforms.web+audience.platforms.android;
-  const androidRate=known?(audience.platforms.android/known)*100:0;
-
-  return <main className="min-h-screen bg-[#07111f] px-4 py-8 text-white sm:px-6"><div className="mx-auto max-w-7xl">
-    <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-xs font-black uppercase tracking-[0.22em] text-green-400">FootBattle Admin</p><h1 className="mt-2 text-3xl font-black sm:text-4xl">Oyun Raporları</h1><p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">Solo başlangıç, tamamlama ve terk metrikleri doğrudan server session kayıtlarından hesaplanır. Giriş yapmayan tekil oyuncular cihaz/tarayıcıya verilen anonim visitor ID ile yaklaşık olarak sayılır.</p>{source==="canonical_game_sessions"&&<p className="mt-2 text-xs font-black text-emerald-400">✓ Canonical session verisi aktif</p>}</div><div className="flex flex-wrap gap-2"><Link href="/admin/analytics/ranked" className="rounded-xl border border-green-400/30 bg-green-400/10 px-4 py-2.5 text-xs font-black text-green-300">🏆 Ranked</Link>{RANGE_OPTIONS.map(o=><button key={o.key} onClick={()=>setRange(o.key)} className={`rounded-xl px-4 py-2.5 text-xs font-black ${range===o.key?"bg-green-500 text-[#07111f]":"border border-white/10 bg-white/[0.03] text-slate-400"}`}>{o.label}</button>)}</div></div>
-    {error&&<div className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-4 text-sm font-bold text-red-300">{error}</div>}
-
-    <ActivePresenceCards />
-
-    <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-7"><SummaryCard label="DAU" value={formatNumber(audience.dau)} icon="👤" loading={loading}/><SummaryCard label="WAU" value={formatNumber(audience.wau)} icon="👥" loading={loading}/><SummaryCard label="Giriş Yapan" value={formatNumber(audience.uniquePlayers)} icon="🔐" loading={loading}/><SummaryCard label="Giriş Yapmayan" value={formatNumber(audience.anonymousPlayers)} icon="👻" loading={loading}/><SummaryCard label="Yeni Kullanıcı" value={formatNumber(audience.newUsers)} icon="✨" loading={loading}/><SummaryCard label="Web Başlatma" value={formatNumber(audience.platforms.web)} icon="🌐" loading={loading}/><SummaryCard label="Android Başlatma" value={formatNumber(audience.platforms.android)} icon="📱" loading={loading}/></section>
-    <section className="mt-4 grid gap-4 lg:grid-cols-3"><InsightCard label="Android Payı" value={formatPercentage(androidRate)} detail={`${formatNumber(audience.platforms.unknown)} eski/etiketsiz başlangıç platform oranına dahil edilmedi.`} tone="green"/><InsightCard label="Genel Tamamlama" value={formatPercentage(overall)} detail="Server'da tamamlanan session / açılan solo session." tone="green"/><InsightCard label="En Çok Oynanan" value={mostPlayed?getGameLabel(mostPlayed.gameName):"-"} detail={mostPlayed?`${formatNumber(mostPlayed.started)} session · ${formatNumber(mostPlayed.loggedInUsers)} girişli · ${formatNumber(mostPlayed.anonymousVisitors)} anonim tekil`:"Henüz veri yok."} tone="yellow"/></section>
-
-    <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-7"><SummaryCard label="Başlatma" value={formatNumber(summary.totalStarted)} icon="🎮" loading={loading}/><SummaryCard label="Tamamlama" value={formatNumber(summary.totalCompleted)} icon="✅" loading={loading}/><SummaryCard label="Terk" value={formatNumber(summary.totalAbandoned)} icon="🚪" loading={loading}/><SummaryCard label="Devam Ediyor" value={formatNumber(summary.totalInProgress)} icon="⏳" loading={loading}/><SummaryCard label="Ort. Süre" value={formatDuration(summary.averageDurationSeconds)} icon="⏱️" loading={loading}/><SummaryCard label="Tekrar Oyna" value={formatNumber(summary.totalPlayAgain)} icon="🔁" loading={loading}/><SummaryCard label="Paylaşım" value={formatNumber(summary.totalShared)} icon="📤" loading={loading}/></section>
-    <section className="mt-4 grid gap-4 lg:grid-cols-2"><InsightCard label="En Çok Terk Edilen" value={mostAbandoned?getGameLabel(mostAbandoned.gameName):"-"} detail={mostAbandoned?`${formatNumber(mostAbandoned.abandoned)} session 30 dakika içinde sonuçlanmadan kapandı.`:"Henüz veri yok."} tone="red"/><InsightCard label="Lifecycle Kuralı" value="30 dk" detail="Süreli oyunlar süre bitince server tarafından tamamlanır. Süresiz oyunlar 30 dakika sonuçlanmazsa terk olarak işaretlenir." tone="yellow"/></section>
-
-    <section className="mt-8 overflow-hidden rounded-2xl border border-green-400/15 bg-green-400/[0.025]"><div className="border-b border-white/10 px-5 py-4"><p className="font-black">⚔️ Düello Funnel</p></div><div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7"><MiniCard label="Davet" value={formatNumber(duelSummary.created)}/><MiniCard label="Kabul" value={formatNumber(duelSummary.accepted)}/><MiniCard label="Başladı" value={formatNumber(duelSummary.started)}/><MiniCard label="Tamamlandı" value={formatNumber(duelSummary.completed)}/><MiniCard label="Reddedildi" value={formatNumber(duelSummary.rejected)}/><MiniCard label="İptal" value={formatNumber(duelSummary.cancelled)}/><MiniCard label="Tekil Oyuncu" value={formatNumber(duelSummary.uniquePlayers)}/></div><div className="grid gap-3 border-t border-white/10 p-5 md:grid-cols-3"><InsightCard label="Davet → Kabul" value={formatPercentage(accept)} detail="Davet dönüşümü." tone="green"/><InsightCard label="Kabul → Başlama" value={formatPercentage(start)} detail="Kabulden oyuna geçiş." tone="yellow"/><InsightCard label="Başlama → Bitiş" value={formatPercentage(complete)} detail="Başlatılan düelloların bitiş oranı." tone="green"/></div><div className="overflow-x-auto border-t border-white/10"><table className="w-full min-w-[720px] text-left"><thead><tr className="text-xs text-slate-500"><th className="p-4">Oyun</th><th>Davet</th><th>Kabul</th><th>Başladı</th><th>Bitti</th><th>Red</th><th>İptal</th></tr></thead><tbody>{duelGames.map(g=><tr key={g.gameCode} className="border-t border-white/5"><td className="p-4 font-black">{getGameLabel(g.gameCode)}</td><td>{g.created}</td><td>{g.accepted}</td><td>{g.started}</td><td>{g.completed}</td><td>{g.rejected}</td><td>{g.cancelled}</td></tr>)}</tbody></table></div></section>
-
-    <section className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]"><div className="flex items-center justify-between border-b border-white/10 px-5 py-4"><div><p className="font-black">Solo Oyun Bazlı Lifecycle</p><p className="mt-1 text-xs text-slate-500">Girişli tekil = user_id. Anonim tekil = visitor_id. Eski visitor_id'siz anonim kayıtlar tekil sayılamaz.</p></div><button onClick={()=>void loadAnalytics()} disabled={loading} className="rounded-xl border border-white/10 px-4 py-2 text-xs font-black">Yenile</button></div><div className="overflow-x-auto"><table className="w-full min-w-[1120px] text-left"><thead><tr className="text-xs text-slate-500"><th className="p-4">Oyun</th><th>Girişli Tekil</th><th>Anonim Tekil</th><th>Başlatma</th><th>Tamamlama</th><th>Terk</th><th>Aktif</th><th>Oran</th><th>Ort. Süre</th><th>Tekrar</th><th>Paylaşım</th></tr></thead><tbody>{games.map(g=><tr key={g.gameName} className="border-t border-white/5"><td className="p-4 font-black">{getGameLabel(g.gameName)}</td><td>{formatNumber(g.loggedInUsers)}</td><td>{formatNumber(g.anonymousVisitors)}</td><td>{formatNumber(g.started)}</td><td>{formatNumber(g.completed)}</td><td>{formatNumber(g.abandoned)}</td><td>{formatNumber(g.inProgress)}</td><td><CompletionBadge value={g.completionRate}/></td><td>{formatDuration(g.averageDurationSeconds)}</td><td>{formatNumber(g.playAgain)}</td><td>{formatNumber(g.shared)}</td></tr>)}</tbody></table></div></section>
-
-    <section className="mt-8 overflow-hidden rounded-2xl border border-yellow-300/15 bg-yellow-300/[0.025]"><div className="border-b border-white/10 px-5 py-4"><p className="font-black">O Mu Bu Mu? / Survivor Tamamlamaları</p></div><div className="divide-y divide-white/5">{survivors.length===0?<div className="p-5 text-slate-500">Henüz Survivor sonucu yok.</div>:survivors.map((s,i)=><div key={s.id} className="flex justify-between px-5 py-4"><p className="font-black">#{i+1} {s.title}</p><p className="font-black text-yellow-200">{formatNumber(s.completions)}</p></div>)}</div></section>
-  </div></main>
+  <div className="mt-6 flex justify-center"><button onClick={()=>setDetails(v=>!v)} className="rounded-xl border border-white/10 bg-white/[.035] px-5 py-3 text-xs font-black text-slate-300">{details?"Teknik Detayları Gizle":"Teknik Detayları Göster"}</button></div>
+  {details&&<div className="mt-6 space-y-6">
+   <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Card label="WAU" value={n(audience.wau)} sub="Son 7 gün girişli tekil" loading={loading}/><Card label="Dönemsel Girişli" value={n(audience.uniquePlayers)} sub="Seçili tarih filtresi" loading={loading}/><Card label="Dönemsel Guest" value={n(audience.anonymousPlayers)} sub="Seçili tarih filtresi" loading={loading}/><Card label="Yeni Kullanıcı" value={n(audience.newUsers)} sub="Yeni profil" loading={loading}/></section>
+   <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[.025]"><div className="border-b border-white/10 p-5"><h2 className="font-black">Teknik / Ek Metrikler</h2></div><div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4"><Mini label="Aktif Session" value={n(summary.totalInProgress)}/><Mini label="Paylaşım" value={n(summary.totalShared)}/><Mini label="Web Başlatma" value={n(audience.platforms.web)}/><Mini label="Android Başlatma" value={n(audience.platforms.android)}/></div></section>
+   <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[.025]"><div className="border-b border-white/10 p-5"><h2 className="font-black">Düello Detayı</h2></div><div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4"><Mini label="Davet" value={n(duelSummary.created)}/><Mini label="Kabul" value={n(duelSummary.accepted)}/><Mini label="Başladı" value={n(duelSummary.started)}/><Mini label="Tamamlandı" value={n(duelSummary.completed)}/></div>{duelGames.length>0&&<div className="border-t border-white/5 p-5 text-xs text-slate-500">{duelGames.length} oyun türü için düello verisi mevcut.</div>}</section>
+   {survivors.length>0&&<section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[.025]"><div className="border-b border-white/10 p-5"><h2 className="font-black">Survivor</h2></div><div className="divide-y divide-white/5">{survivors.map(s=><div key={s.id} className="flex justify-between p-4"><span className="font-bold">{s.title}</span><span>{n(s.completions)} tamamlama</span></div>)}</div></section>}
+  </div>}
+ </div></main>
 }
-
-function SummaryCard({label,value,icon,loading}:{label:string;value:string;icon:string;loading:boolean}){return <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-5"><div className="flex justify-between"><p className="text-[10px] font-black uppercase text-slate-500">{label}</p><span>{icon}</span></div><p className="mt-3 text-2xl font-black">{loading?"...":value}</p></div>}
-function MiniCard({label,value}:{label:string;value:string}){return <div className="rounded-xl border border-white/10 bg-black/10 p-4"><p className="text-[10px] font-black uppercase text-slate-500">{label}</p><p className="mt-2 text-xl font-black">{value}</p></div>}
-function InsightCard({label,value,detail,tone}:{label:string;value:string;detail:string;tone:"green"|"yellow"|"red"}){const c=tone==="green"?"text-green-400":tone==="yellow"?"text-yellow-300":"text-red-300";return <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-5"><p className="text-xs font-black uppercase text-slate-500">{label}</p><p className={`mt-2 text-2xl font-black ${c}`}>{value}</p><p className="mt-2 text-xs text-slate-500">{detail}</p></div>}
-function CompletionBadge({value}:{value:number}){const c=value>=70?"text-green-300":value>=40?"text-yellow-300":"text-red-300";return <span className={`font-black ${c}`}>{formatPercentage(value)}</span>}
+function Card({label,value,sub,loading}:{label:string;value:string;sub:string;loading:boolean}){return <div className="rounded-2xl border border-white/10 bg-white/[.035] p-5"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">{label}</p><p className="mt-3 text-3xl font-black">{loading?"...":value}</p><p className="mt-2 text-xs text-slate-500">{sub}</p></div>}
+function Mini({label,value}:{label:string;value:string}){return <div className="rounded-xl border border-white/10 bg-black/10 p-4"><p className="text-[10px] font-black uppercase text-slate-500">{label}</p><p className="mt-2 text-xl font-black">{value}</p></div>}
