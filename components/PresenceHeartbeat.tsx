@@ -2,14 +2,30 @@
 
 import { useEffect } from "react";
 
-const HEARTBEAT_INTERVAL_MS = 90_000;
-const MIN_IMMEDIATE_GAP_MS = 20_000;
+const HEARTBEAT_INTERVAL_MS = 30_000;
+const MIN_IMMEDIATE_GAP_MS = 10_000;
+const VISITOR_ID_KEY = "footbattle_visitor_id_v1";
+
+function getOrCreateVisitorId() {
+  try {
+    const existing = window.localStorage.getItem(VISITOR_ID_KEY);
+    if (existing) return existing;
+    const id = typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `v_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+    window.localStorage.setItem(VISITOR_ID_KEY, id);
+    return id;
+  } catch {
+    return null;
+  }
+}
 
 export default function PresenceHeartbeat() {
   useEffect(() => {
     let intervalId: number | null = null;
     let lastSentAt = 0;
     let inFlight = false;
+    const visitorId = getOrCreateVisitorId();
 
     async function sendHeartbeat(force = false) {
       if (document.visibilityState !== "visible") return;
@@ -23,6 +39,8 @@ export default function PresenceHeartbeat() {
           method: "POST",
           cache: "no-store",
           keepalive: true,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ visitorId }),
         });
         if (response.ok) lastSentAt = Date.now();
       } catch {
@@ -42,9 +60,7 @@ export default function PresenceHeartbeat() {
     function startTimer() {
       stopTimer();
       if (document.visibilityState !== "visible") return;
-      intervalId = window.setInterval(() => {
-        void sendHeartbeat();
-      }, HEARTBEAT_INTERVAL_MS);
+      intervalId = window.setInterval(() => void sendHeartbeat(), HEARTBEAT_INTERVAL_MS);
     }
 
     if (document.visibilityState === "visible") {
@@ -62,7 +78,6 @@ export default function PresenceHeartbeat() {
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-
     return () => {
       stopTimer();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
