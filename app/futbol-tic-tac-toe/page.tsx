@@ -21,11 +21,14 @@ export default function Page() {
       ctaLabel="Tic Tac Toe Oyna ⭕"
       sections={[
         { title: "Nasıl oynanır?", paragraphs: ["Her hücre iki futbol kriterinin kesişimidir. Örneğin bir kulüp ile bir ülkenin kesiştiği kareye iki koşulu da karşılayan bir futbolcu yazman gerekir.", "Doğru cevabı bulmak tek başına yetmez; hangi kareyi ne zaman oynadığın da önemlidir. Böylece futbol bilgisi ile klasik Tic Tac Toe stratejisi birleşir."] },
+        { title: "Bir hücreyi çözerken nasıl düşünmelisin?", paragraphs: ["Önce satır ve sütundaki iki kriteri ayrı ayrı değerlendir. Ardından kariyerinde bu iki koşulu aynı anda karşılayan futbolcuları düşün. Bir kulüpte oynayan tüm isimleri saymak yerine milliyet, ikinci kulüp veya lig gibi diğer kriterle kesişen adaylara odaklanmak daha hızlı sonuca götürür.", "Geçmiş kadroları ve transfer rotalarını hatırlamak özellikle zor kesişimlerde avantaj sağlar. Tanıdığın ilk oyuncuyu yazmadan önce iki kriterin de gerçekten karşılandığından emin olmak, bilgi kısmı kadar stratejik hamleni de korur."] },
         { title: "Hangi bilgiler işe yarar?", paragraphs: ["Oyuncuların kulüp geçmişi, milliyeti, lig tecrübesi ve transfer kariyeri bu oyunda avantaj sağlar. Sadece güncel kadroları değil, geçmiş sezonları da hatırlamak gerekebilir."], bullets: ["Kulüp geçmişi", "Milliyet", "Lig bilgisi", "Transfer kariyeri", "Stratejik hamle"] },
+        { title: "Futbol bilgisi neden strateji kadar önemli?", paragraphs: ["Klasik Tic Tac Toe'da boş kareyi seçmek yeterliyken futbol versiyonunda o kareyi geçerli bir oyuncuyla doldurabilmen gerekir. Bu yüzden savunma veya hücum için iyi görünen bir kare, kriterleri karşılayan oyuncuyu bulamıyorsan riskli olabilir.", "Merkez, köşe ve rakibin olası üçlüleri gibi klasik tahta kararları devam eder; fakat futbol hafızan hangi hamleleri gerçekten oynayabileceğini belirler. Oyun bu iki düşünme biçimini aynı turda kullanmanı ister."] },
         { title: "Tek başına veya rekabet için", paragraphs: ["Tahtaları çözerek futbol hafızanı test edebilir, skorunu arkadaşlarınla karşılaştırabilir veya düello formatlarında doğrudan rekabete girebilirsin."] }
       ]}
       faqs={[
         { question: "Futbol Tic Tac Toe nasıl oynanır?", answer: "Satır ve sütun kriterlerinin ikisine de uyan futbolcuyu ilgili hücreye girersin. Amaç klasik Tic Tac Toe gibi üç hücreyi hizalamaktır." },
+        { question: "Bir futbolcunun iki kriteri de karşılaması gerekir mi?", answer: "Evet. Seçtiğin hücrenin satır ve sütun kriterleri birlikte değerlendirilir; yazdığın futbolcunun iki koşula da uyması gerekir." },
         { question: "Futbolcular geçmişte oynamış olabilir mi?", answer: "Evet. Kariyer geçmişi kriterleri karşılıyorsa eski kulüpler de kullanılabilir." },
         { question: "Telefondan oynanır mı?", answer: "Evet. FootBattle Tic Tac Toe mobil tarayıcıdan oynanabilir." }
       ]}
