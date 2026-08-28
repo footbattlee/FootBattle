@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     if (sessionError || !session) {
       return NextResponse.json({ ok: false, error: "Transferi Bil oturumu bulunamadı." }, { status: 404 });
     }
-    if (session.user_id && user?.id && session.user_id !== user.id) {
+    if (session.user_id && session.user_id !== user?.id) {
       return NextResponse.json({ ok: false, error: "Bu oyun oturumu başka bir kullanıcıya ait." }, { status: 403 });
     }
 

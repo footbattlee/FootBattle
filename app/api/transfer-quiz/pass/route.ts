@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { recordGameSecurityEvent } from "@/lib/game-security/server";
+import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import {
   TRANSFER_QUIZ_DURATION_SECONDS,
@@ -14,10 +15,28 @@ type PassRequest = { sessionId?: string };
 
 export async function POST(request: Request) {
   try {
+    const authClient = await createAuthServerClient();
+    const { data: { user } } = await authClient.auth.getUser();
     const body = (await request.json()) as PassRequest;
     const sessionId = body.sessionId?.trim();
     if (!sessionId) {
       return NextResponse.json({ ok: false, error: "Oyun oturumu bulunamadı." }, { status: 400 });
+    }
+
+    const { data: session, error: sessionError } = await supabaseAdmin
+      .from("transfer_quiz_sessions_v2")
+      .select("id, user_id, started_at, current_transfer_id, used_source_player_ids, score, correct_count, passes_used, completed")
+      .eq("id", sessionId)
+      .maybeSingle();
+
+    if (sessionError || !session) {
+      return NextResponse.json({ ok: false, error: "Transferi Bil oturumu bulunamadı." }, { status: 404 });
+    }
+    if (session.user_id && session.user_id !== user?.id) {
+      return NextResponse.json({ ok: false, error: "Bu oyun oturumu başka bir kullanıcıya ait." }, { status: 403 });
+    }
+    if (session.completed) {
+      return NextResponse.json({ ok: false, expired: true, error: "Bu oyun tamamlandı." }, { status: 409 });
     }
 
     const eventResult = await recordGameSecurityEvent({
@@ -30,19 +49,6 @@ export async function POST(request: Request) {
     });
     if (!eventResult.allowed) {
       return NextResponse.json({ ok: false, error: "Çok hızlı pas kullanıyorsun." }, { status: 429 });
-    }
-
-    const { data: session, error: sessionError } = await supabaseAdmin
-      .from("transfer_quiz_sessions_v2")
-      .select("id, started_at, current_transfer_id, used_source_player_ids, score, correct_count, passes_used, completed")
-      .eq("id", sessionId)
-      .maybeSingle();
-
-    if (sessionError || !session) {
-      return NextResponse.json({ ok: false, error: "Transferi Bil oturumu bulunamadı." }, { status: 404 });
-    }
-    if (session.completed) {
-      return NextResponse.json({ ok: false, expired: true, error: "Bu oyun tamamlandı." }, { status: 409 });
     }
 
     const elapsed = elapsedSecondsFromStartedAt(session.started_at);
