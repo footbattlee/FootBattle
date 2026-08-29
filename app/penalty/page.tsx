@@ -7,12 +7,11 @@ const TOTAL_SHOTS = 10;
 type Point = { x: number; y: number };
 type Result = "goal" | "saved";
 type Phase = "ready" | "aiming" | "shooting" | "resolved";
+type ShotMark = "goal" | "saved" | null;
 
 const BALL_START: Point = { x: 50, y: 70 };
 const KEEPER_START: Point = { x: 50, y: 28 };
 const AIM = { left: 23, right: 77, top: 22.5, bottom: 32.5 };
-
-type ShotMark = "goal" | "saved" | null;
 
 export default function PenaltyPage() {
   const pitchRef = useRef<HTMLDivElement>(null);
@@ -80,33 +79,32 @@ export default function PenaltyPage() {
     dragStartRef.current = null;
 
     const target = aim;
-    const keeperWillRead = Math.random() < 0.7;
-    const diveDirection: -1 | 0 | 1 = keeperWillRead
+    const reads = Math.random() < 0.7;
+    const dive: -1 | 0 | 1 = reads
       ? target.x < 44 ? -1 : target.x > 56 ? 1 : 0
       : ([-1, 0, 1][Math.floor(Math.random() * 3)] as -1 | 0 | 1);
-
     const keeperTarget: Point = {
-      x: diveDirection === -1 ? 37 : diveDirection === 1 ? 63 : 50,
-      y: target.y < 26 ? 25 : 28.5,
+      x: dive === -1 ? 37 : dive === 1 ? 63 : 50,
+      y: target.y < 26 ? 25.5 : 28,
     };
 
-    setKeeperDive(diveDirection);
+    setKeeperDive(dive);
     setKeeper(keeperTarget);
     setBall(target);
 
     window.setTimeout(() => {
       const horizontal = Math.abs(target.x - keeperTarget.x);
       const vertical = Math.abs(target.y - keeperTarget.y);
-      const saved = horizontal <= (diveDirection === 0 ? 9.5 : 12.5) && vertical <= 6.8;
+      const saved = horizontal <= (dive === 0 ? 10.5 : 13) && vertical <= 7.2;
       const nextResult: Result = saved ? "saved" : "goal";
 
       if (saved) {
-        setBall({ x: keeperTarget.x + diveDirection * 2, y: keeperTarget.y + 1.5 });
+        setBall({ x: keeperTarget.x + dive * 1.5, y: keeperTarget.y + 1.2 });
         setStreak(0);
       } else {
         const corner = Math.abs(target.x - 50) > 20 || target.y < 24.5;
-        setScore((value) => value + 100 + (corner ? 50 : 0) + Math.min(streak, 4) * 20);
-        setStreak((value) => value + 1);
+        setScore((v) => v + 100 + (corner ? 50 : 0) + Math.min(streak, 4) * 20);
+        setStreak((v) => v + 1);
       }
 
       setMarks((old) => old.map((m, i) => i === shot ? nextResult : m));
@@ -125,18 +123,10 @@ export default function PenaltyPage() {
     setPhase("ready");
   }
 
-  function next() {
-    setShot((value) => value + 1);
-    resetForNext();
-  }
+  function next() { setShot((v) => v + 1); resetForNext(); }
+  function restart() { setShot(0); setScore(0); setStreak(0); setMarks(Array(TOTAL_SHOTS).fill(null)); resetForNext(); }
 
-  function restart() {
-    setShot(0);
-    setScore(0);
-    setStreak(0);
-    setMarks(Array(TOTAL_SHOTS).fill(null));
-    resetForNext();
-  }
+  const isIdle = phase === "ready" || phase === "aiming";
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#06152b] text-white select-none">
@@ -169,21 +159,30 @@ export default function PenaltyPage() {
             <div className="absolute inset-x-0 top-[17.5%] h-[3%] border-y border-white/15 bg-[#12364b]"><div className="flex h-full items-center justify-around text-[9px] font-black italic text-emerald-300/85"><span>FOOTBATTLE</span><span>FOOTBATTLE</span><span>FOOTBATTLE</span></div></div>
 
             <div className="absolute left-[21%] right-[21%] top-[20.5%] z-10 h-[13.5%]">
-              <div className="absolute inset-0 border-[4px] border-white bg-[#218f46] shadow-[0_5px_0_rgba(0,0,0,.28)]" />
-              <div className="absolute inset-[4px] opacity-45" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.72) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.72) 1px,transparent 1px)", backgroundSize: "15px 15px" }} />
+              <div className="absolute inset-0 border-x-[3px] border-t-[3px] border-white bg-[#218f46] shadow-[0_4px_0_rgba(0,0,0,.22)]" />
+              <div className="absolute inset-x-0 bottom-0 h-[2px] bg-white" />
+              <div className="absolute inset-[3px] opacity-45" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.72) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.72) 1px,transparent 1px)", backgroundSize: "15px 15px" }} />
             </div>
 
             <div className="absolute left-[7%] right-[7%] top-[34%] h-[25%] border-2 border-t-0 border-white/90" />
-            <div className="absolute left-[7%] right-[7%] top-[34%] h-[2px] bg-white/90" />
+            <div className="absolute left-[7%] right-[7%] top-[34%] h-[1.5px] bg-white/90" />
             <div className="absolute left-1/2 top-[58.8%] h-[11%] w-[38%] -translate-x-1/2 rounded-b-full border-x-2 border-b-2 border-white/85" />
             <div className="absolute left-1/2 top-[50.5%] h-2 w-2 -translate-x-1/2 rounded-full bg-white/95" />
 
-            <div className="absolute z-20 transition-all duration-[420ms] ease-out" style={{ left: `${keeper.x}%`, top: `${keeper.y}%`, transform: `translate(-50%,-50%) rotate(${keeperDive * 22}deg)` }}>
-              <Keeper diving={phase !== "ready" && keeperDive !== 0} />
+            <div
+              className="absolute z-20 transition-[left,top,transform] duration-[420ms] ease-out"
+              style={{
+                left: `${keeper.x}%`,
+                top: `${keeper.y}%`,
+                transform: `translate(-50%,-50%) rotate(${keeperDive * 24}deg)`,
+                animation: isIdle ? "keeperIdle 1.15s ease-in-out infinite" : "none",
+              }}
+            >
+              <Keeper />
             </div>
 
-            {(phase === "aiming" || phase === "ready") && (
-              <svg className={`pointer-events-none absolute inset-0 z-30 h-full w-full transition-opacity ${phase === "aiming" ? "opacity-100" : "opacity-0"}`}>
+            {phase === "aiming" && (
+              <svg className="pointer-events-none absolute inset-0 z-30 h-full w-full">
                 <defs><marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#ffd93d" /></marker></defs>
                 <line x1={`${BALL_START.x}%`} y1={`${BALL_START.y}%`} x2={`${aim.x}%`} y2={`${aim.y}%`} stroke="#ffd93d" strokeWidth="2.4" strokeLinecap="round" markerEnd="url(#arrow)" />
                 <circle cx={`${aim.x}%`} cy={`${aim.y}%`} r="6.5" fill="rgba(255,217,61,.06)" stroke="#ffd93d" strokeWidth="1.8" />
@@ -206,7 +205,7 @@ export default function PenaltyPage() {
 
             {phase === "resolved" ? (
               <div className="absolute bottom-[4%] left-[10%] right-[10%] z-50 flex items-center gap-2">
-                <div className={`flex-1 rounded-xl px-3 py-3 text-center text-xs font-black ${result === "goal" ? "bg-emerald-500 text-white" : "bg-sky-500 text-white"}`}>{result === "goal" ? "⚽ GOL" : "🧤 KURTARIŞ"}</div>
+                <div className={`flex-1 rounded-xl px-3 py-3 text-center text-xs font-black ${result === "goal" ? "bg-emerald-500" : "bg-sky-500"}`}>{result === "goal" ? "⚽ GOL" : "🧤 KURTARIŞ"}</div>
                 <button onClick={next} className="rounded-xl bg-yellow-400 px-4 py-3 text-xs font-black text-[#06152b]">{shot + 1 >= TOTAL_SHOTS ? "SONUÇ →" : "SIRADAKİ →"}</button>
               </div>
             ) : (
@@ -214,6 +213,13 @@ export default function PenaltyPage() {
                 {phase === "shooting" ? "ŞUT..." : phase === "aiming" ? `GÜÇ %${power} • BIRAK VE ŞUT ÇEK` : "✋ TOPA BAS • GERİ/YANA ÇEK • BIRAK"}
               </div>
             )}
+
+            <style jsx>{`
+              @keyframes keeperIdle {
+                0%,100% { transform: translate(-50%,-50%) translateY(0) scaleY(1); }
+                50% { transform: translate(-50%,-50%) translateY(-2px) scaleY(.985); }
+              }
+            `}</style>
           </div>
         ) : (
           <div className="m-4 rounded-3xl border border-cyan-300/20 bg-[#07264d] p-8 text-center">
@@ -227,19 +233,29 @@ export default function PenaltyPage() {
   );
 }
 
-function Keeper({ diving }: { diving: boolean }) {
+function Keeper() {
   return (
-    <div className={`relative drop-shadow-[0_3px_3px_rgba(0,0,0,.35)] ${diving ? "h-[48px] w-[86px]" : "h-[62px] w-[62px]"}`}>
-      <div className="absolute left-1/2 top-0 h-[16px] w-[16px] -translate-x-1/2 rounded-full border border-[#2e231c] bg-[#b9784b]" />
-      <div className="absolute left-1/2 top-[14px] h-[27px] w-[27px] -translate-x-1/2 rounded-t-[8px] bg-[#176b38]"><span className="absolute left-1/2 top-[5px] -translate-x-1/2 text-[8px] font-black text-white">1</span></div>
-      <div className={`absolute top-[18px] h-[6px] rounded-full bg-[#176b38] ${diving ? "left-[3px] w-[34px] -rotate-[8deg]" : "left-[2px] w-[24px] -rotate-[18deg]"}`} />
-      <div className={`absolute top-[18px] h-[6px] rounded-full bg-[#176b38] ${diving ? "right-[3px] w-[34px] rotate-[8deg]" : "right-[2px] w-[24px] rotate-[18deg]"}`} />
-      <div className="absolute left-0 top-[14px] h-[11px] w-[9px] rounded bg-[#f4c430]" /><div className="absolute right-0 top-[14px] h-[11px] w-[9px] rounded bg-[#f4c430]" />
-      <div className="absolute bottom-[3px] left-[18px] h-[18px] w-[7px] rounded bg-[#121b2c]" /><div className="absolute bottom-[3px] right-[18px] h-[18px] w-[7px] rounded bg-[#121b2c]" />
-      <div className="absolute bottom-0 left-[12px] h-[5px] w-[18px] rounded-full bg-white" /><div className="absolute bottom-0 right-[12px] h-[5px] w-[18px] rounded-full bg-white" />
+    <div className="relative h-[68px] w-[70px] drop-shadow-[0_3px_3px_rgba(0,0,0,.35)]">
+      <div className="absolute left-1/2 top-0 h-[15px] w-[15px] -translate-x-1/2 rounded-full border border-[#2c1f18] bg-[#b9784b]" />
+      <div className="absolute left-1/2 top-[13px] h-[28px] w-[24px] -translate-x-1/2 rounded-[8px_8px_5px_5px] bg-[#176b38]">
+        <span className="absolute left-1/2 top-[5px] -translate-x-1/2 text-[8px] font-black text-white">1</span>
+      </div>
+      <div className="absolute left-[8px] top-[17px] h-[6px] w-[25px] origin-right -rotate-[18deg] rounded-full bg-[#176b38]" />
+      <div className="absolute right-[8px] top-[17px] h-[6px] w-[25px] origin-left rotate-[18deg] rounded-full bg-[#176b38]" />
+      <div className="absolute left-[2px] top-[14px] h-[10px] w-[8px] rounded bg-[#f2c94c]" />
+      <div className="absolute right-[2px] top-[14px] h-[10px] w-[8px] rounded bg-[#f2c94c]" />
+      <div className="absolute left-[25px] top-[39px] h-[22px] w-[6px] -rotate-[5deg] rounded bg-[#111827]" />
+      <div className="absolute right-[25px] top-[39px] h-[22px] w-[6px] rotate-[5deg] rounded bg-[#111827]" />
+      <div className="absolute bottom-0 left-[18px] h-[5px] w-[16px] rounded-full bg-white" />
+      <div className="absolute bottom-0 right-[18px] h-[5px] w-[16px] rounded-full bg-white" />
     </div>
   );
 }
 
-function Football() { return <span className="block text-[30px] leading-none drop-shadow-[0_5px_6px_rgba(0,0,0,.34)]">⚽</span>; }
-function Stat({ label, value }: { label: string; value: string }) { return <div className="rounded-xl border border-cyan-300/15 bg-[#061a34] px-2 py-2.5 text-center"><p className="text-[9px] font-black text-slate-400">{label}</p><p className="mt-1 text-[14px] font-black text-white">{value}</p></div>; }
+function Football() {
+  return <span className="block text-[30px] leading-none drop-shadow-[0_5px_5px_rgba(0,0,0,.34)]">⚽</span>;
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-xl border border-cyan-300/15 bg-[#061a34] px-2 py-2.5 text-center"><p className="text-[9px] font-black text-slate-400">{label}</p><p className="mt-1 text-[14px] font-black text-white">{value}</p></div>;
+}
