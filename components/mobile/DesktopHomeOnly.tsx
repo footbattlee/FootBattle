@@ -37,6 +37,44 @@ export default function DesktopHomeOnly({ locale }: { locale: Locale }) {
         else nav.appendChild(link);
       }
 
+      const gameSection = document.querySelector("#oyunlar");
+      const firstCard = gameSection?.querySelector("article");
+      if (firstCard && !gameSection?.querySelector('[data-desktop-shooter-card="true"]')) {
+        const shooterCard = firstCard.cloneNode(true) as HTMLElement;
+        shooterCard.dataset.desktopShooterCard = "true";
+
+        const title = shooterCard.querySelector("h3");
+        if (title) title.textContent = locale === "tr" ? "Şutör" : "Shot Challenge";
+
+        const paragraphs = Array.from(shooterCard.querySelectorAll("p"));
+        if (paragraphs[0]) {
+          paragraphs[0].textContent = locale === "tr"
+            ? "Topu geri ve yana çek, hedefini belirle ve kaleciyi geç. 10 şutta en yüksek skoru yap."
+            : "Pull the ball back and sideways, pick your target and beat the keeper. Score as high as you can in 10 shots.";
+        }
+
+        const emoji = Array.from(shooterCard.querySelectorAll("span")).find((span) => span.textContent?.trim() === "🟩");
+        if (emoji) emoji.textContent = "⚽";
+
+        const modeBadge = Array.from(shooterCard.querySelectorAll("span")).find((span) => {
+          const text = span.textContent?.trim().toLocaleLowerCase("tr-TR") ?? "";
+          return text.includes("tek oyuncu") || text === "solo";
+        });
+        if (modeBadge) modeBadge.textContent = locale === "tr" ? "TEK OYUNCU" : "SOLO";
+
+        const actionLinks = Array.from(shooterCard.querySelectorAll("a"));
+        actionLinks.forEach((link, index) => {
+          if (index === 0) {
+            link.setAttribute("href", "/penalty");
+            link.textContent = locale === "tr" ? "Oyna" : "Play";
+          } else {
+            link.remove();
+          }
+        });
+
+        firstCard.parentElement?.insertBefore(shooterCard, firstCard);
+      }
+
       const rankedGameTitles = new Set(["Futbol Tic Tac Toe", "Football Tic Tac Toe", "2 Takım 1 Oyuncu", "2 Clubs 1 Player"]);
       const unsupportedDuelTitles = new Set(["Player Quiz", "1 Takım 1 Millet", "1 Club 1 Nation"]);
       const clubClashTitles = new Set(["2 Takım 1 Oyuncu", "2 Clubs 1 Player"]);
@@ -66,7 +104,6 @@ export default function DesktopHomeOnly({ locale }: { locale: Locale }) {
         actions.appendChild(link);
       });
 
-      // Remove stale desktop copy that still says Tic Tac Toe duel is upcoming.
       document.querySelectorAll("p").forEach((node) => {
         const text = node.textContent ?? "";
         if (text.includes("Tic Tac Toe düello modu") || text.includes("Tic Tac Toe duel mode")) {
@@ -83,7 +120,7 @@ export default function DesktopHomeOnly({ locale }: { locale: Locale }) {
     return () => {
       window.clearTimeout(firstRetry);
       window.clearTimeout(secondRetry);
-      document.querySelectorAll('[data-desktop-ranked-nav="true"], [data-desktop-ranked-card="true"]').forEach((node) => node.remove());
+      document.querySelectorAll('[data-desktop-ranked-nav="true"], [data-desktop-ranked-card="true"], [data-desktop-shooter-card="true"]').forEach((node) => node.remove());
     };
   }, [locale, showDesktopHome]);
 
