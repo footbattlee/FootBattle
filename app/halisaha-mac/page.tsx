@@ -183,6 +183,48 @@ export default function HalisahaMacCreatePage() {
             </button>
           </form>
         </section>
+
+        <section className="mt-8 space-y-5 pb-10">
+          <article className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 sm:p-7">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-yellow-300">HALISAHA ORGANİZASYON REHBERİ</p>
+            <h2 className="mt-3 text-2xl font-black">Maç organizasyonunu tek bağlantıda tut</h2>
+            <div className="mt-4 space-y-4 text-sm leading-7 text-slate-300 sm:text-base">
+              <p>
+                Halısaha Maçı aracı tarih, saat, saha, hedef oyuncu sayısı ve organizasyon notunu tek sayfada toplar. Maçı oluşturduktan sonra oluşan bağlantıyı arkadaş grubuna göndererek herkesin aynı güncel bilgiyi görmesini sağlayabilirsin.
+              </p>
+              <p>
+                Katılım durumu değiştiğinde uzun mesaj zincirlerinde son listeyi aramak yerine maç bağlantısına dönmek organizasyonu kolaylaştırır. Özellikle son dakika eksiklerinde kaç oyuncuya daha ihtiyaç olduğunu daha hızlı görmek mümkün olur.
+              </p>
+            </div>
+          </article>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <article className="rounded-2xl border border-white/10 bg-[#0d1828] p-5">
+              <h3 className="font-black text-yellow-300">Önce kesin bilgileri gir</h3>
+              <p className="mt-2 text-sm leading-7 text-slate-300">
+                Tarih ve saati netleştirip saha bilgisini eklemek, davet bağlantısını alan oyuncuların tekrar tekrar aynı soruları sormasını azaltır.
+              </p>
+            </article>
+            <article className="rounded-2xl border border-white/10 bg-[#0d1828] p-5">
+              <h3 className="font-black text-yellow-300">Kadro aşamasına geç</h3>
+              <p className="mt-2 text-sm leading-7 text-slate-300">
+                Katılım belli olduktan sonra Halısaha Kadro aracına geçerek oyuncuları iki takıma ayırabilir ve maç öncesi takım dağılımını paylaşabilirsin.
+              </p>
+            </article>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Link href="/halisaha-kadro" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black text-yellow-300">
+              Halısaha Kadro
+            </Link>
+            <Link href="/halisaha-kadro-kurma" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black text-yellow-300">
+              Kadro Kurma Rehberi
+            </Link>
+            <Link href="/futbol-oyunlari" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black text-yellow-300">
+              Futbol Oyunları
+            </Link>
+          </div>
+        </section>
       </div>
     </main>
   );
