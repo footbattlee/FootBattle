@@ -29,6 +29,9 @@ export const GAME_NAMES = {
 
   CAREER_PATH:
     "career_path",
+
+  SHOOTER:
+    "shooter",
 } as const;
 
 export type GameCompletedDetail = {
