@@ -145,7 +145,7 @@ export default function PenaltyPage() {
             <div className="absolute left-1/2 top-[50.5%] h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-white/90" />
 
             <div className="absolute z-20 transition-[left,top,transform] duration-[420ms] ease-out" style={{ left: `${keeper.x}%`, top: `${keeper.y}%`, transform: `translate(-50%,-50%) rotate(${keeperDive * 24}deg)`, animation: isIdle ? "keeperIdle 1.1s ease-in-out infinite" : "none" }}>
-              <div style={{ animation: phase === "shooting" && keeperDive !== 0 ? "keeperHop 420ms ease-out both" : "none" }}><Keeper /></div>
+              <div style={{ animation: phase === "shooting" && keeperDive !== 0 ? "keeperJump 460ms cubic-bezier(.18,.76,.28,1) both" : "none" }}><Keeper /></div>
             </div>
 
             {phase === "aiming" && <svg className="pointer-events-none absolute inset-0 z-30 h-full w-full"><defs><marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#ffd93d" /></marker></defs><line x1={arrowStart.x} y1={arrowStart.y} x2={aimPx.x} y2={aimPx.y} stroke="#ffd93d" strokeWidth="2.4" strokeLinecap="round" markerEnd="url(#arrow)" /><circle cx={aimPx.x} cy={aimPx.y} r="6.5" fill="rgba(255,217,61,.06)" stroke="#ffd93d" strokeWidth="1.8" /></svg>}
@@ -155,7 +155,13 @@ export default function PenaltyPage() {
             {phase === "resolved" ? <div className="absolute bottom-[4%] left-[10%] right-[10%] z-50 flex items-center gap-2"><div className={`flex-1 rounded-xl px-3 py-3 text-center text-xs font-black ${result === "goal" ? "bg-emerald-500" : "bg-sky-500"}`}>{result === "goal" ? "⚽ GOL" : "🧤 KURTARIŞ"}</div><button onClick={next} className="rounded-xl bg-yellow-400 px-4 py-3 text-xs font-black text-[#06152b]">{shot + 1 >= TOTAL_SHOTS ? "SONUÇ →" : "SIRADAKİ →"}</button></div> : <div className="absolute bottom-[4%] left-[8%] right-[8%] z-40 rounded-xl border border-cyan-300/20 bg-[#061f36]/95 px-3 py-3 text-center text-[11px] font-black shadow-xl">{phase === "shooting" ? "ŞUT..." : phase === "aiming" ? `GÜÇ %${power} • BIRAK VE ŞUT ÇEK` : "✋ TOPA BAS • GERİ/YANA ÇEK • BIRAK"}</div>}
             <style jsx>{`
               @keyframes keeperIdle { 0%,100% { transform: translate(-50%,-50%) translateY(0) rotate(-1deg); } 50% { transform: translate(-50%,-50%) translateY(-2px) rotate(1deg); } }
-              @keyframes keeperHop { 0% { transform: translateY(0); } 35% { transform: translateY(-7px); } 100% { transform: translateY(-2px); } }
+              @keyframes keeperJump {
+                0% { transform: translateY(0) scaleY(1); }
+                12% { transform: translateY(2px) scaleY(.96); }
+                34% { transform: translateY(-16px) scaleY(1.02); }
+                68% { transform: translateY(-12px) scaleY(1); }
+                100% { transform: translateY(-4px) scaleY(1); }
+              }
             `}</style>
           </div>
         ) : (
