@@ -95,8 +95,15 @@ export default function PenaltyPage() {
       const vertical = Math.abs(target.y - keeperTarget.y);
       const saved = horizontal <= (dive === 0 ? 10.5 : 13) && vertical <= 7.2;
       const nextResult: Result = saved ? "saved" : "goal";
-      if (saved) { setBall({ x: keeperTarget.x + dive * 1.5, y: keeperTarget.y + 1.2 }); setStreak(0); }
-      else { const corner = Math.abs(target.x - 50) > 20 || target.y < 24.5; setScore((v) => v + 100 + (corner ? 50 : 0) + Math.min(streak, 4) * 20); setStreak((v) => v + 1); }
+      if (saved) {
+        const side = dive !== 0 ? dive : target.x < keeperTarget.x ? -1 : 1;
+        setBall({ x: keeperTarget.x + side * (dive === 0 ? 4.2 : 5.6), y: keeperTarget.y - 1.2 });
+        setStreak(0);
+      } else {
+        const corner = Math.abs(target.x - 50) > 20 || target.y < 24.5;
+        setScore((v) => v + 100 + (corner ? 50 : 0) + Math.min(streak, 4) * 20);
+        setStreak((v) => v + 1);
+      }
       setMarks((old) => old.map((m, i) => i === shot ? nextResult : m)); setResult(nextResult); setPhase("resolved");
     }, 460);
   }
@@ -137,14 +144,19 @@ export default function PenaltyPage() {
             <div className="absolute left-1/2 top-[58.8%] h-[11%] w-[38%] -translate-x-1/2 rounded-b-full border-x border-b border-white/75" />
             <div className="absolute left-1/2 top-[50.5%] h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-white/90" />
 
-            <div className="absolute z-20 transition-[left,top,transform] duration-[420ms] ease-out" style={{ left: `${keeper.x}%`, top: `${keeper.y}%`, transform: `translate(-50%,-50%) rotate(${keeperDive * 24}deg)`, animation: isIdle ? "keeperIdle 1.1s ease-in-out infinite" : "none" }}><Keeper /></div>
+            <div className="absolute z-20 transition-[left,top,transform] duration-[420ms] ease-out" style={{ left: `${keeper.x}%`, top: `${keeper.y}%`, transform: `translate(-50%,-50%) rotate(${keeperDive * 24}deg)`, animation: isIdle ? "keeperIdle 1.1s ease-in-out infinite" : "none" }}>
+              <div style={{ animation: phase === "shooting" && keeperDive !== 0 ? "keeperHop 420ms ease-out both" : "none" }}><Keeper /></div>
+            </div>
 
             {phase === "aiming" && <svg className="pointer-events-none absolute inset-0 z-30 h-full w-full"><defs><marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#ffd93d" /></marker></defs><line x1={arrowStart.x} y1={arrowStart.y} x2={aimPx.x} y2={aimPx.y} stroke="#ffd93d" strokeWidth="2.4" strokeLinecap="round" markerEnd="url(#arrow)" /><circle cx={aimPx.x} cy={aimPx.y} r="6.5" fill="rgba(255,217,61,.06)" stroke="#ffd93d" strokeWidth="1.8" /></svg>}
 
             <button ref={ballRef} aria-label="Topu nişanla ve bırak" onPointerDown={onBallDown} disabled={phase !== "ready"} className="absolute z-40 -translate-x-1/2 -translate-y-1/2 transition-all duration-[440ms] ease-out disabled:pointer-events-none" style={{ left: `${ball.x}%`, top: `${ball.y}%`, touchAction: "none" }}><Football /></button>
             <div className="absolute left-1/2 top-[80%] z-30 flex -translate-x-1/2 gap-1.5 rounded-full border border-cyan-300/20 bg-[#061f36]/92 px-3 py-2 shadow-lg">{marks.map((mark, index) => <span key={index} className="text-[12px]">{mark === "goal" ? "⚽" : mark === "saved" ? "🧤" : "⚪"}</span>)}</div>
             {phase === "resolved" ? <div className="absolute bottom-[4%] left-[10%] right-[10%] z-50 flex items-center gap-2"><div className={`flex-1 rounded-xl px-3 py-3 text-center text-xs font-black ${result === "goal" ? "bg-emerald-500" : "bg-sky-500"}`}>{result === "goal" ? "⚽ GOL" : "🧤 KURTARIŞ"}</div><button onClick={next} className="rounded-xl bg-yellow-400 px-4 py-3 text-xs font-black text-[#06152b]">{shot + 1 >= TOTAL_SHOTS ? "SONUÇ →" : "SIRADAKİ →"}</button></div> : <div className="absolute bottom-[4%] left-[8%] right-[8%] z-40 rounded-xl border border-cyan-300/20 bg-[#061f36]/95 px-3 py-3 text-center text-[11px] font-black shadow-xl">{phase === "shooting" ? "ŞUT..." : phase === "aiming" ? `GÜÇ %${power} • BIRAK VE ŞUT ÇEK` : "✋ TOPA BAS • GERİ/YANA ÇEK • BIRAK"}</div>}
-            <style jsx>{`@keyframes keeperIdle { 0%,100% { transform: translate(-50%,-50%) translateY(0) rotate(-1deg); } 50% { transform: translate(-50%,-50%) translateY(-2px) rotate(1deg); } }`}</style>
+            <style jsx>{`
+              @keyframes keeperIdle { 0%,100% { transform: translate(-50%,-50%) translateY(0) rotate(-1deg); } 50% { transform: translate(-50%,-50%) translateY(-2px) rotate(1deg); } }
+              @keyframes keeperHop { 0% { transform: translateY(0); } 35% { transform: translateY(-7px); } 100% { transform: translateY(-2px); } }
+            `}</style>
           </div>
         ) : (
           <div className="m-4 rounded-3xl border border-cyan-300/20 bg-[#07264d] p-8 text-center"><div className="text-6xl">🏆</div><h2 className="mt-4 text-3xl font-black">Seri Bitti</h2><p className="mt-2 text-slate-300">10 penaltı sonunda skorun</p><p className="mt-5 text-5xl font-black text-yellow-300">{score.toLocaleString("tr-TR")}</p><button onClick={restart} className="mt-8 w-full rounded-2xl bg-emerald-400 py-4 font-black text-[#05294a]">TEKRAR OYNA</button><Link href="/tr" className="mt-3 block w-full rounded-2xl border border-white/15 bg-white/5 py-3 text-sm font-black text-white">ANA SAYFAYA DÖN</Link></div>
