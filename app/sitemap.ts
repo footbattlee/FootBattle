@@ -5,8 +5,8 @@ import { SITE_URL } from "@/lib/seo";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // Keep the sitemap focused on public publisher-content pages. Thin,
-  // account/session and competitive state pages are intentionally excluded.
+  // AdSense/SEO hygiene: expose publisher-content pages only. Interactive app,
+  // account, session and game-state routes are intentionally excluded.
   const pages: Array<{ path: string; changeFrequency: "daily" | "weekly"; priority: number }> = [
     { path: "/futbol-oyunlari", changeFrequency: "weekly", priority: 0.95 },
     { path: "/futbolcu-tahmin-oyunu", changeFrequency: "weekly", priority: 0.9 },
@@ -34,20 +34,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/terms", changeFrequency: "weekly", priority: 0.4 },
     { path: "/tr", changeFrequency: "daily", priority: 1 },
     { path: "/en", changeFrequency: "daily", priority: 1 },
-    { path: "/tr/guess-the-player", changeFrequency: "daily", priority: 0.95 },
-    { path: "/en/guess-the-player", changeFrequency: "daily", priority: 0.95 },
-    { path: "/tr/guess-the-player/super-lig", changeFrequency: "daily", priority: 0.98 },
-    { path: "/en/guess-the-player/super-lig", changeFrequency: "daily", priority: 0.92 },
-    { path: "/tr/career-path", changeFrequency: "daily", priority: 0.9 },
-    { path: "/en/career-path", changeFrequency: "daily", priority: 0.9 },
     { path: "/tr/daily-faceoff", changeFrequency: "daily", priority: 1 },
     { path: "/en/daily-faceoff", changeFrequency: "daily", priority: 1 },
-    { path: "/tr/survivor", changeFrequency: "daily", priority: 0.95 },
-    { path: "/en/survivor", changeFrequency: "daily", priority: 0.95 },
-    { path: "/tr/tic-tac-toe", changeFrequency: "daily", priority: 0.95 },
-    { path: "/en/tic-tac-toe", changeFrequency: "daily", priority: 0.95 },
-    { path: "/tr/wordle", changeFrequency: "daily", priority: 0.95 },
-    { path: "/en/wordle", changeFrequency: "daily", priority: 0.95 },
   ];
 
   const staticPages: MetadataRoute.Sitemap = pages.map((page) => ({
@@ -57,14 +45,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   try {
-    const [{ data: survivorSets }, { data: faceoffs }] = await Promise.all([
-      supabaseAdmin.from("survivor_sets").select("slug, updated_at").eq("is_active", true).order("updated_at", { ascending: false }),
-      supabaseAdmin.from("daily_faceoffs").select("match_date, left_name, right_name, updated_at").eq("is_active", true).order("match_date", { ascending: false }),
-    ]);
-    const survivorPages: MetadataRoute.Sitemap = (survivorSets ?? []).flatMap((set) => [
-      { url: `${SITE_URL}/tr/survivor/${set.slug}`, lastModified: set.updated_at ? new Date(set.updated_at) : undefined, changeFrequency: "weekly" as const, priority: 0.9 },
-      { url: `${SITE_URL}/en/survivor/${set.slug}`, lastModified: set.updated_at ? new Date(set.updated_at) : undefined, changeFrequency: "weekly" as const, priority: 0.9 },
-    ]);
+    const { data: faceoffs } = await supabaseAdmin
+      .from("daily_faceoffs")
+      .select("match_date, left_name, right_name, updated_at")
+      .eq("is_active", true)
+      .order("match_date", { ascending: false });
+
     const faceoffPages: MetadataRoute.Sitemap = (faceoffs ?? []).flatMap((faceoff) => {
       const slug = faceoffSlug(faceoff);
       const lastModified = faceoff.updated_at ? new Date(faceoff.updated_at) : undefined;
@@ -73,7 +59,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         { url: `${SITE_URL}/en/daily-faceoff/${slug}`, lastModified, changeFrequency: "weekly" as const, priority: 0.85 },
       ];
     });
-    return [...staticPages, ...survivorPages, ...faceoffPages];
+
+    return [...staticPages, ...faceoffPages];
   } catch {
     return staticPages;
   }
