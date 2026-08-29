@@ -27,7 +27,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/transfer-quiz", changeFrequency: "daily", priority: 0.9 },
     { path: "/halisaha-kadro", changeFrequency: "weekly", priority: 0.9 },
     { path: "/halisaha-mac", changeFrequency: "weekly", priority: 0.8 },
-    { path: "/takim-kadro", changeFrequency: "weekly", priority: 0.85 },
     { path: "/about", changeFrequency: "weekly", priority: 0.5 },
     { path: "/contact", changeFrequency: "weekly", priority: 0.5 },
     { path: "/privacy", changeFrequency: "weekly", priority: 0.4 },
