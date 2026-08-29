@@ -113,7 +113,10 @@ export default function PenaltyPage() {
     <main className="min-h-screen overflow-x-hidden bg-[#06152b] text-white select-none">
       <div className="mx-auto max-w-md pb-[max(18px,env(safe-area-inset-bottom))]">
         <header className="flex items-center justify-between bg-[#071d3c] px-3 py-3">
-          <Link href="/tr" className="flex items-center gap-2 rounded-xl px-1 py-1 active:scale-95"><span className="text-xl">←</span><span className="text-2xl">⚽</span><span className="text-[20px] font-black italic">FOOT<span className="text-emerald-400">BATTLE</span></span></Link>
+          <Link href="/tr" className="flex items-center gap-2 rounded-xl px-1 py-1 active:scale-95">
+            <span className="text-xl">←</span>
+            <img src="/footbattle-logo.png" alt="FootBattle" className="h-11 w-auto object-contain" />
+          </Link>
           <div className="flex gap-2 text-lg"><span className="rounded-xl border border-cyan-300/20 bg-[#061a34] px-3 py-2">🔊</span><span className="rounded-xl border border-cyan-300/20 bg-[#061a34] px-3 py-2">Ⅱ</span></div>
         </header>
         <div className="grid grid-cols-3 gap-2 bg-[#071d3c] px-3 pb-3"><Stat label="ŞUT" value={`⚽ ${Math.min(shot + 1, TOTAL_SHOTS)}/${TOTAL_SHOTS}`} /><Stat label="SERİ" value={`🔥 x${streak}`} /><Stat label="SKOR" value={`🏆 ${score.toLocaleString("tr-TR")}`} /></div>
@@ -157,7 +160,14 @@ function Keeper() {
       <ellipse cx="34" cy="78" rx="20" ry="1.6" fill="rgba(0,0,0,.20)" />
       <circle cx="34" cy="10" r="7.5" fill="#b9784b" stroke="#2c211b" strokeWidth="1" />
       <path d="M27 8 Q29 1 34 1 Q40 1 42 7 Q37 5 28 7 Z" fill="#201a18" />
-      <path d="M31 12 Q34 14 37 12" fill="none" stroke="#6f3f2a" strokeWidth=".7" strokeLinecap="round" />
+      <path d="M29.5 8.8 Q31.3 7.9 32.8 8.8" fill="none" stroke="#3a241a" strokeWidth=".8" strokeLinecap="round" />
+      <path d="M35.2 8.8 Q36.7 7.9 38.5 8.8" fill="none" stroke="#3a241a" strokeWidth=".8" strokeLinecap="round" />
+      <ellipse cx="31.5" cy="10.5" rx="1.15" ry=".9" fill="#fff8ed" />
+      <ellipse cx="36.5" cy="10.5" rx="1.15" ry=".9" fill="#fff8ed" />
+      <circle cx="31.7" cy="10.55" r=".45" fill="#201813" />
+      <circle cx="36.3" cy="10.55" r=".45" fill="#201813" />
+      <path d="M34 10.7 L33.5 12.2 L34.5 12.2" fill="none" stroke="#7d452f" strokeWidth=".55" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M31.7 13.1 Q34 14.2 36.3 13.1" fill="none" stroke="#6f3f2a" strokeWidth=".7" strokeLinecap="round" />
 
       <path d="M23 23 Q34 17 45 23 L43 46 Q34 50 25 46 Z" fill="#e96936" stroke="#b94724" strokeWidth="1.1" />
       <path d="M24 24 Q34 20 44 24" fill="none" stroke="#ff9368" strokeWidth="1.5" />
@@ -169,14 +179,8 @@ function Keeper() {
       <circle cx="15" cy="37" r="4.2" fill="#e96936" />
       <circle cx="53" cy="37" r="4.2" fill="#e96936" />
 
-      <g>
-        <path d="M3 39 Q4 34 9 34 L13 38 L11 45 Q6 47 3 44 Z" fill="#c9f53d" stroke="#76951e" strokeWidth="1" />
-        <path d="M5 36 L8 33 M8 36 L11 34" stroke="#efffb0" strokeWidth="1" strokeLinecap="round" />
-      </g>
-      <g>
-        <path d="M65 39 Q64 34 59 34 L55 38 L57 45 Q62 47 65 44 Z" fill="#c9f53d" stroke="#76951e" strokeWidth="1" />
-        <path d="M63 36 L60 33 M60 36 L57 34" stroke="#efffb0" strokeWidth="1" strokeLinecap="round" />
-      </g>
+      <g><path d="M3 39 Q4 34 9 34 L13 38 L11 45 Q6 47 3 44 Z" fill="#c9f53d" stroke="#76951e" strokeWidth="1" /><path d="M5 36 L8 33 M8 36 L11 34" stroke="#efffb0" strokeWidth="1" strokeLinecap="round" /></g>
+      <g><path d="M65 39 Q64 34 59 34 L55 38 L57 45 Q62 47 65 44 Z" fill="#c9f53d" stroke="#76951e" strokeWidth="1" /><path d="M63 36 L60 33 M60 36 L57 34" stroke="#efffb0" strokeWidth="1" strokeLinecap="round" /></g>
 
       <path d="M25 45 Q34 49 43 45 L42 53 Q34 56 26 53 Z" fill="#17283b" />
       <path d="M27 52 L22 64 L23 72" fill="none" stroke="#17283b" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
