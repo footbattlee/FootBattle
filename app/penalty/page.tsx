@@ -15,11 +15,13 @@ const AIM = { left: 23, right: 77, top: 22.5, bottom: 32.5 };
 
 export default function PenaltyPage() {
   const pitchRef = useRef<HTMLDivElement>(null);
+  const ballRef = useRef<HTMLButtonElement>(null);
   const dragStartRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const [phase, setPhase] = useState<Phase>("ready");
   const [dragOffset, setDragOffset] = useState<Point>({ x: 0, y: 0 });
   const [aim, setAim] = useState<Point>({ x: 50, y: 28 });
   const [ball, setBall] = useState<Point>(BALL_START);
+  const [arrowStart, setArrowStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [keeper, setKeeper] = useState<Point>(KEEPER_START);
   const [keeperDive, setKeeperDive] = useState<-1 | 0 | 1>(0);
   const [shot, setShot] = useState(0);
@@ -46,6 +48,16 @@ export default function PenaltyPage() {
   const finished = shot >= TOTAL_SHOTS;
   const power = Math.round(Math.min(1, Math.hypot(dragOffset.x, dragOffset.y) / 27) * 100);
 
+  function measureBallCenter() {
+    const pitch = pitchRef.current?.getBoundingClientRect();
+    const ballBox = ballRef.current?.getBoundingClientRect();
+    if (!pitch || !ballBox) return;
+    setArrowStart({
+      x: ballBox.left + ballBox.width / 2 - pitch.left,
+      y: ballBox.top + ballBox.height / 2 - pitch.top,
+    });
+  }
+
   function updateAim(clientX: number, clientY: number) {
     const start = dragStartRef.current;
     const rect = pitchRef.current?.getBoundingClientRect();
@@ -62,6 +74,7 @@ export default function PenaltyPage() {
   function onMove(event: PointerEvent<HTMLDivElement>) {
     if (phase !== "aiming") return;
     event.preventDefault();
+    measureBallCenter();
     updateAim(event.clientX, event.clientY);
   }
 
@@ -70,6 +83,7 @@ export default function PenaltyPage() {
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     dragStartRef.current = { clientX: event.clientX, clientY: event.clientY };
+    measureBallCenter();
     setPhase("aiming");
   }
 
@@ -127,6 +141,8 @@ export default function PenaltyPage() {
   function restart() { setShot(0); setScore(0); setStreak(0); setMarks(Array(TOTAL_SHOTS).fill(null)); resetForNext(); }
 
   const isIdle = phase === "ready" || phase === "aiming";
+  const pitchRect = pitchRef.current?.getBoundingClientRect();
+  const aimPx = pitchRect ? { x: (aim.x / 100) * pitchRect.width, y: (aim.y / 100) * pitchRect.height } : { x: 0, y: 0 };
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#06152b] text-white select-none">
@@ -184,12 +200,13 @@ export default function PenaltyPage() {
             {phase === "aiming" && (
               <svg className="pointer-events-none absolute inset-0 z-30 h-full w-full">
                 <defs><marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#ffd93d" /></marker></defs>
-                <line x1={`${BALL_START.x}%`} y1={`${BALL_START.y}%`} x2={`${aim.x}%`} y2={`${aim.y}%`} stroke="#ffd93d" strokeWidth="2.4" strokeLinecap="round" markerEnd="url(#arrow)" />
-                <circle cx={`${aim.x}%`} cy={`${aim.y}%`} r="6.5" fill="rgba(255,217,61,.06)" stroke="#ffd93d" strokeWidth="1.8" />
+                <line x1={arrowStart.x} y1={arrowStart.y} x2={aimPx.x} y2={aimPx.y} stroke="#ffd93d" strokeWidth="2.4" strokeLinecap="round" markerEnd="url(#arrow)" />
+                <circle cx={aimPx.x} cy={aimPx.y} r="6.5" fill="rgba(255,217,61,.06)" stroke="#ffd93d" strokeWidth="1.8" />
               </svg>
             )}
 
             <button
+              ref={ballRef}
               aria-label="Topu nişanla ve bırak"
               onPointerDown={onBallDown}
               disabled={phase !== "ready"}
@@ -235,25 +252,23 @@ export default function PenaltyPage() {
 
 function Keeper() {
   return (
-    <div className="relative h-[68px] w-[70px] drop-shadow-[0_3px_3px_rgba(0,0,0,.35)]">
-      <div className="absolute left-1/2 top-0 h-[15px] w-[15px] -translate-x-1/2 rounded-full border border-[#2c1f18] bg-[#b9784b]" />
-      <div className="absolute left-1/2 top-[13px] h-[28px] w-[24px] -translate-x-1/2 rounded-[8px_8px_5px_5px] bg-[#176b38]">
-        <span className="absolute left-1/2 top-[5px] -translate-x-1/2 text-[8px] font-black text-white">1</span>
-      </div>
-      <div className="absolute left-[8px] top-[17px] h-[6px] w-[25px] origin-right -rotate-[18deg] rounded-full bg-[#176b38]" />
-      <div className="absolute right-[8px] top-[17px] h-[6px] w-[25px] origin-left rotate-[18deg] rounded-full bg-[#176b38]" />
-      <div className="absolute left-[2px] top-[14px] h-[10px] w-[8px] rounded bg-[#f2c94c]" />
-      <div className="absolute right-[2px] top-[14px] h-[10px] w-[8px] rounded bg-[#f2c94c]" />
-      <div className="absolute left-[25px] top-[39px] h-[22px] w-[6px] -rotate-[5deg] rounded bg-[#111827]" />
-      <div className="absolute right-[25px] top-[39px] h-[22px] w-[6px] rotate-[5deg] rounded bg-[#111827]" />
-      <div className="absolute bottom-0 left-[18px] h-[5px] w-[16px] rounded-full bg-white" />
-      <div className="absolute bottom-0 right-[18px] h-[5px] w-[16px] rounded-full bg-white" />
+    <div className="relative h-[64px] w-[58px] drop-shadow-[0_3px_3px_rgba(0,0,0,.35)]">
+      <div className="absolute left-1/2 top-0 h-[15px] w-[15px] -translate-x-1/2 rounded-full border border-[#2e231c] bg-[#b9784b]" />
+      <div className="absolute left-1/2 top-[13px] h-[27px] w-[24px] -translate-x-1/2 rounded-t-[8px] bg-[#176b38]"><span className="absolute left-1/2 top-[5px] -translate-x-1/2 text-[8px] font-black text-white">1</span></div>
+      <div className="absolute left-[1px] top-[17px] h-[6px] w-[22px] origin-right -rotate-[17deg] rounded-full bg-[#176b38]" />
+      <div className="absolute right-[1px] top-[17px] h-[6px] w-[22px] origin-left rotate-[17deg] rounded-full bg-[#176b38]" />
+      <div className="absolute left-0 top-[13px] h-[10px] w-[8px] rounded bg-[#f4c430]" />
+      <div className="absolute right-0 top-[13px] h-[10px] w-[8px] rounded bg-[#f4c430]" />
+      <div className="absolute bottom-[3px] left-[19px] h-[23px] w-[7px] rounded bg-[#121b2c]" />
+      <div className="absolute bottom-[3px] right-[19px] h-[23px] w-[7px] rounded bg-[#121b2c]" />
+      <div className="absolute bottom-0 left-[13px] h-[5px] w-[18px] rounded-full bg-white" />
+      <div className="absolute bottom-0 right-[13px] h-[5px] w-[18px] rounded-full bg-white" />
     </div>
   );
 }
 
 function Football() {
-  return <span className="block text-[30px] leading-none drop-shadow-[0_5px_5px_rgba(0,0,0,.34)]">⚽</span>;
+  return <span className="block text-[28px] leading-none drop-shadow-[0_5px_5px_rgba(0,0,0,.32)]">⚽</span>;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
