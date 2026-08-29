@@ -11,6 +11,7 @@ type ProfileRow = { id: string; created_at: string };
 
 const ABANDON_AFTER_MS = 30 * 60 * 1000;
 const PAGE_SIZE = 1000;
+const EVENT_ONLY_GAMES = new Set(["shooter"]);
 const SOLO_GAME_NAMES = new Set([
   "wordle",
   "guess_the_player",
@@ -21,6 +22,7 @@ const SOLO_GAME_NAMES = new Set([
   "club_nation",
   "club_clash",
   "career_path",
+  "shooter",
 ]);
 
 function getStartDate(range: RangeKey) {
@@ -44,6 +46,7 @@ function inRange(value: string | null | undefined, startDate: string | null) { r
 function dayKey(value: string) { return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value)); }
 function platformOf(metadata: Record<string, unknown> | null) { const p = metadata?.platform; return p === "android" ? "android" : p === "web" ? "web" : "unknown"; }
 function visitorIdOf(metadata: Record<string, unknown> | null) { const id = metadata?.visitor_id; return typeof id === "string" && id.length >= 8 ? id : null; }
+function durationMsOf(metadata: Record<string, unknown> | null) { const value = metadata?.duration_ms; return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null; }
 
 async function fetchAll(table: string, select: string, startDate?: string | null, dateColumn = "created_at") {
   const rows: unknown[] = [];
@@ -79,8 +82,10 @@ export async function GET(request: NextRequest) {
 
     const sessionGameName = new Map<string, string>();
     const sessionIdentity = new Map<string, { userId: string | null; visitorId: string | null }>();
+    const completedEventBySession = new Map<string, AnalyticsRow>();
     const sharedByGame = new Map<string, number>();
     const playAgainRows: AnalyticsRow[] = [];
+    const eventOnlyStarts: AnalyticsRow[] = [];
     const platforms = { web: 0, android: 0, unknown: 0 };
     const selectedUsers = new Set<string>();
     const selectedAnonymousVisitors = new Set<string>();
@@ -94,8 +99,12 @@ export async function GET(request: NextRequest) {
         if (row.session_id && SOLO_GAME_NAMES.has(gameName)) {
           sessionGameName.set(row.session_id, gameName);
           sessionIdentity.set(row.session_id, { userId: row.user_id, visitorId });
+          if (EVENT_ONLY_GAMES.has(gameName)) eventOnlyStarts.push(row);
         }
         if (!row.user_id && visitorId) selectedAnonymousVisitors.add(visitorId);
+      }
+      if (row.event_name === "game_completed" && row.session_id && SOLO_GAME_NAMES.has(gameName)) {
+        completedEventBySession.set(row.session_id, row);
       }
       if (row.user_id) {
         selectedUsers.add(row.user_id);
@@ -124,7 +133,7 @@ export async function GET(request: NextRequest) {
       if (row.mode !== "solo") continue;
       const sourceId = row.source_session_id ?? row.id;
       const gameName = sessionGameName.get(sourceId) ?? row.game_code;
-      if (!SOLO_GAME_NAMES.has(gameName)) continue;
+      if (!SOLO_GAME_NAMES.has(gameName) || EVENT_ONLY_GAMES.has(gameName)) continue;
 
       canonicalSoloSessionGame.set(row.id, gameName);
       canonicalSoloSessionGame.set(sourceId, gameName);
@@ -141,13 +150,44 @@ export async function GET(request: NextRequest) {
         selectedAnonymousVisitors.add(identity.visitorId);
       }
 
-      const completed = row.status === "finished" || row.status === "rejected";
-      const abandoned = row.status === "abandoned" || (row.status === "active" && nowMs - new Date(row.started_at).getTime() >= ABANDON_AFTER_MS);
+      const completionEvent = completedEventBySession.get(sourceId) ?? completedEventBySession.get(row.id);
+      const completed = row.status === "finished" || row.status === "rejected" || Boolean(completionEvent);
+      const abandoned = !completed && (row.status === "abandoned" || (row.status === "active" && nowMs - new Date(row.started_at).getTime() >= ABANDON_AFTER_MS));
       if (completed) {
         game.completed += 1;
-        const seconds = Math.round(Number(row.duration_ms ?? 0) / 1000);
+        const recordedDuration = Number(row.duration_ms ?? 0);
+        const recoveredDuration = completionEvent ? new Date(completionEvent.created_at).getTime() - new Date(row.started_at).getTime() : 0;
+        const seconds = Math.round((recordedDuration > 0 ? recordedDuration : recoveredDuration) / 1000);
         if (seconds >= 1 && seconds <= 3600) game.durations.push(seconds);
       } else if (abandoned) {
+        game.abandoned += 1;
+      } else {
+        game.inProgress += 1;
+      }
+    }
+
+    const seenEventOnlySessions = new Set<string>();
+    for (const startRow of eventOnlyStarts) {
+      const sessionId = startRow.session_id;
+      const gameName = startRow.game_name ?? "unknown";
+      if (!sessionId || seenEventOnlySessions.has(`${gameName}:${sessionId}`)) continue;
+      seenEventOnlySessions.add(`${gameName}:${sessionId}`);
+      canonicalSoloSessionGame.set(sessionId, gameName);
+
+      const game = ensureGame(gameName);
+      game.started += 1;
+      const visitorId = visitorIdOf(startRow.metadata);
+      if (startRow.user_id) game.users.add(startRow.user_id);
+      else if (visitorId) game.anonymousVisitors.add(visitorId);
+
+      const completionEvent = completedEventBySession.get(sessionId);
+      if (completionEvent) {
+        game.completed += 1;
+        const explicitDuration = durationMsOf(completionEvent.metadata);
+        const measuredDuration = new Date(completionEvent.created_at).getTime() - new Date(startRow.created_at).getTime();
+        const seconds = Math.round((explicitDuration ?? measuredDuration) / 1000);
+        if (seconds >= 1 && seconds <= 3600) game.durations.push(seconds);
+      } else if (nowMs - new Date(startRow.created_at).getTime() >= ABANDON_AFTER_MS) {
         game.abandoned += 1;
       } else {
         game.inProgress += 1;
@@ -234,7 +274,7 @@ export async function GET(request: NextRequest) {
     }
     const survivors = (sets ?? []).map((s) => ({ id: s.id, slug: s.slug, title: s.title_tr || s.title, isActive: s.is_active, completions: survivorCounts.get(String(s.id)) ?? 0 })).sort((a, b) => b.completions - a.completions);
 
-    return NextResponse.json({ ok: true, range, source: "canonical_game_sessions", summary, audience, games, duelSummary, duelGames, survivors });
+    return NextResponse.json({ ok: true, range, source: "canonical_sessions_plus_completion_events", summary, audience, games, duelSummary, duelGames, survivors });
   } catch (error) {
     console.error("Analytics API error:", error);
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Analytics verileri alınamadı." }, { status: 500 });
