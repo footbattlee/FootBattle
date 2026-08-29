@@ -23,6 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/penalty", changeFrequency: "weekly", priority: 0.92 },
     { path: "/player-quiz", changeFrequency: "daily", priority: 0.9 },
     { path: "/club-nation", changeFrequency: "daily", priority: 0.9 },
+    { path: "/club-clash", changeFrequency: "daily", priority: 0.9 },
     { path: "/transfer-quiz", changeFrequency: "daily", priority: 0.9 },
     { path: "/halisaha-kadro", changeFrequency: "weekly", priority: 0.9 },
     { path: "/halisaha-mac", changeFrequency: "weekly", priority: 0.8 },
