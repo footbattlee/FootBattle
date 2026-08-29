@@ -5,8 +5,9 @@ import { SITE_URL } from "@/lib/seo";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // Keep the sitemap focused on public publisher-content pages. Thin,
+  // account/session and competitive state pages are intentionally excluded.
   const pages: Array<{ path: string; changeFrequency: "daily" | "weekly"; priority: number }> = [
-    { path: "", changeFrequency: "daily", priority: 0.8 },
     { path: "/futbol-oyunlari", changeFrequency: "weekly", priority: 0.95 },
     { path: "/futbolcu-tahmin-oyunu", changeFrequency: "weekly", priority: 0.9 },
     { path: "/futbol-bilgi-yarismasi", changeFrequency: "weekly", priority: 0.9 },
@@ -26,7 +27,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/halisaha-kadro", changeFrequency: "weekly", priority: 0.9 },
     { path: "/halisaha-mac", changeFrequency: "weekly", priority: 0.8 },
     { path: "/takim-kadro", changeFrequency: "weekly", priority: 0.85 },
-    { path: "/leaderboard", changeFrequency: "daily", priority: 0.7 },
     { path: "/about", changeFrequency: "weekly", priority: 0.5 },
     { path: "/contact", changeFrequency: "weekly", priority: 0.5 },
     { path: "/privacy", changeFrequency: "weekly", priority: 0.4 },
@@ -47,11 +47,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/en/tic-tac-toe", changeFrequency: "daily", priority: 0.95 },
     { path: "/tr/wordle", changeFrequency: "daily", priority: 0.95 },
     { path: "/en/wordle", changeFrequency: "daily", priority: 0.95 },
-    { path: "/tr/rank", changeFrequency: "daily", priority: 0.75 },
-    { path: "/en/rank", changeFrequency: "daily", priority: 0.75 },
   ];
 
-  const staticPages: MetadataRoute.Sitemap = pages.map((page) => ({ url: `${SITE_URL}${page.path}`, changeFrequency: page.changeFrequency, priority: page.priority }));
+  const staticPages: MetadataRoute.Sitemap = pages.map((page) => ({
+    url: `${SITE_URL}${page.path}`,
+    changeFrequency: page.changeFrequency,
+    priority: page.priority,
+  }));
 
   try {
     const [{ data: survivorSets }, { data: faceoffs }] = await Promise.all([

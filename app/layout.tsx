@@ -48,20 +48,18 @@ export const metadata: Metadata = {
   description: "Guess The Player, Futbol Wordle, Tic Tac Toe, Career Path, Transfer Quiz, Günün Kapışması ve futbol Survivor oyunlarını ücretsiz oyna. Arkadaşlarına meydan oku.",
   applicationName: "FootBattle",
   keywords: ["futbol oyunları", "futbol quiz", "football quiz", "futbolcu tahmin oyunu", "futbol bilgi yarışması", "FootBattle"],
-  alternates: { canonical: SITE_URL },
   openGraph: { type: "website", locale: "tr_TR", siteName: "FootBattle", title: "FootBattle | Futbol Oyunları Arenası", description: "Futbol bilgini test et, arkadaşlarına meydan oku ve her gün yeni futbol kapışmalarına katıl.", url: SITE_URL, images: [{ url: "/footbattle-logo.png", alt: "FootBattle futbol oyunları arenası" }] },
   twitter: { card: "summary_large_image", title: "FootBattle | Futbol Oyunları Arenası", description: "Futbol oyunları, quizler, düellolar ve günlük kapışmalar.", images: ["/footbattle-logo.png"] },
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 } },
   category: "games",
+  // Keep the publisher verification meta globally, but do not load Auto Ads on
+  // application/session screens during the AdSense cleanup phase.
   other: { "google-adsense-account": "ca-pub-2192914861529531" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="tr">
-      <head>
-        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2192914861529531" crossOrigin="anonymous" />
-      </head>
       <body>
         <SiteJsonLd />
         <FootballLocaleBridge />
