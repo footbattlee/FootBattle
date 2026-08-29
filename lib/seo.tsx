@@ -11,6 +11,19 @@ export const SITE_URL =
 
 export const DEFAULT_OG_IMAGE = "/footbattle-logo.png";
 
+export const NO_INDEX_METADATA: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+      noarchive: true,
+      nosnippet: true,
+    },
+  },
+};
+
 export function localizedAlternates(path: string) {
   const suffix = path.startsWith("/") ? path : `/${path}`;
   return {
