@@ -14,7 +14,7 @@ type Audience = { dau:number; wau:number; uniquePlayers:number; anonymousPlayers
 type AnalyticsResponse = { ok?:boolean; error?:string; source?:string; summary?:AnalyticsSummary; audience?:Audience; games?:GameAnalyticsRow[]; duelSummary?:DuelSummary; duelGames?:DuelGameRow[]; survivors?:SurvivorAnalyticsRow[] };
 
 const RANGE_OPTIONS:Array<{key:RangeKey;label:string}>=[{key:"today",label:"Bugün"},{key:"7d",label:"Son 7 Gün"},{key:"30d",label:"Son 30 Gün"},{key:"all",label:"Tümü"}];
-const GAME_LABELS:Record<string,string>={wordle:"Wordle",guess_the_player:"Guess the Player",super_lig_guess_the_player:"Süper Lig Guess the Player",player_quiz:"Player Quiz",transfer_quiz:"Transfer Quiz",tic_tac_toe:"Futbol Tic Tac Toe",club_nation:"1 Takım 1 Millet",club_clash:"2 Takım 1 Oyuncu",career_path:"Career Path"};
+const GAME_LABELS:Record<string,string>={wordle:"Wordle",guess_the_player:"Guess the Player",super_lig_guess_the_player:"Süper Lig Guess the Player",player_quiz:"Player Quiz",transfer_quiz:"Transfer Quiz",tic_tac_toe:"Futbol Tic Tac Toe",club_nation:"1 Takım 1 Millet",club_clash:"2 Takım 1 Oyuncu",career_path:"Career Path",shooter:"Şutör"};
 const EMPTY_SUMMARY:AnalyticsSummary={totalStarted:0,totalCompleted:0,totalAbandoned:0,totalInProgress:0,totalPlayAgain:0,totalShared:0,averageDurationSeconds:0};
 const EMPTY_DUEL:DuelSummary={created:0,accepted:0,started:0,completed:0,rejected:0,cancelled:0,uniquePlayers:0};
 const EMPTY_AUDIENCE:Audience={dau:0,wau:0,uniquePlayers:0,anonymousPlayers:0,newUsers:0,platforms:{web:0,android:0,unknown:0}};
