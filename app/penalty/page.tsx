@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { PointerEvent, useEffect, useRef, useState } from "react";
+import { GAME_NAMES, trackGameCompleted, trackGameStarted, trackPlayAgain } from "@/lib/analytics/game-analytics";
 import { GOAL_CROWD_AUDIO, SAVE_CROWD_AUDIO } from "./audio-data";
 
 const TOTAL_SHOTS = 10;
@@ -20,6 +21,10 @@ export default function PenaltyPage() {
   const dragStartRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const goalAudioRef = useRef<HTMLAudioElement | null>(null);
   const saveAudioRef = useRef<HTMLAudioElement | null>(null);
+  const analyticsSessionIdRef = useRef<string | null>(null);
+  const analyticsStartedAtRef = useRef<number | null>(null);
+  const analyticsStartedRef = useRef(false);
+  const analyticsCompletedRef = useRef(false);
   const [phase, setPhase] = useState<Phase>("ready");
   const [dragOffset, setDragOffset] = useState<Point>({ x: 0, y: 0 });
   const [aim, setAim] = useState<Point>({ x: 50, y: 28 });
@@ -56,6 +61,25 @@ export default function PenaltyPage() {
 
   const finished = shot >= TOTAL_SHOTS;
   const power = Math.round(Math.min(1, Math.hypot(dragOffset.x, dragOffset.y) / 27) * 100);
+
+  function getAnalyticsSessionId() {
+    if (analyticsSessionIdRef.current) return analyticsSessionIdRef.current;
+    const id = typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `shooter_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    analyticsSessionIdRef.current = id;
+    return id;
+  }
+
+  function ensureAnalyticsStarted() {
+    const id = getAnalyticsSessionId();
+    if (!analyticsStartedRef.current) {
+      analyticsStartedRef.current = true;
+      analyticsStartedAtRef.current = Date.now();
+      void trackGameStarted(GAME_NAMES.SHOOTER, id);
+    }
+    return id;
+  }
 
   function ensureAudio() {
     if (!goalAudioRef.current) {
@@ -114,6 +138,7 @@ export default function PenaltyPage() {
 
   function releaseShot() {
     if (phase !== "aiming") return;
+    const analyticsSessionId = ensureAnalyticsStarted();
     setPhase("shooting"); dragStartRef.current = null;
     const target = aim;
     const reads = Math.random() < 0.7;
@@ -125,21 +150,45 @@ export default function PenaltyPage() {
       const vertical = Math.abs(target.y - keeperTarget.y);
       const saved = horizontal <= (dive === 0 ? 10.5 : 13) && vertical <= 7.2;
       const nextResult: Result = saved ? "saved" : "goal";
+      let scoreGain = 0;
       if (saved) {
         const side = dive !== 0 ? dive : target.x < keeperTarget.x ? -1 : 1;
         setBall({ x: keeperTarget.x + side * (dive === 0 ? 4.2 : 5.6), y: keeperTarget.y - 1.2 }); setStreak(0);
       } else {
         const corner = Math.abs(target.x - 50) > 20 || target.y < 24.5;
-        setScore((v) => v + 100 + (corner ? 50 : 0) + Math.min(streak, 4) * 20); setStreak((v) => v + 1);
+        scoreGain = 100 + (corner ? 50 : 0) + Math.min(streak, 4) * 20;
+        setScore((v) => v + scoreGain); setStreak((v) => v + 1);
       }
       playCrowd(nextResult);
       setMarks((old) => old.map((m, i) => i === shot ? nextResult : m)); setResult(nextResult); setPhase("resolved");
+
+      if (shot === TOTAL_SHOTS - 1 && !analyticsCompletedRef.current) {
+        analyticsCompletedRef.current = true;
+        const goals = marks.filter((mark) => mark === "goal").length + (nextResult === "goal" ? 1 : 0);
+        const durationMs = Math.max(0, Date.now() - (analyticsStartedAtRef.current ?? Date.now()));
+        void trackGameCompleted(GAME_NAMES.SHOOTER, analyticsSessionId, {
+          score: score + scoreGain,
+          goals,
+          saves: TOTAL_SHOTS - goals,
+          shots: TOTAL_SHOTS,
+          duration_ms: durationMs,
+          ranked: false,
+        });
+      }
     }, 460);
   }
 
   function resetForNext() { setResult(null); setBall(BALL_START); setAim({ x: 50, y: 28 }); setKeeper(KEEPER_START); setKeeperDive(0); setDragOffset({ x: 0, y: 0 }); setPhase("ready"); }
   function next() { setShot((v) => v + 1); resetForNext(); }
-  function restart() { setShot(0); setScore(0); setStreak(0); setMarks(Array(TOTAL_SHOTS).fill(null)); resetForNext(); }
+  function restart() {
+    const previousSession = analyticsSessionIdRef.current;
+    if (previousSession) void trackPlayAgain(GAME_NAMES.SHOOTER, previousSession);
+    analyticsSessionIdRef.current = null;
+    analyticsStartedAtRef.current = null;
+    analyticsStartedRef.current = false;
+    analyticsCompletedRef.current = false;
+    setShot(0); setScore(0); setStreak(0); setMarks(Array(TOTAL_SHOTS).fill(null)); resetForNext();
+  }
 
   const isIdle = phase === "ready" || phase === "aiming";
   const pitchRect = pitchRef.current?.getBoundingClientRect();
