@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import LocalizedSurvivorGameClient from "./LocalizedSurvivorGameClient";
-import { SITE_URL } from "@/lib/seo";
+import { NO_INDEX_METADATA, SITE_URL } from "@/lib/seo";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 type Params = Promise<{ locale: string; slug: string }>;
@@ -43,7 +43,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const normalized: Locale | null = locale === "en" ? "en" : locale === "tr" ? "tr" : null;
   if (!normalized) return {};
   const rawSet = await getSet(slug);
-  if (!rawSet) return { title: normalized === "en" ? "Survivor Not Found | FootBattle" : "Survivor Bulunamadı | FootBattle", robots: { index: false, follow: false } };
+  if (!rawSet) return { title: normalized === "en" ? "Survivor Not Found | FootBattle" : "Survivor Bulunamadı | FootBattle", ...NO_INDEX_METADATA };
 
   const set = localizeSet(rawSet, normalized);
   const en = normalized === "en";
@@ -52,6 +52,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     : `${set.title}: 16 ${set.kind === "team" ? "takım" : "futbolcu"} arasından seçim yap, sabit eleme ağacında finale ilerle ve kendi şampiyonunu belirle.`);
 
   return {
+    ...NO_INDEX_METADATA,
     title: `${set.title} Survivor | FootBattle`,
     description,
     alternates: {
@@ -70,7 +71,6 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
       alternateLocale: [en ? "tr_TR" : "en_US"],
       type: "website",
     },
-    robots: { index: true, follow: true },
   };
 }
 
