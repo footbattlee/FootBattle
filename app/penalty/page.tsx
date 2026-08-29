@@ -191,7 +191,7 @@ export default function PenaltyPage() {
                 left: `${keeper.x}%`,
                 top: `${keeper.y}%`,
                 transform: `translate(-50%,-50%) rotate(${keeperDive * 24}deg)`,
-                animation: isIdle ? "keeperIdle 1.15s ease-in-out infinite" : "none",
+                animation: isIdle ? "keeperIdle 1.1s ease-in-out infinite" : "none",
               }}
             >
               <Keeper />
@@ -233,8 +233,8 @@ export default function PenaltyPage() {
 
             <style jsx>{`
               @keyframes keeperIdle {
-                0%,100% { transform: translate(-50%,-50%) translateY(0) scaleY(1); }
-                50% { transform: translate(-50%,-50%) translateY(-2px) scaleY(.985); }
+                0%,100% { transform: translate(-50%,-50%) translateY(0) rotate(-1deg); }
+                50% { transform: translate(-50%,-50%) translateY(-2px) rotate(1deg); }
               }
             `}</style>
           </div>
@@ -252,18 +252,39 @@ export default function PenaltyPage() {
 
 function Keeper() {
   return (
-    <div className="relative h-[64px] w-[58px] drop-shadow-[0_3px_3px_rgba(0,0,0,.35)]">
-      <div className="absolute left-1/2 top-0 h-[15px] w-[15px] -translate-x-1/2 rounded-full border border-[#2e231c] bg-[#b9784b]" />
-      <div className="absolute left-1/2 top-[13px] h-[27px] w-[24px] -translate-x-1/2 rounded-t-[8px] bg-[#176b38]"><span className="absolute left-1/2 top-[5px] -translate-x-1/2 text-[8px] font-black text-white">1</span></div>
-      <div className="absolute left-[1px] top-[17px] h-[6px] w-[22px] origin-right -rotate-[17deg] rounded-full bg-[#176b38]" />
-      <div className="absolute right-[1px] top-[17px] h-[6px] w-[22px] origin-left rotate-[17deg] rounded-full bg-[#176b38]" />
-      <div className="absolute left-0 top-[13px] h-[10px] w-[8px] rounded bg-[#f4c430]" />
-      <div className="absolute right-0 top-[13px] h-[10px] w-[8px] rounded bg-[#f4c430]" />
-      <div className="absolute bottom-[3px] left-[19px] h-[23px] w-[7px] rounded bg-[#121b2c]" />
-      <div className="absolute bottom-[3px] right-[19px] h-[23px] w-[7px] rounded bg-[#121b2c]" />
-      <div className="absolute bottom-0 left-[13px] h-[5px] w-[18px] rounded-full bg-white" />
-      <div className="absolute bottom-0 right-[13px] h-[5px] w-[18px] rounded-full bg-white" />
-    </div>
+    <svg width="70" height="78" viewBox="0 0 70 78" aria-hidden="true" className="drop-shadow-[0_3px_3px_rgba(0,0,0,.35)]">
+      <ellipse cx="35" cy="76" rx="22" ry="2" fill="rgba(0,0,0,.22)" />
+
+      <circle cx="35" cy="11" r="8" fill="#b9784b" stroke="#2c211b" strokeWidth="1.2" />
+      <path d="M28 8 Q35 1 42 8 L41 4 Q35 0 29 4 Z" fill="#2a211d" />
+      <circle cx="32.5" cy="11" r="0.7" fill="#111827" />
+      <circle cx="37.5" cy="11" r="0.7" fill="#111827" />
+
+      <path d="M24 23 Q35 17 46 23 L44 45 Q35 49 26 45 Z" fill="#177a3f" stroke="#0f5a30" strokeWidth="1.2" />
+      <path d="M29 24 Q35 21 41 24" fill="none" stroke="#2fae62" strokeWidth="1.4" />
+      <text x="35" y="36" textAnchor="middle" fontSize="10" fontWeight="900" fill="#fff">1</text>
+
+      <g>
+        <path d="M25 25 L15 35 L8 31" fill="none" stroke="#177a3f" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="15" cy="35" r="3.8" fill="#177a3f" />
+        <path d="M8 27 Q3 28 2 33 Q3 38 8 37 L12 34 L11 29 Z" fill="#f7f7f0" stroke="#cbd5e1" strokeWidth="1" />
+      </g>
+      <g>
+        <path d="M45 25 L55 35 L62 31" fill="none" stroke="#177a3f" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="55" cy="35" r="3.8" fill="#177a3f" />
+        <path d="M62 27 Q67 28 68 33 Q67 38 62 37 L58 34 L59 29 Z" fill="#f7f7f0" stroke="#cbd5e1" strokeWidth="1" />
+      </g>
+
+      <path d="M27 44 L22 57 L24 69" fill="none" stroke="#13243a" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M43 44 L48 57 L46 69" fill="none" stroke="#13243a" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="22" cy="57" r="4" fill="#13243a" />
+      <circle cx="48" cy="57" r="4" fill="#13243a" />
+
+      <path d="M16 69 H28 Q31 72 28 75 H15 Q11 73 16 69 Z" fill="#f5f5f4" stroke="#cbd5e1" strokeWidth="1" />
+      <path d="M42 69 H54 Q59 73 55 75 H42 Q39 72 42 69 Z" fill="#f5f5f4" stroke="#cbd5e1" strokeWidth="1" />
+      <path d="M16 72 H27" stroke="#111827" strokeWidth="1.2" />
+      <path d="M43 72 H54" stroke="#111827" strokeWidth="1.2" />
+    </svg>
   );
 }
 
