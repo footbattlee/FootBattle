@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { PointerEvent, useEffect, useRef, useState } from "react";
+import { GOAL_CROWD_AUDIO, SAVE_CROWD_AUDIO } from "./audio-data";
 
 const TOTAL_SHOTS = 10;
 type Point = { x: number; y: number };
@@ -17,6 +18,8 @@ export default function PenaltyPage() {
   const pitchRef = useRef<HTMLDivElement>(null);
   const ballRef = useRef<HTMLButtonElement>(null);
   const dragStartRef = useRef<{ clientX: number; clientY: number } | null>(null);
+  const goalAudioRef = useRef<HTMLAudioElement | null>(null);
+  const saveAudioRef = useRef<HTMLAudioElement | null>(null);
   const [phase, setPhase] = useState<Phase>("ready");
   const [dragOffset, setDragOffset] = useState<Point>({ x: 0, y: 0 });
   const [aim, setAim] = useState<Point>({ x: 50, y: 28 });
@@ -29,6 +32,12 @@ export default function PenaltyPage() {
   const [streak, setStreak] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
   const [marks, setMarks] = useState<ShotMark[]>(Array(TOTAL_SHOTS).fill(null));
+  const [soundOn, setSoundOn] = useState(true);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem("shot-challenge-sound");
+    if (stored === "off") setSoundOn(false);
+  }, []);
 
   useEffect(() => {
     const b = document.body.style.overscrollBehaviorY;
@@ -48,6 +57,41 @@ export default function PenaltyPage() {
   const finished = shot >= TOTAL_SHOTS;
   const power = Math.round(Math.min(1, Math.hypot(dragOffset.x, dragOffset.y) / 27) * 100);
 
+  function ensureAudio() {
+    if (!goalAudioRef.current) {
+      goalAudioRef.current = new Audio(GOAL_CROWD_AUDIO);
+      goalAudioRef.current.preload = "auto";
+      goalAudioRef.current.volume = 0.9;
+    }
+    if (!saveAudioRef.current) {
+      saveAudioRef.current = new Audio(SAVE_CROWD_AUDIO);
+      saveAudioRef.current.preload = "auto";
+      saveAudioRef.current.volume = 0.92;
+    }
+  }
+
+  function playCrowd(kind: Result) {
+    if (!soundOn) return;
+    ensureAudio();
+    const audio = kind === "goal" ? goalAudioRef.current : saveAudioRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
+    void audio.play().catch(() => {});
+  }
+
+  function toggleSound() {
+    const next = !soundOn;
+    setSoundOn(next);
+    window.localStorage.setItem("shot-challenge-sound", next ? "on" : "off");
+    if (!next) {
+      goalAudioRef.current?.pause();
+      saveAudioRef.current?.pause();
+    } else {
+      ensureAudio();
+    }
+  }
+
   function measureBallCenter() {
     const pitch = pitchRef.current?.getBoundingClientRect();
     const ballBox = ballRef.current?.getBoundingClientRect();
@@ -66,7 +110,7 @@ export default function PenaltyPage() {
   }
 
   function onMove(event: PointerEvent<HTMLDivElement>) { if (phase !== "aiming") return; event.preventDefault(); measureBallCenter(); updateAim(event.clientX, event.clientY); }
-  function onBallDown(event: PointerEvent<HTMLButtonElement>) { if (phase !== "ready") return; event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); dragStartRef.current = { clientX: event.clientX, clientY: event.clientY }; measureBallCenter(); setPhase("aiming"); }
+  function onBallDown(event: PointerEvent<HTMLButtonElement>) { if (phase !== "ready") return; event.preventDefault(); ensureAudio(); event.currentTarget.setPointerCapture(event.pointerId); dragStartRef.current = { clientX: event.clientX, clientY: event.clientY }; measureBallCenter(); setPhase("aiming"); }
 
   function releaseShot() {
     if (phase !== "aiming") return;
@@ -88,6 +132,7 @@ export default function PenaltyPage() {
         const corner = Math.abs(target.x - 50) > 20 || target.y < 24.5;
         setScore((v) => v + 100 + (corner ? 50 : 0) + Math.min(streak, 4) * 20); setStreak((v) => v + 1);
       }
+      playCrowd(nextResult);
       setMarks((old) => old.map((m, i) => i === shot ? nextResult : m)); setResult(nextResult); setPhase("resolved");
     }, 460);
   }
@@ -101,7 +146,8 @@ export default function PenaltyPage() {
   const aimPx = pitchRect ? { x: (aim.x / 100) * pitchRect.width, y: (aim.y / 100) * pitchRect.height } : { x: 0, y: 0 };
 
   return <main className="min-h-screen overflow-x-hidden bg-[#06152b] text-white select-none"><div className="mx-auto max-w-md pb-[max(18px,env(safe-area-inset-bottom))]">
-    <header className="flex items-center justify-between bg-[#071d3c] px-3 py-3"><Link href="/tr" className="flex items-center gap-2 rounded-xl px-1 py-1 active:scale-95"><span className="text-xl">←</span><img src="/footbattle-logo.png" alt="FootBattle" className="h-11 w-auto object-contain" /></Link><div className="flex gap-2 text-lg"><span className="rounded-xl border border-cyan-300/20 bg-[#061a34] px-3 py-2">🔊</span><span className="rounded-xl border border-cyan-300/20 bg-[#061a34] px-3 py-2">Ⅱ</span></div></header>
+    <header className="flex items-center justify-between bg-[#071d3c] px-3 py-3"><Link href="/tr" className="flex items-center gap-2 rounded-xl px-1 py-1 active:scale-95"><span className="text-xl">←</span><img src="/footbattle-logo.png" alt="FootBattle" className="h-11 w-auto object-contain" /></Link><button type="button" onClick={toggleSound} aria-label={soundOn ? "Sesi kapat" : "Sesi aç"} aria-pressed={!soundOn} className="rounded-xl border border-cyan-300/20 bg-[#061a34] px-3 py-2 text-lg active:scale-95">{soundOn ? "🔊" : "🔇"}</button></header>
+    <div className="bg-[#071d3c] px-3 pb-2 text-center text-[10px] font-black tracking-[0.18em] text-cyan-200/75">ŞUTÖR</div>
     <div className="grid grid-cols-3 gap-2 bg-[#071d3c] px-3 pb-3"><Stat label="ŞUT" value={`⚽ ${Math.min(shot + 1, TOTAL_SHOTS)}/${TOTAL_SHOTS}`} /><Stat label="SERİ" value={`🔥 x${streak}`} /><Stat label="SKOR" value={`🏆 ${score.toLocaleString("tr-TR")}`} /></div>
     {!finished ? <div ref={pitchRef} onPointerMove={onMove} onPointerUp={releaseShot} onPointerCancel={() => { if (phase === "aiming") { setPhase("ready"); setDragOffset({ x: 0, y: 0 }); } }} className="relative aspect-[9/12.3] overflow-hidden touch-none" style={{ overscrollBehavior: "none", WebkitUserSelect: "none", background: "repeating-linear-gradient(0deg,#269b43 0 54px,#2eaa49 54px 108px)" }}>
       <div className="absolute inset-x-0 top-0 h-[20.5%] overflow-hidden bg-gradient-to-b from-[#07142b] via-[#0d2945] to-[#173d54]">
@@ -127,7 +173,7 @@ export default function PenaltyPage() {
         @keyframes keeperJumpLeft { 0% { transform: translate(0,0) scaleY(1) rotate(0deg); } 10% { transform: translate(1px,2px) scaleY(.96) rotate(-2deg); } 24% { transform: translate(-4px,-13px) scaleY(1.02) rotate(-8deg); } 38% { transform: translate(-6px,-16px) scaleY(1.02) rotate(-12deg); } 68% { transform: translate(-8px,-12px) scaleY(1) rotate(-8deg); } 100% { transform: translate(-9px,-4px) scaleY(1) rotate(0deg); } }
         @keyframes keeperJumpRight { 0% { transform: translate(0,0) scaleY(1) rotate(0deg); } 10% { transform: translate(-1px,2px) scaleY(.96) rotate(2deg); } 24% { transform: translate(4px,-13px) scaleY(1.02) rotate(8deg); } 38% { transform: translate(6px,-16px) scaleY(1.02) rotate(12deg); } 68% { transform: translate(8px,-12px) scaleY(1) rotate(8deg); } 100% { transform: translate(9px,-4px) scaleY(1) rotate(0deg); } }
       `}</style>
-    </div> : <div className="m-4 rounded-3xl border border-cyan-300/20 bg-[#07264d] p-8 text-center"><div className="text-6xl">🏆</div><h2 className="mt-4 text-3xl font-black">Seri Bitti</h2><p className="mt-2 text-slate-300">10 penaltı sonunda skorun</p><p className="mt-5 text-5xl font-black text-yellow-300">{score.toLocaleString("tr-TR")}</p><button onClick={restart} className="mt-8 w-full rounded-2xl bg-emerald-400 py-4 font-black text-[#05294a]">TEKRAR OYNA</button><Link href="/tr" className="mt-3 block w-full rounded-2xl border border-white/15 bg-white/5 py-3 text-sm font-black text-white">ANA SAYFAYA DÖN</Link></div>}
+    </div> : <div className="m-4 rounded-3xl border border-cyan-300/20 bg-[#07264d] p-8 text-center"><div className="text-6xl">🏆</div><h2 className="mt-4 text-3xl font-black">Seri Bitti</h2><p className="mt-2 text-slate-300">10 şut sonunda skorun</p><p className="mt-5 text-5xl font-black text-yellow-300">{score.toLocaleString("tr-TR")}</p><button onClick={restart} className="mt-8 w-full rounded-2xl bg-emerald-400 py-4 font-black text-[#05294a]">TEKRAR OYNA</button><Link href="/tr" className="mt-3 block w-full rounded-2xl border border-white/15 bg-white/5 py-3 text-sm font-black text-white">ANA SAYFAYA DÖN</Link></div>}
   </div></main>;
 }
 
