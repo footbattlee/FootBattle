@@ -21,7 +21,7 @@ export default function PenaltyPage() {
   const [dragOffset, setDragOffset] = useState<Point>({ x: 0, y: 0 });
   const [aim, setAim] = useState<Point>({ x: 50, y: 28 });
   const [ball, setBall] = useState<Point>(BALL_START);
-  const [arrowStart, setArrowStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [arrowStart, setArrowStart] = useState<Point>({ x: 0, y: 0 });
   const [keeper, setKeeper] = useState<Point>(KEEPER_START);
   const [keeperDive, setKeeperDive] = useState<-1 | 0 | 1>(0);
   const [shot, setShot] = useState(0);
@@ -104,7 +104,8 @@ export default function PenaltyPage() {
         setScore((v) => v + 100 + (corner ? 50 : 0) + Math.min(streak, 4) * 20);
         setStreak((v) => v + 1);
       }
-      setMarks((old) => old.map((m, i) => i === shot ? nextResult : m)); setResult(nextResult); setPhase("resolved");
+      setMarks((old) => old.map((m, i) => i === shot ? nextResult : m));
+      setResult(nextResult); setPhase("resolved");
     }, 460);
   }
 
@@ -120,98 +121,68 @@ export default function PenaltyPage() {
     <main className="min-h-screen overflow-x-hidden bg-[#06152b] text-white select-none">
       <div className="mx-auto max-w-md pb-[max(18px,env(safe-area-inset-bottom))]">
         <header className="flex items-center justify-between bg-[#071d3c] px-3 py-3">
-          <Link href="/tr" className="flex items-center gap-2 rounded-xl px-1 py-1 active:scale-95">
-            <span className="text-xl">←</span>
-            <img src="/footbattle-logo.png" alt="FootBattle" className="h-11 w-auto object-contain" />
-          </Link>
+          <Link href="/tr" className="flex items-center gap-2 rounded-xl px-1 py-1 active:scale-95"><span className="text-xl">←</span><img src="/footbattle-logo.png" alt="FootBattle" className="h-11 w-auto object-contain" /></Link>
           <div className="flex gap-2 text-lg"><span className="rounded-xl border border-cyan-300/20 bg-[#061a34] px-3 py-2">🔊</span><span className="rounded-xl border border-cyan-300/20 bg-[#061a34] px-3 py-2">Ⅱ</span></div>
         </header>
         <div className="grid grid-cols-3 gap-2 bg-[#071d3c] px-3 pb-3"><Stat label="ŞUT" value={`⚽ ${Math.min(shot + 1, TOTAL_SHOTS)}/${TOTAL_SHOTS}`} /><Stat label="SERİ" value={`🔥 x${streak}`} /><Stat label="SKOR" value={`🏆 ${score.toLocaleString("tr-TR")}`} /></div>
 
         {!finished ? (
           <div ref={pitchRef} onPointerMove={onMove} onPointerUp={releaseShot} onPointerCancel={() => { if (phase === "aiming") { setPhase("ready"); setDragOffset({ x: 0, y: 0 }); } }} className="relative aspect-[9/12.3] overflow-hidden touch-none" style={{ overscrollBehavior: "none", WebkitUserSelect: "none", background: "repeating-linear-gradient(0deg,#269b43 0 54px,#2eaa49 54px 108px)" }}>
-            <div className="absolute inset-x-0 top-0 h-[20.5%] bg-gradient-to-b from-[#06132a] via-[#0b2744] to-[#163d55]" />
-            <div className="absolute inset-x-0 top-[2%] h-[15%] opacity-85" style={{ backgroundImage: "radial-gradient(circle,#d99b56 1.1px,transparent 1.4px),radial-gradient(circle,#b5cadf 1.1px,transparent 1.4px),radial-gradient(circle,#587ba1 1.1px,transparent 1.4px)", backgroundPosition: "0 0,6px 5px,11px 2px", backgroundSize: "13px 11px" }} />
+            <div className="absolute inset-x-0 top-0 h-[20.5%] overflow-hidden bg-gradient-to-b from-[#07142b] via-[#0d2945] to-[#173d54]">
+              <div className="absolute inset-x-0 top-[5%] h-[17%] bg-black/15" />
+              <div className="absolute inset-x-0 top-[24%] h-[2px] bg-white/10" />
+              <CrowdRow top="29%" scale={0.72} opacity={0.68} offset={5} />
+              <CrowdRow top="43%" scale={0.82} opacity={0.8} offset={0} />
+              <CrowdRow top="59%" scale={0.94} opacity={0.92} offset={7} />
+              <CrowdRow top="77%" scale={1.04} opacity={1} offset={2} />
+              <div className="absolute inset-x-0 bottom-0 h-[11%] bg-gradient-to-t from-[#0a2438] to-transparent" />
+            </div>
             <div className="absolute inset-x-0 top-[17.5%] h-[3%] border-y border-white/15 bg-[#12364b]"><div className="flex h-full items-center justify-around text-[9px] font-black italic text-emerald-300/85"><span>FOOTBATTLE</span><span>FOOTBATTLE</span><span>FOOTBATTLE</span></div></div>
 
-            <div className="absolute left-[21%] right-[21%] top-[20.5%] z-10 h-[13.5%]">
-              <div className="absolute inset-0 border-x-[3px] border-t-[3px] border-white bg-[#218f46] shadow-[0_4px_0_rgba(0,0,0,.22)]" />
-              <div className="absolute inset-x-0 bottom-0 h-px bg-white/90" />
-              <div className="absolute inset-[3px] opacity-45" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.72) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.72) 1px,transparent 1px)", backgroundSize: "15px 15px" }} />
-            </div>
-            <div className="absolute left-[7%] right-[7%] top-[34%] h-[25%] border border-t-0 border-white/80" />
-            <div className="absolute left-[7%] right-[7%] top-[34%] h-px bg-white/80" />
-            <div className="absolute left-1/2 top-[58.8%] h-[11%] w-[38%] -translate-x-1/2 rounded-b-full border-x border-b border-white/75" />
-            <div className="absolute left-1/2 top-[50.5%] h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-white/90" />
+            <div className="absolute left-[21%] right-[21%] top-[20.5%] z-10 h-[13.5%]"><div className="absolute inset-0 border-x-[3px] border-t-[3px] border-white bg-[#218f46] shadow-[0_4px_0_rgba(0,0,0,.22)]" /><div className="absolute inset-x-0 bottom-0 h-px bg-white/90" /><div className="absolute inset-[3px] opacity-45" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.72) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.72) 1px,transparent 1px)", backgroundSize: "15px 15px" }} /></div>
+            <div className="absolute left-[7%] right-[7%] top-[34%] h-[25%] border border-t-0 border-white/80" /><div className="absolute left-[7%] right-[7%] top-[34%] h-px bg-white/80" /><div className="absolute left-1/2 top-[58.8%] h-[11%] w-[38%] -translate-x-1/2 rounded-b-full border-x border-b border-white/75" /><div className="absolute left-1/2 top-[50.5%] h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-white/90" />
 
             <div className="absolute z-20 transition-[left,top,transform] duration-[420ms] ease-out" style={{ left: `${keeper.x}%`, top: `${keeper.y}%`, transform: `translate(-50%,-50%) rotate(${keeperDive * 24}deg)`, animation: isIdle ? "keeperIdle 1.1s ease-in-out infinite" : "none" }}>
-              <div style={{ animation: phase === "shooting" && keeperDive !== 0 ? "keeperJump 460ms cubic-bezier(.18,.76,.28,1) both" : "none" }}><Keeper /></div>
+              <div style={{ animation: phase === "shooting" && keeperDive !== 0 ? `${keeperDive < 0 ? "keeperJumpLeft" : "keeperJumpRight"} 460ms cubic-bezier(.18,.76,.28,1) both` : "none" }}><Keeper /></div>
             </div>
 
             {phase === "aiming" && <svg className="pointer-events-none absolute inset-0 z-30 h-full w-full"><defs><marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#ffd93d" /></marker></defs><line x1={arrowStart.x} y1={arrowStart.y} x2={aimPx.x} y2={aimPx.y} stroke="#ffd93d" strokeWidth="2.4" strokeLinecap="round" markerEnd="url(#arrow)" /><circle cx={aimPx.x} cy={aimPx.y} r="6.5" fill="rgba(255,217,61,.06)" stroke="#ffd93d" strokeWidth="1.8" /></svg>}
-
             <button ref={ballRef} aria-label="Topu nişanla ve bırak" onPointerDown={onBallDown} disabled={phase !== "ready"} className="absolute z-40 -translate-x-1/2 -translate-y-1/2 transition-all duration-[440ms] ease-out disabled:pointer-events-none" style={{ left: `${ball.x}%`, top: `${ball.y}%`, touchAction: "none" }}><Football /></button>
             <div className="absolute left-1/2 top-[80%] z-30 flex -translate-x-1/2 gap-1.5 rounded-full border border-cyan-300/20 bg-[#061f36]/92 px-3 py-2 shadow-lg">{marks.map((mark, index) => <span key={index} className="text-[12px]">{mark === "goal" ? "⚽" : mark === "saved" ? "🧤" : "⚪"}</span>)}</div>
             {phase === "resolved" ? <div className="absolute bottom-[4%] left-[10%] right-[10%] z-50 flex items-center gap-2"><div className={`flex-1 rounded-xl px-3 py-3 text-center text-xs font-black ${result === "goal" ? "bg-emerald-500" : "bg-sky-500"}`}>{result === "goal" ? "⚽ GOL" : "🧤 KURTARIŞ"}</div><button onClick={next} className="rounded-xl bg-yellow-400 px-4 py-3 text-xs font-black text-[#06152b]">{shot + 1 >= TOTAL_SHOTS ? "SONUÇ →" : "SIRADAKİ →"}</button></div> : <div className="absolute bottom-[4%] left-[8%] right-[8%] z-40 rounded-xl border border-cyan-300/20 bg-[#061f36]/95 px-3 py-3 text-center text-[11px] font-black shadow-xl">{phase === "shooting" ? "ŞUT..." : phase === "aiming" ? `GÜÇ %${power} • BIRAK VE ŞUT ÇEK` : "✋ TOPA BAS • GERİ/YANA ÇEK • BIRAK"}</div>}
             <style jsx>{`
               @keyframes keeperIdle { 0%,100% { transform: translate(-50%,-50%) translateY(0) rotate(-1deg); } 50% { transform: translate(-50%,-50%) translateY(-2px) rotate(1deg); } }
-              @keyframes keeperJump {
-                0% { transform: translateY(0) scaleY(1); }
-                12% { transform: translateY(2px) scaleY(.96); }
-                34% { transform: translateY(-16px) scaleY(1.02); }
-                68% { transform: translateY(-12px) scaleY(1); }
-                100% { transform: translateY(-4px) scaleY(1); }
-              }
+              @keyframes keeperJumpLeft { 0% { transform: translate(0,0) scaleY(1); } 12% { transform: translate(1px,2px) scaleY(.96); } 31% { transform: translate(-5px,-16px) scaleY(1.02); } 66% { transform: translate(-8px,-12px) scaleY(1); } 100% { transform: translate(-9px,-4px) scaleY(1); } }
+              @keyframes keeperJumpRight { 0% { transform: translate(0,0) scaleY(1); } 12% { transform: translate(-1px,2px) scaleY(.96); } 31% { transform: translate(5px,-16px) scaleY(1.02); } 66% { transform: translate(8px,-12px) scaleY(1); } 100% { transform: translate(9px,-4px) scaleY(1); } }
             `}</style>
           </div>
-        ) : (
-          <div className="m-4 rounded-3xl border border-cyan-300/20 bg-[#07264d] p-8 text-center"><div className="text-6xl">🏆</div><h2 className="mt-4 text-3xl font-black">Seri Bitti</h2><p className="mt-2 text-slate-300">10 penaltı sonunda skorun</p><p className="mt-5 text-5xl font-black text-yellow-300">{score.toLocaleString("tr-TR")}</p><button onClick={restart} className="mt-8 w-full rounded-2xl bg-emerald-400 py-4 font-black text-[#05294a]">TEKRAR OYNA</button><Link href="/tr" className="mt-3 block w-full rounded-2xl border border-white/15 bg-white/5 py-3 text-sm font-black text-white">ANA SAYFAYA DÖN</Link></div>
-        )}
+        ) : <div className="m-4 rounded-3xl border border-cyan-300/20 bg-[#07264d] p-8 text-center"><div className="text-6xl">🏆</div><h2 className="mt-4 text-3xl font-black">Seri Bitti</h2><p className="mt-2 text-slate-300">10 penaltı sonunda skorun</p><p className="mt-5 text-5xl font-black text-yellow-300">{score.toLocaleString("tr-TR")}</p><button onClick={restart} className="mt-8 w-full rounded-2xl bg-emerald-400 py-4 font-black text-[#05294a]">TEKRAR OYNA</button><Link href="/tr" className="mt-3 block w-full rounded-2xl border border-white/15 bg-white/5 py-3 text-sm font-black text-white">ANA SAYFAYA DÖN</Link></div>}
       </div>
     </main>
   );
 }
 
+function CrowdRow({ top, scale, opacity, offset }: { top: string; scale: number; opacity: number; offset: number }) {
+  const shirts = ["#d8e6f2", "#de9a55", "#477398", "#7da4bb", "#d7c06f", "#294f73"];
+  const skins = ["#d9a071", "#b9784b", "#8b5b3d", "#e0b184"];
+  return <div className="absolute left-[-3%] right-[-3%] flex items-end justify-around" style={{ top, opacity, transform: `translateX(${offset}px) scale(${scale})`, transformOrigin: "center top" }}>
+    {Array.from({ length: 27 }, (_, i) => <span key={i} className="relative block h-[14px] w-[9px]">
+      <span className="absolute left-1/2 top-0 h-[5px] w-[5px] -translate-x-1/2 rounded-full" style={{ background: skins[(i + offset) % skins.length] }} />
+      <span className="absolute bottom-0 left-1/2 h-[9px] w-[8px] -translate-x-1/2 rounded-t-[4px]" style={{ background: shirts[(i * 2 + offset) % shirts.length] }} />
+      {i % 7 === 0 && <span className="absolute -top-[3px] left-[1px] h-[5px] w-[2px] rotate-[-28deg] rounded-full bg-[#d9a071]" />}
+    </span>)}
+  </div>;
+}
+
 function Keeper() {
-  return (
-    <svg width="68" height="80" viewBox="0 0 68 80" aria-hidden="true" className="drop-shadow-[0_3px_3px_rgba(0,0,0,.32)]">
-      <ellipse cx="34" cy="78" rx="20" ry="1.6" fill="rgba(0,0,0,.20)" />
-      <circle cx="34" cy="10" r="7.5" fill="#b9784b" stroke="#2c211b" strokeWidth="1" />
-      <path d="M27 8 Q29 1 34 1 Q40 1 42 7 Q37 5 28 7 Z" fill="#201a18" />
-      <path d="M29.5 8.8 Q31.3 7.9 32.8 8.8" fill="none" stroke="#3a241a" strokeWidth=".8" strokeLinecap="round" />
-      <path d="M35.2 8.8 Q36.7 7.9 38.5 8.8" fill="none" stroke="#3a241a" strokeWidth=".8" strokeLinecap="round" />
-      <ellipse cx="31.5" cy="10.5" rx="1.15" ry=".9" fill="#fff8ed" />
-      <ellipse cx="36.5" cy="10.5" rx="1.15" ry=".9" fill="#fff8ed" />
-      <circle cx="31.7" cy="10.55" r=".45" fill="#201813" />
-      <circle cx="36.3" cy="10.55" r=".45" fill="#201813" />
-      <path d="M34 10.7 L33.5 12.2 L34.5 12.2" fill="none" stroke="#7d452f" strokeWidth=".55" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M31.7 13.1 Q34 14.2 36.3 13.1" fill="none" stroke="#6f3f2a" strokeWidth=".7" strokeLinecap="round" />
-
-      <path d="M23 23 Q34 17 45 23 L43 46 Q34 50 25 46 Z" fill="#e96936" stroke="#b94724" strokeWidth="1.1" />
-      <path d="M24 24 Q34 20 44 24" fill="none" stroke="#ff9368" strokeWidth="1.5" />
-      <path d="M26 29 H42" stroke="#d8552d" strokeWidth="1" opacity=".7" />
-      <text x="34" y="39" textAnchor="middle" fontSize="12" fontWeight="900" fill="#733018">1</text>
-
-      <path d="M24 25 Q18 29 15 37 Q12 42 8 43" fill="none" stroke="#e96936" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M44 25 Q50 29 53 37 Q56 42 60 43" fill="none" stroke="#e96936" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="15" cy="37" r="4.2" fill="#e96936" />
-      <circle cx="53" cy="37" r="4.2" fill="#e96936" />
-
-      <g><path d="M3 39 Q4 34 9 34 L13 38 L11 45 Q6 47 3 44 Z" fill="#c9f53d" stroke="#76951e" strokeWidth="1" /><path d="M5 36 L8 33 M8 36 L11 34" stroke="#efffb0" strokeWidth="1" strokeLinecap="round" /></g>
-      <g><path d="M65 39 Q64 34 59 34 L55 38 L57 45 Q62 47 65 44 Z" fill="#c9f53d" stroke="#76951e" strokeWidth="1" /><path d="M63 36 L60 33 M60 36 L57 34" stroke="#efffb0" strokeWidth="1" strokeLinecap="round" /></g>
-
-      <path d="M25 45 Q34 49 43 45 L42 53 Q34 56 26 53 Z" fill="#17283b" />
-      <path d="M27 52 L22 64 L23 72" fill="none" stroke="#17283b" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M41 52 L46 64 L45 72" fill="none" stroke="#17283b" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M20 67 L25 67" stroke="#f3f4f6" strokeWidth="3" />
-      <path d="M43 67 L48 67" stroke="#f3f4f6" strokeWidth="3" />
-
-      <path d="M15 71 Q20 69 26 71 L29 75 Q27 78 22 77 L14 76 Q12 73 15 71 Z" fill="#111827" stroke="#05080d" strokeWidth="1" />
-      <path d="M42 71 Q48 69 53 72 Q56 75 53 77 L45 77 Q40 77 42 71 Z" fill="#111827" stroke="#05080d" strokeWidth="1" />
-      <path d="M15 75 Q21 76 28 75" stroke="#d7dde5" strokeWidth="1.2" />
-      <path d="M42 75 Q48 76 54 75" stroke="#d7dde5" strokeWidth="1.2" />
-    </svg>
-  );
+  return <svg width="68" height="80" viewBox="0 0 68 80" aria-hidden="true" className="drop-shadow-[0_3px_3px_rgba(0,0,0,.32)]">
+    <ellipse cx="34" cy="78" rx="20" ry="1.6" fill="rgba(0,0,0,.20)" /><circle cx="34" cy="10" r="7.5" fill="#b9784b" stroke="#2c211b" strokeWidth="1" /><path d="M27 8 Q29 1 34 1 Q40 1 42 7 Q37 5 28 7 Z" fill="#201a18" /><path d="M29.5 8.8 Q31.3 7.9 32.8 8.8 M35.2 8.8 Q36.7 7.9 38.5 8.8" fill="none" stroke="#3a241a" strokeWidth=".8" strokeLinecap="round" /><ellipse cx="31.5" cy="10.5" rx="1.15" ry=".9" fill="#fff8ed" /><ellipse cx="36.5" cy="10.5" rx="1.15" ry=".9" fill="#fff8ed" /><circle cx="31.7" cy="10.55" r=".45" fill="#201813" /><circle cx="36.3" cy="10.55" r=".45" fill="#201813" /><path d="M34 10.7 L33.5 12.2 L34.5 12.2" fill="none" stroke="#7d452f" strokeWidth=".55" strokeLinecap="round" strokeLinejoin="round" /><path d="M31.7 13.1 Q34 14.2 36.3 13.1" fill="none" stroke="#6f3f2a" strokeWidth=".7" strokeLinecap="round" />
+    <path d="M23 23 Q34 17 45 23 L43 46 Q34 50 25 46 Z" fill="#e96936" stroke="#b94724" strokeWidth="1.1" /><path d="M24 24 Q34 20 44 24" fill="none" stroke="#ff9368" strokeWidth="1.5" /><path d="M26 29 H42" stroke="#d8552d" strokeWidth="1" opacity=".7" /><text x="34" y="39" textAnchor="middle" fontSize="12" fontWeight="900" fill="#733018">1</text>
+    <path d="M24 25 Q18 29 15 37 Q12 42 8 43" fill="none" stroke="#e96936" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" /><path d="M44 25 Q50 29 53 37 Q56 42 60 43" fill="none" stroke="#e96936" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" /><circle cx="15" cy="37" r="4.2" fill="#e96936" /><circle cx="53" cy="37" r="4.2" fill="#e96936" />
+    <g><path d="M3 39 Q4 34 9 34 L13 38 L11 45 Q6 47 3 44 Z" fill="#c9f53d" stroke="#76951e" strokeWidth="1" /><path d="M5 36 L8 33 M8 36 L11 34" stroke="#efffb0" strokeWidth="1" strokeLinecap="round" /></g><g><path d="M65 39 Q64 34 59 34 L55 38 L57 45 Q62 47 65 44 Z" fill="#c9f53d" stroke="#76951e" strokeWidth="1" /><path d="M63 36 L60 33 M60 36 L57 34" stroke="#efffb0" strokeWidth="1" strokeLinecap="round" /></g>
+    <path d="M25 45 Q34 49 43 45 L42 53 Q34 56 26 53 Z" fill="#17283b" /><path d="M27 52 L22 64 L23 72" fill="none" stroke="#17283b" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" /><path d="M41 52 L46 64 L45 72" fill="none" stroke="#17283b" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" /><path d="M20 67 L25 67 M43 67 L48 67" stroke="#f3f4f6" strokeWidth="3" />
+    <path d="M15 71 Q20 69 26 71 L29 75 Q27 78 22 77 L14 76 Q12 73 15 71 Z" fill="#111827" stroke="#05080d" strokeWidth="1" /><path d="M42 71 Q48 69 53 72 Q56 75 53 77 L45 77 Q40 77 42 71 Z" fill="#111827" stroke="#05080d" strokeWidth="1" /><path d="M15 75 Q21 76 28 75 M42 75 Q48 76 54 75" stroke="#d7dde5" strokeWidth="1.2" />
+  </svg>;
 }
 
 function Football() { return <span className="block text-[28px] leading-none drop-shadow-[0_5px_5px_rgba(0,0,0,.32)]">⚽</span>; }
