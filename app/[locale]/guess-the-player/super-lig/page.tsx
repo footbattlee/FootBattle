@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 
 import LocalizedGuessThePlayer from "@/components/i18n/LocalizedGuessThePlayer";
 import { isLocale, type Locale } from "@/lib/i18n/config";
-import { SITE_URL } from "@/lib/seo";
+import { NO_INDEX_METADATA, SITE_URL } from "@/lib/seo";
 
 const DIFFICULTIES = [
   { key: "mixed", tr: "Karışık", en: "Mixed", icon: "🎲" },
@@ -20,6 +20,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   if (!isLocale(locale)) return {};
   const en = locale === "en";
   return {
+    ...NO_INDEX_METADATA,
     title: en ? "Süper Lig Guess the Player | FootBattle" : "Süper Lig Futbolcuyu Tahmin Et | FootBattle",
     description: en
       ? "Guess footballers currently playing in Turkey's Süper Lig. Choose easy, medium, hard or mixed difficulty."
