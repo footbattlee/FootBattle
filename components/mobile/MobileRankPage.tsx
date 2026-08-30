@@ -98,29 +98,29 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
   }
 
   return (
-    <main className="min-h-screen bg-[#07111f] px-4 pb-24 pt-5 text-white">
+    <main className="min-h-screen bg-[#07111f] px-4 pb-24 pt-3 text-white">
       <div className="mx-auto max-w-xl">
         <header>
           <Link href={`/${locale}`} aria-label="FootBattle" className="inline-flex">
-            <img src="/footbattle-logo.png" alt="FootBattle" className="h-9 w-auto object-contain" />
+            <img src="/footbattle-logo.png" alt="FootBattle" className="h-8 w-auto object-contain" />
           </Link>
-          <div className="mt-6">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-green-300">FootBattle Ranked</p>
-            <h1 className="mt-1 text-3xl font-black">{tr ? "Ranked Maç" : "Ranked Match"}</h1>
-            <p className="mt-1 text-xs text-slate-500">{tr ? "Oyunu seç, rakibini bul ve direkt maça gir." : "Pick a game, find an opponent and jump straight in."}</p>
+          <div className="mt-3">
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-green-300">FootBattle Ranked</p>
+            <h1 className="mt-0.5 text-2xl font-black">{tr ? "Ranked Maç" : "Ranked Match"}</h1>
+            <p className="mt-0.5 text-[11px] text-slate-500">{tr ? "Oyunu seç, rakibini bul veya arkadaşına düello gönder." : "Pick a game, find an opponent or challenge a friend."}</p>
           </div>
         </header>
 
-        <section className="mt-5 rounded-3xl border border-green-500/20 bg-green-500/[0.055] p-4">
+        <section className="mt-3 rounded-[24px] border border-green-500/20 bg-green-500/[0.055] p-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-green-300">{tr ? "Maç Bul" : "Find Match"}</p>
-              <h2 className="mt-1 text-xl font-black">{tr ? "Oyununu seç" : "Choose your game"}</h2>
+              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-green-300">{tr ? "Maç Bul" : "Find Match"}</p>
+              <h2 className="mt-0.5 text-lg font-black">{tr ? "Oyununu seç" : "Choose your game"}</h2>
             </div>
-            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-black text-slate-400">BETA</span>
+            <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[9px] font-black text-slate-400">BETA</span>
           </div>
 
-          <div className="mt-4 grid gap-3">
+          <div className="mt-3 grid gap-2">
             {games.map((game) => {
               const selected = selectedGame === game.code;
               return (
@@ -129,49 +129,46 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
                   type="button"
                   disabled={searching}
                   onClick={() => setSelectedGame(game.code)}
-                  className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${selected ? "border-green-400/60 bg-green-500/10" : "border-white/10 bg-[#0c1929]"}`}
+                  className={`flex min-h-[66px] items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition ${selected ? "border-green-400/60 bg-green-500/10" : "border-white/10 bg-[#0c1929]"}`}
                 >
-                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-black/20 text-xl">{game.icon}</span>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black/20 text-lg">{game.icon}</span>
                   <span className="min-w-0 flex-1">
-                    <span className="block font-black">{tr ? game.tr : game.en}</span>
-                    <span className="mt-0.5 block text-[11px] text-slate-500">{tr ? game.descTr : game.descEn}</span>
+                    <span className="block text-[15px] font-black leading-tight">{tr ? game.tr : game.en}</span>
+                    <span className="mt-0.5 block text-[10px] leading-tight text-slate-500">{tr ? game.descTr : game.descEn}</span>
                   </span>
-                  <span className={`text-lg ${selected ? "text-green-300" : "text-slate-700"}`}>●</span>
+                  <span className={`text-base ${selected ? "text-green-300" : "text-slate-700"}`}>●</span>
                 </button>
               );
             })}
           </div>
 
           {!searching ? (
-            <button type="button" onClick={() => void startSearch()} className="mt-4 w-full rounded-2xl bg-green-500 px-5 py-4 font-black text-[#07111f] active:scale-[0.99]">
+            <button type="button" onClick={() => void startSearch()} className="mt-3 w-full rounded-2xl bg-green-500 px-4 py-3 text-[15px] font-black text-[#07111f] active:scale-[0.99]">
               🔎 {tr ? "Rakip Ara" : "Find Opponent"}
             </button>
           ) : (
-            <div className="mt-4 rounded-2xl border border-purple-400/20 bg-purple-500/[0.08] p-4 text-center">
-              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-white/10 border-t-purple-400" />
-              <p className="mt-3 font-black">{matchMessage}</p>
+            <div className="mt-3 rounded-2xl border border-purple-400/20 bg-purple-500/[0.08] p-3 text-center">
+              <div className="mx-auto h-7 w-7 animate-spin rounded-full border-4 border-white/10 border-t-purple-400" />
+              <p className="mt-2 text-sm font-black">{matchMessage}</p>
               {botCountdown !== null && botCountdown > 0 ? (
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-[10px] text-slate-500">
                   {tr ? `${botCountdown} sn içinde oyuncu bulunmazsa Bot Eren :) devreye girer.` : `Bot Eren :) joins in ${botCountdown}s if no player is found.`}
                 </p>
               ) : null}
-              <button type="button" onClick={() => void cancelSearch()} className="mt-3 rounded-xl border border-white/10 px-4 py-2 text-xs font-black text-slate-400">
+              <button type="button" onClick={() => void cancelSearch()} className="mt-2 rounded-xl border border-white/10 px-3 py-2 text-[11px] font-black text-slate-400">
                 {tr ? "Aramayı İptal Et" : "Cancel"}
               </button>
             </div>
           )}
 
-          {!searching && matchMessage ? <p className="mt-3 text-center text-xs font-bold text-red-300">{matchMessage}</p> : null}
+          {!searching && matchMessage ? <p className="mt-2 text-center text-[10px] font-bold text-red-300">{matchMessage}</p> : null}
 
           <Link
             href={`/${locale}/duels?quick=1&game=${selectedGame}`}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-green-400/25 bg-[#0c1929] px-5 py-4 font-black text-green-300 transition active:scale-[0.99]"
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl border border-green-400/25 bg-[#0c1929] px-4 py-3 text-[15px] font-black text-green-300 transition active:scale-[0.99]"
           >
             ⚔ {tr ? "Düello Gönder" : "Send Duel"}
           </Link>
-          <p className="mt-2 text-center text-[10px] font-bold text-slate-600">
-            {tr ? "Seçili oyunla arkadaşına veya link üzerinden meydan oku." : "Challenge a friend or share a link with the selected game."}
-          </p>
         </section>
       </div>
     </main>
