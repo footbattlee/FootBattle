@@ -162,14 +162,17 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
           )}
 
           {!searching && matchMessage ? <p className="mt-3 text-center text-xs font-bold text-red-300">{matchMessage}</p> : null}
-        </section>
 
-        <Link
-          href={`/${locale}/duels`}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-green-400/25 bg-[#0c1929] px-5 py-4 font-black text-green-300 shadow-lg shadow-black/10 transition active:scale-[0.99]"
-        >
-          ⚔ {tr ? "Düello Gönder" : "Send Duel"}
-        </Link>
+          <Link
+            href={`/${locale}/duels?quick=1&game=${selectedGame}`}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-green-400/25 bg-[#0c1929] px-5 py-4 font-black text-green-300 transition active:scale-[0.99]"
+          >
+            ⚔ {tr ? "Düello Gönder" : "Send Duel"}
+          </Link>
+          <p className="mt-2 text-center text-[10px] font-bold text-slate-600">
+            {tr ? "Seçili oyunla arkadaşına veya link üzerinden meydan oku." : "Challenge a friend or share a link with the selected game."}
+          </p>
+        </section>
       </div>
     </main>
   );
