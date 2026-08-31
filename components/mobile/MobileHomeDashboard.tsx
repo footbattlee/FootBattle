@@ -15,7 +15,7 @@ type Game = {
 };
 
 const GAMES: Game[] = [
-  { icon: "⚽", titleTr: "Şutör", titleEn: "Shot Challenge", tr: "Topu çek, köşeyi seç ve kaleciyi avla.", en: "Pull the ball, pick your spot and beat the keeper.", href: () => "/penalty", tag: "Yeni" },
+  { icon: "⚽", titleTr: "Penaltı", titleEn: "Penalty Challenge", tr: "Topu çek, köşeyi seç ve kaleciyi avla.", en: "Pull the ball, pick your spot and beat the keeper.", href: () => "/penalty", tag: "Yeni" },
   { icon: "🇹🇷", titleTr: "Süper Lig Futbolcuyu Tahmin Et", titleEn: "Süper Lig Guess The Player", tr: "Süper Lig oyuncusunu ipuçlarından bul.", en: "Guess the Süper Lig player from clues.", href: (locale) => `/${locale}/guess-the-player/super-lig`, tag: "Yeni" },
   { icon: "🕵️", titleTr: "Futbolcuyu Tahmin Et", titleEn: "Guess The Player", tr: "Gizli futbolcuyu mümkün olduğunca az tahminde bul.", en: "Find the hidden player in as few guesses as possible.", href: (locale) => `/${locale}/guess-the-player` },
   { icon: "🔄", titleTr: "Transferi Bil", titleEn: "Transfer Quiz", tr: "Kulüpleri ve bonservis bedelini gör, transfer olan futbolcuyu bul.", en: "Use the clubs and transfer fee to identify the transferred player.", href: () => "/transfer-quiz", tag: "Yeni" },
