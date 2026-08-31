@@ -1,278 +1,373 @@
 "use client";
 
 import Link from "next/link";
-import { PointerEvent, useEffect, useRef, useState } from "react";
-import { GAME_NAMES, trackGameCompleted, trackGameStarted, trackPlayAgain } from "@/lib/analytics/game-analytics";
-import { GOAL_CROWD_AUDIO, SAVE_CROWD_AUDIO } from "./audio-data";
+import { PointerEvent, useMemo, useRef, useState } from "react";
+
+type Mode = "menu" | "shooter" | "keeper" | "friend";
+type Point = { x: number; y: number };
+type Dive = -1 | 0 | 1;
+type Result = "goal" | "saved" | null;
 
 const TOTAL_SHOTS = 10;
-type Point = { x: number; y: number };
-type Result = "goal" | "saved";
-type Phase = "ready" | "aiming" | "shooting" | "resolved";
-type ShotMark = "goal" | "saved" | null;
-
-const BALL_START: Point = { x: 50, y: 70 };
+const BALL_START: Point = { x: 50, y: 72 };
 const KEEPER_START: Point = { x: 50, y: 28 };
 const AIM = { left: 23, right: 77, top: 22.5, bottom: 32.5 };
 
 export default function PenaltyPage() {
+  const [mode, setMode] = useState<Mode>("menu");
+
+  return (
+    <main className="min-h-screen bg-[#06152b] text-white select-none">
+      <div className="mx-auto max-w-md pb-[max(18px,env(safe-area-inset-bottom))]">
+        <header className="flex items-center justify-between bg-[#071d3c] px-3 py-3">
+          <Link href="/tr" className="flex items-center gap-2 rounded-xl px-1 py-1 active:scale-95">
+            <span className="text-xl">←</span>
+            <img src="/footbattle-logo.png" alt="FootBattle" className="h-11 w-auto object-contain" />
+          </Link>
+          {mode !== "menu" && (
+            <button onClick={() => setMode("menu")} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-black">
+              MODLAR
+            </button>
+          )}
+        </header>
+
+        {mode === "menu" && <ModeMenu onSelect={setMode} />}
+        {mode === "shooter" && <ShooterMode />}
+        {mode === "keeper" && <KeeperMode />}
+        {mode === "friend" && <FriendMode />}
+      </div>
+    </main>
+  );
+}
+
+function ModeMenu({ onSelect }: { onSelect: (mode: Mode) => void }) {
+  return (
+    <section className="px-4 pb-10 pt-5">
+      <div className="text-center">
+        <div className="text-[10px] font-black tracking-[0.24em] text-cyan-200/70">FOOTBATTLE</div>
+        <h1 className="mt-2 text-3xl font-black">PENALTI</h1>
+        <p className="mt-2 text-sm leading-6 text-slate-400">Nasıl oynamak istiyorsun?</p>
+      </div>
+
+      <div className="mt-6 space-y-3">
+        <ModeCard icon="⚽" title="Penaltı At" text="Kaleciyi geç. 10 şutta en yüksek skoru yap." action="ŞUTÖR OL" onClick={() => onSelect("shooter")} />
+        <ModeCard icon="🧤" title="Kaleci Ol" text="AI sana penaltı atsın. Kaleciyi sürükleyip doğru anda bırak." action="KALEYE GEÇ" onClick={() => onSelect("keeper")} />
+        <ModeCard icon="👥" title="Arkadaşınla Oyna" text="Aynı cihazda sırayla penaltı atın ve kaleye geçin." action="2 KİŞİ OYNA" onClick={() => onSelect("friend")} />
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-cyan-300/10 bg-cyan-300/[0.04] p-4 text-xs leading-5 text-slate-400">
+        <b className="text-cyan-200">Kaleci kontrolü:</b> Kalecinin üzerine bas, istediğin yöne sürükle ve bırak. Çok erken hareket edersen şutör seni okuyabilir.
+      </div>
+    </section>
+  );
+}
+
+function ModeCard({ icon, title, text, action, onClick }: { icon: string; title: string; text: string; action: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="w-full rounded-3xl border border-white/10 bg-[#082342] p-5 text-left active:scale-[0.99]">
+      <div className="flex items-start gap-4">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-3xl">{icon}</div>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-black">{title}</h2>
+          <p className="mt-1 text-xs leading-5 text-slate-400">{text}</p>
+          <div className="mt-3 inline-flex rounded-xl bg-emerald-400 px-3 py-2 text-[10px] font-black text-[#06213c]">{action} →</div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function ShooterMode() {
   const pitchRef = useRef<HTMLDivElement>(null);
-  const ballRef = useRef<HTMLButtonElement>(null);
-  const dragStartRef = useRef<{ clientX: number; clientY: number } | null>(null);
-  const goalAudioRef = useRef<HTMLAudioElement | null>(null);
-  const saveAudioRef = useRef<HTMLAudioElement | null>(null);
-  const analyticsSessionIdRef = useRef<string | null>(null);
-  const analyticsStartedAtRef = useRef<number | null>(null);
-  const analyticsStartedRef = useRef(false);
-  const analyticsCompletedRef = useRef(false);
-  const [phase, setPhase] = useState<Phase>("ready");
-  const [dragOffset, setDragOffset] = useState<Point>({ x: 0, y: 0 });
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [aiming, setAiming] = useState(false);
   const [aim, setAim] = useState<Point>({ x: 50, y: 28 });
   const [ball, setBall] = useState<Point>(BALL_START);
-  const [arrowStart, setArrowStart] = useState<Point>({ x: 0, y: 0 });
   const [keeper, setKeeper] = useState<Point>(KEEPER_START);
-  const [keeperDive, setKeeperDive] = useState<-1 | 0 | 1>(0);
+  const [dive, setDive] = useState<Dive>(0);
   const [shot, setShot] = useState(0);
-  const [score, setScore] = useState(0);
-  const [streak, setStreak] = useState(0);
-  const [result, setResult] = useState<Result | null>(null);
-  const [marks, setMarks] = useState<ShotMark[]>(Array(TOTAL_SHOTS).fill(null));
-  const [soundOn, setSoundOn] = useState(true);
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem("shot-challenge-sound");
-    if (stored === "off") setSoundOn(false);
-  }, []);
-
-  useEffect(() => {
-    const b = document.body.style.overscrollBehaviorY;
-    const h = document.documentElement.style.overscrollBehaviorY;
-    document.body.style.overscrollBehaviorY = "none";
-    document.documentElement.style.overscrollBehaviorY = "none";
-    const node = pitchRef.current;
-    const stop = (e: TouchEvent) => { if (phase === "aiming") e.preventDefault(); };
-    node?.addEventListener("touchmove", stop, { passive: false });
-    return () => {
-      node?.removeEventListener("touchmove", stop);
-      document.body.style.overscrollBehaviorY = b;
-      document.documentElement.style.overscrollBehaviorY = h;
-    };
-  }, [phase]);
+  const [goals, setGoals] = useState(0);
+  const [result, setResult] = useState<Result>(null);
 
   const finished = shot >= TOTAL_SHOTS;
-  const power = Math.round(Math.min(1, Math.hypot(dragOffset.x, dragOffset.y) / 27) * 100);
 
-  function getAnalyticsSessionId() {
-    if (analyticsSessionIdRef.current) return analyticsSessionIdRef.current;
-    const id = typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `shooter_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-    analyticsSessionIdRef.current = id;
-    return id;
+  function onBallDown(event: PointerEvent<HTMLButtonElement>) {
+    if (result || finished) return;
+    dragStartRef.current = { x: event.clientX, y: event.clientY };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setAiming(true);
   }
 
-  function ensureAnalyticsStarted() {
-    const id = getAnalyticsSessionId();
-    if (!analyticsStartedRef.current) {
-      analyticsStartedRef.current = true;
-      analyticsStartedAtRef.current = Date.now();
-      void trackGameStarted(GAME_NAMES.SHOOTER, id);
-    }
-    return id;
+  function onMove(event: PointerEvent<HTMLDivElement>) {
+    if (!aiming || !dragStartRef.current || !pitchRef.current) return;
+    const rect = pitchRef.current.getBoundingClientRect();
+    const dx = Math.max(-22, Math.min(22, ((event.clientX - dragStartRef.current.x) / rect.width) * 100));
+    const dy = Math.max(0, Math.min(18, ((event.clientY - dragStartRef.current.y) / rect.height) * 100));
+    setAim({ x: clamp(50 - dx * 1.22, AIM.left, AIM.right), y: clamp(AIM.bottom - dy * 0.55, AIM.top, AIM.bottom) });
   }
 
-  function ensureAudio() {
-    if (!goalAudioRef.current) {
-      goalAudioRef.current = new Audio(GOAL_CROWD_AUDIO);
-      goalAudioRef.current.preload = "auto";
-      goalAudioRef.current.volume = 0.9;
-    }
-    if (!saveAudioRef.current) {
-      saveAudioRef.current = new Audio(SAVE_CROWD_AUDIO);
-      saveAudioRef.current.preload = "auto";
-      saveAudioRef.current.volume = 0.92;
-    }
-  }
+  function release() {
+    if (!aiming) return;
+    setAiming(false);
+    const direction: Dive = aim.x < 44 ? -1 : aim.x > 56 ? 1 : 0;
+    const reads = Math.random() < 0.65;
+    const nextDive: Dive = reads ? direction : pickOther(direction);
+    const keeperTarget = { x: nextDive === -1 ? 37 : nextDive === 1 ? 63 : 50, y: Math.random() < 0.5 ? 25.5 : 28 };
+    setDive(nextDive);
+    setKeeper(keeperTarget);
+    setBall(aim);
 
-  function playCrowd(kind: Result) {
-    if (!soundOn) return;
-    ensureAudio();
-    const audio = kind === "goal" ? goalAudioRef.current : saveAudioRef.current;
-    if (!audio) return;
-    audio.pause();
-    audio.currentTime = 0;
-    void audio.play().catch(() => {});
-  }
-
-  function toggleSound() {
-    const next = !soundOn;
-    setSoundOn(next);
-    window.localStorage.setItem("shot-challenge-sound", next ? "on" : "off");
-    if (!next) {
-      goalAudioRef.current?.pause();
-      saveAudioRef.current?.pause();
-    } else {
-      ensureAudio();
-    }
-  }
-
-  function measureBallCenter() {
-    const pitch = pitchRef.current?.getBoundingClientRect();
-    const ballBox = ballRef.current?.getBoundingClientRect();
-    if (!pitch || !ballBox) return;
-    setArrowStart({ x: ballBox.left + ballBox.width / 2 - pitch.left, y: ballBox.top + ballBox.height / 2 - pitch.top });
-  }
-
-  function updateAim(clientX: number, clientY: number) {
-    const start = dragStartRef.current;
-    const rect = pitchRef.current?.getBoundingClientRect();
-    if (!start || !rect) return;
-    const dx = Math.max(-22, Math.min(22, ((clientX - start.clientX) / rect.width) * 100));
-    const dy = Math.max(0, Math.min(18, ((clientY - start.clientY) / rect.height) * 100));
-    setDragOffset({ x: dx, y: dy });
-    setAim({ x: Math.max(AIM.left, Math.min(AIM.right, 50 - dx * 1.22)), y: Math.max(AIM.top, Math.min(AIM.bottom, AIM.bottom - dy * 0.55)) });
-  }
-
-  function onMove(event: PointerEvent<HTMLDivElement>) { if (phase !== "aiming") return; event.preventDefault(); measureBallCenter(); updateAim(event.clientX, event.clientY); }
-  function onBallDown(event: PointerEvent<HTMLButtonElement>) { if (phase !== "ready") return; event.preventDefault(); ensureAudio(); event.currentTarget.setPointerCapture(event.pointerId); dragStartRef.current = { clientX: event.clientX, clientY: event.clientY }; measureBallCenter(); setPhase("aiming"); }
-
-  function releaseShot() {
-    if (phase !== "aiming") return;
-    const analyticsSessionId = ensureAnalyticsStarted();
-    setPhase("shooting"); dragStartRef.current = null;
-    const target = aim;
-    const targetDirection: -1 | 0 | 1 = target.x < 44 ? -1 : target.x > 56 ? 1 : 0;
-    const readsShot = Math.random() < 0.65;
-    let dive: -1 | 0 | 1;
-
-    if (readsShot) {
-      dive = targetDirection;
-    } else {
-      const alternatives = ([-1, 0, 1] as const).filter((direction) => direction !== targetDirection);
-      dive = alternatives[Math.floor(Math.random() * alternatives.length)];
-    }
-
-    const keeperTarget: Point = {
-      x: dive === -1 ? 37 : dive === 1 ? 63 : 50,
-      y: Math.random() < 0.5 ? 25.5 : 28,
-    };
-
-    setKeeperDive(dive); setKeeper(keeperTarget); setBall(target);
     window.setTimeout(() => {
-      const horizontal = Math.abs(target.x - keeperTarget.x);
-      const vertical = Math.abs(target.y - keeperTarget.y);
-      const inReach = horizontal <= (dive === 0 ? 10.5 : 13) && vertical <= 7.2;
-
-      const horizontalPlacement = Math.min(1, Math.abs(target.x - 50) / 27);
-      const verticalPlacement = Math.min(1, Math.max(0, (AIM.bottom - target.y) / (AIM.bottom - AIM.top)));
-      const placementQuality = horizontalPlacement * 0.6 + verticalPlacement * 0.4;
-      const powerQuality = power / 100;
-      const isTopCorner = horizontalPlacement >= 0.82 && verticalPlacement >= 0.72;
-
-      let saveChance = 0.82 - placementQuality * 0.25 - powerQuality * 0.1;
-      if (isTopCorner) saveChance = Math.min(saveChance, 0.4);
-      saveChance = Math.max(0.25, Math.min(0.82, saveChance));
-
+      const horizontal = Math.abs(aim.x - keeperTarget.x);
+      const vertical = Math.abs(aim.y - keeperTarget.y);
+      const inReach = horizontal <= (nextDive === 0 ? 10.5 : 13) && vertical <= 7.2;
+      const horizontalPlacement = Math.min(1, Math.abs(aim.x - 50) / 27);
+      const verticalPlacement = Math.min(1, Math.max(0, (AIM.bottom - aim.y) / (AIM.bottom - AIM.top)));
+      const placement = horizontalPlacement * 0.6 + verticalPlacement * 0.4;
+      const topCorner = horizontalPlacement >= 0.82 && verticalPlacement >= 0.72;
+      let saveChance = 0.82 - placement * 0.25 - 0.08;
+      if (topCorner) saveChance = Math.min(saveChance, 0.4);
+      saveChance = clamp(saveChance, 0.25, 0.82);
       const saved = inReach && Math.random() < saveChance;
-      const nextResult: Result = saved ? "saved" : "goal";
-      let scoreGain = 0;
-      if (saved) {
-        const side = dive !== 0 ? dive : target.x < keeperTarget.x ? -1 : 1;
-        setBall({ x: keeperTarget.x + side * (dive === 0 ? 4.2 : 5.6), y: keeperTarget.y - 1.2 }); setStreak(0);
-      } else {
-        const corner = Math.abs(target.x - 50) > 20 || target.y < 24.5;
-        scoreGain = 100 + (corner ? 50 : 0) + Math.min(streak, 4) * 20;
-        setScore((v) => v + scoreGain); setStreak((v) => v + 1);
-      }
-      playCrowd(nextResult);
-      setMarks((old) => old.map((m, i) => i === shot ? nextResult : m)); setResult(nextResult); setPhase("resolved");
-
-      if (shot === TOTAL_SHOTS - 1 && !analyticsCompletedRef.current) {
-        analyticsCompletedRef.current = true;
-        const goals = marks.filter((mark) => mark === "goal").length + (nextResult === "goal" ? 1 : 0);
-        const durationMs = Math.max(0, Date.now() - (analyticsStartedAtRef.current ?? Date.now()));
-        void trackGameCompleted(GAME_NAMES.SHOOTER, analyticsSessionId, {
-          score: score + scoreGain,
-          goals,
-          saves: TOTAL_SHOTS - goals,
-          shots: TOTAL_SHOTS,
-          duration_ms: durationMs,
-          ranked: false,
-        });
-      }
-    }, 460);
+      setResult(saved ? "saved" : "goal");
+      if (!saved) setGoals((v) => v + 1);
+    }, 420);
   }
 
-  function resetForNext() { setResult(null); setBall(BALL_START); setAim({ x: 50, y: 28 }); setKeeper(KEEPER_START); setKeeperDive(0); setDragOffset({ x: 0, y: 0 }); setPhase("ready"); }
-  function next() { setShot((v) => v + 1); resetForNext(); }
-  function restart() {
-    const previousSession = analyticsSessionIdRef.current;
-    if (previousSession) void trackPlayAgain(GAME_NAMES.SHOOTER, previousSession);
-    analyticsSessionIdRef.current = null;
-    analyticsStartedAtRef.current = null;
-    analyticsStartedRef.current = false;
-    analyticsCompletedRef.current = false;
-    setShot(0); setScore(0); setStreak(0); setMarks(Array(TOTAL_SHOTS).fill(null)); resetForNext();
+  function next() {
+    setShot((v) => v + 1);
+    setResult(null);
+    setAim({ x: 50, y: 28 });
+    setBall(BALL_START);
+    setKeeper(KEEPER_START);
+    setDive(0);
   }
 
-  const isIdle = phase === "ready" || phase === "aiming";
-  const pitchRect = pitchRef.current?.getBoundingClientRect();
-  const aimPx = pitchRect ? { x: (aim.x / 100) * pitchRect.width, y: (aim.y / 100) * pitchRect.height } : { x: 0, y: 0 };
+  if (finished) return <Finish title="Penaltı serisi bitti" value={`${goals}/10 GOL`} onRestart={() => window.location.reload()} />;
 
-  return <main className="min-h-screen overflow-x-hidden bg-[#06152b] text-white select-none"><div className="mx-auto max-w-md pb-[max(18px,env(safe-area-inset-bottom))]">
-    <header className="flex items-center justify-between bg-[#071d3c] px-3 py-3"><Link href="/tr" className="flex items-center gap-2 rounded-xl px-1 py-1 active:scale-95"><span className="text-xl">←</span><img src="/footbattle-logo.png" alt="FootBattle" className="h-11 w-auto object-contain" /></Link><button type="button" onClick={toggleSound} aria-label={soundOn ? "Sesi kapat" : "Sesi aç"} aria-pressed={!soundOn} className="rounded-xl border border-cyan-300/20 bg-[#061a34] px-3 py-2 text-lg active:scale-95">{soundOn ? "🔊" : "🔇"}</button></header>
-    <div className="bg-[#071d3c] px-3 pb-2 text-center text-[10px] font-black tracking-[0.18em] text-cyan-200/75">PENALTI</div>
-    <div className="grid grid-cols-3 gap-2 bg-[#071d3c] px-3 pb-3"><Stat label="ŞUT" value={`⚽ ${Math.min(shot + 1, TOTAL_SHOTS)}/${TOTAL_SHOTS}`} /><Stat label="SERİ" value={`🔥 x${streak}`} /><Stat label="SKOR" value={`🏆 ${score.toLocaleString("tr-TR")}`} /></div>
-    {!finished ? <div ref={pitchRef} onPointerMove={onMove} onPointerUp={releaseShot} onPointerCancel={() => { if (phase === "aiming") { setPhase("ready"); setDragOffset({ x: 0, y: 0 }); } }} className="relative aspect-[9/12.3] overflow-hidden touch-none" style={{ overscrollBehavior: "none", WebkitUserSelect: "none", background: "repeating-linear-gradient(0deg,#269b43 0 54px,#2eaa49 54px 108px)" }}>
-      <div className="absolute inset-x-0 top-0 h-[20.5%] overflow-hidden bg-gradient-to-b from-[#07142b] via-[#0d2945] to-[#173d54]">
-        <div className="absolute inset-x-0 top-0 h-[10%] bg-black/10" /><div className="absolute inset-x-0 top-[18%] h-[2px] bg-white/10" />
-        <CrowdRow top="2%" scale={0.62} opacity={0.54} offset={-7} count={39} />
-        <CrowdRow top="14%" scale={0.68} opacity={0.62} offset={4} count={38} />
-        <CrowdRow top="28%" scale={0.75} opacity={0.72} offset={-3} count={37} />
-        <CrowdRow top="43%" scale={0.84} opacity={0.82} offset={6} count={36} />
-        <CrowdRow top="59%" scale={0.94} opacity={0.92} offset={-5} count={35} />
-        <CrowdRow top="76%" scale={1.04} opacity={1} offset={3} count={34} />
-        <div className="absolute inset-x-0 bottom-0 h-[10%] bg-gradient-to-t from-[#0a2438] to-transparent" />
+  return (
+    <GameShell title="⚽ PENALTI AT" left={`ŞUT ${shot + 1}/10`} middle={`GOL ${goals}`} right="AI KALECİ">
+      <Pitch ref={pitchRef} onPointerMove={onMove} onPointerUp={release}>
+        <Goal />
+        <KeeperSprite point={keeper} dive={dive} />
+        {aiming && <AimDot point={aim} />}
+        <button onPointerDown={onBallDown} className="absolute z-30 -translate-x-1/2 -translate-y-1/2 text-[30px] transition-all duration-[420ms]" style={{ left: `${ball.x}%`, top: `${ball.y}%` }}>⚽</button>
+        <BottomMessage result={result} idle={aiming ? "HEDEFİ BELİRLE • BIRAK VE ŞUT ÇEK" : "TOPA BAS • GERİ/YANA ÇEK"} onNext={next} />
+      </Pitch>
+    </GameShell>
+  );
+}
+
+function KeeperMode() {
+  const pitchRef = useRef<HTMLDivElement>(null);
+  const dragStart = useRef<{ x: number; y: number } | null>(null);
+  const [keeper, setKeeper] = useState<Point>(KEEPER_START);
+  const [ball, setBall] = useState<Point>(BALL_START);
+  const [shot, setShot] = useState(0);
+  const [saves, setSaves] = useState(0);
+  const [result, setResult] = useState<Result>(null);
+  const [armed, setArmed] = useState(false);
+  const targetRef = useRef<Point>({ x: 50, y: 28 });
+  const firedAtRef = useRef<number | null>(null);
+
+  const finished = shot >= TOTAL_SHOTS;
+
+  function armShot() {
+    if (armed || result) return;
+    const side = Math.random();
+    const x = side < 0.42 ? random(24, 42) : side > 0.58 ? random(58, 76) : random(44, 56);
+    const y = random(23, 31.5);
+    targetRef.current = { x, y };
+    setArmed(true);
+    window.setTimeout(() => {
+      firedAtRef.current = performance.now();
+      setBall(targetRef.current);
+      window.setTimeout(resolveKeeperShot, 500);
+    }, random(650, 1300));
+  }
+
+  function onKeeperDown(event: PointerEvent<HTMLButtonElement>) {
+    if (!armed || result) return;
+    dragStart.current = { x: event.clientX, y: event.clientY };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function onKeeperMove(event: PointerEvent<HTMLDivElement>) {
+    if (!dragStart.current || !pitchRef.current || result) return;
+    const rect = pitchRef.current.getBoundingClientRect();
+    const dx = ((event.clientX - dragStart.current.x) / rect.width) * 100;
+    const dy = ((event.clientY - dragStart.current.y) / rect.height) * 100;
+    setKeeper({ x: clamp(50 + dx * 1.35, 33, 67), y: clamp(28 + dy * 0.65, 23.5, 31) });
+  }
+
+  function resolveKeeperShot() {
+    const target = targetRef.current;
+    setKeeper((currentKeeper) => {
+      const reaction = firedAtRef.current ? performance.now() - firedAtRef.current : 9999;
+      const distance = Math.hypot(target.x - currentKeeper.x, (target.y - currentKeeper.y) * 1.7);
+      const reactionBonus = reaction <= 560 ? 2.2 : 0;
+      const saved = distance <= 12.5 + reactionBonus;
+      setResult(saved ? "saved" : "goal");
+      if (saved) setSaves((v) => v + 1);
+      return currentKeeper;
+    });
+  }
+
+  function next() {
+    setShot((v) => v + 1);
+    setResult(null);
+    setArmed(false);
+    setKeeper(KEEPER_START);
+    setBall(BALL_START);
+    firedAtRef.current = null;
+    dragStart.current = null;
+  }
+
+  if (finished) return <Finish title="Kaleci serisi bitti" value={`${saves}/10 KURTARIŞ`} onRestart={() => window.location.reload()} />;
+
+  return (
+    <GameShell title="🧤 KALECİ OL" left={`ŞUT ${shot + 1}/10`} middle={`KURTARIŞ ${saves}`} right="AI ŞUTÖR">
+      <Pitch ref={pitchRef} onPointerMove={onKeeperMove} onPointerUp={() => { dragStart.current = null; }}>
+        <Goal />
+        <button onPointerDown={onKeeperDown} className="absolute z-20 -translate-x-1/2 -translate-y-1/2 transition-[left,top] duration-75" style={{ left: `${keeper.x}%`, top: `${keeper.y}%` }}>
+          <KeeperFigure />
+        </button>
+        <div className="absolute z-30 -translate-x-1/2 -translate-y-1/2 text-[30px] transition-all duration-[480ms] ease-out" style={{ left: `${ball.x}%`, top: `${ball.y}%` }}>⚽</div>
+        {!armed && !result && <button onClick={armShot} className="absolute bottom-[7%] left-[14%] right-[14%] z-40 rounded-2xl bg-yellow-400 py-4 text-sm font-black text-[#06152b]">HAZIRIM • ŞUTU BAŞLAT</button>}
+        {armed && !result && <div className="absolute bottom-[7%] left-[10%] right-[10%] z-40 rounded-xl border border-cyan-300/20 bg-[#061f36]/95 px-3 py-3 text-center text-xs font-black">🧤 KALECİYİ SÜRÜKLE • ŞUT HER AN GELEBİLİR</div>}
+        {result && <BottomMessage result={result} idle="" onNext={next} />}
+      </Pitch>
+    </GameShell>
+  );
+}
+
+function FriendMode() {
+  const [round, setRound] = useState(1);
+  const [playerAScore, setPlayerAScore] = useState(0);
+  const [playerBScore, setPlayerBScore] = useState(0);
+  const [turn, setTurn] = useState<"A" | "B">("A");
+  const [resolved, setResolved] = useState<Result>(null);
+  const [choice, setChoice] = useState<Dive | null>(null);
+  const [keeperChoice, setKeeperChoice] = useState<Dive | null>(null);
+  const finished = round > 10;
+  const shooter = turn;
+  const keeper = turn === "A" ? "B" : "A";
+
+  function resolveFriend() {
+    if (choice === null || keeperChoice === null) return;
+    const saved = choice === keeperChoice && Math.random() < 0.72;
+    setResolved(saved ? "saved" : "goal");
+    if (!saved) {
+      if (shooter === "A") setPlayerAScore((v) => v + 1);
+      else setPlayerBScore((v) => v + 1);
+    }
+  }
+
+  function nextTurn() {
+    setRound((v) => v + 1);
+    setTurn((v) => (v === "A" ? "B" : "A"));
+    setChoice(null);
+    setKeeperChoice(null);
+    setResolved(null);
+  }
+
+  if (finished) {
+    const text = playerAScore === playerBScore ? "BERABERE" : playerAScore > playerBScore ? "OYUNCU A KAZANDI" : "OYUNCU B KAZANDI";
+    return <Finish title={text} value={`${playerAScore} - ${playerBScore}`} onRestart={() => window.location.reload()} />;
+  }
+
+  return (
+    <section className="px-4 pb-10 pt-4">
+      <div className="rounded-3xl border border-white/10 bg-[#082342] p-5">
+        <div className="text-center text-xs font-black text-cyan-200">👥 ARKADAŞINLA • TUR {round}/10</div>
+        <div className="mt-4 grid grid-cols-2 gap-3 text-center">
+          <div className="rounded-2xl bg-white/5 p-4"><div className="text-xs text-slate-400">OYUNCU A</div><div className="mt-1 text-3xl font-black">{playerAScore}</div></div>
+          <div className="rounded-2xl bg-white/5 p-4"><div className="text-xs text-slate-400">OYUNCU B</div><div className="mt-1 text-3xl font-black">{playerBScore}</div></div>
+        </div>
+
+        <div className="mt-5 rounded-2xl bg-[#06152b] p-4 text-center">
+          <div className="text-sm font-black">⚽ Oyuncu {shooter} şutör • 🧤 Oyuncu {keeper} kaleci</div>
+          <p className="mt-2 text-xs text-slate-400">Şutör yönünü seçsin. Sonra telefonu kaleciye verin; kaleci kendi yönünü seçsin.</p>
+        </div>
+
+        <DirectionPicker label={`Oyuncu ${shooter} • Şut yönü`} value={choice} onChange={setChoice} />
+        {choice !== null && <DirectionPicker label={`Oyuncu ${keeper} • Kaleci yönü`} value={keeperChoice} onChange={setKeeperChoice} />}
+
+        {!resolved ? (
+          <button disabled={choice === null || keeperChoice === null} onClick={resolveFriend} className="mt-5 w-full rounded-2xl bg-yellow-400 py-4 text-sm font-black text-[#06152b] disabled:opacity-30">PENALTIYI OYNA</button>
+        ) : (
+          <div className="mt-5">
+            <div className={`rounded-2xl py-4 text-center text-xl font-black ${resolved === "goal" ? "bg-emerald-500" : "bg-sky-500"}`}>{resolved === "goal" ? "⚽ GOL" : "🧤 KURTARIŞ"}</div>
+            <button onClick={nextTurn} className="mt-3 w-full rounded-2xl border border-white/10 bg-white/5 py-4 text-sm font-black">SIRADAKİ TUR →</button>
+          </div>
+        )}
       </div>
-      <div className="absolute inset-x-0 top-[17.5%] h-[3%] border-y border-white/15 bg-[#12364b]"><div className="flex h-full items-center justify-around text-[9px] font-black italic text-emerald-300/85"><span>FOOTBATTLE</span><span>FOOTBATTLE</span><span>FOOTBATTLE</span></div></div>
-      <div className="absolute left-[21%] right-[21%] top-[20.5%] z-10 h-[13.5%]"><div className="absolute inset-0 border-x-[3px] border-t-[3px] border-white bg-[#218f46] shadow-[0_4px_0_rgba(0,0,0,.22)]" /><div className="absolute inset-x-0 bottom-0 h-px bg-white/90" /><div className="absolute inset-[3px] opacity-45" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.72) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.72) 1px,transparent 1px)", backgroundSize: "15px 15px" }} /></div>
-      <div className="absolute left-[7%] right-[7%] top-[34%] h-[25%] border border-t-0 border-white/80" /><div className="absolute left-[7%] right-[7%] top-[34%] h-px bg-white/80" /><div className="absolute left-1/2 top-[58.8%] h-[11%] w-[38%] -translate-x-1/2 rounded-b-full border-x border-b border-white/75" /><div className="absolute left-1/2 top-[50.5%] h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-white/90" />
-      <div className="absolute z-20 transition-[left,top,transform] duration-[420ms] ease-out" style={{ left: `${keeper.x}%`, top: `${keeper.y}%`, transform: `translate(-50%,-50%) rotate(${keeperDive * 24}deg)`, animation: isIdle ? "keeperIdle 1.1s ease-in-out infinite" : "none" }}><div style={{ animation: phase === "shooting" && keeperDive !== 0 ? `${keeperDive < 0 ? "keeperJumpLeft" : "keeperJumpRight"} 460ms cubic-bezier(.18,.76,.28,1) both` : "none" }}><Keeper /></div></div>
-      {phase === "aiming" && <svg className="pointer-events-none absolute inset-0 z-30 h-full w-full"><defs><marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#ffd93d" /></marker></defs><line x1={arrowStart.x} y1={arrowStart.y} x2={aimPx.x} y2={aimPx.y} stroke="#ffd93d" strokeWidth="2.4" strokeLinecap="round" markerEnd="url(#arrow)" /><circle cx={aimPx.x} cy={aimPx.y} r="6.5" fill="rgba(255,217,61,.06)" stroke="#ffd93d" strokeWidth="1.8" /></svg>}
-      <button ref={ballRef} aria-label="Topu nişanla ve bırak" onPointerDown={onBallDown} disabled={phase !== "ready"} className="absolute z-40 -translate-x-1/2 -translate-y-1/2 transition-all duration-[440ms] ease-out disabled:pointer-events-none" style={{ left: `${ball.x}%`, top: `${ball.y}%`, touchAction: "none" }}><Football /></button>
-      <div className="absolute left-1/2 top-[80%] z-30 flex -translate-x-1/2 gap-1.5 rounded-full border border-cyan-300/20 bg-[#061f36]/92 px-3 py-2 shadow-lg">{marks.map((mark, index) => <span key={index} className="text-[12px]">{mark === "goal" ? "⚽" : mark === "saved" ? "🧤" : "⚪"}</span>)}</div>
-      {phase === "resolved" ? <div className="absolute bottom-[4%] left-[10%] right-[10%] z-50 flex items-center gap-2"><div className={`flex-1 rounded-xl px-3 py-3 text-center text-xs font-black ${result === "goal" ? "bg-emerald-500" : "bg-sky-500"}`}>{result === "goal" ? "⚽ GOL" : "🧤 KURTARIŞ"}</div><button onClick={next} className="rounded-xl bg-yellow-400 px-4 py-3 text-xs font-black text-[#06152b]">{shot + 1 >= TOTAL_SHOTS ? "SONUÇ →" : "SIRADAKİ →"}</button></div> : <div className="absolute bottom-[4%] left-[8%] right-[8%] z-40 rounded-xl border border-cyan-300/20 bg-[#061f36]/95 px-3 py-3 text-center text-[11px] font-black shadow-xl">{phase === "shooting" ? "ŞUT..." : phase === "aiming" ? `GÜÇ %${power} • BIRAK VE ŞUT ÇEK` : "✋ TOPA BAS • GERİ/YANA ÇEK • BIRAK"}</div>}
-      <style jsx>{`
-        @keyframes keeperIdle { 0%,100% { transform: translate(-50%,-50%) translateY(0) rotate(-1deg); } 50% { transform: translate(-50%,-50%) translateY(-2px) rotate(1deg); } }
-        @keyframes keeperJumpLeft { 0% { transform: translate(0,0) scaleY(1) rotate(0deg); } 10% { transform: translate(1px,2px) scaleY(.96) rotate(-2deg); } 24% { transform: translate(-4px,-13px) scaleY(1.02) rotate(-8deg); } 38% { transform: translate(-6px,-16px) scaleY(1.02) rotate(-12deg); } 68% { transform: translate(-8px,-12px) scaleY(1) rotate(-8deg); } 100% { transform: translate(-9px,-4px) scaleY(1) rotate(0deg); } }
-        @keyframes keeperJumpRight { 0% { transform: translate(0,0) scaleY(1) rotate(0deg); } 10% { transform: translate(-1px,2px) scaleY(.96) rotate(2deg); } 24% { transform: translate(4px,-13px) scaleY(1.02) rotate(8deg); } 38% { transform: translate(6px,-16px) scaleY(1.02) rotate(12deg); } 68% { transform: translate(8px,-12px) scaleY(1) rotate(8deg); } 100% { transform: translate(9px,-4px) scaleY(1) rotate(0deg); } }
-      `}</style>
-    </div> : <div className="m-4 rounded-3xl border border-cyan-300/20 bg-[#07264d] p-8 text-center"><div className="text-6xl">🏆</div><h2 className="mt-4 text-3xl font-black">Seri Bitti</h2><p className="mt-2 text-slate-300">10 şut sonunda skorun</p><p className="mt-5 text-5xl font-black text-yellow-300">{score.toLocaleString("tr-TR")}</p><button onClick={restart} className="mt-8 w-full rounded-2xl bg-emerald-400 py-4 font-black text-[#05294a]">TEKRAR OYNA</button><Link href="/tr" className="mt-3 block w-full rounded-2xl border border-white/15 bg-white/5 py-3 text-sm font-black text-white">ANA SAYFAYA DÖN</Link></div>}
-  </div></main>;
+    </section>
+  );
 }
 
-function CrowdRow({ top, scale, opacity, offset, count }: { top: string; scale: number; opacity: number; offset: number; count: number }) {
-  const shirts = ["#d8e6f2", "#de9a55", "#477398", "#7da4bb", "#d7c06f", "#294f73", "#a9564e", "#78905d"];
-  const skins = ["#d9a071", "#b9784b", "#8b5b3d", "#e0b184", "#6e452f"];
-  return <div className="absolute left-[-8%] right-[-8%] flex items-end justify-around" style={{ top, opacity, transform: `translateX(${offset}px) scale(${scale})`, transformOrigin: "center top" }}>
-    {Array.from({ length: count }, (_, i) => {
-      const lift = ((i * 7 + Math.abs(offset) * 3) % 7) - 3;
-      const lean = ((i * 5 + offset) % 5) - 2;
-      const bodyH = 7 + ((i * 3 + Math.abs(offset)) % 5);
-      const bodyW = 7 + ((i * 5 + 2) % 4);
-      return <span key={i} className="relative block h-[16px] w-[10px]" style={{ transform: `translateY(${lift}px) rotate(${lean}deg)` }}>
-        <span className="absolute left-1/2 top-0 -translate-x-1/2 rounded-full" style={{ width: `${4 + (i % 2)}px`, height: `${4 + (i % 2)}px`, background: skins[(i * 3 + Math.abs(offset)) % skins.length] }} />
-        <span className="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-t-[4px]" style={{ height: `${bodyH}px`, width: `${bodyW}px`, background: shirts[(i * 2 + Math.abs(offset)) % shirts.length] }} />
-        {i % 9 === 0 && <span className="absolute -top-[3px] left-[1px] h-[6px] w-[2px] rotate-[-28deg] rounded-full bg-[#d9a071]" />}
-        {i % 13 === 0 && <span className="absolute -top-[2px] right-0 h-[6px] w-[2px] rotate-[24deg] rounded-full bg-[#b9784b]" />}
-      </span>;
-    })}
-  </div>;
+function DirectionPicker({ label, value, onChange }: { label: string; value: Dive | null; onChange: (v: Dive) => void }) {
+  return (
+    <div className="mt-5">
+      <div className="mb-2 text-xs font-black text-slate-300">{label}</div>
+      <div className="grid grid-cols-3 gap-2">
+        {([[-1, "← SOL"], [0, "↑ ORTA"], [1, "SAĞ →"]] as const).map(([v, text]) => (
+          <button key={v} onClick={() => onChange(v)} className={`rounded-xl border px-2 py-3 text-xs font-black ${value === v ? "border-emerald-300 bg-emerald-400 text-[#06152b]" : "border-white/10 bg-white/5"}`}>{text}</button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-function Keeper() { return <svg width="68" height="80" viewBox="0 0 68 80" aria-hidden="true" className="drop-shadow-[0_3px_3px_rgba(0,0,0,.32)]">
-  <ellipse cx="34" cy="78" rx="20" ry="1.6" fill="rgba(0,0,0,.20)" /><circle cx="34" cy="10" r="7.5" fill="#b9784b" stroke="#2c211b" strokeWidth="1" /><path d="M27 8 Q29 1 34 1 Q40 1 42 7 Q37 5 28 7 Z" fill="#201a18" /><path d="M29.5 8.8 Q31.3 7.9 32.8 8.8 M35.2 8.8 Q36.7 7.9 38.5 8.8" fill="none" stroke="#3a241a" strokeWidth=".8" strokeLinecap="round" /><ellipse cx="31.5" cy="10.5" rx="1.15" ry=".9" fill="#fff8ed" /><ellipse cx="36.5" cy="10.5" rx="1.15" ry=".9" fill="#fff8ed" /><circle cx="31.7" cy="10.55" r=".45" fill="#201813" /><circle cx="36.3" cy="10.55" r=".45" fill="#201813" /><path d="M34 10.7 L33.5 12.2 L34.5 12.2" fill="none" stroke="#7d452f" strokeWidth=".55" strokeLinecap="round" strokeLinejoin="round" /><path d="M31.7 13.1 Q34 14.2 36.3 13.1" fill="none" stroke="#6f3f2a" strokeWidth=".7" strokeLinecap="round" />
-  <path d="M23 23 Q34 17 45 23 L43 46 Q34 50 25 46 Z" fill="#e96936" stroke="#b94724" strokeWidth="1.1" /><path d="M24 24 Q34 20 44 24" fill="none" stroke="#ff9368" strokeWidth="1.5" /><path d="M26 29 H42" stroke="#d8552d" strokeWidth="1" opacity=".7" /><text x="34" y="39" textAnchor="middle" fontSize="12" fontWeight="900" fill="#733018">1</text><path d="M24 25 Q18 29 15 37 Q12 42 8 43" fill="none" stroke="#e96936" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" /><path d="M44 25 Q50 29 53 37 Q56 42 60 43" fill="none" stroke="#e96936" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" /><circle cx="15" cy="37" r="4.2" fill="#e96936" /><circle cx="53" cy="37" r="4.2" fill="#e96936" /><g><path d="M3 39 Q4 34 9 34 L13 38 L11 45 Q6 47 3 44 Z" fill="#c9f53d" stroke="#76951e" strokeWidth="1" /><path d="M5 36 L8 33 M8 36 L11 34" stroke="#efffb0" strokeWidth="1" strokeLinecap="round" /></g><g><path d="M65 39 Q64 34 59 34 L55 38 L57 45 Q62 47 65 44 Z" fill="#c9f53d" stroke="#76951e" strokeWidth="1" /><path d="M63 36 L60 33 M60 36 L57 34" stroke="#efffb0" strokeWidth="1" strokeLinecap="round" /></g><path d="M25 45 Q34 49 43 45 L42 53 Q34 56 26 53 Z" fill="#17283b" /><path d="M27 52 L22 64 L23 72" fill="none" stroke="#17283b" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" /><path d="M41 52 L46 64 L45 72" fill="none" stroke="#17283b" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" /><path d="M20 67 L25 67 M43 67 L48 67" stroke="#f3f4f6" strokeWidth="3" /><path d="M15 71 Q20 69 26 71 L29 75 Q27 78 22 77 L14 76 Q12 73 15 71 Z" fill="#111827" stroke="#05080d" strokeWidth="1" /><path d="M42 71 Q48 69 53 72 Q56 75 53 77 L45 77 Q40 77 42 71 Z" fill="#111827" stroke="#05080d" strokeWidth="1" /><path d="M15 75 Q21 76 28 75 M42 75 Q48 76 54 75" stroke="#d7dde5" strokeWidth="1.2" />
-</svg>; }
-function Football() { return <span className="block text-[28px] leading-none drop-shadow-[0_5px_5px_rgba(0,0,0,.32)]">⚽</span>; }
-function Stat({ label, value }: { label: string; value: string }) { return <div className="rounded-xl border border-cyan-300/15 bg-[#061a34] px-2 py-2.5 text-center"><p className="text-[9px] font-black text-slate-400">{label}</p><p className="mt-1 text-[14px] font-black text-white">{value}</p></div>; }
+function GameShell({ title, left, middle, right, children }: { title: string; left: string; middle: string; right: string; children: React.ReactNode }) {
+  return (
+    <>
+      <div className="bg-[#071d3c] px-3 pb-2 text-center text-[10px] font-black tracking-[0.18em] text-cyan-200/75">{title}</div>
+      <div className="grid grid-cols-3 gap-2 bg-[#071d3c] px-3 pb-3">
+        {[left, middle, right].map((v) => <div key={v} className="rounded-xl border border-cyan-300/15 bg-[#061a34] px-2 py-2.5 text-center text-[10px] font-black">{v}</div>)}
+      </div>
+      {children}
+    </>
+  );
+}
+
+const Pitch = ReactForwardPitch();
+function ReactForwardPitch() {
+  const React = require("react") as typeof import("react");
+  return React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(function PitchInner(props, ref) {
+    return <div ref={ref} {...props} className={`relative aspect-[9/12.3] overflow-hidden touch-none ${props.className ?? ""}`} style={{ overscrollBehavior: "none", background: "repeating-linear-gradient(0deg,#269b43 0 54px,#2eaa49 54px 108px)", ...props.style }}>{props.children}</div>;
+  });
+}
+
+function Goal() {
+  return <><div className="absolute inset-x-0 top-0 h-[20.5%] bg-gradient-to-b from-[#07142b] via-[#0d2945] to-[#173d54]" /><div className="absolute left-[21%] right-[21%] top-[20.5%] z-10 h-[13.5%] border-x-[3px] border-t-[3px] border-white bg-[#218f46] shadow-[0_4px_0_rgba(0,0,0,.22)]" /><div className="absolute left-[7%] right-[7%] top-[34%] h-[25%] border border-t-0 border-white/80" /></>;
+}
+
+function KeeperSprite({ point, dive }: { point: Point; dive: Dive }) {
+  return <div className="absolute z-20 -translate-x-1/2 -translate-y-1/2 transition-all duration-[420ms]" style={{ left: `${point.x}%`, top: `${point.y}%`, transform: `translate(-50%,-50%) rotate(${dive * 24}deg)` }}><KeeperFigure /></div>;
+}
+
+function KeeperFigure() {
+  return <div className="relative h-[74px] w-[66px]"><div className="absolute left-1/2 top-0 h-4 w-4 -translate-x-1/2 rounded-full bg-amber-700" /><div className="absolute left-1/2 top-4 h-9 w-8 -translate-x-1/2 rounded-xl bg-orange-500" /><div className="absolute left-0 top-7 h-2.5 w-8 rotate-[-18deg] rounded-full bg-orange-500" /><div className="absolute right-0 top-7 h-2.5 w-8 rotate-[18deg] rounded-full bg-orange-500" /><div className="absolute left-3 top-[30px] h-4 w-4 rounded-md bg-lime-300" /><div className="absolute right-3 top-[30px] h-4 w-4 rounded-md bg-lime-300" /><div className="absolute left-[22px] top-[50px] h-6 w-2.5 rotate-[8deg] rounded-full bg-slate-900" /><div className="absolute right-[22px] top-[50px] h-6 w-2.5 rotate-[-8deg] rounded-full bg-slate-900" /></div>;
+}
+
+function AimDot({ point }: { point: Point }) {
+  return <div className="pointer-events-none absolute z-30 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-yellow-300 bg-yellow-300/10" style={{ left: `${point.x}%`, top: `${point.y}%` }} />;
+}
+
+function BottomMessage({ result, idle, onNext }: { result: Result; idle: string; onNext: () => void }) {
+  if (result) return <div className="absolute bottom-[5%] left-[10%] right-[10%] z-40 flex gap-2"><div className={`flex-1 rounded-xl px-3 py-3 text-center text-xs font-black ${result === "goal" ? "bg-emerald-500" : "bg-sky-500"}`}>{result === "goal" ? "⚽ GOL" : "🧤 KURTARIŞ"}</div><button onClick={onNext} className="rounded-xl bg-yellow-400 px-4 py-3 text-xs font-black text-[#06152b]">DEVAM →</button></div>;
+  return <div className="absolute bottom-[5%] left-[9%] right-[9%] z-40 rounded-xl border border-cyan-300/20 bg-[#061f36]/95 px-3 py-3 text-center text-[11px] font-black">{idle}</div>;
+}
+
+function Finish({ title, value, onRestart }: { title: string; value: string; onRestart: () => void }) {
+  return <div className="m-4 rounded-3xl border border-cyan-300/20 bg-[#07264d] p-8 text-center"><div className="text-6xl">🏆</div><h2 className="mt-4 text-2xl font-black">{title}</h2><p className="mt-5 text-4xl font-black text-yellow-300">{value}</p><button onClick={onRestart} className="mt-8 w-full rounded-2xl bg-emerald-400 py-4 font-black text-[#05294a]">TEKRAR OYNA</button></div>;
+}
+
+function pickOther(direction: Dive): Dive {
+  const pool = ([-1, 0, 1] as Dive[]).filter((v) => v !== direction);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function clamp(value: number, min: number, max: number) { return Math.max(min, Math.min(max, value)); }
+function random(min: number, max: number) { return min + Math.random() * (max - min); }
