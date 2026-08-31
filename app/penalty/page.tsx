@@ -1,28 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { PointerEvent, useEffect, useRef, useState } from "react";
+import { PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type Mode = "menu" | "shooter" | "keeper" | "friend";
-type Dive = -1 | 0 | 1;
-type Result = "goal" | "saved" | null;
+type Side = -1 | 0 | 1;
 type Point = { x: number; y: number };
-type Motion = "idle" | "anticipate" | "left" | "center" | "right" | "recover";
+type Result = "goal" | "saved" | null;
+type Phase = "ready" | "aiming" | "flight" | "result";
 
-const TOTAL_SHOTS = 10;
-const BALL_START: Point = { x: 50, y: 77 };
-const AIM = { left: 24, right: 76, top: 21.5, bottom: 37 };
+const TOTAL = 10;
+const BALL_START: Point = { x: 50, y: 78 };
+const GOAL_Y = 31;
+const sleep = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
+const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
+const otherSide = (s: Side): Side => ([-1, 0, 1] as Side[]).filter((x) => x !== s)[Math.floor(Math.random() * 2)];
 
 export default function PenaltyPage() {
   const [mode, setMode] = useState<Mode>("menu");
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#06162c] text-white select-none">
-      <div className="mx-auto min-h-screen w-full max-w-[560px] bg-[#071d3c] shadow-2xl">
-        <header className="flex h-[74px] items-center justify-between border-b border-cyan-200/10 px-4">
+    <main className="min-h-screen overflow-x-hidden bg-[#061628] text-white">
+      <div className="mx-auto min-h-screen max-w-[720px] bg-[#071d36] shadow-2xl shadow-black/40">
+        <header className="flex items-center justify-between border-b border-white/10 bg-[#061a31] px-4 py-3">
           <Link href="/tr" className="flex items-center gap-2 active:scale-95">
             <span className="text-xl">←</span>
-            <img src="/footbattle-logo.png" alt="FootBattle" className="h-11 w-auto" />
+            <img src="/footbattle-logo.png" alt="FootBattle" className="h-10 w-auto" />
           </Link>
           {mode !== "menu" && (
             <button onClick={() => setMode("menu")} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-black tracking-wide">
@@ -30,408 +33,351 @@ export default function PenaltyPage() {
             </button>
           )}
         </header>
-
-        {mode === "menu" && <ModeMenu onSelect={setMode} />}
-        {mode === "shooter" && <ShooterMode />}
-        {mode === "keeper" && <KeeperMode />}
-        {mode === "friend" && <FriendMode />}
+        {mode === "menu" ? <ModeMenu onSelect={setMode} /> : null}
+        {mode === "shooter" ? <ShooterMode /> : null}
+        {mode === "keeper" ? <KeeperMode /> : null}
+        {mode === "friend" ? <FriendMode /> : null}
       </div>
     </main>
   );
 }
 
-function ModeMenu({ onSelect }: { onSelect: (mode: Mode) => void }) {
+function ModeMenu({ onSelect }: { onSelect: (m: Mode) => void }) {
   return (
-    <section className="px-4 pb-10 pt-6">
+    <section className="px-4 py-6 sm:px-6">
       <div className="text-center">
-        <div className="text-[10px] font-black tracking-[0.3em] text-cyan-200/60">FOOTBATTLE ARCADE</div>
-        <h1 className="mt-2 text-4xl font-black tracking-tight">PENALTI</h1>
-        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-400">Şut çek, kaleye geç veya aynı cihazda arkadaşınla kapış.</p>
+        <div className="text-[10px] font-black tracking-[.28em] text-cyan-200/70">FOOTBATTLE ARCADE</div>
+        <h1 className="mt-2 text-4xl font-black">PENALTI</h1>
+        <p className="mt-2 text-sm text-slate-400">Modunu seç, direkt maça gir.</p>
       </div>
-      <div className="mt-7 space-y-3">
-        <ModeCard icon="⚽" title="Penaltı At" text="Hedefle, gücü ayarla ve kaleciyi geç." action="ŞUT ÇEK" onClick={() => onSelect("shooter")} />
-        <ModeCard icon="🧤" title="Kaleci Ol" text="Şutörü oku. Doğru anda doğru köşeye uç." action="KALEYE GEÇ" onClick={() => onSelect("keeper")} />
-        <ModeCard icon="👥" title="Arkadaşınla" text="Sırayla şutör ve kaleci olun. En çok gol atan kazansın." action="2 KİŞİ OYNA" onClick={() => onSelect("friend")} />
+      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+        <ModeCard emoji="⚽" title="Penaltı At" text="Gücü ve köşeyi ayarla." onClick={() => onSelect("shooter")} />
+        <ModeCard emoji="🧤" title="Kaleci Ol" text="Şutu oku, doğru anda uç." onClick={() => onSelect("keeper")} />
+        <ModeCard emoji="👥" title="Arkadaşınla" text="Aynı cihazda karşılıklı." onClick={() => onSelect("friend")} />
       </div>
     </section>
   );
 }
 
-function ModeCard({ icon, title, text, action, onClick }: { icon: string; title: string; text: string; action: string; onClick: () => void }) {
+function ModeCard({ emoji, title, text, onClick }: { emoji: string; title: string; text: string; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="group w-full overflow-hidden rounded-3xl border border-cyan-200/10 bg-gradient-to-br from-[#0a3158] to-[#082341] p-5 text-left shadow-lg transition active:scale-[0.99]">
-      <div className="flex items-center gap-4">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-3xl">{icon}</div>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-xl font-black">{title}</h2>
-          <p className="mt-1 text-xs leading-5 text-slate-400">{text}</p>
-          <div className="mt-3 inline-flex rounded-xl bg-yellow-300 px-3 py-2 text-[10px] font-black text-[#06213c]">{action} →</div>
-        </div>
-      </div>
+    <button onClick={onClick} className="group overflow-hidden rounded-3xl border border-cyan-300/15 bg-gradient-to-b from-[#0a2b50] to-[#071b32] p-4 text-left transition hover:-translate-y-0.5 hover:border-cyan-300/35 active:scale-[.99]">
+      <div className="flex h-28 items-center justify-center rounded-2xl bg-[radial-gradient(circle_at_50%_20%,rgba(34,211,238,.22),transparent_60%)] text-6xl">{emoji}</div>
+      <h2 className="mt-4 text-lg font-black">{title}</h2>
+      <p className="mt-1 text-xs leading-5 text-slate-400">{text}</p>
+      <div className="mt-4 text-xs font-black text-lime-300">OYNA →</div>
     </button>
   );
 }
 
 function ShooterMode() {
   const pitchRef = useRef<HTMLDivElement>(null);
-  const startRef = useRef<{ x: number; y: number } | null>(null);
-  const timerRef = useRef<number | null>(null);
-  const [aiming, setAiming] = useState(false);
-  const [aim, setAim] = useState<Point>({ x: 50, y: 29 });
-  const [ball, setBall] = useState<Point>(BALL_START);
-  const [motion, setMotion] = useState<Motion>("idle");
+  const dragRef = useRef<{ x: number; y: number } | null>(null);
+  const [phase, setPhase] = useState<Phase>("ready");
   const [shot, setShot] = useState(0);
   const [goals, setGoals] = useState(0);
-  const [result, setResult] = useState<Result>(null);
+  const [streak, setStreak] = useState(0);
+  const [score, setScore] = useState(0);
+  const [aim, setAim] = useState<Point>({ x: 50, y: 24 });
+  const [ball, setBall] = useState<Point>(BALL_START);
   const [power, setPower] = useState(0);
+  const [keeperSide, setKeeperSide] = useState<Side>(0);
+  const [result, setResult] = useState<Result>(null);
 
-  const finished = shot >= TOTAL_SHOTS;
+  const finished = shot >= TOTAL;
 
-  useEffect(() => () => { if (timerRef.current) window.clearTimeout(timerRef.current); }, []);
-
-  function onBallDown(event: PointerEvent<HTMLButtonElement>) {
-    if (result || finished || motion !== "idle") return;
-    startRef.current = { x: event.clientX, y: event.clientY };
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setAiming(true);
+  function onBallDown(e: PointerEvent<HTMLButtonElement>) {
+    if (phase !== "ready") return;
+    dragRef.current = { x: e.clientX, y: e.clientY };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setPhase("aiming");
   }
 
-  function onMove(event: PointerEvent<HTMLDivElement>) {
-    if (!aiming || !startRef.current || !pitchRef.current) return;
+  function onMove(e: PointerEvent<HTMLDivElement>) {
+    if (phase !== "aiming" || !dragRef.current || !pitchRef.current) return;
     const rect = pitchRef.current.getBoundingClientRect();
-    const dx = clamp(((event.clientX - startRef.current.x) / rect.width) * 100, -25, 25);
-    const dy = clamp(((event.clientY - startRef.current.y) / rect.height) * 100, 0, 25);
-    setAim({ x: clamp(50 - dx * 1.12, AIM.left, AIM.right), y: clamp(AIM.bottom - dy * 0.62, AIM.top, AIM.bottom) });
-    setPower(Math.round(clamp(Math.hypot(dx, dy) / 31, 0, 1) * 100));
+    const dx = ((e.clientX - dragRef.current.x) / rect.width) * 100;
+    const dy = ((e.clientY - dragRef.current.y) / rect.height) * 100;
+    const dragPower = clamp(Math.hypot(dx, dy) * 4.2, 18, 100);
+    setPower(Math.round(dragPower));
+    setAim({ x: clamp(50 - dx * 1.28, 20, 80), y: clamp(31 + dy * .55, 17, 31) });
   }
 
-  function release() {
-    if (!aiming || result) return;
-    setAiming(false);
-    startRef.current = null;
-    const target = aim;
-    const direction: Dive = target.x < 43 ? -1 : target.x > 57 ? 1 : 0;
-    const reads = Math.random() < 0.62;
-    const keeperDive: Dive = reads ? direction : pickOther(direction);
+  async function fire() {
+    if (phase !== "aiming") return;
+    dragRef.current = null;
+    setPhase("flight");
+    const targetSide: Side = aim.x < 43 ? -1 : aim.x > 57 ? 1 : 0;
+    const read = Math.random() < .64;
+    const dive = read ? targetSide : otherSide(targetSide);
+    setKeeperSide(dive);
+    setBall({ x: aim.x, y: aim.y });
+    await sleep(500);
 
-    setMotion("anticipate");
-    timerRef.current = window.setTimeout(() => {
-      setMotion(keeperDive === -1 ? "left" : keeperDive === 1 ? "right" : "center");
-      setBall(target);
-    }, 120);
-
-    window.setTimeout(() => {
-      const keeperX = keeperDive === -1 ? 34 : keeperDive === 1 ? 66 : 50;
-      const horizontal = Math.abs(target.x - keeperX);
-      const highShot = target.y < 27;
-      const reach = keeperDive === 0 ? 10 : highShot ? 15 : 17;
-      const placement = Math.min(1, Math.abs(target.x - 50) / 26) * 0.62 + Math.min(1, (AIM.bottom - target.y) / (AIM.bottom - AIM.top)) * 0.38;
-      let saveChance = 0.82 - placement * 0.34 - (power / 100) * 0.1;
-      if (Math.abs(target.x - 50) > 21 && target.y < 25.5) saveChance = Math.min(saveChance, 0.34);
-      const saved = horizontal <= reach && Math.random() < clamp(saveChance, 0.2, 0.82);
-      setResult(saved ? "saved" : "goal");
-      if (!saved) setGoals((v) => v + 1);
-      window.setTimeout(() => advanceShooter(), 1150);
-    }, 500);
-  }
-
-  function advanceShooter() {
+    const placement = Math.min(1, Math.abs(aim.x - 50) / 30) * .62 + Math.min(1, (31 - aim.y) / 14) * .38;
+    const sameSide = dive === targetSide;
+    const saveChance = clamp(.77 - placement * .32 - (power / 100) * .12, .18, .78);
+    const saved = sameSide && Math.random() < saveChance;
+    const next: Result = saved ? "saved" : "goal";
+    setResult(next);
+    setPhase("result");
+    if (saved) setStreak(0);
+    else {
+      const gain = 100 + Math.round(placement * 80) + Math.min(streak, 4) * 20;
+      setGoals((v) => v + 1);
+      setStreak((v) => v + 1);
+      setScore((v) => v + gain);
+    }
+    await sleep(1150);
     setShot((v) => v + 1);
-    setResult(null);
-    setAim({ x: 50, y: 29 });
     setBall(BALL_START);
-    setMotion("recover");
+    setAim({ x: 50, y: 24 });
     setPower(0);
-    window.setTimeout(() => setMotion("idle"), 260);
+    setKeeperSide(0);
+    setResult(null);
+    setPhase("ready");
   }
 
-  if (finished) return <Finish title="Penaltı serisi bitti" value={`${goals}/10 GOL`} onRestart={() => window.location.reload()} />;
+  if (finished) return <Finish title="SERİ TAMAMLANDI" value={`${goals}/10 GOL`} sub={`${score.toLocaleString("tr-TR")} PUAN`} />;
 
   return (
-    <GameShell title="PENALTI AT" left={`${shot + 1}/10 ŞUT`} middle={`${goals} GOL`} right={`${power}% GÜÇ`}>
-      <ArcadePitch ref={pitchRef} onPointerMove={onMove} onPointerUp={release}>
-        <Stadium />
-        <GoalFrame />
-        <Keeper motion={motion} />
-        {aiming && <AimReticle point={aim} />}
-        <button onPointerDown={onBallDown} className="absolute z-30 -translate-x-1/2 -translate-y-1/2 text-[44px] drop-shadow-[0_8px_6px_rgba(0,0,0,.35)] transition-all duration-[480ms] ease-out" style={{ left: `${ball.x}%`, top: `${ball.y}%` }}>⚽</button>
-        <PowerBar power={power} visible={aiming} />
+    <>
+      <ScoreBar mode="PENALTI AT" left={`ŞUT ${shot + 1}/${TOTAL}`} middle={`GOL ${goals}`} right={`🔥 ${streak}`} />
+      <Arena ref={pitchRef} onPointerMove={onMove} onPointerUp={fire}>
+        <GoalScene />
+        <Goalkeeper side={keeperSide} active={phase === "flight" || phase === "result"} saved={result === "saved"} />
+        <Shooter />
+        <Ball point={ball} flying={phase === "flight" || phase === "result"} saved={result === "saved"} />
+        {phase === "aiming" ? <AimMarker point={aim} /> : null}
+        <button aria-label="Şut çek" onPointerDown={onBallDown} className="absolute left-1/2 top-[77%] z-40 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-transparent" />
+        <PowerMeter value={power} />
+        <Hint>{phase === "ready" ? "TOPA BAS • GERİ VE YANA ÇEK" : phase === "aiming" ? "HEDEFİ VE GÜCÜ AYARLA • BIRAK" : ""}</Hint>
         <ResultFlash result={result} />
-        {!result && <Hint>{aiming ? "HEDEFİ BELİRLE • BIRAK VE VUR" : "TOPA BAS • GERİ VE YANA ÇEK"}</Hint>}
-      </ArcadePitch>
-    </GameShell>
+      </Arena>
+    </>
   );
 }
 
 function KeeperMode() {
-  const timerRef = useRef<number | null>(null);
   const [shot, setShot] = useState(0);
   const [saves, setSaves] = useState(0);
-  const [result, setResult] = useState<Result>(null);
+  const [streak, setStreak] = useState(0);
+  const [phase, setPhase] = useState<"waiting" | "windup" | "flight" | "result">("waiting");
+  const [keeperSide, setKeeperSide] = useState<Side>(0);
+  const [target, setTarget] = useState<Point>({ x: 50, y: 24 });
   const [ball, setBall] = useState<Point>(BALL_START);
-  const [target, setTarget] = useState<Point>({ x: 50, y: 28 });
-  const [motion, setMotion] = useState<Motion>("idle");
-  const [armed, setArmed] = useState(false);
-  const [cue, setCue] = useState<Dive | null>(null);
-  const chosenRef = useRef<Dive | null>(null);
+  const [result, setResult] = useState<Result>(null);
+  const [tell, setTell] = useState<Side>(0);
+  const targetSideRef = useRef<Side>(0);
 
-  const finished = shot >= TOTAL_SHOTS;
+  const finished = shot >= TOTAL;
 
   useEffect(() => {
-    if (!armed || result) return;
-    const direction = pickWeightedDirection();
-    const nextTarget = direction === -1 ? { x: random(25, 40), y: random(23, 34) } : direction === 1 ? { x: random(60, 75), y: random(23, 34) } : { x: random(45, 55), y: random(23, 34) };
-    setTarget(nextTarget);
-    setCue(Math.random() < 0.68 ? direction : pickOther(direction));
-    setMotion("anticipate");
+    if (finished || phase !== "waiting") return;
+    const id = window.setTimeout(() => void startAiShot(), 650);
+    return () => window.clearTimeout(id);
+  }, [phase, shot, finished]);
 
-    timerRef.current = window.setTimeout(() => {
-      setBall(nextTarget);
-      const choice = chosenRef.current;
-      const aligned = choice === direction;
-      const centerTolerance = direction === 0 && choice === 0;
-      const saved = (aligned || centerTolerance) && Math.random() < (direction === 0 ? 0.82 : 0.76);
-      setResult(saved ? "saved" : "goal");
-      if (saved) setSaves((v) => v + 1);
-      window.setTimeout(() => advanceKeeper(), 1100);
-    }, random(900, 1350));
-
-    return () => { if (timerRef.current) window.clearTimeout(timerRef.current); };
-  }, [armed]);
-
-  function chooseDive(direction: Dive) {
-    if (!armed || result || chosenRef.current !== null) return;
-    chosenRef.current = direction;
-    setMotion(direction === -1 ? "left" : direction === 1 ? "right" : "center");
+  async function startAiShot() {
+    const r = Math.random();
+    const side: Side = r < .38 ? -1 : r > .62 ? 1 : 0;
+    targetSideRef.current = side;
+    const x = side === -1 ? 27 + Math.random() * 12 : side === 1 ? 61 + Math.random() * 12 : 45 + Math.random() * 10;
+    const y = 18 + Math.random() * 12;
+    setTarget({ x, y });
+    setTell(Math.random() < .72 ? side : otherSide(side));
+    setPhase("windup");
+    await sleep(700 + Math.random() * 380);
+    setBall({ x, y });
+    setPhase("flight");
+    await sleep(470);
+    resolveShot(side);
   }
 
-  function startShot() {
-    if (armed || result) return;
-    chosenRef.current = null;
-    setCue(null);
-    setArmed(true);
-  }
-
-  function advanceKeeper() {
+  async function resolveShot(side: Side) {
+    const saved = keeperSide === side && Math.random() < .82;
+    setResult(saved ? "saved" : "goal");
+    setPhase("result");
+    if (saved) {
+      setSaves((v) => v + 1);
+      setStreak((v) => v + 1);
+    } else setStreak(0);
+    await sleep(1100);
     setShot((v) => v + 1);
-    setResult(null);
-    setArmed(false);
     setBall(BALL_START);
-    setCue(null);
-    chosenRef.current = null;
-    setMotion("recover");
-    window.setTimeout(() => setMotion("idle"), 240);
+    setKeeperSide(0);
+    setTell(0);
+    setResult(null);
+    setPhase("waiting");
   }
 
-  if (finished) return <Finish title="Kaleci serisi bitti" value={`${saves}/10 KURTARIŞ`} onRestart={() => window.location.reload()} />;
+  function dive(side: Side) {
+    if (phase !== "windup" && phase !== "flight") return;
+    if (keeperSide !== 0) return;
+    setKeeperSide(side);
+  }
+
+  if (finished) return <Finish title="KALECİ SERİSİ BİTTİ" value={`${saves}/10 KURTARIŞ`} sub={`EN İYİ SERİ: ${streak}`} />;
 
   return (
-    <GameShell title="KALECİ OL" left={`${shot + 1}/10 ŞUT`} middle={`${saves} KURTARIŞ`} right="AI ŞUTÖR">
-      <ArcadePitch>
-        <Stadium />
-        <GoalFrame />
-        <Keeper motion={motion} />
-        <div className="absolute z-30 -translate-x-1/2 -translate-y-1/2 text-[44px] drop-shadow-[0_8px_6px_rgba(0,0,0,.35)] transition-all duration-[520ms] ease-in" style={{ left: `${ball.x}%`, top: `${ball.y}%` }}>⚽</div>
-        {armed && !result && <ShooterCue direction={cue} />}
-        {!armed && !result && <button onClick={startShot} className="absolute bottom-[9%] left-[16%] right-[16%] z-40 rounded-2xl bg-yellow-300 py-4 text-sm font-black text-[#06213c] shadow-lg active:scale-95">HAZIRIM • BAŞLAT</button>}
-        {armed && !result && <DiveControls onChoose={chooseDive} disabled={chosenRef.current !== null} />}
+    <>
+      <ScoreBar mode="KALECİ OL" left={`ŞUT ${shot + 1}/${TOTAL}`} middle={`KURTARIŞ ${saves}`} right={`🔥 ${streak}`} />
+      <Arena>
+        <GoalScene />
+        <AiShooter tell={tell} kicking={phase === "flight" || phase === "result"} />
+        <Goalkeeper side={keeperSide} active={keeperSide !== 0 || phase === "result"} saved={result === "saved"} />
+        <Ball point={ball} flying={phase === "flight" || phase === "result"} saved={result === "saved"} />
         <ResultFlash result={result} />
-      </ArcadePitch>
-    </GameShell>
+        <div className="absolute bottom-4 left-3 right-3 z-50 grid grid-cols-3 gap-2">
+          <DiveButton label="↖ SOL" onClick={() => dive(-1)} />
+          <DiveButton label="↑ ORTA" onClick={() => dive(0)} />
+          <DiveButton label="SAĞ ↗" onClick={() => dive(1)} />
+        </div>
+        <Hint>{phase === "waiting" ? "HAZIR OL" : phase === "windup" ? "ŞUTÖRÜ OKU • KÖŞEYİ SEÇ" : ""}</Hint>
+      </Arena>
+    </>
   );
 }
 
 function FriendMode() {
-  const timerRef = useRef<number | null>(null);
-  const [round, setRound] = useState(1);
-  const [turn, setTurn] = useState<"A" | "B">("A");
+  const [turn, setTurn] = useState(0);
   const [a, setA] = useState(0);
   const [b, setB] = useState(0);
-  const [shotChoice, setShotChoice] = useState<Dive | null>(null);
-  const [keeperChoice, setKeeperChoice] = useState<Dive | null>(null);
-  const [phase, setPhase] = useState<"shooter" | "handoff" | "keeper" | "play">("shooter");
+  const [shotChoice, setShotChoice] = useState<Side | null>(null);
+  const [keeperChoice, setKeeperChoice] = useState<Side | null>(null);
+  const [hidden, setHidden] = useState(false);
   const [result, setResult] = useState<Result>(null);
-  const [ball, setBall] = useState<Point>(BALL_START);
-  const [motion, setMotion] = useState<Motion>("idle");
+  const shooter = turn % 2 === 0 ? "A" : "B";
+  const keeper = shooter === "A" ? "B" : "A";
+  const finished = turn >= 10;
 
-  const finished = round > 10;
-  const shooter = turn;
-  const keeper = turn === "A" ? "B" : "A";
-
-  function lockShot(direction: Dive) {
-    setShotChoice(direction);
-    setPhase("handoff");
-  }
-
-  function handoffDone() { setPhase("keeper"); }
-
-  function lockKeeper(direction: Dive) {
-    if (shotChoice === null) return;
-    setKeeperChoice(direction);
-    setPhase("play");
-    setMotion(direction === -1 ? "left" : direction === 1 ? "right" : "center");
-    const target = shotChoice === -1 ? { x: 30, y: 27 } : shotChoice === 1 ? { x: 70, y: 27 } : { x: 50, y: 25.5 };
-    window.setTimeout(() => setBall(target), 120);
-    window.setTimeout(() => {
-      const saved = direction === shotChoice && Math.random() < 0.78;
-      setResult(saved ? "saved" : "goal");
-      if (!saved) shooter === "A" ? setA((v) => v + 1) : setB((v) => v + 1);
-      timerRef.current = window.setTimeout(nextTurn, 1150);
-    }, 560);
-  }
-
-  function nextTurn() {
-    setRound((v) => v + 1);
-    setTurn((v) => v === "A" ? "B" : "A");
+  async function resolve() {
+    if (shotChoice === null || keeperChoice === null) return;
+    const saved = shotChoice === keeperChoice && Math.random() < .8;
+    const r: Result = saved ? "saved" : "goal";
+    setResult(r);
+    if (!saved) shooter === "A" ? setA((v) => v + 1) : setB((v) => v + 1);
+    await sleep(1200);
+    setTurn((v) => v + 1);
     setShotChoice(null);
     setKeeperChoice(null);
-    setPhase("shooter");
+    setHidden(false);
     setResult(null);
-    setBall(BALL_START);
-    setMotion("recover");
-    window.setTimeout(() => setMotion("idle"), 220);
   }
 
-  useEffect(() => () => { if (timerRef.current) window.clearTimeout(timerRef.current); }, []);
-
-  if (finished) {
-    const title = a === b ? "BERABERE" : a > b ? "OYUNCU A KAZANDI" : "OYUNCU B KAZANDI";
-    return <Finish title={title} value={`${a} - ${b}`} onRestart={() => window.location.reload()} />;
-  }
+  if (finished) return <Finish title={a === b ? "BERABERE" : a > b ? "OYUNCU A KAZANDI" : "OYUNCU B KAZANDI"} value={`${a} - ${b}`} sub="ARKADAŞ DÜELLOSU" />;
 
   return (
-    <GameShell title="ARKADAŞINLA" left={`TUR ${round}/10`} middle={`A ${a} - ${b} B`} right={`ŞUTÖR ${shooter}`}>
-      <ArcadePitch>
-        <Stadium />
-        <GoalFrame />
-        <Keeper motion={motion} />
-        <div className="absolute z-30 -translate-x-1/2 -translate-y-1/2 text-[44px] transition-all duration-[500ms]" style={{ left: `${ball.x}%`, top: `${ball.y}%` }}>⚽</div>
-
-        {phase === "shooter" && <ChoicePanel title={`Oyuncu ${shooter} • Şutunu gizlice seç`} onChoose={lockShot} />}
-        {phase === "handoff" && <Handoff shooter={shooter} keeper={keeper} onReady={handoffDone} />}
-        {phase === "keeper" && <ChoicePanel title={`Oyuncu ${keeper} • Köşeyi seç`} onChoose={lockKeeper} />}
-        {phase === "play" && !result && <Hint>ŞUT!</Hint>}
-        <ResultFlash result={result} />
-      </ArcadePitch>
-    </GameShell>
+    <section className="px-4 py-5">
+      <div className="rounded-3xl border border-white/10 bg-[#082642] p-4">
+        <div className="text-center text-xs font-black text-cyan-200">ARKADAŞINLA • TUR {turn + 1}/10</div>
+        <div className="mt-4 grid grid-cols-2 gap-3"><MiniScore name="OYUNCU A" score={a} /><MiniScore name="OYUNCU B" score={b} /></div>
+        <div className="mt-5 rounded-2xl bg-[#05192c] p-4 text-center text-sm font-black">⚽ Oyuncu {shooter} şutör • 🧤 Oyuncu {keeper} kaleci</div>
+        {!hidden ? (
+          <>
+            <DirectionRow value={shotChoice} onChange={setShotChoice} label={`Oyuncu ${shooter}: ŞUT KÖŞESİ`} />
+            <button disabled={shotChoice === null} onClick={() => setHidden(true)} className="mt-4 w-full rounded-2xl bg-yellow-400 py-4 text-sm font-black text-[#06152b] disabled:opacity-30">SEÇİMİ GİZLE • TELEFONU VER</button>
+          </>
+        ) : (
+          <>
+            <DirectionRow value={keeperChoice} onChange={setKeeperChoice} label={`Oyuncu ${keeper}: KALECİ KÖŞESİ`} />
+            <button disabled={keeperChoice === null} onClick={() => void resolve()} className="mt-4 w-full rounded-2xl bg-lime-400 py-4 text-sm font-black text-[#06152b] disabled:opacity-30">PENALTIYI OYNA</button>
+          </>
+        )}
+        {result ? <div className={`mt-4 rounded-2xl py-4 text-center text-2xl font-black ${result === "goal" ? "bg-emerald-500" : "bg-sky-500"}`}>{result === "goal" ? "GOOOL!" : "KURTARIŞ!"}</div> : null}
+      </div>
+    </section>
   );
 }
 
-function GameShell({ title, left, middle, right, children }: { title: string; left: string; middle: string; right: string; children: React.ReactNode }) {
+function ScoreBar({ mode, left, middle, right }: { mode: string; left: string; middle: string; right: string }) {
+  return <div className="border-b border-white/10 bg-[#071d36] px-3 pb-3 pt-2"><div className="mb-2 text-center text-[10px] font-black tracking-[.22em] text-cyan-200">{mode}</div><div className="grid grid-cols-3 gap-2">{[left,middle,right].map((v)=><div key={v} className="rounded-xl border border-cyan-300/15 bg-[#06172b] px-2 py-2.5 text-center text-[10px] font-black">{v}</div>)}</div></div>;
+}
+
+function Arena({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div {...props} className={`relative aspect-[9/11] overflow-hidden touch-none bg-[#168d49] sm:aspect-[10/9] ${props.className ?? ""}`} style={{ overscrollBehavior: "none", ...props.style }}>{children}</div>;
+}
+
+function GoalScene() {
   return (
     <>
-      <div className="bg-[#071d3c] px-4 pb-2 pt-3 text-center text-[11px] font-black tracking-[0.22em] text-cyan-200/75">{title}</div>
-      <div className="grid grid-cols-3 gap-2 bg-[#071d3c] px-3 pb-3">
-        {[left, middle, right].map((v) => <div key={v} className="rounded-xl border border-cyan-300/15 bg-[#061a34] px-2 py-3 text-center text-[10px] font-black">{v}</div>)}
+      <div className="absolute inset-x-0 top-0 h-[27%] overflow-hidden bg-[radial-gradient(circle_at_50%_100%,#244e6a_0%,#0b2742_55%,#061628_100%)]">
+        <div className="absolute inset-0 opacity-50" style={{ backgroundImage: "radial-gradient(circle,#8ea8b6 1.3px,transparent 1.6px)", backgroundSize: "15px 13px" }} />
+        <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/35 to-transparent" />
       </div>
-      {children}
+      <div className="absolute inset-x-0 top-[23%] h-5 border-y border-white/10 bg-[#0c3852] text-center text-[8px] font-black italic tracking-[.3em] text-lime-300/80">FOOTBATTLE • FOOTBATTLE • FOOTBATTLE</div>
+      <div className="absolute left-[9%] right-[9%] top-[27%] z-10 h-[27%] [perspective:700px]">
+        <div className="absolute inset-0 origin-top border-x-[5px] border-t-[5px] border-white bg-[#1e9a52]/35 shadow-[0_8px_18px_rgba(0,0,0,.28)] [transform:rotateX(4deg)]" />
+        <div className="absolute inset-[5px] opacity-40" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.45) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.45) 1px,transparent 1px)", backgroundSize: "18px 18px" }} />
+      </div>
+      <div className="absolute left-[7%] right-[7%] top-[53%] h-[29%] rounded-b-[42%] border border-t-0 border-white/60" />
+      <div className="absolute inset-x-0 top-[54%] bottom-0 bg-[linear-gradient(#1ea652,#1a974b_44%,#168c46)]" />
+      <div className="absolute left-1/2 top-[70%] h-20 w-44 -translate-x-1/2 rounded-t-full border border-b-0 border-white/45" />
+      <div className="absolute left-1/2 top-[71%] h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-white/55" />
     </>
   );
 }
 
-const ArcadePitch = ReactForwardPitch();
-function ReactForwardPitch() {
-  const React = require("react") as typeof import("react");
-  return React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(function PitchInner(props, ref) {
-    return (
-      <div ref={ref} {...props} className={`relative aspect-[9/11.6] overflow-hidden touch-none bg-[#23a957] ${props.className ?? ""}`} style={{ overscrollBehavior: "none", ...props.style }}>
-        {props.children}
-      </div>
-    );
-  });
-}
-
-function Stadium() {
+function Goalkeeper({ side, active, saved }: { side: Side; active: boolean; saved: boolean }) {
+  const pose = side === -1 ? "translate(-46%,-50%) translateX(-115px) rotate(-32deg)" : side === 1 ? "translate(-54%,-50%) translateX(115px) rotate(32deg)" : active ? "translate(-50%,-50%) translateY(-8px) scale(1.04)" : "translate(-50%,-50%)";
   return (
-    <>
-      <div className="absolute inset-x-0 top-0 h-[22%] bg-gradient-to-b from-[#07152d] via-[#103a59] to-[#17627a]">
-        <div className="absolute inset-x-0 bottom-0 h-8 bg-black/15" />
-        <div className="absolute inset-x-0 bottom-2 flex justify-around text-[10px] font-black italic tracking-wider text-emerald-200/80"><span>FOOTBATTLE</span><span>FOOTBATTLE</span><span>FOOTBATTLE</span></div>
-      </div>
-      <div className="absolute inset-x-0 top-[22%] bottom-0 bg-[repeating-linear-gradient(0deg,#24a957_0_58px,#2bb660_58px_116px)]" />
-      <div className="absolute left-[8%] right-[8%] top-[49%] h-[27%] rounded-b-[48%] border border-t-0 border-white/55" />
-      <div className="absolute left-1/2 top-[75%] h-2 w-2 -translate-x-1/2 rounded-full bg-white/75" />
-    </>
-  );
-}
-
-function GoalFrame() {
-  return (
-    <div className="absolute left-[11%] right-[11%] top-[19%] z-10 h-[29%]">
-      <div className="absolute inset-0 overflow-hidden border-x-[5px] border-t-[5px] border-white bg-white/[0.025] shadow-[0_5px_0_rgba(0,0,0,.18)]">
-        <div className="absolute inset-0 opacity-25" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.7) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.7) 1px,transparent 1px)", backgroundSize: "24px 22px" }} />
-      </div>
-      <div className="absolute -left-[5px] -top-[4px] h-[103%] w-[5px] rounded-full bg-white" />
-      <div className="absolute -right-[5px] -top-[4px] h-[103%] w-[5px] rounded-full bg-white" />
+    <div className="absolute left-1/2 top-[41%] z-30 h-[150px] w-[150px] transition-[transform] duration-500 ease-[cubic-bezier(.2,.8,.2,1)]" style={{ transform: pose }}>
+      <svg viewBox="0 0 180 180" className="h-full w-full drop-shadow-[0_9px_7px_rgba(0,0,0,.3)]">
+        <g style={{ transformOrigin: "90px 90px" }}>
+          <circle cx="90" cy="34" r="17" fill="#9d5b32" />
+          <path d="M74 26 Q90 10 106 26 L103 19 Q88 7 77 18Z" fill="#2a1c18" />
+          <rect x="68" y="49" width="44" height="61" rx="17" fill="#f36b22" />
+          <rect x="74" y="101" width="32" height="24" rx="7" fill="#17263b" />
+          <g style={{ transformOrigin: "72px 62px", transform: side === -1 ? "rotate(-34deg)" : side === 1 ? "rotate(18deg)" : "rotate(-10deg)" }}>
+            <rect x="37" y="58" width="42" height="13" rx="7" fill="#f36b22" /><rect x="25" y="55" width="20" height="19" rx="7" fill="#d7ff55" />
+          </g>
+          <g style={{ transformOrigin: "108px 62px", transform: side === 1 ? "rotate(34deg)" : side === -1 ? "rotate(-18deg)" : "rotate(10deg)" }}>
+            <rect x="101" y="58" width="42" height="13" rx="7" fill="#f36b22" /><rect x="135" y="55" width="20" height="19" rx="7" fill="#d7ff55" />
+          </g>
+          <g style={{ transformOrigin: "82px 118px", transform: active ? "rotate(20deg)" : "rotate(4deg)" }}><rect x="76" y="117" width="13" height="43" rx="7" fill="#17263b" /><rect x="72" y="153" width="22" height="9" rx="5" fill="#ecf2f8" /></g>
+          <g style={{ transformOrigin: "98px 118px", transform: active ? "rotate(-20deg)" : "rotate(-4deg)" }}><rect x="91" y="117" width="13" height="43" rx="7" fill="#17263b" /><rect x="88" y="153" width="22" height="9" rx="5" fill="#ecf2f8" /></g>
+          <text x="90" y="84" textAnchor="middle" fill="white" fontWeight="900" fontSize="24">1</text>
+          {saved ? <circle cx={side === -1 ? 28 : side === 1 ? 152 : 90} cy="62" r="8" fill="#8cf7ff" opacity=".75" /> : null}
+        </g>
+      </svg>
     </div>
   );
 }
 
-function Keeper({ motion }: { motion: Motion }) {
-  const pose = motion === "left" ? "-translate-x-[92%] -translate-y-[42%] -rotate-[36deg]" : motion === "right" ? "translate-x-[-8%] -translate-y-[42%] rotate-[36deg]" : motion === "center" ? "-translate-x-1/2 -translate-y-[66%] scale-105" : "-translate-x-1/2 -translate-y-1/2";
-  const leftArm = motion === "left" ? "-rotate-[78deg] -translate-y-2" : motion === "right" ? "rotate-[48deg]" : "-rotate-[36deg]";
-  const rightArm = motion === "right" ? "rotate-[78deg] -translate-y-2" : motion === "left" ? "-rotate-[48deg]" : "rotate-[36deg]";
-  const crouch = motion === "anticipate" ? "scale-y-[0.92] translate-y-1" : "";
-
-  return (
-    <div className={`absolute left-1/2 top-[36%] z-20 h-[118px] w-[118px] origin-center transition-all duration-[420ms] ease-out ${pose} ${crouch}`}>
-      <div className="absolute left-1/2 top-0 h-8 w-8 -translate-x-1/2 rounded-full bg-[#8b552f] shadow-inner" />
-      <div className="absolute left-1/2 top-7 h-[50px] w-[44px] -translate-x-1/2 rounded-[14px_14px_18px_18px] border-b-4 border-orange-700 bg-orange-500 shadow-lg">
-        <div className="absolute left-1/2 top-3 -translate-x-1/2 text-base font-black text-white">1</div>
-      </div>
-      <div className={`absolute left-[13px] top-[34px] h-4 w-[49px] origin-right rounded-full bg-orange-500 transition-transform duration-[360ms] ${leftArm}`}><div className="absolute -left-3 -top-2 h-8 w-8 rounded-lg border-2 border-lime-100 bg-lime-300" /></div>
-      <div className={`absolute right-[13px] top-[34px] h-4 w-[49px] origin-left rounded-full bg-orange-500 transition-transform duration-[360ms] ${rightArm}`}><div className="absolute -right-3 -top-2 h-8 w-8 rounded-lg border-2 border-lime-100 bg-lime-300" /></div>
-      <div className="absolute left-[36px] top-[70px] h-6 w-5 rounded-b-lg bg-slate-900" />
-      <div className="absolute right-[36px] top-[70px] h-6 w-5 rounded-b-lg bg-slate-900" />
-      <div className={`absolute left-[29px] top-[88px] h-8 w-4 origin-top rounded-full bg-[#e8bb8a] transition-transform duration-[360ms] ${motion === "left" ? "rotate-[30deg]" : motion === "right" ? "-rotate-[18deg]" : "rotate-[8deg]"}`}><div className="absolute -bottom-2 -left-1 h-4 w-7 rounded-full bg-slate-950" /></div>
-      <div className={`absolute right-[29px] top-[88px] h-8 w-4 origin-top rounded-full bg-[#e8bb8a] transition-transform duration-[360ms] ${motion === "right" ? "-rotate-[30deg]" : motion === "left" ? "rotate-[18deg]" : "-rotate-[8deg]"}`}><div className="absolute -bottom-2 -right-1 h-4 w-7 rounded-full bg-slate-950" /></div>
-    </div>
-  );
+function Shooter() {
+  return <div className="absolute left-[50%] top-[68%] z-20 h-[150px] w-[120px] -translate-x-1/2"><svg viewBox="0 0 120 170" className="h-full w-full drop-shadow-[0_9px_8px_rgba(0,0,0,.28)]"><circle cx="61" cy="31" r="16" fill="#a66239"/><path d="M44 24 Q61 8 77 24 L74 16 Q59 7 48 14Z" fill="#201712"/><path d="M38 50 Q61 39 83 50 L79 110 H43Z" fill="#123f8f"/><text x="61" y="84" textAnchor="middle" fill="white" fontSize="29" fontWeight="900">10</text><rect x="26" y="54" width="17" height="59" rx="9" fill="#a66239" transform="rotate(16 34 54)"/><rect x="78" y="54" width="17" height="59" rx="9" fill="#a66239" transform="rotate(-16 86 54)"/><rect x="44" y="103" width="18" height="59" rx="8" fill="#102b67" transform="rotate(10 53 103)"/><rect x="64" y="103" width="18" height="59" rx="8" fill="#102b67" transform="rotate(-24 73 103)"/><rect x="74" y="150" width="31" height="10" rx="5" fill="#d7ff55" transform="rotate(-8 74 150)"/></svg></div>;
 }
 
-function AimReticle({ point }: { point: Point }) {
-  return <div className="pointer-events-none absolute z-40 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-yellow-200 shadow-[0_0_16px_rgba(254,240,138,.65)]" style={{ left: `${point.x}%`, top: `${point.y}%` }}><div className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-yellow-200" /></div>;
+function AiShooter({ tell, kicking }: { tell: Side; kicking: boolean }) {
+  const left = tell === -1 ? "45%" : tell === 1 ? "55%" : "50%";
+  return <div className="absolute top-[67%] z-20 h-[120px] w-[90px] -translate-x-1/2 transition-all duration-300" style={{ left, transform: `translateX(-50%) rotate(${kicking ? (tell || 1) * 10 : 0}deg)` }}><svg viewBox="0 0 100 150" className="h-full w-full"><circle cx="50" cy="23" r="14" fill="#a66239"/><rect x="32" y="38" width="36" height="58" rx="12" fill="#e9eef5"/><rect x="34" y="88" width="14" height="50" rx="7" fill="#132c58"/><rect x="52" y="88" width="14" height="50" rx="7" fill="#132c58"/></svg></div>;
 }
 
-function PowerBar({ power, visible }: { power: number; visible: boolean }) {
-  if (!visible) return null;
-  return <div className="absolute bottom-[18%] left-[10%] right-[10%] z-40 h-3 overflow-hidden rounded-full border border-white/15 bg-black/35"><div className="h-full bg-gradient-to-r from-emerald-300 via-yellow-300 to-orange-400 transition-[width]" style={{ width: `${power}%` }} /></div>;
+function Ball({ point, flying, saved }: { point: Point; flying: boolean; saved: boolean }) {
+  return <div className="absolute z-40 -translate-x-1/2 -translate-y-1/2 transition-[left,top,transform] duration-500 ease-[cubic-bezier(.2,.75,.2,1)]" style={{ left: `${point.x}%`, top: `${point.y}%`, transform: `translate(-50%,-50%) scale(${flying ? .67 : 1}) ${saved ? "rotate(180deg)" : ""}` }}><div className="text-[44px] drop-shadow-[0_6px_5px_rgba(0,0,0,.35)] sm:text-[52px]">⚽</div></div>;
 }
 
-function ShooterCue({ direction }: { direction: Dive | null }) {
-  const text = direction === -1 ? "SOL OMUZ AÇILDI" : direction === 1 ? "SAĞ OMUZ AÇILDI" : direction === 0 ? "GÖVDE ORTADA" : "ŞUTÖR HAZIRLANIYOR";
-  return <div className="absolute left-1/2 top-[63%] z-40 -translate-x-1/2 rounded-xl border border-yellow-200/20 bg-[#071d3c]/90 px-4 py-2 text-center text-[10px] font-black tracking-wide text-yellow-200">İPUCU • {text}</div>;
+function AimMarker({ point }: { point: Point }) {
+  return <div className="pointer-events-none absolute z-50 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-cyan-300 shadow-[0_0_20px_rgba(34,211,238,.65)]" style={{ left: `${point.x}%`, top: `${point.y}%` }}><div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-200"/></div>;
 }
 
-function DiveControls({ onChoose, disabled }: { onChoose: (d: Dive) => void; disabled: boolean }) {
-  return <div className="absolute bottom-[5%] left-[3%] right-[3%] z-50 grid grid-cols-3 gap-2">{([[-1, "↖", "SOL"], [0, "↑", "ORTA"], [1, "↗", "SAĞ"]] as const).map(([d, icon, label]) => <button key={d} disabled={disabled} onClick={() => onChoose(d)} className="rounded-2xl border-2 border-[#082c50] bg-yellow-300 py-3 text-[#07315a] shadow-[0_4px_0_#082c50] active:translate-y-1 active:shadow-none disabled:opacity-45"><div className="text-2xl font-black">{icon}</div><div className="text-[10px] font-black">{label}</div></button>)}</div>;
+function PowerMeter({ value }: { value: number }) {
+  return <div className="absolute left-3 top-[33%] z-50 h-[33%] w-9 overflow-hidden rounded-2xl border-2 border-[#06203a] bg-[#06162a]/90 p-1 shadow-lg"><div className="relative h-full overflow-hidden rounded-xl bg-gradient-to-t from-emerald-400 via-yellow-300 to-red-500"><div className="absolute inset-x-0 top-0 bg-black/70 transition-all" style={{ height: `${100-value}%` }}/></div><div className="absolute -right-10 top-1/2 -translate-y-1/2 rotate-90 text-[9px] font-black tracking-widest">GÜÇ</div></div>;
 }
 
-function ChoicePanel({ title, onChoose }: { title: string; onChoose: (d: Dive) => void }) {
-  return <div className="absolute bottom-[5%] left-[4%] right-[4%] z-50 rounded-2xl border border-white/10 bg-[#061a34]/95 p-3 shadow-xl"><div className="mb-3 text-center text-xs font-black">{title}</div><div className="grid grid-cols-3 gap-2">{([[-1,"← SOL"],[0,"↑ ORTA"],[1,"SAĞ →"]] as const).map(([d,t]) => <button key={d} onClick={() => onChoose(d)} className="rounded-xl bg-yellow-300 py-3 text-[10px] font-black text-[#06213c] active:scale-95">{t}</button>)}</div></div>;
-}
-
-function Handoff({ shooter, keeper, onReady }: { shooter: "A" | "B"; keeper: "A" | "B"; onReady: () => void }) {
-  return <div className="absolute inset-0 z-[60] flex items-center justify-center bg-[#06152b]/95 p-6 text-center"><div><div className="text-5xl">🤝</div><h3 className="mt-4 text-2xl font-black">Telefonu Oyuncu {keeper}'ye ver</h3><p className="mt-2 text-sm text-slate-400">Oyuncu {shooter}'nın seçtiği köşe gizli tutuluyor.</p><button onClick={onReady} className="mt-6 rounded-2xl bg-yellow-300 px-8 py-4 text-sm font-black text-[#06213c]">KALECİ HAZIR</button></div></div>;
-}
+function Hint({ children }: { children: React.ReactNode }) { if (!children) return null; return <div className="absolute bottom-4 left-[18%] right-[18%] z-50 rounded-xl border border-white/10 bg-[#06182d]/90 px-3 py-2.5 text-center text-[10px] font-black tracking-wide text-yellow-200">{children}</div>; }
 
 function ResultFlash({ result }: { result: Result }) {
   if (!result) return null;
-  return <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center bg-black/10"><div className={`animate-[pulse_650ms_ease-out_1] rounded-3xl border-4 border-[#082c50] px-8 py-5 text-center shadow-2xl ${result === "goal" ? "bg-yellow-300 text-[#07315a]" : "bg-cyan-300 text-[#07315a]"}`}><div className="text-4xl font-black">{result === "goal" ? "GOOOL!" : "KURTARIŞ!"}</div><div className="mt-1 text-[10px] font-black tracking-[0.2em]">{result === "goal" ? "AĞLARDA" : "KALECİ ÇIKARDI"}</div></div></div>;
+  return <div className={`absolute left-1/2 top-[47%] z-[60] -translate-x-1/2 -translate-y-1/2 rounded-3xl border-4 border-[#06152b] px-8 py-4 text-4xl font-black italic shadow-2xl ${result === "goal" ? "bg-yellow-300 text-[#0b3154]" : "bg-cyan-300 text-[#08314c]"}`}>{result === "goal" ? "GOOOL!" : "KURTARIŞ!"}</div>;
 }
 
-function Hint({ children }: { children: React.ReactNode }) {
-  return <div className="absolute bottom-[6%] left-[10%] right-[10%] z-40 rounded-xl border border-cyan-200/15 bg-[#061a34]/90 px-3 py-3 text-center text-[10px] font-black tracking-wide text-yellow-200">{children}</div>;
-}
+function DiveButton({ label, onClick }: { label: string; onClick: () => void }) { return <button onPointerDown={onClick} className="rounded-2xl border-2 border-[#062542] bg-yellow-300 py-3 text-xs font-black text-[#0a3151] shadow-[0_4px_0_#062542] active:translate-y-1 active:shadow-none">{label}</button>; }
 
-function Finish({ title, value, onRestart }: { title: string; value: string; onRestart: () => void }) {
-  return <div className="m-4 rounded-3xl border border-cyan-300/20 bg-[#07264d] p-8 text-center shadow-xl"><div className="text-6xl">🏆</div><h2 className="mt-4 text-2xl font-black">{title}</h2><p className="mt-5 text-4xl font-black text-yellow-300">{value}</p><button onClick={onRestart} className="mt-8 w-full rounded-2xl bg-yellow-300 py-4 font-black text-[#05294a]">TEKRAR OYNA</button></div>;
-}
+function MiniScore({ name, score }: { name: string; score: number }) { return <div className="rounded-2xl bg-[#06182d] p-4 text-center"><div className="text-[10px] font-black text-slate-400">{name}</div><div className="mt-1 text-3xl font-black">{score}</div></div>; }
 
-function pickWeightedDirection(): Dive {
-  const r = Math.random();
-  return r < 0.4 ? -1 : r > 0.6 ? 1 : 0;
+function DirectionRow({ value, onChange, label }: { value: Side | null; onChange: (v: Side) => void; label: string }) { return <div className="mt-5"><div className="mb-2 text-xs font-black text-slate-300">{label}</div><div className="grid grid-cols-3 gap-2">{([[-1,"← SOL"],[0,"↑ ORTA"],[1,"SAĞ →"]] as const).map(([v,t])=><button key={v} onClick={()=>onChange(v)} className={`rounded-xl border px-2 py-3 text-xs font-black ${value===v?"border-lime-300 bg-lime-400 text-[#06152b]":"border-white/10 bg-white/5"}`}>{t}</button>)}</div></div>; }
+
+function Finish({ title, value, sub }: { title: string; value: string; sub: string }) {
+  return <section className="px-4 py-10"><div className="rounded-3xl border border-cyan-300/20 bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,.16),transparent_50%),#082642] p-8 text-center"><div className="text-6xl">🏆</div><h2 className="mt-4 text-2xl font-black">{title}</h2><div className="mt-4 text-5xl font-black text-yellow-300">{value}</div><div className="mt-2 text-xs font-black tracking-widest text-cyan-200">{sub}</div><button onClick={()=>window.location.reload()} className="mt-8 w-full rounded-2xl bg-lime-400 py-4 font-black text-[#06152b]">TEKRAR OYNA</button></div></section>;
 }
-function pickOther(direction: Dive): Dive { const pool = ([-1,0,1] as Dive[]).filter((v) => v !== direction); return pool[Math.floor(Math.random() * pool.length)]; }
-function clamp(value: number, min: number, max: number) { return Math.max(min, Math.min(max, value)); }
-function random(min: number, max: number) { return min + Math.random() * (max - min); }
