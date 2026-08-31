@@ -141,14 +141,39 @@ export default function PenaltyPage() {
     const analyticsSessionId = ensureAnalyticsStarted();
     setPhase("shooting"); dragStartRef.current = null;
     const target = aim;
-    const reads = Math.random() < 0.7;
-    const dive: -1 | 0 | 1 = reads ? target.x < 44 ? -1 : target.x > 56 ? 1 : 0 : ([-1, 0, 1][Math.floor(Math.random() * 3)] as -1 | 0 | 1);
-    const keeperTarget: Point = { x: dive === -1 ? 37 : dive === 1 ? 63 : 50, y: target.y < 26 ? 25.5 : 28 };
+    const targetDirection: -1 | 0 | 1 = target.x < 44 ? -1 : target.x > 56 ? 1 : 0;
+    const readsShot = Math.random() < 0.48;
+    let dive: -1 | 0 | 1;
+
+    if (readsShot) {
+      dive = targetDirection;
+    } else {
+      const alternatives = ([-1, 0, 1] as const).filter((direction) => direction !== targetDirection);
+      dive = alternatives[Math.floor(Math.random() * alternatives.length)];
+    }
+
+    const keeperTarget: Point = {
+      x: dive === -1 ? 37 : dive === 1 ? 63 : 50,
+      y: Math.random() < 0.5 ? 25.5 : 28,
+    };
+
     setKeeperDive(dive); setKeeper(keeperTarget); setBall(target);
     window.setTimeout(() => {
       const horizontal = Math.abs(target.x - keeperTarget.x);
       const vertical = Math.abs(target.y - keeperTarget.y);
-      const saved = horizontal <= (dive === 0 ? 10.5 : 13) && vertical <= 7.2;
+      const inReach = horizontal <= (dive === 0 ? 10.5 : 13) && vertical <= 7.2;
+
+      const horizontalPlacement = Math.min(1, Math.abs(target.x - 50) / 27);
+      const verticalPlacement = Math.min(1, Math.max(0, (AIM.bottom - target.y) / (AIM.bottom - AIM.top)));
+      const placementQuality = horizontalPlacement * 0.6 + verticalPlacement * 0.4;
+      const powerQuality = power / 100;
+      const isTopCorner = horizontalPlacement >= 0.82 && verticalPlacement >= 0.72;
+
+      let saveChance = 0.72 - placementQuality * 0.34 - powerQuality * 0.18;
+      if (isTopCorner) saveChance = Math.min(saveChance, 0.28);
+      saveChance = Math.max(0.14, Math.min(0.78, saveChance));
+
+      const saved = inReach && Math.random() < saveChance;
       const nextResult: Result = saved ? "saved" : "goal";
       let scoreGain = 0;
       if (saved) {
