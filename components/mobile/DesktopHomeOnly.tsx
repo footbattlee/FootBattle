@@ -44,7 +44,7 @@ export default function DesktopHomeOnly({ locale }: { locale: Locale }) {
         shooterCard.dataset.desktopShooterCard = "true";
 
         const title = shooterCard.querySelector("h3");
-        if (title) title.textContent = locale === "tr" ? "Şutör" : "Shot Challenge";
+        if (title) title.textContent = locale === "tr" ? "Penaltı" : "Penalty Challenge";
 
         const paragraphs = Array.from(shooterCard.querySelectorAll("p"));
         if (paragraphs[0]) {
