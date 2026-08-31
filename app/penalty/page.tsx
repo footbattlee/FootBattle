@@ -142,7 +142,7 @@ export default function PenaltyPage() {
     setPhase("shooting"); dragStartRef.current = null;
     const target = aim;
     const targetDirection: -1 | 0 | 1 = target.x < 44 ? -1 : target.x > 56 ? 1 : 0;
-    const readsShot = Math.random() < 0.48;
+    const readsShot = Math.random() < 0.65;
     let dive: -1 | 0 | 1;
 
     if (readsShot) {
@@ -169,9 +169,9 @@ export default function PenaltyPage() {
       const powerQuality = power / 100;
       const isTopCorner = horizontalPlacement >= 0.82 && verticalPlacement >= 0.72;
 
-      let saveChance = 0.72 - placementQuality * 0.34 - powerQuality * 0.18;
-      if (isTopCorner) saveChance = Math.min(saveChance, 0.28);
-      saveChance = Math.max(0.14, Math.min(0.78, saveChance));
+      let saveChance = 0.82 - placementQuality * 0.25 - powerQuality * 0.1;
+      if (isTopCorner) saveChance = Math.min(saveChance, 0.4);
+      saveChance = Math.max(0.25, Math.min(0.82, saveChance));
 
       const saved = inReach && Math.random() < saveChance;
       const nextResult: Result = saved ? "saved" : "goal";
@@ -221,7 +221,7 @@ export default function PenaltyPage() {
 
   return <main className="min-h-screen overflow-x-hidden bg-[#06152b] text-white select-none"><div className="mx-auto max-w-md pb-[max(18px,env(safe-area-inset-bottom))]">
     <header className="flex items-center justify-between bg-[#071d3c] px-3 py-3"><Link href="/tr" className="flex items-center gap-2 rounded-xl px-1 py-1 active:scale-95"><span className="text-xl">←</span><img src="/footbattle-logo.png" alt="FootBattle" className="h-11 w-auto object-contain" /></Link><button type="button" onClick={toggleSound} aria-label={soundOn ? "Sesi kapat" : "Sesi aç"} aria-pressed={!soundOn} className="rounded-xl border border-cyan-300/20 bg-[#061a34] px-3 py-2 text-lg active:scale-95">{soundOn ? "🔊" : "🔇"}</button></header>
-    <div className="bg-[#071d3c] px-3 pb-2 text-center text-[10px] font-black tracking-[0.18em] text-cyan-200/75">ŞUTÖR</div>
+    <div className="bg-[#071d3c] px-3 pb-2 text-center text-[10px] font-black tracking-[0.18em] text-cyan-200/75">PENALTI</div>
     <div className="grid grid-cols-3 gap-2 bg-[#071d3c] px-3 pb-3"><Stat label="ŞUT" value={`⚽ ${Math.min(shot + 1, TOTAL_SHOTS)}/${TOTAL_SHOTS}`} /><Stat label="SERİ" value={`🔥 x${streak}`} /><Stat label="SKOR" value={`🏆 ${score.toLocaleString("tr-TR")}`} /></div>
     {!finished ? <div ref={pitchRef} onPointerMove={onMove} onPointerUp={releaseShot} onPointerCancel={() => { if (phase === "aiming") { setPhase("ready"); setDragOffset({ x: 0, y: 0 }); } }} className="relative aspect-[9/12.3] overflow-hidden touch-none" style={{ overscrollBehavior: "none", WebkitUserSelect: "none", background: "repeating-linear-gradient(0deg,#269b43 0 54px,#2eaa49 54px 108px)" }}>
       <div className="absolute inset-x-0 top-0 h-[20.5%] overflow-hidden bg-gradient-to-b from-[#07142b] via-[#0d2945] to-[#173d54]">
