@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import "./keeper-tuning.css";
 
 const canonicalUrl = "https://playfootbattle.com/penalty";
 
