@@ -145,7 +145,7 @@ function ShooterMode() {
       <Arena>
         <GoalScene />
         <KeeperCharacter anim={keeperAnim} />
-        <ShooterSprite anim={shooterAnim} />
+        <ShooterCharacter anim={shooterAnim} />
         <Ball point={ball} scale={ballScale} />
         <ResultFlash result={result} />
         <GameMessage>{phase === "ready" ? "KALECİYİ İZLE • KÖŞEYİ SEÇ" : phase === "tell" ? "KARARINI VER" : phase === "shooting" ? "ŞUT GİDİYOR…" : ""}</GameMessage>
@@ -235,7 +235,7 @@ function KeeperMode() {
       <Arena>
         <GoalScene />
         <KeeperCharacter anim={keeperAnim} />
-        <ShooterSprite anim={shooterAnim} tell={tell ?? 0} />
+        <ShooterCharacter anim={shooterAnim} tell={tell ?? 0} />
         <Ball point={ball} scale={ballScale} />
         <ResultFlash result={result} />
         <GameMessage>{phase === "ready" ? "HAZIR OL" : phase === "tell" ? `ŞUTÖRÜ OKU${tell !== null ? ` • ${sideLabel(tell)} İPUCU` : ""}` : phase === "shooting" ? "ŞİMDİ!" : ""}</GameMessage>
@@ -297,7 +297,7 @@ function FriendMode() {
     return (
       <>
         <ScoreBar mode="ARKADAŞINLA" left={`A ${a}`} middle={`TUR ${turn + 1}/${TOTAL_SHOTS}`} right={`${b} B`} heat="normal" />
-        <Arena><GoalScene /><KeeperCharacter anim={keeperAnim} /><ShooterSprite anim={shooterAnim} /><Ball point={ball} scale={ballScale} /><ResultFlash result={result} /></Arena>
+        <Arena><GoalScene /><KeeperCharacter anim={keeperAnim} /><ShooterCharacter anim={shooterAnim} /><Ball point={ball} scale={ballScale} /><ResultFlash result={result} /></Arena>
       </>
     );
   }
@@ -341,36 +341,132 @@ function KeeperCharacter({ anim }: { anim: KeeperAnim }) {
   const side = anim.includes("left") ? -1 : anim.includes("right") ? 1 : 0;
   const diving = anim.startsWith("dive");
   const telling = anim.startsWith("tell");
-  const x = side * (diving ? 82 : telling ? 16 : 0);
-  const rotate = diving ? side * 30 : telling ? side * 5 : 0;
-  const scaleX = diving ? 1.08 : 1;
+  const x = side * (diving ? 92 : telling ? 14 : 0);
+  const y = diving ? 9 : 0;
+  const rotate = diving ? side * 48 : telling ? side * 4 : 0;
+  const leftUpper = diving ? (side === -1 ? -74 : -20) : telling && side === -1 ? -28 : -12;
+  const rightUpper = diving ? (side === 1 ? 74 : 20) : telling && side === 1 ? 28 : 12;
+  const leftFore = diving ? (side === -1 ? -20 : -8) : -8;
+  const rightFore = diving ? (side === 1 ? 20 : 8) : 8;
+  const leftLeg = diving ? (side === -1 ? 24 : -12) : 4;
+  const rightLeg = diving ? (side === 1 ? -24 : 12) : -4;
+
   return (
-    <div className="absolute left-1/2 top-[43%] z-30 h-[152px] w-[118px] transition-[transform] duration-300 ease-out" style={{ transform: `translate(-50%,-50%) translateX(${x}px) rotate(${rotate}deg) scaleX(${scaleX})` }}>
-      <div className="absolute left-1/2 top-1 h-8 w-8 -translate-x-1/2 rounded-full bg-[#9c6038] shadow-inner" />
-      <div className="absolute left-1/2 top-8 h-[66px] w-[54px] -translate-x-1/2 rounded-[20px_20px_14px_14px] bg-orange-500 shadow-lg"><div className="pt-5 text-center text-xl font-black text-orange-100">1</div></div>
-      <div className="absolute left-[4px] top-[48px] h-4 w-[48px] origin-right rounded-full bg-orange-500" style={{ transform: `rotate(${diving ? -side * 28 - 12 : -14}deg)` }} />
-      <div className="absolute right-[4px] top-[48px] h-4 w-[48px] origin-left rounded-full bg-orange-500" style={{ transform: `rotate(${diving ? -side * 28 + 12 : 14}deg)` }} />
-      <div className="absolute left-0 top-[45px] h-5 w-5 rounded-md bg-yellow-300" />
-      <div className="absolute right-0 top-[45px] h-5 w-5 rounded-md bg-yellow-300" />
-      <div className="absolute left-[35px] top-[91px] h-[48px] w-4 rounded-full bg-slate-900" style={{ transform: `rotate(${diving ? side * 16 : 3}deg)` }} />
-      <div className="absolute right-[35px] top-[91px] h-[48px] w-4 rounded-full bg-slate-900" style={{ transform: `rotate(${diving ? side * 16 : -3}deg)` }} />
-      <div className="absolute left-[27px] top-[132px] h-3 w-8 rounded-full bg-black" /><div className="absolute right-[27px] top-[132px] h-3 w-8 rounded-full bg-black" />
+    <div
+      className="absolute left-1/2 top-[43.5%] z-30 h-[158px] w-[138px] transition-[transform] duration-300 ease-out will-change-transform"
+      style={{ transform: `translate(-50%,-50%) translate(${x}px,${y}px) rotate(${rotate}deg)` }}
+      aria-label="Kaleci"
+    >
+      <div className="absolute left-1/2 top-[145px] h-3 w-[92px] -translate-x-1/2 rounded-full bg-black/20 blur-[1px]" />
+
+      <div className="absolute left-1/2 top-[3px] z-20 h-[39px] w-[39px] -translate-x-1/2 rounded-[46%_46%_48%_48%] bg-[#a96540] shadow-[inset_0_-4px_0_rgba(0,0,0,.08)]">
+        <span className="absolute -left-[3px] top-[15px] h-3 w-2 rounded-full bg-[#9a5d39]" />
+        <span className="absolute -right-[3px] top-[15px] h-3 w-2 rounded-full bg-[#9a5d39]" />
+        <span className="absolute left-[4px] right-[4px] top-[-1px] h-[13px] rounded-[12px_12px_5px_5px] bg-[#23180f]" />
+        <span className="absolute left-[9px] top-[17px] h-[3px] w-[4px] rounded-full bg-[#26170f]" />
+        <span className="absolute right-[9px] top-[17px] h-[3px] w-[4px] rounded-full bg-[#26170f]" />
+        <span className="absolute left-1/2 top-[27px] h-[3px] w-[10px] -translate-x-1/2 rounded-full bg-[#6f3d2a]/70" />
+      </div>
+      <div className="absolute left-1/2 top-[38px] z-[8] h-[12px] w-[15px] -translate-x-1/2 rounded-b-lg bg-[#985b37]" />
+
+      <div className="absolute left-1/2 top-[44px] z-10 h-[58px] w-[65px] -translate-x-1/2 rounded-[19px_19px_12px_12px] bg-gradient-to-b from-[#ff771d] to-[#e9530a] shadow-[inset_0_3px_0_rgba(255,255,255,.2),0_5px_8px_rgba(0,0,0,.18)]">
+        <span className="absolute left-1/2 top-[12px] -translate-x-1/2 text-[24px] font-black leading-none text-white">1</span>
+        <span className="absolute bottom-0 left-[8px] right-[8px] h-[6px] rounded-t-full bg-[#c83d06]/45" />
+      </div>
+      <div className="absolute left-1/2 top-[97px] z-10 h-[24px] w-[55px] -translate-x-1/2 rounded-[7px_7px_11px_11px] bg-[#14233f]">
+        <span className="absolute left-1/2 top-0 h-full w-[3px] -translate-x-1/2 bg-white/10" />
+      </div>
+
+      <div className="absolute left-[34px] top-[50px] z-[9] h-[18px] w-[43px] origin-right rounded-full bg-[#ef6414] transition-transform duration-200" style={{ transform: `rotate(${leftUpper}deg)` }}>
+        <span className="absolute -left-[29px] top-[2px] h-[14px] w-[34px] origin-right rounded-full bg-[#b96b3e] transition-transform duration-200" style={{ transform: `rotate(${leftFore}deg)` }}>
+          <b className="absolute -left-[13px] -top-[4px] h-[22px] w-[18px] rounded-[8px_8px_9px_9px] bg-[#ffd829] shadow-[inset_0_-3px_0_rgba(0,0,0,.12)]" />
+        </span>
+      </div>
+      <div className="absolute right-[34px] top-[50px] z-[9] h-[18px] w-[43px] origin-left rounded-full bg-[#ef6414] transition-transform duration-200" style={{ transform: `rotate(${rightUpper}deg)` }}>
+        <span className="absolute -right-[29px] top-[2px] h-[14px] w-[34px] origin-left rounded-full bg-[#b96b3e] transition-transform duration-200" style={{ transform: `rotate(${rightFore}deg)` }}>
+          <b className="absolute -right-[13px] -top-[4px] h-[22px] w-[18px] rounded-[8px_8px_9px_9px] bg-[#ffd829] shadow-[inset_0_-3px_0_rgba(0,0,0,.12)]" />
+        </span>
+      </div>
+
+      <div className="absolute left-[45px] top-[116px] z-[8] h-[34px] w-[15px] origin-top rounded-full bg-[#17243c] transition-transform duration-200" style={{ transform: `rotate(${leftLeg}deg)` }}>
+        <span className="absolute bottom-[-2px] left-[-3px] h-[10px] w-[18px] rounded-b-md bg-white" />
+        <b className="absolute bottom-[-7px] left-[-8px] h-[10px] w-[28px] rounded-[8px_8px_5px_5px] bg-[#07101a]" />
+      </div>
+      <div className="absolute right-[45px] top-[116px] z-[8] h-[34px] w-[15px] origin-top rounded-full bg-[#17243c] transition-transform duration-200" style={{ transform: `rotate(${rightLeg}deg)` }}>
+        <span className="absolute bottom-[-2px] left-[-3px] h-[10px] w-[18px] rounded-b-md bg-white" />
+        <b className="absolute bottom-[-7px] right-[-8px] h-[10px] w-[28px] rounded-[8px_8px_5px_5px] bg-[#07101a]" />
+      </div>
     </div>
   );
 }
 
-function ShooterSprite({ anim, tell = 0 }: { anim: ShooterAnim; tell?: Side }) {
-  const frame = anim === "idle" ? 0 : anim === "windup" ? 1 : anim === "kick" ? 3 : 4;
-  const shift = anim === "windup" ? -18 + tell * 12 : tell * 10;
+function ShooterCharacter({ anim, tell = 0 }: { anim: ShooterAnim; tell?: Side }) {
+  const windup = anim === "windup";
+  const kick = anim === "kick";
+  const follow = anim === "follow";
+  const x = tell * 9 + (windup ? -15 : kick ? 5 : follow ? 11 : 0);
+  const bodyRotate = windup ? -7 : kick ? 7 : follow ? 10 : 0;
+  const leftArm = windup ? 22 : kick ? -18 : follow ? -24 : 8;
+  const rightArm = windup ? -26 : kick ? 24 : follow ? 28 : -8;
+  const supportLeg = windup ? -8 : kick ? -4 : follow ? 7 : 1;
+  const strikingLeg = windup ? 34 : kick ? -62 : follow ? -34 : -2;
+  const kneeBend = windup ? 36 : kick ? 7 : follow ? -4 : 2;
+
   return (
-    <div className="absolute left-1/2 top-[68%] z-20 h-[168px] w-[168px] sm:h-[190px] sm:w-[190px]" style={{ transform: `translateX(calc(-50% + ${shift}px))` }}>
-      <div className="h-full w-full bg-no-repeat drop-shadow-[0_10px_8px_rgba(0,0,0,.3)]" style={{ backgroundImage: "url('/penalty/shooter-sprite.svg')", backgroundSize: "500% 100%", backgroundPosition: `${frame * 25}% 0%` }} />
+    <div
+      className="absolute left-1/2 top-[67%] z-20 h-[166px] w-[126px] transition-[transform] duration-150 ease-out will-change-transform"
+      style={{ transform: `translateX(calc(-50% + ${x}px)) rotate(${bodyRotate}deg)` }}
+      aria-label="Şutör"
+    >
+      <div className="absolute left-1/2 top-[153px] h-3 w-[78px] -translate-x-1/2 rounded-full bg-black/20 blur-[1px]" />
+
+      <div className="absolute left-1/2 top-[3px] z-20 h-[37px] w-[37px] -translate-x-1/2 rounded-[47%] bg-[#a96540] shadow-[inset_0_-4px_0_rgba(0,0,0,.08)]">
+        <span className="absolute left-[2px] right-[2px] top-[-2px] h-[14px] rounded-[13px_13px_5px_5px] bg-[#18120e]" />
+        <span className="absolute left-[5px] top-[7px] h-[10px] w-[8px] rotate-[-18deg] rounded-full bg-[#21160e]" />
+        <span className="absolute right-[5px] top-[7px] h-[10px] w-[8px] rotate-[18deg] rounded-full bg-[#21160e]" />
+      </div>
+      <div className="absolute left-1/2 top-[37px] z-[8] h-[11px] w-[14px] -translate-x-1/2 rounded-b-lg bg-[#985b37]" />
+
+      <div className="absolute left-1/2 top-[43px] z-10 h-[62px] w-[58px] -translate-x-1/2 rounded-[17px_17px_10px_10px] bg-gradient-to-b from-[#17b99a] to-[#087b74] shadow-[inset_0_3px_0_rgba(255,255,255,.18),0_5px_8px_rgba(0,0,0,.16)]">
+        <span className="absolute left-1/2 top-[17px] -translate-x-1/2 text-[23px] font-black leading-none text-white">10</span>
+        <span className="absolute bottom-[5px] left-1/2 h-[4px] w-[32px] -translate-x-1/2 rounded-full bg-white/18" />
+      </div>
+      <div className="absolute left-1/2 top-[99px] z-10 h-[24px] w-[53px] -translate-x-1/2 rounded-[7px_7px_11px_11px] bg-[#172c61]">
+        <span className="absolute left-1/2 top-0 h-full w-[3px] -translate-x-1/2 bg-white/10" />
+      </div>
+
+      <div className="absolute left-[35px] top-[49px] z-[7] h-[15px] w-[38px] origin-right rounded-full bg-[#0a8f7f] transition-transform duration-150" style={{ transform: `rotate(${leftArm}deg)` }}>
+        <span className="absolute -left-[27px] top-[1px] h-[13px] w-[31px] rounded-full bg-[#b96b3e]" />
+      </div>
+      <div className="absolute right-[35px] top-[49px] z-[7] h-[15px] w-[38px] origin-left rounded-full bg-[#0a8f7f] transition-transform duration-150" style={{ transform: `rotate(${rightArm}deg)` }}>
+        <span className="absolute -right-[27px] top-[1px] h-[13px] w-[31px] rounded-full bg-[#b96b3e]" />
+      </div>
+
+      <div className="absolute left-[42px] top-[118px] z-[8] h-[39px] w-[15px] origin-top rounded-full bg-[#203b80] transition-transform duration-150" style={{ transform: `rotate(${supportLeg}deg)` }}>
+        <span className="absolute bottom-[-2px] left-[-2px] h-[10px] w-[18px] rounded-b-md bg-[#f4f7fb]" />
+        <b className="absolute bottom-[-8px] left-[-7px] h-[10px] w-[29px] rounded-[8px_8px_4px_4px] bg-[#b8ee35]" />
+      </div>
+      <div className="absolute right-[42px] top-[118px] z-[9] h-[34px] w-[15px] origin-top rounded-full bg-[#203b80] transition-transform duration-150" style={{ transform: `rotate(${strikingLeg}deg)` }}>
+        <span className="absolute bottom-[-22px] left-[1px] h-[29px] w-[13px] origin-top rounded-full bg-[#a96540] transition-transform duration-150" style={{ transform: `rotate(${kneeBend}deg)` }}>
+          <i className="absolute bottom-[-3px] left-[-2px] h-[10px] w-[17px] rounded-b-md bg-[#f4f7fb]" />
+          <b className="absolute bottom-[-8px] left-[-4px] h-[10px] w-[30px] rounded-[8px_8px_4px_4px] bg-[#b8ee35]" />
+        </span>
+      </div>
     </div>
   );
 }
 
 function Ball({ point, scale }: { point: Point; scale: number }) {
-  return <div className="absolute z-50 text-[44px] drop-shadow-[0_7px_6px_rgba(0,0,0,.38)]" style={{ left: `${point.x}%`, top: `${point.y}%`, transform: `translate(-50%,-50%) scale(${scale})` }}>⚽</div>;
+  return (
+    <div className="absolute z-50 will-change-transform" style={{ left: `${point.x}%`, top: `${point.y}%`, transform: `translate(-50%,-50%) scale(${scale})` }}>
+      <div className="relative h-11 w-11 rounded-full border-2 border-slate-200 bg-white shadow-[0_6px_8px_rgba(0,0,0,.28)] sm:h-12 sm:w-12">
+        <span className="absolute left-1/2 top-1/2 h-[13px] w-[13px] -translate-x-1/2 -translate-y-1/2 rotate-45 bg-[#183b8c] [clip-path:polygon(50%_0%,100%_38%,82%_100%,18%_100%,0%_38%)]" />
+        <span className="absolute left-[4px] top-[8px] h-[9px] w-[9px] rotate-12 bg-[#183b8c] [clip-path:polygon(50%_0%,100%_38%,82%_100%,18%_100%,0%_38%)]" />
+        <span className="absolute right-[4px] top-[9px] h-[9px] w-[9px] -rotate-12 bg-[#183b8c] [clip-path:polygon(50%_0%,100%_38%,82%_100%,18%_100%,0%_38%)]" />
+        <span className="absolute bottom-[3px] left-[8px] h-[8px] w-[8px] bg-[#183b8c] [clip-path:polygon(50%_0%,100%_38%,82%_100%,18%_100%,0%_38%)]" />
+      </div>
+    </div>
+  );
 }
 
 function DirectionControls({ disabled, onPick }: { disabled: boolean; onPick: (side: Side) => void }) {
