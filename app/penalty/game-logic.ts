@@ -30,8 +30,8 @@ export function otherSide(side: Side): Side {
 }
 
 export function shotTarget(side: Side): Point {
-  if (side === -1) return { x: 27 + Math.random() * 6, y: 23 + Math.random() * 4 };
-  if (side === 1) return { x: 67 + Math.random() * 6, y: 23 + Math.random() * 4 };
+  if (side === -1) return { x: 25 + Math.random() * 7, y: 22 + Math.random() * 5 };
+  if (side === 1) return { x: 68 + Math.random() * 7, y: 22 + Math.random() * 5 };
   return { x: 47 + Math.random() * 6, y: 24 + Math.random() * 4 };
 }
 
@@ -39,6 +39,8 @@ export function chooseKeeperDive(shotSide: Side, readChance = 0.62): Side {
   return Math.random() < readChance ? shotSide : otherSide(shotSide);
 }
 
+// A tell is a clue, not a promise: most of the time it hints at the eventual side,
+// but it can bluff so the player cannot simply follow the lean every shot.
 export function chooseKeeperTell(realSide: Side, accuracy = 0.72): Side {
   return Math.random() < accuracy ? realSide : otherSide(realSide);
 }
