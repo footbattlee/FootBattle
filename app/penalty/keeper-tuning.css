@@ -1,0 +1,72 @@
+/* FootBattle penalty keeper tuning.
+   The keeper stays jointed, but dives now translate into the corner instead of
+   looking like a cardboard figure rotating around one point. */
+
+.fb-keeper {
+  transition: transform 260ms cubic-bezier(.2,.82,.22,1) !important;
+  transform-origin: 50% 94% !important;
+}
+
+/* Ready stance: lower hands, wider base, slight crouch. */
+.fb-keeper-ready .fb-k-arm-l { transform: rotate(104deg) !important; }
+.fb-keeper-ready .fb-k-arm-r { transform: rotate(-104deg) !important; }
+.fb-keeper-ready .fb-k-arm-l .fb-k-forearm { transform: rotate(27deg) !important; }
+.fb-keeper-ready .fb-k-arm-r .fb-k-forearm { transform: rotate(-27deg) !important; }
+.fb-keeper-ready .fb-k-leg-l { transform: rotate(13deg) !important; }
+.fb-keeper-ready .fb-k-leg-r { transform: rotate(-13deg) !important; }
+
+/* Tell/lean is deliberately subtle. It should be readable, not a guaranteed answer. */
+.fb-keeper-tell-left { animation: fbTellLeftTuned 440ms cubic-bezier(.23,1,.32,1) both !important; }
+.fb-keeper-tell-right { animation: fbTellRightTuned 440ms cubic-bezier(.23,1,.32,1) both !important; }
+.fb-keeper-tell-center { animation: fbTellCenterTuned 440ms cubic-bezier(.23,1,.32,1) both !important; }
+
+/* Dive = push + travel + extension. Rotation is secondary. */
+.fb-keeper-dive-left {
+  transform: translate(-64px,-18px) rotate(-25deg) scale(.98) !important;
+}
+.fb-keeper-dive-right {
+  transform: translate(64px,-18px) rotate(25deg) scale(.98) !important;
+}
+.fb-keeper-dive-center {
+  transform: translateY(-19px) scaleX(1.05) scaleY(1.08) !important;
+}
+
+.fb-keeper-dive-left .fb-k-arm-l,
+.fb-keeper-dive-left .fb-k-arm-r {
+  transform: rotate(82deg) !important;
+}
+.fb-keeper-dive-right .fb-k-arm-l,
+.fb-keeper-dive-right .fb-k-arm-r {
+  transform: rotate(-82deg) !important;
+}
+.fb-keeper-dive-left .fb-k-arm-l .fb-k-forearm,
+.fb-keeper-dive-left .fb-k-arm-r .fb-k-forearm,
+.fb-keeper-dive-right .fb-k-arm-l .fb-k-forearm,
+.fb-keeper-dive-right .fb-k-arm-r .fb-k-forearm {
+  transform: rotate(0deg) !important;
+}
+.fb-keeper-dive-left .fb-k-leg-l { transform: rotate(42deg) !important; }
+.fb-keeper-dive-left .fb-k-leg-r { transform: rotate(18deg) !important; }
+.fb-keeper-dive-right .fb-k-leg-l { transform: rotate(-18deg) !important; }
+.fb-keeper-dive-right .fb-k-leg-r { transform: rotate(-42deg) !important; }
+
+@keyframes fbTellLeftTuned {
+  0% { transform: translate(0,0) rotate(0) scale(var(--ks)); }
+  58% { transform: translate(-9px,2px) rotate(-2.6deg) scaleX(1.025) scaleY(.975) scale(var(--ks)); }
+  100% { transform: translate(-6px,1px) rotate(-1.6deg) scale(var(--ks)); }
+}
+@keyframes fbTellRightTuned {
+  0% { transform: translate(0,0) rotate(0) scale(var(--ks)); }
+  58% { transform: translate(9px,2px) rotate(2.6deg) scaleX(1.025) scaleY(.975) scale(var(--ks)); }
+  100% { transform: translate(6px,1px) rotate(1.6deg) scale(var(--ks)); }
+}
+@keyframes fbTellCenterTuned {
+  0% { transform: translate(0,0) scale(var(--ks)); }
+  58% { transform: translate(0,5px) scaleX(1.045) scaleY(.94) scale(var(--ks)); }
+  100% { transform: translate(0,3px) scaleX(1.025) scaleY(.97) scale(var(--ks)); }
+}
+
+@media (max-height:760px) {
+  .fb-keeper-dive-left { transform: translate(-55px,-14px) rotate(-24deg) scale(.82) !important; }
+  .fb-keeper-dive-right { transform: translate(55px,-14px) rotate(24deg) scale(.82) !important; }
+}
