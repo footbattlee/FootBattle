@@ -56,5 +56,9 @@ export default async function LocaleLayout({
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
 
-  return <div data-locale={locale as Locale}>{children}</div>;
+  return (
+    <div data-locale={locale as Locale} lang={locale}>
+      {children}
+    </div>
+  );
 }
