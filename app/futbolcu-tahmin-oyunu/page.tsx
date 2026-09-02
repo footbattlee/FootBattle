@@ -18,7 +18,7 @@ export default function Page() {
         eyebrow="Futbol bilgin ne kadar iyi?"
         title="Futbolcu Tahmin Oyunu"
         intro="Bir futbolcuyu sadece ipuçlarından tanıyabilir misin? FootBattle Guess The Player oyununda yaptığın her tahmin seni doğru cevaba yaklaştırır. Kulüp, ülke, yaş, pozisyon ve diğer futbol bilgilerini okuyup gizli oyuncuyu mümkün olan en az denemede bul."
-        ctaHref="/guess-the-player"
+        ctaHref="/tr/guess-the-player"
         ctaLabel="Futbolcuyu Tahmin Et ⚽"
         sections={[
           { title: "Futbolcu tahmin oyunu nasıl oynanır?", paragraphs: ["Oyuna başladığında gizli bir futbolcu seçilir. Sen oyuncu adını yazarak tahmin yaparsın; sistem tahmininle hedef oyuncunun özelliklerini karşılaştırır. Böylece yanlış tahmin bile yeni bir ipucu üretir ve bir sonraki hamleni planlamanı sağlar.", "Amaç rastgele isim yazmak değil, verilen bilgileri birlikte değerlendirmektir. Lig, takım, milliyet, yaş ve pozisyon gibi detaylar bir araya geldiğinde aday havuzu hızla daralır. Bu nedenle oyun hem futbol hafızasını hem de eleme mantığını kullanır."], bullets: ["Ücretsiz ve tarayıcıdan oynanır", "Mobil ve masaüstünde çalışır", "Her tur yeni futbolcu", "Sonucu arkadaşlarınla paylaşabilirsin"] },
@@ -32,8 +32,8 @@ export default function Page() {
         ]}
         relatedLinks={[
           { href: "/player-quiz", label: "Player Quiz", description: "Futbolcuyu farklı bilgi kategorilerinden bul." },
-          { href: "/wordle", label: "Football Wordle", description: "Futbolcu soyadını harf harf çöz." },
-          { href: "/career-path", label: "Career Path", description: "Kulüp kariyerinden oyuncuyu tahmin et." }
+          { href: "/football-wordle", label: "Football Wordle", description: "Futbolcu soyadını harf harf çöz." },
+          { href: "/kariyerden-futbolcu-bul", label: "Career Path", description: "Kulüp kariyerinden oyuncuyu tahmin et." }
         ]}
       />
     </>
