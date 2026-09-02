@@ -66,7 +66,7 @@ export default function Page() {
               Kulüp geçmişi ve oyuncu kariyerleri hoşuna gidiyorsa Career Path ve Transferi Bil ile aynı bilgiyi farklı formatlarda test edebilirsin.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <Link href="/career-path" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black text-emerald-300">Career Path</Link>
+              <Link href="/kariyerden-futbolcu-bul" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black text-emerald-300">Career Path</Link>
               <Link href="/transfer-quiz" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black text-emerald-300">Transferi Bil</Link>
               <Link href="/club-nation" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black text-emerald-300">Club Nation</Link>
               <Link href="/futbol-oyunlari" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black text-emerald-300">Tüm Futbol Oyunları</Link>
