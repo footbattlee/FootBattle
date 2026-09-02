@@ -18,7 +18,7 @@ export default function Page() {
         eyebrow="Harflerden futbolcuyu bul"
         title="Football Wordle Türkçe"
         intro="Klasik Wordle mantığını futbol dünyasına taşıyan FootBattle Football Wordle'da hedef, gizli futbolcunun soyadını doğru harfleri takip ederek bulmak. Bir oyun bittiğinde günün dolmasını beklemeden yeniden oynayabilirsin."
-        ctaHref="/wordle"
+        ctaHref="/tr/wordle"
         ctaLabel="Football Wordle Oyna 🔤"
         sections={[
           { title: "Football Wordle nasıl oynanır?", paragraphs: ["Her denemede bir futbolcu soyadı yazarsın. Doğru yerde bulunan harfler, kelimede olup farklı yerde duran harfler ve hedefte bulunmayan harfler sana bir sonraki tahmin için yol gösterir. Amaç sınırlı denemeler içinde gizli soyadı çözmektir.", "Futbolcu isimlerine aşina olmak önemli olsa da kelime mantığı da en az futbol bilgisi kadar değerlidir. İlk tahminlerinde farklı harfler içeren soyadları kullanmak, hedef kelimenin yapısını daha hızlı anlamana yardım eder."], bullets: ["Türkçe arayüz", "Sınırsız tekrar oynama", "Futbolcu soyadlarıyla Wordle", "Hızlı mobil oyun"] },
@@ -31,8 +31,8 @@ export default function Page() {
           { question: "Oyunda futbolcuların adı mı soyadı mı tahmin ediliyor?", answer: "Temel oyun futbolcu soyadını tahmin etme mantığıyla çalışır." }
         ]}
         relatedLinks={[
-          { href: "/guess-the-player", label: "Futbolcu Tahmin", description: "Özellik ipuçlarından oyuncuyu bul." },
-          { href: "/career-path", label: "Career Path", description: "Kariyer yolundan futbolcuyu tahmin et." },
+          { href: "/futbolcu-tahmin-oyunu", label: "Futbolcu Tahmin", description: "Özellik ipuçlarından oyuncuyu bul." },
+          { href: "/kariyerden-futbolcu-bul", label: "Career Path", description: "Kariyer yolundan futbolcuyu tahmin et." },
           { href: "/futbol-bilgi-yarismasi", label: "Futbol Bilgi Yarışması", description: "Futbol bilgini farklı kategorilerde test et." }
         ]}
       />
