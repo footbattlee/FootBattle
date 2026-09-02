@@ -34,7 +34,9 @@ export default function PrivacyPage() {
       </section>
       <section>
         <h2 className="text-xl font-black text-white">Reklamlar ve çerezler</h2>
-        <p className="mt-2">Google AdSense gibi reklam hizmetleri, uygun olduğu durumlarda reklam göstermek ve reklam performansını ölçmek için çerezler veya benzer teknolojiler kullanabilir. Bölgenize göre gerekli kullanıcı rızası mekanizmaları uygulanabilir.</p>
+        <p className="mt-2">FootBattle, uygun olduğu durumlarda Google AdSense gibi üçüncü taraf reklam hizmetlerini kullanabilir. Google dahil üçüncü taraf reklam sağlayıcıları, sitemizde reklam sunmak ve reklamların performansını ölçmek amacıyla çerezler veya benzer teknolojiler kullanabilir.</p>
+        <p className="mt-3">Google'ın reklam çerezlerini kullanması, Google ve iş ortaklarının bu siteye veya internetteki diğer sitelere yaptığınız önceki ziyaretlere dayalı olarak kişiselleştirilmiş reklamlar sunmasına olanak sağlayabilir. Kullanıcılar kişiselleştirilmiş reklamları Google'ın reklam ayarları üzerinden yönetebilir veya devre dışı bırakabilir.</p>
+        <p className="mt-3">Bulunduğunuz bölgedeki yasal gerekliliklere göre reklam ve çerez kullanımı için gerekli kullanıcı rızası mekanizmaları uygulanabilir. Rıza seçenekleri sunulduğunda tercihlerinizi ilgili bildirim veya ayarlar üzerinden yönetebilirsiniz.</p>
       </section>
       <section>
         <h2 className="text-xl font-black text-white">Verilerin kullanım amacı</h2>
@@ -44,7 +46,7 @@ export default function PrivacyPage() {
         <h2 className="text-xl font-black text-white">Haklarınız ve silme talepleri</h2>
         <p className="mt-2">Kişisel verilerinizle ilgili erişim, düzeltme veya silme talebinde bulunabilirsiniz. Hesap silme akışı ve Play Store için gerekli harici silme talebi bağlantısı yayın öncesinde FootBattle içinde ayrıca sunulacaktır.</p>
       </section>
-      <p className="text-xs text-slate-500">Son güncelleme: 24 Ağustos 2026</p>
+      <p className="text-xs text-slate-500">Son güncelleme: 2 Eylül 2026</p>
     </SiteInfoPage>
   );
 }
