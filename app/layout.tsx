@@ -45,11 +45,14 @@ import { SITE_URL, SiteJsonLd } from "@/lib/seo";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: { default: "FootBattle | Futbol Oyunları, Quizler ve Arkadaş Kapışmaları", template: "%s | FootBattle" },
-  description: "Guess The Player, Futbol Wordle, Tic Tac Toe, Career Path, Transfer Quiz, Günün Kapışması ve futbol Survivor oyunlarını ücretsiz oyna. Arkadaşlarına meydan oku.",
+  description: "FootBattle (PlayFootBattle), playfootbattle.com üzerinde ücretsiz oynanan futbol oyunları ve quiz platformudur. Guess The Player, Futbol Wordle, Tic Tac Toe, Career Path, Transfer Quiz ve arkadaş kapışmalarını oyna.",
   applicationName: "FootBattle",
-  keywords: ["futbol oyunları", "futbol quiz", "football quiz", "futbolcu tahmin oyunu", "futbol bilgi yarışması", "FootBattle"],
-  openGraph: { type: "website", locale: "tr_TR", siteName: "FootBattle", title: "FootBattle | Futbol Oyunları Arenası", description: "Futbol bilgini test et, arkadaşlarına meydan oku ve her gün yeni futbol kapışmalarına katıl.", url: SITE_URL, images: [{ url: "/footbattle-logo.png", alt: "FootBattle futbol oyunları arenası" }] },
-  twitter: { card: "summary_large_image", title: "FootBattle | Futbol Oyunları Arenası", description: "Futbol oyunları, quizler, düellolar ve günlük kapışmalar.", images: ["/footbattle-logo.png"] },
+  keywords: ["FootBattle", "PlayFootBattle", "Play FootBattle", "playfootbattle", "playfootbattle.com", "futbol oyunları", "futbol quiz", "football quiz", "futbolcu tahmin oyunu", "futbol bilgi yarışması"],
+  authors: [{ name: "FootBattle", url: SITE_URL }],
+  creator: "FootBattle",
+  publisher: "FootBattle",
+  openGraph: { type: "website", locale: "tr_TR", siteName: "FootBattle", title: "FootBattle | Futbol Oyunları Arenası", description: "FootBattle (PlayFootBattle), playfootbattle.com üzerinde futbol bilgini test edebileceğin bağımsız futbol oyunları ve quiz platformudur.", url: SITE_URL, images: [{ url: "/footbattle-logo.png", alt: "FootBattle - PlayFootBattle futbol oyunları platformu" }] },
+  twitter: { card: "summary_large_image", title: "FootBattle | Futbol Oyunları Arenası", description: "PlayFootBattle'da futbol oyunları, quizler, düellolar ve günlük kapışmalar.", images: ["/footbattle-logo.png"] },
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 } },
   category: "games",
   // Keep the publisher verification meta globally, but do not load Auto Ads on
