@@ -56,6 +56,7 @@ export default function RankedReconnectBanner() {
     if (isRankedGame) return;
     let cancelled = false;
     const load = async () => {
+      if (document.visibilityState !== "visible") return;
       try {
         const r = await fetch("/api/rank/active", { cache: "no-store" });
         if (!r.ok) return;
