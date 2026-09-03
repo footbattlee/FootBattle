@@ -5,22 +5,30 @@ import SiteInfoPage from "@/components/SiteInfoPage";
 import { SITE_URL } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Hakkımızda | FootBattle",
-  description: "FootBattle'ın futbol oyunları, proje amacı ve platform yaklaşımı hakkında bilgi alın.",
+  title: "FootBattle Hakkında | PlayFootBattle Futbol Oyunları Platformu",
+  description: "FootBattle (PlayFootBattle), playfootbattle.com üzerinde çalışan bağımsız bir futbol oyunları ve quiz platformudur. Projenin amacı, oyunları ve yaklaşımı hakkında bilgi alın.",
+  keywords: ["FootBattle", "PlayFootBattle", "Play FootBattle", "playfootbattle.com", "futbol oyunları", "football trivia", "football quiz"],
   alternates: { canonical: `${SITE_URL}/about` },
+  openGraph: {
+    type: "website",
+    siteName: "FootBattle",
+    title: "FootBattle Hakkında | PlayFootBattle",
+    description: "FootBattle (PlayFootBattle), playfootbattle.com üzerindeki bağımsız futbol oyunları ve quiz platformudur.",
+    url: `${SITE_URL}/about`,
+  },
 };
 
 export default function AboutPage() {
   return (
     <SiteInfoPage
-      eyebrow="FOOTBATTLE"
+      eyebrow="FOOTBATTLE · PLAYFOOTBATTLE"
       title="Hakkımızda"
-      intro="FootBattle, futbol bilgisini kısa, rekabetçi ve paylaşılabilir oyunlara dönüştüren bağımsız bir futbol oyun platformudur."
+      intro="FootBattle (PlayFootBattle), playfootbattle.com üzerinde çalışan; futbol bilgisini kısa, rekabetçi ve paylaşılabilir oyunlara dönüştüren bağımsız bir futbol oyunları ve quiz platformudur."
     >
       <section>
         <h2 className="text-xl font-black text-white">FootBattle nedir?</h2>
-        <p className="mt-2">FootBattle; futbolcuları, kulüpleri, kariyerleri, transferleri ve futbol hafızasını farklı oyun mekanikleriyle buluşturan bir platformdur. Amaç, uzun kurallar öğrenmeden birkaç dakika içinde başlayabileceğin oyunlarla futbol bilgini sınamak ve aynı konuyu farklı formatlarda yeniden keşfetmeni sağlamaktır.</p>
-        <p className="mt-3">Platformda tahmin, kelime bulmaca, kariyer yolu, bilgi yarışması, karşılaştırma ve strateji temelli oyunlar bir arada bulunur. Böylece yalnızca güncel futbolu takip edenler değil, geçmiş sezonları, eski transferleri ve unutulmaz oyuncuları hatırlayan futbolseverler de kendilerine uygun bir oyun bulabilir.</p>
+        <p className="mt-2">FootBattle; futbolcuları, kulüpleri, kariyerleri, transferleri ve futbol hafızasını farklı oyun mekanikleriyle buluşturan tarayıcı tabanlı bir platformdur. FootBattle markasının resmi web adresi <strong>playfootbattle.com</strong>'dur ve PlayFootBattle adı da aynı platformu ifade eder.</p>
+        <p className="mt-3">Amaç, uzun kurallar öğrenmeden birkaç dakika içinde başlayabileceğin oyunlarla futbol bilgini sınamak ve aynı konuyu farklı formatlarda yeniden keşfetmeni sağlamaktır. Platformda tahmin, kelime bulmaca, kariyer yolu, bilgi yarışması, karşılaştırma ve strateji temelli oyunlar bir arada bulunur.</p>
       </section>
 
       <section>
@@ -42,8 +50,9 @@ export default function AboutPage() {
       </section>
 
       <section>
-        <h2 className="text-xl font-black text-white">Bağımsız proje</h2>
-        <p className="mt-2">FootBattle bağımsız olarak geliştirilen bir projedir. Kulüpler, ligler veya futbolcularla resmi bir sponsorluk, ortaklık ya da temsil ilişkisi olduğu anlamına gelmez. Platformdaki oyunlar futbolseverlere eğlenceli ve rekabetçi bir deneyim sunmak amacıyla geliştirilir.</p>
+        <h2 className="text-xl font-black text-white">Bağımsız proje ve marka ayrımı</h2>
+        <p className="mt-2">FootBattle bağımsız olarak geliştirilen bir web oyun platformudur. Kripto, blockchain veya Web3 tabanlı bir futbol menajerlik projesi değildir; mobil mağazalardaki benzer isimli futbol oyunlarından da ayrı bir üründür. FootBattle ve PlayFootBattle adları bu sitedeki, yani <strong>playfootbattle.com</strong> üzerindeki futbol bilgi ve oyun platformunu ifade eder.</p>
+        <p className="mt-3">Kulüpler, ligler veya futbolcularla resmi bir sponsorluk, ortaklık ya da temsil ilişkisi olduğu anlamına gelmez. Platformdaki oyunlar futbolseverlere eğlenceli ve rekabetçi bir deneyim sunmak amacıyla geliştirilir.</p>
       </section>
 
       <section>
