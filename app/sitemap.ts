@@ -5,11 +5,10 @@ import { SITE_URL } from "@/lib/seo";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // AdSense/SEO hygiene: expose publisher-content pages only. Interactive app,
-  // account, session and game-state routes are intentionally excluded.
   const pages: Array<{ path: string; changeFrequency: "daily" | "weekly"; priority: number }> = [
     { path: "/futbol-oyunlari", changeFrequency: "weekly", priority: 0.95 },
     { path: "/futbolcu-tahmin-oyunu", changeFrequency: "weekly", priority: 0.9 },
+    { path: "/super-lig-futbolcu-tahmin", changeFrequency: "weekly", priority: 0.92 },
     { path: "/futbol-bilgi-yarismasi", changeFrequency: "weekly", priority: 0.9 },
     { path: "/football-wordle", changeFrequency: "weekly", priority: 0.9 },
     { path: "/super-lig-quiz", changeFrequency: "weekly", priority: 0.9 },
@@ -37,19 +36,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/en/daily-faceoff", changeFrequency: "daily", priority: 1 },
   ];
 
-  const staticPages: MetadataRoute.Sitemap = pages.map((page) => ({
-    url: `${SITE_URL}${page.path}`,
-    changeFrequency: page.changeFrequency,
-    priority: page.priority,
-  }));
+  const staticPages: MetadataRoute.Sitemap = pages.map((page) => ({ url: `${SITE_URL}${page.path}`, changeFrequency: page.changeFrequency, priority: page.priority }));
 
   try {
-    const { data: faceoffs } = await supabaseAdmin
-      .from("daily_faceoffs")
-      .select("match_date, left_name, right_name, updated_at")
-      .eq("is_active", true)
-      .order("match_date", { ascending: false });
-
+    const { data: faceoffs } = await supabaseAdmin.from("daily_faceoffs").select("match_date, left_name, right_name, updated_at").eq("is_active", true).order("match_date", { ascending: false });
     const faceoffPages: MetadataRoute.Sitemap = (faceoffs ?? []).flatMap((faceoff) => {
       const slug = faceoffSlug(faceoff);
       const lastModified = faceoff.updated_at ? new Date(faceoff.updated_at) : undefined;
@@ -58,7 +48,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         { url: `${SITE_URL}/en/daily-faceoff/${slug}`, lastModified, changeFrequency: "weekly" as const, priority: 0.85 },
       ];
     });
-
     return [...staticPages, ...faceoffPages];
   } catch {
     return staticPages;
