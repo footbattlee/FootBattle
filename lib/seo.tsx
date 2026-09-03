@@ -9,6 +9,11 @@ export const SITE_URL =
     ? configuredSiteUrl
     : "https://playfootbattle.com";
 
+export const BRAND_NAME = "FootBattle";
+export const BRAND_ALTERNATE_NAMES = ["PlayFootBattle", "Play FootBattle", "playfootbattle.com"];
+export const BRAND_DESCRIPTION =
+  "FootBattle (playfootbattle.com) is an independent browser-based football trivia and games platform with quizzes, guessing games, Tic Tac Toe, Wordle-style games and competitive challenges.";
+
 export const DEFAULT_OG_IMAGE = "/footbattle-logo.png";
 
 export const NO_INDEX_METADATA: Metadata = {
@@ -58,7 +63,7 @@ export function createGameMetadata({
     openGraph: {
       type: "website",
       locale: "tr_TR",
-      siteName: "FootBattle",
+      siteName: BRAND_NAME,
       title,
       description,
       url: canonical,
@@ -83,9 +88,14 @@ export function SiteJsonLd() {
     "@context": "https://schema.org",
     "@type": "Organization",
     "@id": `${SITE_URL}/#organization`,
-    name: "FootBattle",
+    name: BRAND_NAME,
+    alternateName: BRAND_ALTERNATE_NAMES,
+    description: BRAND_DESCRIPTION,
     url: SITE_URL,
-    logo: `${SITE_URL}/footbattle-logo.png`,
+    logo: {
+      "@type": "ImageObject",
+      url: `${SITE_URL}/footbattle-logo.png`,
+    },
   };
 
   const website = {
@@ -93,15 +103,34 @@ export function SiteJsonLd() {
     "@type": "WebSite",
     "@id": `${SITE_URL}/#website`,
     url: SITE_URL,
-    name: "FootBattle",
+    name: BRAND_NAME,
+    alternateName: BRAND_ALTERNATE_NAMES,
+    description: BRAND_DESCRIPTION,
     publisher: { "@id": `${SITE_URL}/#organization` },
-    inLanguage: ["tr-TR", "en"],
+    inLanguage: ["tr-TR", "en-US"],
+  };
+
+  const webApplication = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "@id": `${SITE_URL}/#webapp`,
+    name: BRAND_NAME,
+    alternateName: BRAND_ALTERNATE_NAMES,
+    description: BRAND_DESCRIPTION,
+    url: SITE_URL,
+    applicationCategory: "GameApplication",
+    operatingSystem: "Any",
+    browserRequirements: "Requires a modern web browser with JavaScript enabled",
+    isAccessibleForFree: true,
+    publisher: { "@id": `${SITE_URL}/#organization` },
+    inLanguage: ["tr-TR", "en-US"],
   };
 
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organization) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(website) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(webApplication) }} />
     </>
   );
 }
