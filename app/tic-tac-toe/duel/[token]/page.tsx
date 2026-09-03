@@ -44,6 +44,7 @@ type ApiResponse = { ok?: boolean; error?: string; message?: string; completed?:
 
 const GREEN = "#86efac";
 const PURPLE = "#d8b4fe";
+const DUEL_POLL_MS = 4000;
 
 function formatTimer(total: number) {
   const safe = Math.max(0, Math.floor(total));
@@ -125,13 +126,15 @@ export default function TicTacToeDuelPage({ params }: { params: Promise<{ token:
 
   useEffect(() => {
     const status = challenge?.challenge?.status;
-    if (!status || status === "expired") return;
-    const id = window.setInterval(() => {
+    if (!status || status === "expired" || status === "completed") return;
+    const poll = () => {
+      if (document.visibilityState !== "visible") return;
       void loadChallenge().then((c) => {
-        if (c.challenge?.status === "playing" || c.challenge?.status === "completed") return loadDuel();
+        if (c.challenge?.status === "playing") return loadDuel();
         return null;
       }).catch(() => undefined);
-    }, 1200);
+    };
+    const id = window.setInterval(poll, DUEL_POLL_MS);
     return () => window.clearInterval(id);
   }, [challenge?.challenge?.status, loadChallenge, loadDuel]);
 
@@ -144,17 +147,6 @@ export default function TicTacToeDuelPage({ params }: { params: Promise<{ token:
     }), 1000);
     return () => window.clearInterval(id);
   }, [duel?.currentTurn, duel?.completed]);
-
-  useEffect(() => {
-    if (!duel?.completed) return;
-    const id = window.setInterval(() => {
-      void fetch(`/api/challenges/${encodeURIComponent(token)}/tic-tac-toe/rematch`, { cache: "no-store" })
-        .then((r) => r.json() as Promise<ApiResponse>)
-        .then((r) => { if (r.ok && r.token) window.location.href = `/tic-tac-toe/duel/${r.token}`; })
-        .catch(() => undefined);
-    }, 1500);
-    return () => window.clearInterval(id);
-  }, [duel?.completed, token]);
 
   useEffect(() => {
     if (!selectedCell || !duel?.isMyTurn || query.trim().length < 2) { setPlayers([]); setSearching(false); return; }
