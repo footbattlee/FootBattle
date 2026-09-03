@@ -20,6 +20,8 @@ type Context = {
   targetPath: (token: string) => string;
 };
 
+const REMATCH_POLL_MS = 5000;
+
 function readContext(): Context | null {
   if (typeof window === "undefined") return null;
   const ttt = window.location.pathname.match(/^\/tic-tac-toe\/duel\/([^/?]+)/);
@@ -149,6 +151,7 @@ export default function DuelRematchConsentBridge() {
     let cancelled = false;
 
     const load = async () => {
+      if (document.visibilityState !== "visible") return;
       try {
         const response = await fetch(context.endpoint, { cache: "no-store" });
         const result = await response.json() as RematchState;
@@ -159,7 +162,7 @@ export default function DuelRematchConsentBridge() {
     };
 
     void load();
-    const id = window.setInterval(load, 700);
+    const id = window.setInterval(load, REMATCH_POLL_MS);
     return () => {
       cancelled = true;
       window.clearInterval(id);
