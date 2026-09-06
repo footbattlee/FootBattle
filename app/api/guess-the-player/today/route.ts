@@ -7,6 +7,7 @@ import {
   isSuperLigGuessRequest,
   type SuperLigDifficulty,
 } from "@/lib/guess-the-player/super-lig";
+import { getSharedSoloChallengeId } from "@/lib/shared-solo-challenge";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const MAX_ATTEMPTS = 7;
@@ -28,10 +29,7 @@ type CandidatePlayer = {
   popularity_score: number | null;
 };
 
-type PoolCache = {
-  expiresAt: number;
-  players: CandidatePlayer[];
-};
+type PoolCache = { expiresAt: number; players: CandidatePlayer[] };
 
 const PLAYER_SELECT = `
   player_id,
@@ -76,28 +74,23 @@ function randomFromPool(players: CandidatePlayer[]) {
 async function loadPagedPlayers(buildQuery: (from: number, to: number) => Promise<{ data: unknown; error: unknown }>) {
   const players: CandidatePlayer[] = [];
   let from = 0;
-
   while (true) {
     const to = from + PLAYER_PAGE_SIZE - 1;
     const { data, error } = await buildQuery(from, to);
     if (error) throw error;
-
     const page = ((data ?? []) as CandidatePlayer[]).filter(isCompletePlayer);
     players.push(...page);
-
     const rawLength = Array.isArray(data) ? data.length : 0;
     if (rawLength < PLAYER_PAGE_SIZE) break;
     from += PLAYER_PAGE_SIZE;
     if (from > 100_000) break;
   }
-
   return players;
 }
 
 async function getNormalPool() {
   const now = Date.now();
   if (normalPoolCache && normalPoolCache.expiresAt > now) return normalPoolCache.players;
-
   const players = await loadPagedPlayers(async (from, to) => {
     const { data, error } = await supabaseAdmin
       .from("guess_players")
@@ -108,7 +101,6 @@ async function getNormalPool() {
       .range(from, to);
     return { data, error };
   });
-
   normalPoolCache = { expiresAt: now + PLAYER_POOL_CACHE_TTL_MS, players };
   return players;
 }
@@ -128,46 +120,55 @@ async function getSuperLigPool(difficulty: SuperLigDifficulty) {
       .eq("current_competition_id", SUPER_LIG_COMPETITION_ID)
       .in("current_club_name", [...CURRENT_SUPER_LIG_CLUB_NAMES])
       .gte("popularity_score", min);
-
     if (Number.isFinite(max)) query = query.lte("popularity_score", max);
-
-    const { data, error } = await query
-      .order("player_id", { ascending: true })
-      .range(from, to);
+    const { data, error } = await query.order("player_id", { ascending: true }).range(from, to);
     return { data, error };
   });
 
-  superLigPoolCache.set(difficulty, {
-    expiresAt: now + PLAYER_POOL_CACHE_TTL_MS,
-    players,
-  });
+  superLigPoolCache.set(difficulty, { expiresAt: now + PLAYER_POOL_CACHE_TTL_MS, players });
   return players;
 }
 
-async function getNormalRandomPlayer() {
-  return randomFromPool(await getNormalPool());
-}
+async function getSharedPlayer(challengeId: string) {
+  const { data: source, error: sourceError } = await supabaseAdmin
+    .from("guess_player_sessions")
+    .select("player_id")
+    .eq("id", challengeId)
+    .maybeSingle();
+  if (sourceError) throw sourceError;
+  if (!source?.player_id) return null;
 
-async function getSuperLigRandomPlayer(difficulty: SuperLigDifficulty) {
-  return randomFromPool(await getSuperLigPool(difficulty));
+  const { data, error } = await supabaseAdmin
+    .from("guess_players")
+    .select(PLAYER_SELECT)
+    .eq("player_id", source.player_id)
+    .eq("is_playable", 1)
+    .maybeSingle();
+  if (error) throw error;
+  return data && isCompletePlayer(data as CandidatePlayer) ? (data as CandidatePlayer) : null;
 }
 
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const dailyMode = url.searchParams.get("daily") === "1";
-    const superLigMode = !dailyMode && isSuperLigGuessRequest(request);
+    const challengeId = getSharedSoloChallengeId(request);
+    const superLigMode = !dailyMode && !challengeId && isSuperLigGuessRequest(request);
     const difficulty = getSuperLigDifficulty(request);
     let targetPlayer: CandidatePlayer | null = null;
 
-    if (dailyMode) {
+    if (challengeId) {
+      targetPlayer = await getSharedPlayer(challengeId);
+      if (!targetPlayer) {
+        return NextResponse.json({ ok: false, error: "Paylaşılan Guess the Player oyunu bulunamadı." }, { status: 404 });
+      }
+    } else if (dailyMode) {
       const { data: dailyRow, error: dailyError } = await supabaseAdmin
         .from("daily_guess_player")
         .select("player_id, is_published")
         .eq("play_date", getTurkeyDateKey())
         .eq("is_published", true)
         .maybeSingle();
-
       if (dailyError) throw dailyError;
       if (!dailyRow) return NextResponse.json({ ok: false, error: "Bugünün Guess The Player oyunu henüz yayınlanmadı." }, { status: 404 });
 
@@ -178,11 +179,11 @@ export async function GET(request: Request) {
         .eq("is_playable", 1)
         .maybeSingle();
       if (error) throw error;
-      if (data && isCompletePlayer(data)) targetPlayer = data as CandidatePlayer;
+      if (data && isCompletePlayer(data as CandidatePlayer)) targetPlayer = data as CandidatePlayer;
     } else if (superLigMode) {
-      targetPlayer = await getSuperLigRandomPlayer(difficulty);
+      targetPlayer = randomFromPool(await getSuperLigPool(difficulty));
     } else {
-      targetPlayer = await getNormalRandomPlayer();
+      targetPlayer = randomFromPool(await getNormalPool());
     }
 
     if (!targetPlayer) {
@@ -194,13 +195,13 @@ export async function GET(request: Request) {
       .insert({ player_id: targetPlayer.player_id, max_attempts: MAX_ATTEMPTS })
       .select("id, max_attempts")
       .single();
-
     if (sessionError || !session) throw sessionError ?? new Error("Yeni oyun oluşturulamadı.");
 
     return NextResponse.json({
       ok: true,
-      mode: dailyMode ? "daily" : superLigMode ? "super_lig" : "random",
+      mode: challengeId ? "challenge" : dailyMode ? "daily" : superLigMode ? "super_lig" : "random",
       daily: dailyMode,
+      challenge: Boolean(challengeId),
       superLig: superLigMode,
       difficulty: superLigMode ? difficulty : null,
       sessionId: session.id,

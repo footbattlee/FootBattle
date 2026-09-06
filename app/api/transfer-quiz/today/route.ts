@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { startGameSecuritySession } from "@/lib/game-security/server";
+import { getSharedSoloChallengeId } from "@/lib/shared-solo-challenge";
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import {
@@ -8,17 +9,57 @@ import {
   TRANSFER_QUIZ_MAX_PASSES,
   TRANSFER_QUIZ_MIN_SEARCH_LENGTH,
   TRANSFER_QUIZ_POINTS_PER_CORRECT,
+  type TransferQuestion,
   pickNextTransferQuestion,
 } from "@/lib/transfer-quiz/game";
+
+type PickedQuestion = { question: TransferQuestion; sourcePlayerId: number };
+
+async function loadSharedQuestion(challengeId: string): Promise<PickedQuestion | null> {
+  const { data: source, error: sourceError } = await supabaseAdmin
+    .from("transfer_quiz_sessions_v2")
+    .select("current_transfer_id")
+    .eq("id", challengeId)
+    .maybeSingle();
+  if (sourceError) throw sourceError;
+  if (!source?.current_transfer_id) return null;
+
+  const { data: transfer, error } = await supabaseAdmin
+    .from("player_transfers")
+    .select("id, source_player_id, from_club_name, to_club_name, transfer_fee, transfer_season")
+    .eq("id", source.current_transfer_id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!transfer?.id || !transfer.source_player_id || !transfer.from_club_name || !transfer.to_club_name) return null;
+
+  return {
+    sourcePlayerId: Number(transfer.source_player_id),
+    question: {
+      transferId: Number(transfer.id),
+      fromClubName: String(transfer.from_club_name),
+      toClubName: String(transfer.to_club_name),
+      transferFee: Number(transfer.transfer_fee ?? 0),
+      transferSeason: transfer.transfer_season ? String(transfer.transfer_season) : null,
+      difficulty: "easy",
+    },
+  };
+}
 
 export async function GET(request: Request) {
   try {
     const authClient = await createAuthServerClient();
     const { data: { user } } = await authClient.auth.getUser();
+    const challengeId = getSharedSoloChallengeId(request);
 
-    const picked = await pickNextTransferQuestion("easy", []);
+    const picked = challengeId
+      ? await loadSharedQuestion(challengeId)
+      : await pickNextTransferQuestion("easy", []);
+
     if (!picked) {
-      return NextResponse.json({ ok: false, error: "Kolay transfer sorusu bulunamadı." }, { status: 404 });
+      return NextResponse.json(
+        { ok: false, error: challengeId ? "Paylaşılan Transfer Quiz sorusu bulunamadı." : "Kolay transfer sorusu bulunamadı." },
+        { status: 404 },
+      );
     }
 
     const startedAt = new Date();
@@ -45,12 +86,14 @@ export async function GET(request: Request) {
       gameCode: "transfer_quiz",
       sourceSessionId: String(session.id),
       userId: user?.id ?? null,
-      mode: "solo",
-      metadata: { format: "transferi_bil_v1", durationSeconds: TRANSFER_QUIZ_DURATION_SECONDS },
+      mode: challengeId ? "challenge" : "solo",
+      metadata: { format: "transferi_bil_v1", durationSeconds: TRANSFER_QUIZ_DURATION_SECONDS, sharedChallenge: Boolean(challengeId) },
     });
 
     return NextResponse.json({
       ok: true,
+      mode: challengeId ? "challenge" : "random",
+      challenge: Boolean(challengeId),
       sessionId: session.id,
       startedAt: session.started_at,
       durationSeconds: TRANSFER_QUIZ_DURATION_SECONDS,
