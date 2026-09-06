@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 
 import LocalizedGuessThePlayer from "@/components/i18n/LocalizedGuessThePlayer";
 import { isLocale, type Locale } from "@/lib/i18n/config";
-import { SITE_URL } from "@/lib/seo";
+import { GameJsonLd, SITE_URL } from "@/lib/seo";
 
 const DIFFICULTIES = [
   { key: "mixed", tr: "Karışık", en: "Mixed", icon: "🎲" },
@@ -47,6 +47,9 @@ export default async function Page({
   if (!isLocale(locale)) notFound();
 
   const en = locale === "en";
+  const description = en
+    ? "Guess footballers currently playing in Turkey's Süper Lig. Choose easy, medium, hard or mixed difficulty."
+    : "Şu anda Süper Lig'de oynayan futbolcuları tahmin et. Kolay, orta, zor veya karışık zorluk seç.";
   const selectedDifficulty = DIFFICULTIES.some((item) => item.key === difficulty)
     ? (difficulty as DifficultyKey)
     : null;
@@ -56,6 +59,12 @@ export default async function Page({
 
   return (
     <div className="min-h-screen bg-[#07111f] text-white" data-game="guess-the-player-super-lig">
+      <GameJsonLd
+        name={en ? "Süper Lig Guess the Player" : "Süper Lig Futbolcuyu Tahmin Et"}
+        description={description}
+        path={`/${locale}/guess-the-player/super-lig`}
+        inLanguage={en ? "en-US" : "tr-TR"}
+      />
       {!selectedDifficulty ? (
         <section className="mx-auto max-w-6xl px-4 pt-6 sm:px-6 sm:pt-8">
           <div className="rounded-3xl border border-red-400/20 bg-gradient-to-r from-red-500/10 to-white/[0.03] p-5 sm:p-6">
