@@ -107,11 +107,48 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const dailyMode = url.searchParams.get("daily") === "1";
+    const challengeSessionId = url.searchParams.get("challenge")?.trim() || null;
 
     let selectedPlayer: WordlePlayer | null = null;
     let answer = "";
 
-    if (dailyMode) {
+    if (challengeSessionId) {
+      const { data: sourceSession, error: sourceSessionError } = await supabaseAdmin
+        .from("wordle_sessions")
+        .select("player_id")
+        .eq("id", challengeSessionId)
+        .maybeSingle();
+
+      if (sourceSessionError || !sourceSession?.player_id) {
+        console.error("Paylaşılan Wordle oturumu okunamadı:", sourceSessionError);
+        return NextResponse.json({ ok: false, error: "Paylaşılan Wordle oyunu bulunamadı." }, { status: 404 });
+      }
+
+      const { data: challengePlayer, error: challengePlayerError } = await supabaseAdmin
+        .from("guess_players")
+        .select("player_id, name, name_normalized, popularity_score")
+        .eq("player_id", sourceSession.player_id)
+        .eq("is_playable", 1)
+        .maybeSingle();
+
+      if (challengePlayerError || !challengePlayer?.name_normalized) {
+        console.error("Paylaşılan Wordle oyuncusu okunamadı:", challengePlayerError);
+        return NextResponse.json({ ok: false, error: "Paylaşılan Wordle oyuncusu bulunamadı." }, { status: 404 });
+      }
+
+      const surname = validWordleSurname(challengePlayer.name_normalized);
+      if (!surname) {
+        return NextResponse.json({ ok: false, error: "Paylaşılan Wordle oyuncusu Wordle kurallarına uygun değil." }, { status: 422 });
+      }
+
+      selectedPlayer = {
+        player_id: Number(challengePlayer.player_id),
+        name: challengePlayer.name,
+        name_normalized: challengePlayer.name_normalized,
+        popularity_score: challengePlayer.popularity_score === null ? null : Number(challengePlayer.popularity_score),
+      };
+      answer = surname;
+    } else if (dailyMode) {
       const playDate = getTurkeyDateKey();
       const { data: dailyRow, error: dailyError } = await supabaseAdmin
         .from("daily_wordle")
@@ -183,7 +220,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       ok: true,
-      mode: dailyMode ? "daily" : "random",
+      mode: challengeSessionId ? "challenge" : dailyMode ? "daily" : "random",
       daily: dailyMode,
       sessionId: session.id,
       letterCount: session.letter_count,
