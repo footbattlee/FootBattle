@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { SITE_URL } from "@/lib/seo";
+import { BreadcrumbJsonLd, FAQJsonLd } from "@/lib/seo";
 
 type Section = {
   title: string;
@@ -38,47 +38,10 @@ export default function SeoLandingPage({
   faqs: Faq[];
   relatedLinks: RelatedLink[];
 }) {
-  const faqSchema = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: faqs.map((faq) => ({
-      "@type": "Question",
-      name: faq.question,
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: faq.answer,
-      },
-    })),
-  };
-
-  const breadcrumbSchema = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      {
-        "@type": "ListItem",
-        position: 1,
-        name: "FootBattle",
-        item: SITE_URL,
-      },
-      {
-        "@type": "ListItem",
-        position: 2,
-        name: title,
-      },
-    ],
-  };
-
   return (
     <main className="min-h-screen bg-[#07111f] text-white">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
-      />
+      <FAQJsonLd faqs={faqs} />
+      <BreadcrumbJsonLd items={[{ name: "FootBattle", path: "/" }, { name: title }]} />
 
       <div className="mx-auto max-w-5xl px-5 py-12 sm:px-8 sm:py-16">
         <Link href="/" className="text-sm font-bold text-emerald-300 hover:text-emerald-200">
