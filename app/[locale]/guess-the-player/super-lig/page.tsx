@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import GeoAnswerSection from "@/components/GeoAnswerSection";
 import LocalizedGuessThePlayer from "@/components/i18n/LocalizedGuessThePlayer";
 import { isLocale, type Locale } from "@/lib/i18n/config";
 import { GameJsonLd, SITE_URL } from "@/lib/seo";
@@ -131,6 +132,32 @@ export default async function Page({
           </div>
         </section>
       )}
+
+      {en ? (
+        <GeoAnswerSection
+          title="What is Süper Lig Guess the Player?"
+          summary="Süper Lig Guess the Player is FootBattle's football guessing mode focused on active players in Turkey's Süper Lig. It uses player clues and selectable difficulty levels so you can test how well you know the league's current footballers."
+          howItWorks={[
+            "Choose Easy, Medium, Hard or Mixed difficulty.",
+            "Make a player guess and compare the football clues returned by the game.",
+            "Use each clue to narrow the possibilities until you identify the hidden Süper Lig player.",
+          ]}
+          faqs={[
+            {
+              question: "Which players can appear in Süper Lig Guess the Player?",
+              answer: "The mode is limited to eligible active players from Turkey's Süper Lig rather than the broader footballer pool used by the standard mode.",
+            },
+            {
+              question: "What difficulty levels are available?",
+              answer: "You can choose Easy, Medium, Hard or Mixed. The difficulty tiers are based on player popularity, while Mixed can use all eligible active players.",
+            },
+            {
+              question: "Is Süper Lig Guess the Player free?",
+              answer: "Yes. The game is free to play in a browser on FootBattle.",
+            },
+          ]}
+        />
+      ) : null}
     </div>
   );
 }
