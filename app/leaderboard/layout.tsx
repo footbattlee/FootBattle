@@ -1,4 +1,5 @@
 import Link from "next/link";
+import GeoAnswerSection from "@/components/GeoAnswerSection";
 import { createGameMetadata } from "@/lib/seo";
 
 const title = "FootBattle Liderlik Tablosu | Futbol Oyunları Sıralaması";
@@ -33,6 +34,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </section>
+      <GeoAnswerSection
+        title="What is the FootBattle leaderboard?"
+        summary="The FootBattle leaderboard is the platform's competitive ranking page. It lets players compare scores and performance across the overall platform or individual football games, with weekly and all-time views."
+        howItWorks={[
+          "Choose the overall ranking or a specific FootBattle game.",
+          "Switch between the weekly leaderboard and the all-time leaderboard.",
+          "Play more games and improve your scores to move higher in the rankings.",
+        ]}
+        faqs={[
+          {
+            question: "Can I view rankings for individual FootBattle games?",
+            answer: "Yes. The leaderboard can be filtered by supported games as well as the overall FootBattle ranking.",
+          },
+          {
+            question: "Does FootBattle have weekly and all-time rankings?",
+            answer: "Yes. You can compare the current weekly competition or switch to the all-time leaderboard.",
+          },
+          {
+            question: "What affects a player's leaderboard position?",
+            answer: "Leaderboard position is based on the score data recorded for the selected overall or game-specific ranking and time period.",
+          },
+        ]}
+      />
     </>
   );
 }

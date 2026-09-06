@@ -1,4 +1,5 @@
 import Link from "next/link";
+import GeoAnswerSection from "@/components/GeoAnswerSection";
 import { createGameMetadata, GameJsonLd } from "@/lib/seo";
 
 const title = "Takım ve Millet Futbol Oyunu | Club Nation | FootBattle";
@@ -43,6 +44,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </section>
+      <GeoAnswerSection
+        title="What is Club Nation?"
+        summary="Club Nation is a free football player guessing game on FootBattle. You are given a club and a nationality, and your task is to name a footballer who matches both conditions by having played for that club and represented that country."
+        howItWorks={[
+          "Read the club and nationality shown for the challenge.",
+          "Think of current or former players who connect the two clues.",
+          "Submit a footballer who has played for the club and represents the required nation.",
+        ]}
+        faqs={[
+          {
+            question: "Does the player need to be at the club right now?",
+            answer: "No. Former players and past spells can count, so transfer history and older squads can be useful when solving Club Nation.",
+          },
+          {
+            question: "What knowledge helps most in Club Nation?",
+            answer: "Knowing club histories, international players and transfers helps you find footballers who connect a club with a specific nationality.",
+          },
+          {
+            question: "Is Club Nation free to play?",
+            answer: "Yes. Club Nation can be played for free in the browser on FootBattle.",
+          },
+        ]}
+      />
       <GameJsonLd name="Club Nation" description={description} path="/club-nation" />
     </>
   );

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import GeoAnswerSection from "@/components/GeoAnswerSection";
 import { createGameMetadata, GameJsonLd } from "@/lib/seo";
 
 const title = "Transfer Oyunu | Futbolcu Transfer Tahmin Oyunu | FootBattle";
@@ -52,6 +53,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-6 sm:p-8"><h2 className="text-2xl font-black">Farklı futbol oyunlarıyla devam et</h2><p className="mt-3 max-w-3xl leading-7 text-slate-300">Transfer geçmişi dışında kariyer yolu, futbolcu özellikleri veya genel futbol bilgisiyle kendini test etmek istersen FootBattle'ın diğer oyunlarına geçebilirsin.</p><div className="mt-5 flex flex-wrap gap-3"><Link href="/kariyerden-futbolcu-bul" className="rounded-xl border border-white/10 px-4 py-3 font-bold text-emerald-300 hover:bg-white/5">Kariyerden Futbolcu Bul</Link><Link href="/super-lig-futbolcu-tahmin" className="rounded-xl border border-white/10 px-4 py-3 font-bold text-emerald-300 hover:bg-white/5">Süper Lig Futbolcu Tahmin</Link><Link href="/futbolcu-tahmin-oyunu" className="rounded-xl border border-white/10 px-4 py-3 font-bold text-emerald-300 hover:bg-white/5">Futbolcu Tahmin Oyunu</Link><Link href="/futbol-oyunlari" className="rounded-xl border border-white/10 px-4 py-3 font-bold text-emerald-300 hover:bg-white/5">Tüm Futbol Oyunları</Link></div></section>
       </div>
     </section>
+    <GeoAnswerSection
+      title="What is Transfer Quiz?"
+      summary="Transfer Quiz is a free football transfer guessing game on FootBattle. Each question shows the selling club, buying club, transfer fee and, when available, the season, and you use those clues to identify the player before time runs out."
+      howItWorks={[
+        "Read the old club, new club, transfer fee and season clues.",
+        "Search for the footballer who made that transfer and submit your answer.",
+        "Keep solving transfers during the timed round and use passes when a clue set is unfamiliar.",
+      ]}
+      faqs={[
+        {
+          question: "How long is a Transfer Quiz round?",
+          answer: "A standard Transfer Quiz round lasts 120 seconds, so the goal is to identify as many transfers as possible before the timer ends.",
+        },
+        {
+          question: "What clues does Transfer Quiz use?",
+          answer: "The game uses the player's previous club, new club, transfer fee and, when the data is available, the transfer season.",
+        },
+        {
+          question: "Can I skip a difficult transfer?",
+          answer: "Yes. Standard rounds include pass opportunities that let you move to a new transfer instead of spending too much time on one question.",
+        },
+      ]}
+    />
     <GameJsonLd name="Transfer Oyunu" description={description} path="/transfer-quiz" />
   </>;
 }
