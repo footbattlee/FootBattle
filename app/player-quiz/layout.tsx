@@ -1,4 +1,5 @@
 import Link from "next/link";
+import GeoAnswerSection from "@/components/GeoAnswerSection";
 import { createGameMetadata, GameJsonLd } from "@/lib/seo";
 import "./mobile.css";
 
@@ -44,6 +45,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </section>
+      <GeoAnswerSection
+        title="What is Player Quiz?"
+        summary="Player Quiz is a free football trivia game on FootBattle where you identify a footballer by solving separate clues about birth year, nationality and club history. Each correct field reveals more of the player's profile and narrows the answer."
+        howItWorks={[
+          "Use the available footballer clues to decide which category you can solve first.",
+          "Enter answers for birth year, nationality and the clubs from the player's career.",
+          "Combine the solved fields until the footballer's identity becomes clear.",
+        ]}
+        faqs={[
+          {
+            question: "What does Player Quiz test?",
+            answer: "Player Quiz tests knowledge of footballers' birth years, nationalities and club careers rather than relying on a single clue.",
+          },
+          {
+            question: "Is Player Quiz free?",
+            answer: "Yes. Player Quiz can be played for free in the browser on FootBattle.",
+          },
+          {
+            question: "What is the best way to solve Player Quiz?",
+            answer: "Start with the clue category you know best, then use every correct field to narrow the remaining possibilities instead of guessing randomly.",
+          },
+        ]}
+      />
       <GameJsonLd name="Player Quiz" description={description} path="/player-quiz" />
     </div>
   );
