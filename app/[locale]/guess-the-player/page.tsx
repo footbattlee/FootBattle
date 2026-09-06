@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import GeoAnswerSection from "@/components/GeoAnswerSection";
 import LocalizedGuessThePlayer from "@/components/i18n/LocalizedGuessThePlayer";
 import { isLocale, type Locale } from "@/lib/i18n/config";
 import { GameJsonLd, SITE_URL, localizedAlternates } from "@/lib/seo";
@@ -49,6 +50,31 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         </Link>
       </div>
       <LocalizedGuessThePlayer locale={locale as Locale} />
+      {en ? (
+        <GeoAnswerSection
+          title="What is Guess the Player?"
+          summary="Guess the Player is a free browser football guessing game on FootBattle. You identify a hidden footballer by comparing clues such as nationality, club, league, position, age and preferred foot, then use each guess to narrow the possibilities."
+          howItWorks={[
+            "Enter a footballer's name as your first guess.",
+            "Compare the clue feedback for country, club, league, position, age and foot.",
+            "Use the new information to narrow the field and identify the hidden player.",
+          ]}
+          faqs={[
+            {
+              question: "Is Guess the Player free to play?",
+              answer: "Yes. FootBattle's Guess the Player runs in the browser and can be played for free without installing a separate game.",
+            },
+            {
+              question: "What clues are used in Guess the Player?",
+              answer: "The game uses footballer attributes including nationality, club, league, position, age and preferred foot to help you compare each guess with the hidden player.",
+            },
+            {
+              question: "Does FootBattle have a Süper Lig version?",
+              answer: "Yes. FootBattle also has a Süper Lig Guess the Player mode focused on active players in Turkey's top division, with multiple difficulty levels.",
+            },
+          ]}
+        />
+      ) : null}
     </div>
   );
 }
