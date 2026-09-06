@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { footballLocaleFromRequest, nationalityToDisplayName } from "@/lib/football/localization";
 import { checkRateLimit, getRequestFingerprint } from "@/lib/server/simple-rate-limit";
+import { getSharedSoloChallengeId } from "@/lib/shared-solo-challenge";
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -12,6 +13,7 @@ const MINIMUM_POPULARITY_SCORE = 85;
 
 type PlayerRow = { player_id: number; name: string; nationality: string | null; popularity_score: number | null };
 type ClubNationPairRow = { club_name: string; duel_tier: string; nationality: string; matching_player_count: number };
+type Question = { playerId: number; clubName: string; nationality: string };
 
 function shuffleArray<T>(values: T[]) {
   const result = [...values];
@@ -26,10 +28,7 @@ async function loadValidPairs() {
   const rows: ClubNationPairRow[] = [];
   const pageSize = 1000;
   for (let from = 0; ; from += pageSize) {
-    const { data, error } = await supabaseAdmin
-      .from("club_nation_valid_pairs")
-      .select("club_name, duel_tier, nationality, matching_player_count")
-      .range(from, from + pageSize - 1);
+    const { data, error } = await supabaseAdmin.from("club_nation_valid_pairs").select("club_name, duel_tier, nationality, matching_player_count").range(from, from + pageSize - 1);
     if (error) throw error;
     const page = (data ?? []) as ClubNationPairRow[];
     rows.push(...page);
@@ -40,46 +39,46 @@ async function loadValidPairs() {
 }
 
 async function findPopularAnchorPlayer(clubName: string, nationality: string) {
-  const { data: clubRows, error: clubError } = await supabaseAdmin
-    .from("player_quiz_clubs")
-    .select("player_id")
-    .eq("club_name", clubName);
+  const { data: clubRows, error: clubError } = await supabaseAdmin.from("player_quiz_clubs").select("player_id").eq("club_name", clubName);
   if (clubError) throw clubError;
-
   const playerIds = Array.from(new Set((clubRows ?? []).map((row) => Number(row.player_id)).filter((id) => Number.isInteger(id) && id > 0)));
   if (!playerIds.length) return null;
 
   const matchingPlayers: PlayerRow[] = [];
   for (let index = 0; index < playerIds.length; index += 200) {
-    const chunk = playerIds.slice(index, index + 200);
     const { data, error } = await supabaseAdmin
       .from("guess_players")
       .select("player_id, name, nationality, popularity_score")
-      .in("player_id", chunk)
+      .in("player_id", playerIds.slice(index, index + 200))
       .eq("is_playable", 1)
       .eq("nationality", nationality)
       .gte("popularity_score", MINIMUM_POPULARITY_SCORE);
     if (error) throw error;
     matchingPlayers.push(...((data ?? []) as PlayerRow[]));
   }
-
   return matchingPlayers.length ? shuffleArray(matchingPlayers)[0] : null;
 }
 
-async function createQuestion() {
-  const pairs = shuffleArray(await loadValidPairs());
-  for (const pair of pairs) {
+async function createQuestion(): Promise<Question> {
+  for (const pair of shuffleArray(await loadValidPairs())) {
     const clubName = pair.club_name?.trim();
     const nationality = pair.nationality?.trim();
     if (!clubName || !nationality) continue;
-
-    // Soru kullanıcıya ancak bu kombinasyonda en az bir popularity >= 85
-    // oyuncu varsa gösterilir. Cevap kontrolünde ise tüm gerçek eşleşmeler kabul edilir.
     const player = await findPopularAnchorPlayer(clubName, nationality);
-    if (!player) continue;
-    return { playerId: Number(player.player_id), clubName, nationality };
+    if (player) return { playerId: Number(player.player_id), clubName, nationality };
   }
   throw new Error("Popularity >= 85 cevabı olan uygun Club Nation sorusu üretilemedi.");
+}
+
+async function sharedQuestion(challengeId: string): Promise<Question | null> {
+  const { data, error } = await supabaseAdmin
+    .from("one_club_one_country_sessions")
+    .select("player_id, club_name, nationality")
+    .eq("id", challengeId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data?.player_id || !data.club_name || !data.nationality) return null;
+  return { playerId: Number(data.player_id), clubName: String(data.club_name), nationality: String(data.nationality) };
 }
 
 export async function POST(request: Request) {
@@ -91,10 +90,12 @@ export async function POST(request: Request) {
 
     const authSupabase = await createAuthServerClient();
     const { data: { user } } = await authSupabase.auth.getUser();
-    const question = await createQuestion();
+    const challengeId = getSharedSoloChallengeId(request);
+    const question = challengeId ? await sharedQuestion(challengeId) : await createQuestion();
+    if (!question) return NextResponse.json({ ok: false, error: "Paylaşılan Club Nation oyunu bulunamadı." }, { status: 404 });
+
     const startedAt = new Date();
     const expiresAt = new Date(startedAt.getTime() + GAME_DURATION_SECONDS * 1000);
-
     const { data: session, error: sessionError } = await supabaseAdmin
       .from("one_club_one_country_sessions")
       .insert({
@@ -120,6 +121,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: true,
+      mode: challengeId ? "challenge" : "random",
+      challenge: Boolean(challengeId),
       game: { code: "club_nation", label: locale === "en" ? "1 Club 1 Nation" : "1 Takım 1 Millet", durationSeconds: GAME_DURATION_SECONDS, scorePerCorrect: SCORE_PER_CORRECT, maxPasses: STARTING_PASSES },
       session: {
         id: session.id,
