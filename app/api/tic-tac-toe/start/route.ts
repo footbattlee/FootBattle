@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { footballLocaleFromRequest, localizeFootballAxisValue, type FootballLocale } from "@/lib/football/localization";
+import { getSharedSoloChallengeId } from "@/lib/shared-solo-challenge";
 import { generateCachedBalancedTicTacToeGrid } from "@/lib/tic-tac-toe/cached-balanced-grid";
 import { type TicTacToeAxisItem } from "@/lib/tic-tac-toe/grid-generator";
 import { createAuthServerClient } from "@/lib/supabase/auth-server";
@@ -32,6 +33,16 @@ type PreparedGrid = {
   qualityScore: number;
 };
 
+type StoredCell = {
+  row_index: number;
+  column_index: number;
+  row_type: "club" | "nationality";
+  row_value: string;
+  column_type: "club" | "nationality";
+  column_value: string;
+  valid_player_ids: number[] | null;
+};
+
 function getTurkeyDateKey() {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Istanbul",
@@ -46,10 +57,53 @@ function mapAxis(values: TicTacToeAxisItem[]): AxisResponseItem[] {
 }
 
 function displayAxis(items: AxisResponseItem[], locale: FootballLocale) {
-  return items.map((item) => ({
-    ...item,
-    value: localizeFootballAxisValue(item.type, item.value, locale),
-  }));
+  return items.map((item) => ({ ...item, value: localizeFootballAxisValue(item.type, item.value, locale) }));
+}
+
+async function loadSharedGrid(challengeId: string): Promise<PreparedGrid | null> {
+  const { data: sourceSession, error: sourceError } = await supabaseAdmin
+    .from("tic_tac_toe_sessions")
+    .select("id, mode")
+    .eq("id", challengeId)
+    .eq("mode", "solo")
+    .maybeSingle();
+  if (sourceError) throw sourceError;
+  if (!sourceSession) return null;
+
+  const { data, error } = await supabaseAdmin
+    .from("tic_tac_toe_cells")
+    .select("row_index, column_index, row_type, row_value, column_type, column_value, valid_player_ids")
+    .eq("session_id", challengeId)
+    .order("row_index", { ascending: true })
+    .order("column_index", { ascending: true });
+  if (error) throw error;
+
+  const stored = (data ?? []) as StoredCell[];
+  if (stored.length !== 9) return null;
+
+  const rows = new Map<number, AxisResponseItem>();
+  const columns = new Map<number, AxisResponseItem>();
+  for (const cell of stored) {
+    rows.set(Number(cell.row_index), { index: Number(cell.row_index), type: cell.row_type, value: cell.row_value });
+    columns.set(Number(cell.column_index), { index: Number(cell.column_index), type: cell.column_type, value: cell.column_value });
+  }
+  const rowList = Array.from(rows.values()).sort((a, b) => a.index - b.index);
+  const columnList = Array.from(columns.values()).sort((a, b) => a.index - b.index);
+  if (rowList.length !== 3 || columnList.length !== 3) return null;
+
+  return {
+    mode: "challenge",
+    rows: rowList,
+    columns: columnList,
+    qualityScore: 0,
+    cells: stored.map((cell) => ({
+      rowIndex: Number(cell.row_index),
+      columnIndex: Number(cell.column_index),
+      row: { type: cell.row_type, value: cell.row_value },
+      column: { type: cell.column_type, value: cell.column_value },
+      validPlayerIds: Array.isArray(cell.valid_player_ids) ? cell.valid_player_ids.map(Number) : [],
+    })),
+  };
 }
 
 export async function POST(request: Request) {
@@ -57,16 +111,19 @@ export async function POST(request: Request) {
     const locale = footballLocaleFromRequest(request);
     const url = new URL(request.url);
     const dailyMode = url.searchParams.get("daily") === "1";
+    const challengeId = getSharedSoloChallengeId(request);
 
-    // Solo oyun anonim oynanabilir; giriş yapan kullanıcı varsa session'a bağla.
-    // Böylece gerçek oyun puanı Solo Rating'e güvenli biçimde dahil edilir.
     const authSupabase = await createAuthServerClient();
     const { data: { user } } = await authSupabase.auth.getUser();
     const userId = user?.id ?? null;
 
     let preparedGrid: PreparedGrid;
 
-    if (dailyMode) {
+    if (challengeId) {
+      const shared = await loadSharedGrid(challengeId);
+      if (!shared) return NextResponse.json({ ok: false, error: "Paylaşılan Tic Tac Toe grid'i bulunamadı." }, { status: 404 });
+      preparedGrid = shared;
+    } else if (dailyMode) {
       const playDate = getTurkeyDateKey();
       const { data: dailyGrid, error: dailyError } = await supabaseAdmin
         .from("daily_tic_tac_toe")
@@ -156,8 +213,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: true,
-      mode: dailyMode ? "daily" : "random",
+      mode: challengeId ? "challenge" : dailyMode ? "daily" : "random",
       daily: dailyMode,
+      challenge: Boolean(challengeId),
       game: { code: "tic_tac_toe", label: locale === "en" ? "Football Tic Tac Toe" : "Futbol Tic Tac Toe", mode: "solo", durationSeconds: GAME_DURATION_SECONDS, scorePerCorrect: 10, fullGridBonus: 50 },
       session: { id: session.id, startedAt: session.created_at, expiresAt, score: 0, correctCount: 0, wrongCount: 0 },
       grid: {
