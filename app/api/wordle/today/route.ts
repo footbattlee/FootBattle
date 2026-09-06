@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getSharedSoloChallengeId } from "@/lib/shared-solo-challenge";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const MAX_ATTEMPTS = 5;
@@ -14,14 +15,8 @@ type WordlePlayer = {
   popularity_score: number | null;
 };
 
-type WordleCandidate = WordlePlayer & {
-  answer: string;
-};
-
-type WordlePoolCache = {
-  expiresAt: number;
-  players: WordleCandidate[];
-};
+type WordleCandidate = WordlePlayer & { answer: string };
+type WordlePoolCache = { expiresAt: number; players: WordleCandidate[] };
 
 let wordlePoolCache: WordlePoolCache | null = null;
 
@@ -63,7 +58,6 @@ async function getWordlePool() {
 
   const players: WordleCandidate[] = [];
   let from = 0;
-
   while (true) {
     const to = from + PLAYER_PAGE_SIZE - 1;
     const { data, error } = await supabaseAdmin
@@ -74,27 +68,20 @@ async function getWordlePool() {
       .not("name_normalized", "is", null)
       .order("player_id", { ascending: true })
       .range(from, to);
-
     if (error) throw error;
 
     const rows = (data ?? []) as WordlePlayer[];
     for (const row of rows) {
       if (!row.name_normalized) continue;
       const answer = validWordleSurname(row.name_normalized);
-      if (!answer) continue;
-      players.push({ ...row, answer });
+      if (answer) players.push({ ...row, answer });
     }
-
     if (rows.length < PLAYER_PAGE_SIZE) break;
     from += PLAYER_PAGE_SIZE;
     if (from > 100_000) break;
   }
 
-  wordlePoolCache = {
-    expiresAt: now + WORDLE_POOL_CACHE_TTL_MS,
-    players,
-  };
-
+  wordlePoolCache = { expiresAt: now + WORDLE_POOL_CACHE_TTL_MS, players };
   return players;
 }
 
@@ -107,7 +94,7 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const dailyMode = url.searchParams.get("daily") === "1";
-    const challengeSessionId = url.searchParams.get("challenge")?.trim() || null;
+    const challengeSessionId = getSharedSoloChallengeId(request);
 
     let selectedPlayer: WordlePlayer | null = null;
     let answer = "";
@@ -118,7 +105,6 @@ export async function GET(request: Request) {
         .select("player_id")
         .eq("id", challengeSessionId)
         .maybeSingle();
-
       if (sourceSessionError || !sourceSession?.player_id) {
         console.error("Paylaşılan Wordle oturumu okunamadı:", sourceSessionError);
         return NextResponse.json({ ok: false, error: "Paylaşılan Wordle oyunu bulunamadı." }, { status: 404 });
@@ -130,17 +116,12 @@ export async function GET(request: Request) {
         .eq("player_id", sourceSession.player_id)
         .eq("is_playable", 1)
         .maybeSingle();
-
       if (challengePlayerError || !challengePlayer?.name_normalized) {
-        console.error("Paylaşılan Wordle oyuncusu okunamadı:", challengePlayerError);
         return NextResponse.json({ ok: false, error: "Paylaşılan Wordle oyuncusu bulunamadı." }, { status: 404 });
       }
 
       const surname = validWordleSurname(challengePlayer.name_normalized);
-      if (!surname) {
-        return NextResponse.json({ ok: false, error: "Paylaşılan Wordle oyuncusu Wordle kurallarına uygun değil." }, { status: 422 });
-      }
-
+      if (!surname) return NextResponse.json({ ok: false, error: "Paylaşılan Wordle oyuncusu Wordle kurallarına uygun değil." }, { status: 422 });
       selectedPlayer = {
         player_id: Number(challengePlayer.player_id),
         name: challengePlayer.name,
@@ -149,22 +130,14 @@ export async function GET(request: Request) {
       };
       answer = surname;
     } else if (dailyMode) {
-      const playDate = getTurkeyDateKey();
       const { data: dailyRow, error: dailyError } = await supabaseAdmin
         .from("daily_wordle")
         .select("player_id, is_published")
-        .eq("play_date", playDate)
+        .eq("play_date", getTurkeyDateKey())
         .eq("is_published", true)
         .maybeSingle();
-
-      if (dailyError) {
-        console.error("Daily Wordle okunamadı:", dailyError);
-        return NextResponse.json({ ok: false, error: "Bugünün Wordle bilgisi okunamadı." }, { status: 500 });
-      }
-
-      if (!dailyRow) {
-        return NextResponse.json({ ok: false, error: "Bugünün Wordle oyunu henüz yayınlanmadı." }, { status: 404 });
-      }
+      if (dailyError) return NextResponse.json({ ok: false, error: "Bugünün Wordle bilgisi okunamadı." }, { status: 500 });
+      if (!dailyRow) return NextResponse.json({ ok: false, error: "Bugünün Wordle oyunu henüz yayınlanmadı." }, { status: 404 });
 
       const { data: dailyPlayer, error: playerError } = await supabaseAdmin
         .from("guess_players")
@@ -172,17 +145,9 @@ export async function GET(request: Request) {
         .eq("player_id", dailyRow.player_id)
         .eq("is_playable", 1)
         .maybeSingle();
-
-      if (playerError || !dailyPlayer || !dailyPlayer.name_normalized) {
-        console.error("Daily Wordle oyuncusu okunamadı:", playerError);
-        return NextResponse.json({ ok: false, error: "Bugünün Wordle oyuncusu bulunamadı." }, { status: 404 });
-      }
-
+      if (playerError || !dailyPlayer?.name_normalized) return NextResponse.json({ ok: false, error: "Bugünün Wordle oyuncusu bulunamadı." }, { status: 404 });
       const surname = validWordleSurname(dailyPlayer.name_normalized);
-      if (!surname) {
-        return NextResponse.json({ ok: false, error: "Admin tarafından seçilen Wordle oyuncusunun soyadı Wordle kurallarına uygun değil." }, { status: 422 });
-      }
-
+      if (!surname) return NextResponse.json({ ok: false, error: "Admin tarafından seçilen Wordle oyuncusunun soyadı Wordle kurallarına uygun değil." }, { status: 422 });
       selectedPlayer = {
         player_id: Number(dailyPlayer.player_id),
         name: dailyPlayer.name,
@@ -192,36 +157,23 @@ export async function GET(request: Request) {
       answer = surname;
     } else {
       const candidate = randomCandidate(await getWordlePool());
-      if (candidate) {
-        selectedPlayer = candidate;
-        answer = candidate.answer;
-      }
+      if (candidate) { selectedPlayer = candidate; answer = candidate.answer; }
     }
 
-    if (!selectedPlayer || !answer) {
-      return NextResponse.json({ ok: false, error: "Wordle için uygun futbolcu seçilemedi." }, { status: 500 });
-    }
+    if (!selectedPlayer || !answer) return NextResponse.json({ ok: false, error: "Wordle için uygun futbolcu seçilemedi." }, { status: 500 });
 
     const { data: session, error: sessionError } = await supabaseAdmin
       .from("wordle_sessions")
-      .insert({
-        player_id: selectedPlayer.player_id,
-        answer_normalized: answer,
-        letter_count: answer.length,
-        max_attempts: MAX_ATTEMPTS,
-      })
+      .insert({ player_id: selectedPlayer.player_id, answer_normalized: answer, letter_count: answer.length, max_attempts: MAX_ATTEMPTS })
       .select("id, letter_count, max_attempts")
       .single();
-
-    if (sessionError || !session) {
-      console.error("Wordle session oluşturma hatası:", sessionError);
-      return NextResponse.json({ ok: false, error: "Yeni Wordle oyunu oluşturulamadı." }, { status: 500 });
-    }
+    if (sessionError || !session) return NextResponse.json({ ok: false, error: "Yeni Wordle oyunu oluşturulamadı." }, { status: 500 });
 
     return NextResponse.json({
       ok: true,
       mode: challengeSessionId ? "challenge" : dailyMode ? "daily" : "random",
       daily: dailyMode,
+      challenge: Boolean(challengeSessionId),
       sessionId: session.id,
       letterCount: session.letter_count,
       maxAttempts: session.max_attempts,
