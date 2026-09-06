@@ -97,8 +97,14 @@ export default function LocalizedWordlePage({ locale }: { locale: Locale }) {
   const start = useCallback(async (initial = false) => {
     try {
       setLoading(true); setError(""); setGuesses([]); setCurrent(""); setStatus("playing"); setAnswer(null); setResultMessage(""); setShareMessage(""); setMessage(t.first);
-      const daily = initial && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("daily") === "1";
-      const response = await fetch(daily ? "/api/wordle/today?daily=1" : "/api/wordle/today", { cache: "no-store" });
+      const params = initial && typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      const daily = params?.get("daily") === "1";
+      const challenge = params?.get("challenge")?.trim() ?? "";
+      const requestParams = new URLSearchParams();
+      if (challenge) requestParams.set("challenge", challenge);
+      if (daily) requestParams.set("daily", "1");
+      const endpoint = requestParams.size > 0 ? `/api/wordle/today?${requestParams.toString()}` : "/api/wordle/today";
+      const response = await fetch(endpoint, { cache: "no-store" });
       const data = (await response.json()) as NewGameResponse;
       if (!response.ok || !data.ok || !data.sessionId || typeof data.letterCount !== "number") throw new Error(data.error ?? t.failed);
       setGame({ sessionId: data.sessionId, letterCount: data.letterCount, maxAttempts: data.maxAttempts ?? 5, daily: Boolean(data.daily ?? daily) });
@@ -153,7 +159,12 @@ export default function LocalizedWordlePage({ locale }: { locale: Locale }) {
     if (!game) return;
     const rows = guesses.map((guess) => guess.evaluation.map((item) => symbol(item.status)).join("")).join("\n");
     const text = `⚽ FootBattle Wordle ${status === "won" ? `${guesses.length}/${game.maxAttempts}` : `X/${game.maxAttempts}`}\n${rows}`;
-    const url = `${window.location.origin}/${locale}/wordle?utm_source=share&utm_medium=wordle`;
+    const shareUrl = new URL(`/${locale}/wordle`, window.location.origin);
+    shareUrl.searchParams.set("challenge", game.sessionId);
+    if (game.daily) shareUrl.searchParams.set("daily", "1");
+    shareUrl.searchParams.set("utm_source", "share");
+    shareUrl.searchParams.set("utm_medium", "wordle");
+    const url = shareUrl.toString();
     try {
       if (navigator.share) await navigator.share({ title: "FootBattle Wordle", text, url });
       else { await navigator.clipboard.writeText(`${text}\n${url}`); setShareMessage(t.copied); }
