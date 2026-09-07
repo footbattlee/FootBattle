@@ -12,8 +12,8 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   if (!isLocale(locale)) return {};
   const en = locale === "en";
   return {
-    title: en ? "Guess the Player | FootBattle" : "Futbolcuyu Tahmin Et | FootBattle",
-    description: en ? "Guess the hidden footballer using country, club, league, position, age and foot clues." : "Ülke, takım, lig, pozisyon, yaş ve ayak ipuçlarıyla gizli futbolcuyu tahmin et.",
+    title: en ? "Guess the Football Player – Free Football Guessing Game | FootBattle" : "Futbolcuyu Tahmin Et | FootBattle",
+    description: en ? "Guess the football player from clues about nationality, club, league, position, age and preferred foot. Play FootBattle's free football guessing game online." : "Ülke, takım, lig, pozisyon, yaş ve ayak ipuçlarıyla gizli futbolcuyu tahmin et.",
     alternates: {
       canonical: `${SITE_URL}/${locale}/guess-the-player`,
       languages: localizedAlternates("/guess-the-player"),
@@ -26,7 +26,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   if (!isLocale(locale)) notFound();
   const en = locale === "en";
   const description = en
-    ? "Guess the hidden footballer using country, club, league, position, age and foot clues."
+    ? "Guess the football player from clues about nationality, club, league, position, age and preferred foot. Play FootBattle's free football guessing game online."
     : "Ülke, takım, lig, pozisyon, yaş ve ayak ipuçlarıyla gizli futbolcuyu tahmin et.";
 
   return (
