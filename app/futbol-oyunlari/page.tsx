@@ -1,9 +1,9 @@
 import SeoLandingPage from "@/components/SeoLandingPage";
 import { createGameMetadata, GameJsonLd } from "@/lib/seo";
 
-const description = "Ücretsiz futbol oyunları oyna: penaltı, futbolcu tahmin, Football Wordle, futbol quiz, Tic Tac Toe, Career Path, Günün Kapışması ve Survivor tek yerde.";
+const description = "Ücretsiz futbol oyunları oyna. Futbolcu tahmin, penaltı, Football Wordle, futbol quiz, Tic Tac Toe ve daha fazla futbol oyunu FootBattle'da.";
 
-export const metadata = createGameMetadata({ path: "/futbol-oyunlari", title: "Ücretsiz Futbol Oyunları Oyna | FootBattle", description, keywords: ["futbol oyunları", "online futbol oyunları", "penaltı oyunu", "futbol quiz", "futbolcu tahmin", "football wordle", "futbol bilgi oyunu"] });
+export const metadata = createGameMetadata({ path: "/futbol-oyunlari", title: "Futbol Oyunları Oyna – Ücretsiz Online Futbol Oyunları | FootBattle", description, keywords: ["futbol oyunları", "online futbol oyunları", "penaltı oyunu", "futbol quiz", "futbolcu tahmin", "football wordle", "futbol bilgi oyunu"] });
 
 export default function Page() {
   return <>
