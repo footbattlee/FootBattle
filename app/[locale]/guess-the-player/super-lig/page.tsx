@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import GeoAnswerSection from "@/components/GeoAnswerSection";
 import LocalizedGuessThePlayer from "@/components/i18n/LocalizedGuessThePlayer";
 import { isLocale, type Locale } from "@/lib/i18n/config";
-import { GameJsonLd, SITE_URL } from "@/lib/seo";
+import { FAQJsonLd, GameJsonLd, SITE_URL } from "@/lib/seo";
 
 const DIFFICULTIES = [
   { key: "mixed", tr: "Karışık", en: "Mixed", icon: "🎲" },
@@ -16,15 +16,30 @@ const DIFFICULTIES = [
 
 type DifficultyKey = (typeof DIFFICULTIES)[number]["key"];
 
+const trFaqs = [
+  {
+    question: "Süper Lig futbolcu tahmin oyunu ücretsiz mi?",
+    answer: "Evet. FootBattle Süper Lig Futbolcu Tahmin Oyunu tarayıcı üzerinden ücretsiz oynanabilir.",
+  },
+  {
+    question: "Oyunda hangi futbolcular çıkıyor?",
+    answer: "Bu mod, Türkiye Süper Lig'de aktif olarak oynayan uygun futbolculara odaklanır.",
+  },
+  {
+    question: "Hangi zorluk seviyeleri var?",
+    answer: "Kolay, Orta, Zor ve Karışık seçenekleri bulunur. Zorluk seviyesi futbolcuların popülerliğine göre belirlenir.",
+  },
+];
+
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   const en = locale === "en";
   return {
-    title: en ? "Süper Lig Guess the Player | FootBattle" : "Süper Lig Futbolcuyu Tahmin Et | FootBattle",
+    title: en ? "Süper Lig Guess the Player | FootBattle" : "Süper Lig Futbolcu Tahmin Oyunu | FootBattle",
     description: en
       ? "Guess footballers currently playing in Turkey's Süper Lig. Choose easy, medium, hard or mixed difficulty."
-      : "Şu anda Süper Lig'de oynayan futbolcuları tahmin et. Kolay, orta, zor veya karışık zorluk seç.",
+      : "Aktif Süper Lig futbolcularını kulüp, milliyet, lig, pozisyon, yaş ve ayak ipuçlarıyla tahmin et. Kolay, orta, zor veya karışık modda ücretsiz oyna.",
     alternates: {
       canonical: `${SITE_URL}/${locale}/guess-the-player/super-lig`,
       languages: {
@@ -50,7 +65,7 @@ export default async function Page({
   const en = locale === "en";
   const description = en
     ? "Guess footballers currently playing in Turkey's Süper Lig. Choose easy, medium, hard or mixed difficulty."
-    : "Şu anda Süper Lig'de oynayan futbolcuları tahmin et. Kolay, orta, zor veya karışık zorluk seç.";
+    : "Aktif Süper Lig futbolcularını kulüp, milliyet, lig, pozisyon, yaş ve ayak ipuçlarıyla tahmin et. Kolay, orta, zor veya karışık modda ücretsiz oyna.";
   const selectedDifficulty = DIFFICULTIES.some((item) => item.key === difficulty)
     ? (difficulty as DifficultyKey)
     : null;
@@ -61,7 +76,7 @@ export default async function Page({
   return (
     <div className="min-h-screen bg-[#07111f] text-white" data-game="guess-the-player-super-lig">
       <GameJsonLd
-        name={en ? "Süper Lig Guess the Player" : "Süper Lig Futbolcuyu Tahmin Et"}
+        name={en ? "Süper Lig Guess the Player" : "Süper Lig Futbolcu Tahmin Oyunu"}
         description={description}
         path={`/${locale}/guess-the-player/super-lig`}
         inLanguage={en ? "en-US" : "tr-TR"}
@@ -71,7 +86,7 @@ export default async function Page({
           <div className="rounded-3xl border border-red-400/20 bg-gradient-to-r from-red-500/10 to-white/[0.03] p-5 sm:p-6">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-red-300">🇹🇷 SÜPER LİG MODE</p>
             <h1 className="mt-2 text-2xl font-black sm:text-3xl">
-              {en ? "Süper Lig Guess the Player" : "Süper Lig Futbolcuyu Tahmin Et"}
+              {en ? "Süper Lig Guess the Player" : "Süper Lig Futbolcu Tahmin Oyunu"}
             </h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
               {en
@@ -157,7 +172,40 @@ export default async function Page({
             },
           ]}
         />
-      ) : null}
+      ) : (
+        <>
+          <FAQJsonLd faqs={trFaqs} />
+          <section className="mx-auto max-w-5xl px-4 pb-14 pt-8 sm:px-6" aria-labelledby="super-lig-geo-tr-title">
+            <div className="rounded-3xl border border-white/10 bg-white/[0.025] p-6 sm:p-8">
+              <h2 id="super-lig-geo-tr-title" className="text-2xl font-black text-white sm:text-3xl">
+                Süper Lig futbolcu tahmin oyunu nedir?
+              </h2>
+              <p className="mt-4 max-w-3xl text-[15px] leading-7 text-slate-300 sm:text-base">
+                FootBattle Süper Lig Futbolcu Tahmin Oyunu, aktif Süper Lig futbolcularını kulüp, milliyet, lig, pozisyon, yaş ve ayak gibi ipuçlarından tahmin ettiğin ücretsiz bir futbol oyunudur. Her tahmin yeni bilgiler verir ve doğru futbolcuya ulaşman için seçenekleri daraltır.
+              </p>
+
+              <h3 className="mt-7 text-lg font-black text-white">Nasıl oynanır?</h3>
+              <ol className="mt-3 grid gap-3 sm:grid-cols-3">
+                <li className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm leading-6 text-slate-300"><span className="mr-2 font-black text-emerald-300">1.</span>Kolay, Orta, Zor veya Karışık zorluk seviyesini seç.</li>
+                <li className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm leading-6 text-slate-300"><span className="mr-2 font-black text-emerald-300">2.</span>Bir Süper Lig futbolcusu tahmin et ve gelen ipuçlarını karşılaştır.</li>
+                <li className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm leading-6 text-slate-300"><span className="mr-2 font-black text-emerald-300">3.</span>Yeni bilgileri kullanarak seçenekleri daralt ve gizli futbolcuyu bul.</li>
+              </ol>
+
+              <div className="mt-8">
+                <h3 className="text-lg font-black text-white">Sık sorulan sorular</h3>
+                <div className="mt-3 space-y-3">
+                  {trFaqs.map((faq) => (
+                    <details key={faq.question} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                      <summary className="cursor-pointer font-bold text-white">{faq.question}</summary>
+                      <p className="mt-3 text-sm leading-6 text-slate-300">{faq.answer}</p>
+                    </details>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 }
