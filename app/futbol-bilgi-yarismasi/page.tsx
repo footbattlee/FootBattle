@@ -1,11 +1,11 @@
 import SeoLandingPage from "@/components/SeoLandingPage";
 import { createGameMetadata, GameJsonLd } from "@/lib/seo";
 
-const description = "Futbol bilgi yarışması oyna; kulüp, ülke, kupa ve futbolcu bilgilerini kullanarak doğru oyuncuyu bul. Ücretsiz online futbol quiz.";
+const description = "Futbol bilgini test et. Futbolcular, kulüpler, ülkeler, ligler ve kupalar hakkında ücretsiz futbol quizleri oyna ve skorunu arkadaşlarınla karşılaştır.";
 
 export const metadata = createGameMetadata({
   path: "/futbol-bilgi-yarismasi",
-  title: "Futbol Bilgi Yarışması ve Futbol Quiz | FootBattle",
+  title: "Futbol Bilgi Yarışması – Ücretsiz Futbol Quiz Oyna | FootBattle",
   description,
   keywords: ["futbol bilgi yarışması", "futbol quiz", "futbol testi", "football quiz", "futbol soruları"],
 });
