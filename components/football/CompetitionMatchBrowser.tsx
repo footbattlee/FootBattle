@@ -53,35 +53,58 @@ function MatchCard({ match, locale }: { match: MatchRow; locale: Locale }) {
   );
 }
 
-function fallbackWeekNumber(date: string) {
-  const seasonStart = new Date("2026-07-27T00:00:00Z").getTime();
-  return Math.max(1, Math.floor((new Date(date).getTime() - seasonStart) / (7 * 86400000)) + 1);
+function fallbackWeekNumber(date: string, seasonFirstMatchDate: string | null) {
+  if (!seasonFirstMatchDate) return 1;
+  const WEEK_MS = 7 * 86400000;
+  const first = new Date(seasonFirstMatchDate).getTime();
+  const current = new Date(date).getTime();
+  return Math.max(1, Math.floor((current - first) / WEEK_MS) + 1);
 }
 
-function roundLabel(match: MatchRow, competition: CompetitionKey, locale: Locale) {
+function fallbackRoundLabel(date: string, competition: CompetitionKey, locale: Locale, seasonFirstMatchDate: string | null) {
+  const tr = locale === "tr";
+  if (competition !== "champions-league") {
+    const week = fallbackWeekNumber(date, seasonFirstMatchDate);
+    return tr ? `${week}. Hafta` : `Matchweek ${week}`;
+  }
+  return new Intl.DateTimeFormat(tr ? "tr-TR" : "en-GB", {
+    timeZone: "Europe/Istanbul",
+    day: "2-digit",
+    month: "short",
+  }).format(new Date(date));
+}
+
+function roundLabel(match: MatchRow, competition: CompetitionKey, locale: Locale, seasonFirstMatchDate: string | null) {
   const tr = locale === "tr";
   if (competition !== "champions-league" && match.roundNumber) return tr ? `${match.roundNumber}. Hafta` : `Matchweek ${match.roundNumber}`;
   if (match.roundLabel) return match.roundLabel;
   if (match.roundNumber) return tr ? `${match.roundNumber}. Hafta` : `Matchday ${match.roundNumber}`;
-  const fallback = fallbackWeekNumber(match.date);
-  return tr ? `${fallback}. Hafta` : `Week ${fallback}`;
+  return fallbackRoundLabel(match.date, competition, locale, seasonFirstMatchDate);
 }
 
-function roundKey(match: MatchRow, competition: CompetitionKey) {
+function roundKey(match: MatchRow, competition: CompetitionKey, seasonFirstMatchDate: string | null) {
   if (competition !== "champions-league" && match.roundNumber) return `week-${match.roundNumber}`;
   if (match.roundLabel) return `label-${match.roundLabel}`;
   if (match.roundNumber) return `round-${match.roundNumber}`;
-  return `fallback-${fallbackWeekNumber(match.date)}`;
+  if (competition !== "champions-league") return `fallback-week-${fallbackWeekNumber(match.date, seasonFirstMatchDate)}`;
+  const d = new Date(match.date);
+  const key = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Istanbul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+  return `fallback-date-${key}`;
 }
 
-function buildBuckets(matches: MatchRow[], competition: CompetitionKey, locale: Locale) {
+function buildBuckets(matches: MatchRow[], competition: CompetitionKey, locale: Locale, seasonFirstMatchDate: string | null) {
   const map = new Map<string, RoundBucket>();
   for (const match of matches) {
-    const key = roundKey(match, competition);
+    const key = roundKey(match, competition, seasonFirstMatchDate);
     const existing = map.get(key);
     const sort = match.roundNumber ?? new Date(match.date).getTime();
     if (existing) existing.matches.push(match);
-    else map.set(key, { key, label: roundLabel(match, competition, locale), sort, matches: [match] });
+    else map.set(key, { key, label: roundLabel(match, competition, locale, seasonFirstMatchDate), sort, matches: [match] });
   }
   return Array.from(map.values())
     .map((bucket) => ({ ...bucket, matches: [...bucket.matches].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) }))
@@ -143,8 +166,19 @@ export default function CompetitionMatchBrowser({
   matches: MatchRow[];
 }) {
   const tr = locale === "tr";
-  const fixtureBuckets = useMemo(() => buildBuckets(matches.filter((match) => match.state !== "post"), competition, locale), [competition, locale, matches]);
-  const resultBuckets = useMemo(() => buildBuckets(matches.filter((match) => match.state === "post"), competition, locale), [competition, locale, matches]);
+  const seasonFirstMatchDate = useMemo(() => {
+    if (competition === "champions-league" || !matches.length) return null;
+    return [...matches].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]?.date ?? null;
+  }, [competition, matches]);
+
+  const fixtureBuckets = useMemo(
+    () => buildBuckets(matches.filter((match) => match.state !== "post"), competition, locale, seasonFirstMatchDate),
+    [competition, locale, matches, seasonFirstMatchDate],
+  );
+  const resultBuckets = useMemo(
+    () => buildBuckets(matches.filter((match) => match.state === "post"), competition, locale, seasonFirstMatchDate),
+    [competition, locale, matches, seasonFirstMatchDate],
+  );
 
   const now = Date.now();
   const nextFixture = fixtureBuckets.find((bucket) => bucket.matches.some((match) => new Date(match.date).getTime() >= now)) ?? fixtureBuckets[0];
