@@ -119,23 +119,26 @@ function matchesTeam(match: MatchRow, teamId: string, teamName: string) {
 }
 
 export async function getTeamOrganizations(teamId: string, teamName: string): Promise<TeamOrganization[]> {
-  const mainEntries = await Promise.all(
-    (Object.keys(COMPETITIONS) as CompetitionKey[]).map(async (key) => {
+  const mainEntries: Array<TeamOrganization | null> = await Promise.all(
+    (Object.keys(COMPETITIONS) as CompetitionKey[]).map(async (key): Promise<TeamOrganization | null> => {
       const snapshot = await getCompetitionSnapshot(key);
       const matches = snapshot.matches.filter((match) => matchesTeam(match, teamId, teamName));
       if (!matches.length) return null;
       const config = COMPETITIONS[key];
-      return { key, trName: config.trName, enName: config.enName, emoji: config.emoji, matches, competitionKey: key } satisfies TeamOrganization;
+      return { key, trName: config.trName, enName: config.enName, emoji: config.emoji, matches, competitionKey: key };
     }),
   );
 
-  const extras = await Promise.all(EXTRA_ORGANIZATIONS.map(async (config) => {
-    const matches = (await getMatchesForSlug(config.espnSlug)).filter((match) => matchesTeam(match, teamId, teamName));
-    if (!matches.length) return null;
-    return { key: config.key, trName: config.trName, enName: config.enName, emoji: config.emoji, matches, competitionKey: null } satisfies TeamOrganization;
-  }));
+  const extras: Array<TeamOrganization | null> = await Promise.all(
+    EXTRA_ORGANIZATIONS.map(async (config): Promise<TeamOrganization | null> => {
+      const matches = (await getMatchesForSlug(config.espnSlug)).filter((match) => matchesTeam(match, teamId, teamName));
+      if (!matches.length) return null;
+      return { key: config.key, trName: config.trName, enName: config.enName, emoji: config.emoji, matches, competitionKey: null };
+    }),
+  );
 
-  return [...mainEntries, ...extras].filter((item): item is TeamOrganization => Boolean(item));
+  const organizations: Array<TeamOrganization | null> = [...mainEntries, ...extras];
+  return organizations.filter((item): item is TeamOrganization => item !== null);
 }
 
 export async function getTeamRoster(competition: CompetitionKey, teamId: string): Promise<TeamPlayer[]> {
