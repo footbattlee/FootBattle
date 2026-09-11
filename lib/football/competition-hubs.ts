@@ -30,14 +30,15 @@ export type MatchRow = {
   date: string;
   state: "pre" | "in" | "post";
   statusText: string;
+  roundNumber: number | null;
+  roundLabel: string | null;
   home: { id: string; name: string; abbreviation: string; logo: string | null; score: string | null };
   away: { id: string; name: string; abbreviation: string; logo: string | null; score: string | null };
 };
 
 export type CompetitionSnapshot = {
   standings: StandingRow[];
-  recentMatches: MatchRow[];
-  upcomingMatches: MatchRow[];
+  matches: MatchRow[];
   fetchedAt: string;
 };
 
@@ -120,8 +121,11 @@ function parseMatches(payload: unknown): MatchRow[] {
   const events = ((payload as { events?: unknown[] } | null)?.events ?? []) as Array<{
     id?: string;
     date?: string;
+    name?: string;
+    week?: { number?: number; text?: string };
     status?: { type?: { state?: string; shortDetail?: string; detail?: string } };
     competitions?: Array<{
+      notes?: Array<{ headline?: string }>;
       competitors?: Array<{
         homeAway?: "home" | "away";
         score?: string;
@@ -131,17 +135,21 @@ function parseMatches(payload: unknown): MatchRow[] {
   }>;
 
   return events.flatMap((event) => {
-    const competitors = event.competitions?.[0]?.competitors ?? [];
+    const competition = event.competitions?.[0];
+    const competitors = competition?.competitors ?? [];
     const home = competitors.find((team) => team.homeAway === "home");
     const away = competitors.find((team) => team.homeAway === "away");
     if (!event.id || !event.date || !home?.team || !away?.team) return [];
     const rawState = event.status?.type?.state;
     const state: MatchRow["state"] = rawState === "post" ? "post" : rawState === "in" ? "in" : "pre";
+    const noteHeadline = competition?.notes?.find((note) => note.headline)?.headline ?? null;
     return [{
       id: event.id,
       date: event.date,
       state,
       statusText: event.status?.type?.shortDetail ?? event.status?.type?.detail ?? "",
+      roundNumber: typeof event.week?.number === "number" ? event.week.number : null,
+      roundLabel: event.week?.text ?? noteHeadline,
       home: {
         id: home.team.id ?? "",
         name: home.team.displayName ?? "-",
@@ -169,12 +177,11 @@ function ymd(date: Date) {
 
 export async function getCompetitionSnapshot(key: CompetitionKey): Promise<CompetitionSnapshot> {
   const config = COMPETITIONS[key];
-  const now = new Date();
-  const from = new Date(now.getTime() - 21 * 86400000);
-  const to = new Date(now.getTime() + 21 * 86400000);
+  const seasonStart = new Date("2026-07-01T00:00:00Z");
+  const seasonEnd = new Date("2027-06-30T23:59:59Z");
 
   const standingsUrl = `${ESPN_BASE}/v2/sports/soccer/${config.espnSlug}/standings`;
-  const scoreboardUrl = `${ESPN_BASE}/site/v2/sports/soccer/${config.espnSlug}/scoreboard?dates=${ymd(from)}-${ymd(to)}&limit=200`;
+  const scoreboardUrl = `${ESPN_BASE}/site/v2/sports/soccer/${config.espnSlug}/scoreboard?dates=${ymd(seasonStart)}-${ymd(seasonEnd)}&limit=500`;
 
   const [standingsResult, matchesResult] = await Promise.allSettled([
     fetch(standingsUrl, { next: { revalidate: 900 } }).then((r) => {
@@ -190,8 +197,6 @@ export async function getCompetitionSnapshot(key: CompetitionKey): Promise<Compe
   const standings = standingsResult.status === "fulfilled" ? parseStandings(standingsResult.value) : [];
   const matches = matchesResult.status === "fulfilled" ? parseMatches(matchesResult.value) : [];
   const sorted = [...matches].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  const recentMatches = sorted.filter((match) => match.state === "post").slice(-10).reverse();
-  const upcomingMatches = sorted.filter((match) => match.state !== "post").slice(0, 12);
 
-  return { standings, recentMatches, upcomingMatches, fetchedAt: new Date().toISOString() };
+  return { standings, matches: sorted, fetchedAt: new Date().toISOString() };
 }
