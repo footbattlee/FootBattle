@@ -160,16 +160,20 @@ export default function CompetitionMatchBrowser({
   competition,
   locale,
   matches,
+  seasonFirstMatchDateOverride,
 }: {
   competition: CompetitionKey;
   locale: Locale;
   matches: MatchRow[];
+  seasonFirstMatchDateOverride?: string | null;
 }) {
   const tr = locale === "tr";
   const seasonFirstMatchDate = useMemo(() => {
-    if (competition === "champions-league" || !matches.length) return null;
+    if (competition === "champions-league") return null;
+    if (seasonFirstMatchDateOverride !== undefined) return seasonFirstMatchDateOverride;
+    if (!matches.length) return null;
     return [...matches].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]?.date ?? null;
-  }, [competition, matches]);
+  }, [competition, matches, seasonFirstMatchDateOverride]);
 
   const fixtureBuckets = useMemo(
     () => buildBuckets(matches.filter((match) => match.state !== "post"), competition, locale, seasonFirstMatchDate),
@@ -188,7 +192,7 @@ export default function CompetitionMatchBrowser({
     <div className="space-y-8">
       <RoundSection
         title={tr ? "Yaklaşan Maçlar" : "Upcoming Fixtures"}
-        subtitle={tr ? "Haftayı seçerek tüm fikstürü görüntüle · Türkiye saatiyle" : "Choose a matchweek to view the full fixture · Türkiye time"}
+        subtitle={tr ? "Haftayı seçerek fikstürü görüntüle · Türkiye saatiyle" : "Choose a matchweek to view fixtures · Türkiye time"}
         buckets={fixtureBuckets}
         defaultKey={nextFixture?.key ?? ""}
         emptyText={tr ? "Yaklaşan maç bulunamadı." : "No upcoming fixtures found."}
