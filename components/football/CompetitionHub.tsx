@@ -9,10 +9,9 @@ import {
 import type { Locale } from "@/lib/i18n/config";
 
 function TeamLogo({ src, name }: { src: string | null; name: string }) {
-  if (!src) return <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs font-black">{name.slice(0, 2).toUpperCase()}</span>;
-  // ESPN club crests are remote and vary by league. Plain img avoids coupling this content hub to next/image host allowlists.
+  if (!src) return <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-black">{name.slice(0, 2).toUpperCase()}</span>;
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt="" loading="lazy" className="h-8 w-8 object-contain" />;
+  return <img src={src} alt="" loading="lazy" className="h-8 w-8 shrink-0 object-contain" />;
 }
 
 function GameSuggestions({ locale, competition }: { locale: Locale; competition: CompetitionKey }) {
@@ -55,8 +54,8 @@ export default async function CompetitionHub({ competition, locale }: { competit
               <h1 className="mt-3 text-3xl font-black sm:text-5xl">{name}</h1>
               <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
                 {tr
-                  ? `${name} puan durumu, hafta hafta fikstür ve sonuçlar. Maç tahminleri sonraki aşamada doğrudan bu maçların üstüne eklenecek.`
-                  : `${name} standings, matchweek fixtures and results. Match predictions will plug directly into these games in the next phase.`}
+                  ? `${name} puan durumu, hafta hafta fikstür ve sonuçlar. Bir takıma dokunarak sadece o takımın maçlarını da görebilirsin.`
+                  : `${name} standings, matchweek fixtures and results. Tap any team to view only that club's fixtures and results.`}
               </p>
             </div>
             <div className="hidden flex-wrap gap-2 lg:flex">
@@ -81,25 +80,52 @@ export default async function CompetitionHub({ competition, locale }: { competit
             <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[.025]">
               <div className="border-b border-white/10 p-5">
                 <h2 className="text-xl font-black">{tr ? "Puan Durumu" : "Standings"}</h2>
-                <p className="mt-1 text-xs text-slate-500">{tr ? "2026/27 sezonu güncel tablo" : "Current 2026/27 season table"}</p>
+                <p className="mt-1 text-xs text-slate-500">{tr ? "2026/27 sezonu güncel tablo · Takıma dokun" : "Current 2026/27 table · Tap a team"}</p>
               </div>
               {snapshot.standings.length ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[660px] text-left text-sm">
-                    <thead className="text-xs uppercase tracking-wide text-slate-500">
-                      <tr><th className="p-4">#</th><th>{tr ? "Takım" : "Team"}</th><th>O</th><th>G</th><th>B</th><th>M</th><th>AV</th><th className="pr-4 text-right">P</th></tr>
-                    </thead>
-                    <tbody>
-                      {snapshot.standings.map((row) => (
-                        <tr key={`${row.position}-${row.teamId}`} className="border-t border-white/5">
-                          <td className="p-4 font-black text-slate-400">{row.position}</td>
-                          <td><div className="flex items-center gap-3"><TeamLogo src={row.logo} name={row.teamName} /><span className="font-black">{row.teamName}</span></div></td>
-                          <td>{row.played}</td><td>{row.won}</td><td>{row.drawn}</td><td>{row.lost}</td><td>{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</td><td className="pr-4 text-right text-base font-black">{row.points}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <>
+                  <div className="sm:hidden">
+                    <div className="grid grid-cols-[30px_minmax(0,1fr)_36px_38px] items-center gap-2 border-b border-white/10 px-3 py-3 text-[10px] font-black uppercase tracking-wide text-slate-500">
+                      <span>#</span><span>{tr ? "Takım" : "Team"}</span><span className="text-center">O</span><span className="text-right">P</span>
+                    </div>
+                    {snapshot.standings.map((row) => (
+                      <Link
+                        key={`${row.position}-${row.teamId}-mobile`}
+                        href={`/${locale}/${competition}/team/${row.teamId}`}
+                        className="grid grid-cols-[30px_minmax(0,1fr)_36px_38px] items-center gap-2 border-b border-white/5 px-3 py-3.5 transition active:bg-white/[.06]"
+                      >
+                        <span className="font-black text-slate-400">{row.position}</span>
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <TeamLogo src={row.logo} name={row.teamName} />
+                          <span className="min-w-0 truncate text-sm font-black text-white">{row.teamName}</span>
+                        </span>
+                        <span className="text-center text-sm text-slate-300">{row.played}</span>
+                        <span className="text-right text-base font-black text-white">{row.points}</span>
+                      </Link>
+                    ))}
+                  </div>
+
+                  <div className="hidden overflow-x-auto sm:block">
+                    <table className="w-full min-w-[660px] text-left text-sm">
+                      <thead className="text-xs uppercase tracking-wide text-slate-500">
+                        <tr><th className="p-4">#</th><th>{tr ? "Takım" : "Team"}</th><th>O</th><th>G</th><th>B</th><th>M</th><th>AV</th><th className="pr-4 text-right">P</th></tr>
+                      </thead>
+                      <tbody>
+                        {snapshot.standings.map((row) => (
+                          <tr key={`${row.position}-${row.teamId}`} className="border-t border-white/5">
+                            <td className="p-4 font-black text-slate-400">{row.position}</td>
+                            <td>
+                              <Link href={`/${locale}/${competition}/team/${row.teamId}`} className="flex items-center gap-3 font-black hover:text-emerald-300">
+                                <TeamLogo src={row.logo} name={row.teamName} /><span>{row.teamName}</span>
+                              </Link>
+                            </td>
+                            <td>{row.played}</td><td>{row.won}</td><td>{row.drawn}</td><td>{row.lost}</td><td>{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</td><td className="pr-4 text-right text-base font-black">{row.points}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               ) : <p className="p-5 text-sm text-slate-500">{tr ? "Puan durumu verisi henüz hazır değil." : "Standings data is not available yet."}</p>}
             </section>
 
