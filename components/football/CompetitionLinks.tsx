@@ -5,6 +5,11 @@ import type { Locale } from "@/lib/i18n/config";
 const ITEMS = [
   { slug: "super-lig", emoji: "🇹🇷", tr: "Süper Lig", en: "Turkish Süper Lig" },
   { slug: "premier-league", emoji: "🏴", tr: "Premier League", en: "Premier League" },
+  { slug: "la-liga", emoji: "🇪🇸", tr: "La Liga", en: "La Liga" },
+  { slug: "serie-a", emoji: "🇮🇹", tr: "Serie A", en: "Serie A" },
+  { slug: "bundesliga", emoji: "🇩🇪", tr: "Bundesliga", en: "Bundesliga" },
+  { slug: "ligue-1", emoji: "🇫🇷", tr: "Ligue 1", en: "Ligue 1" },
+  { slug: "primeira-liga", emoji: "🇵🇹", tr: "Primeira Liga", en: "Primeira Liga" },
   { slug: "champions-league", emoji: "⭐", tr: "Şampiyonlar Ligi", en: "Champions League" },
 ] as const;
 
@@ -17,10 +22,10 @@ export default function CompetitionLinks({ locale }: { locale: Locale }) {
         <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h2 className="text-2xl font-black sm:text-3xl">{tr ? "Fikstürü ve puan durumunu takip et" : "Follow fixtures and standings"}</h2>
-            <p className="mt-2 max-w-2xl text-sm text-slate-400">{tr ? "İlk etapta Süper Lig, Premier League ve Şampiyonlar Ligi. Sonraki adımda maç tahminlerini aynı sayfalara bağlayacağız." : "Starting with the Süper Lig, Premier League and Champions League. Match predictions will plug into the same pages next."}</p>
+            <p className="mt-2 max-w-2xl text-sm text-slate-400">{tr ? "Süper Lig ve Avrupa'nın öne çıkan liglerinde puan durumu, fikstür ve sonuçları tek yerde takip et." : "Follow standings, fixtures and results across the Süper Lig and Europe's major leagues in one place."}</p>
           </div>
         </div>
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {ITEMS.map((item) => (
             <Link key={item.slug} href={`/${locale}/${item.slug}`} className="group rounded-2xl border border-white/10 bg-white/[.035] p-5 transition hover:-translate-y-0.5 hover:border-cyan-300/30 hover:bg-white/[.06]">
               <div className="text-2xl">{item.emoji}</div>
