@@ -1,4 +1,4 @@
-export type CompetitionKey = "super-lig" | "premier-league" | "champions-league";
+export type CompetitionKey = "super-lig" | "premier-league" | "la-liga" | "serie-a" | "bundesliga" | "ligue-1" | "primeira-liga" | "champions-league";
 
 export type CompetitionConfig = {
   key: CompetitionKey;
@@ -58,6 +58,46 @@ export const COMPETITIONS: Record<CompetitionKey, CompetitionConfig> = {
     enName: "Premier League",
     emoji: "🏴",
     accent: "from-violet-500/20 to-cyan-400/5",
+  },
+  "la-liga": {
+    key: "la-liga",
+    espnSlug: "esp.1",
+    trName: "La Liga",
+    enName: "La Liga",
+    emoji: "🇪🇸",
+    accent: "from-orange-500/20 to-red-400/5",
+  },
+  "serie-a": {
+    key: "serie-a",
+    espnSlug: "ita.1",
+    trName: "Serie A",
+    enName: "Serie A",
+    emoji: "🇮🇹",
+    accent: "from-blue-500/20 to-sky-400/5",
+  },
+  "bundesliga": {
+    key: "bundesliga",
+    espnSlug: "ger.1",
+    trName: "Bundesliga",
+    enName: "Bundesliga",
+    emoji: "🇩🇪",
+    accent: "from-red-500/20 to-yellow-400/5",
+  },
+  "ligue-1": {
+    key: "ligue-1",
+    espnSlug: "fra.1",
+    trName: "Ligue 1",
+    enName: "Ligue 1",
+    emoji: "🇫🇷",
+    accent: "from-blue-500/20 to-red-400/5",
+  },
+  "primeira-liga": {
+    key: "primeira-liga",
+    espnSlug: "por.1",
+    trName: "Primeira Liga",
+    enName: "Primeira Liga",
+    emoji: "🇵🇹",
+    accent: "from-emerald-500/20 to-red-400/5",
   },
   "champions-league": {
     key: "champions-league",
@@ -121,7 +161,6 @@ function parseMatches(payload: unknown): MatchRow[] {
   const events = ((payload as { events?: unknown[] } | null)?.events ?? []) as Array<{
     id?: string;
     date?: string;
-    name?: string;
     week?: { number?: number; text?: string };
     status?: { type?: { state?: string; shortDetail?: string; detail?: string } };
     competitions?: Array<{
