@@ -16,22 +16,27 @@ const ITEMS = [
 export default function CompetitionLinks({ locale }: { locale: Locale }) {
   const tr = locale === "tr";
   return (
-    <section className="bg-[#07111f] px-4 py-8 text-white sm:px-6">
+    <section className="bg-[#07111f] px-4 py-6 text-white sm:px-6 sm:py-8">
       <div className="mx-auto max-w-7xl">
-        <p className="text-xs font-black uppercase tracking-[.22em] text-cyan-300">{tr ? "LİGLER & TURNUVALAR" : "LEAGUES & TOURNAMENTS"}</p>
-        <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h2 className="text-2xl font-black sm:text-3xl">{tr ? "Fikstürü ve puan durumunu takip et" : "Follow fixtures and standings"}</h2>
-            <p className="mt-2 max-w-2xl text-sm text-slate-400">{tr ? "Süper Lig ve Avrupa'nın öne çıkan liglerinde puan durumu, fikstür ve sonuçları tek yerde takip et." : "Follow standings, fixtures and results across the Süper Lig and Europe's major leagues in one place."}</p>
-          </div>
+        <div className="hidden sm:block">
+          <p className="text-xs font-black uppercase tracking-[.22em] text-cyan-300">{tr ? "LİGLER & TURNUVALAR" : "LEAGUES & TOURNAMENTS"}</p>
+          <h2 className="mt-3 text-2xl font-black sm:text-3xl">{tr ? "Fikstürü ve puan durumunu takip et" : "Follow fixtures and standings"}</h2>
+          <p className="mt-2 max-w-2xl text-sm text-slate-400">{tr ? "Süper Lig ve Avrupa'nın öne çıkan liglerinde puan durumu, fikstür ve sonuçları tek yerde takip et." : "Follow standings, fixtures and results across the Süper Lig and Europe's major leagues in one place."}</p>
         </div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+
+        <div className="grid grid-cols-2 gap-3 sm:mt-5 lg:grid-cols-4">
           {ITEMS.map((item) => (
-            <Link key={item.slug} href={`/${locale}/${item.slug}`} className="group rounded-2xl border border-white/10 bg-white/[.035] p-5 transition hover:-translate-y-0.5 hover:border-cyan-300/30 hover:bg-white/[.06]">
-              <div className="text-2xl">{item.emoji}</div>
-              <h3 className="mt-3 text-lg font-black">{tr ? item.tr : item.en}</h3>
-              <p className="mt-2 text-xs text-slate-500">{tr ? "Puan durumu · Fikstür · Sonuçlar" : "Standings · Fixtures · Results"}</p>
-              <p className="mt-4 text-xs font-black text-cyan-300">{tr ? "Merkeze git →" : "Open hub →"}</p>
+            <Link
+              key={item.slug}
+              href={`/${locale}/${item.slug}`}
+              className="group min-h-[146px] rounded-2xl border border-white/10 bg-[#101a29] p-4 transition active:scale-[.98] sm:min-h-0 sm:p-5 sm:hover:-translate-y-0.5 sm:hover:border-cyan-300/30 sm:hover:bg-white/[.06]"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-2xl">{item.emoji}</span>
+                <span className="text-lg font-black text-emerald-300">→</span>
+              </div>
+              <h3 className="mt-5 text-base font-black leading-tight sm:mt-3 sm:text-lg">{tr ? item.tr : item.en}</h3>
+              <p className="mt-2 line-clamp-2 text-[11px] leading-4 text-slate-500 sm:text-xs">{tr ? "Puan durumu · Fikstür · Sonuçlar" : "Standings · Fixtures · Results"}</p>
             </Link>
           ))}
         </div>
