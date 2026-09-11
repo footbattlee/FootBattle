@@ -74,15 +74,17 @@ function fallbackRoundLabel(date: string, competition: CompetitionKey, locale: L
   }).format(new Date(date));
 }
 
-function roundLabel(match: MatchRow, competition: CompetitionKey, locale: Locale, seasonFirstMatchDate: string | null) {
+function roundLabel(match: MatchRow, competition: CompetitionKey, locale: Locale, seasonFirstMatchDate: string | null, preferCalculatedWeeks: boolean) {
   const tr = locale === "tr";
+  if (competition !== "champions-league" && preferCalculatedWeeks) return fallbackRoundLabel(match.date, competition, locale, seasonFirstMatchDate);
   if (competition !== "champions-league" && match.roundNumber) return tr ? `${match.roundNumber}. Hafta` : `Matchweek ${match.roundNumber}`;
   if (match.roundLabel) return match.roundLabel;
   if (match.roundNumber) return tr ? `${match.roundNumber}. Hafta` : `Matchday ${match.roundNumber}`;
   return fallbackRoundLabel(match.date, competition, locale, seasonFirstMatchDate);
 }
 
-function roundKey(match: MatchRow, competition: CompetitionKey, seasonFirstMatchDate: string | null) {
+function roundKey(match: MatchRow, competition: CompetitionKey, seasonFirstMatchDate: string | null, preferCalculatedWeeks: boolean) {
+  if (competition !== "champions-league" && preferCalculatedWeeks) return `fallback-week-${fallbackWeekNumber(match.date, seasonFirstMatchDate)}`;
   if (competition !== "champions-league" && match.roundNumber) return `week-${match.roundNumber}`;
   if (match.roundLabel) return `label-${match.roundLabel}`;
   if (match.roundNumber) return `round-${match.roundNumber}`;
@@ -97,14 +99,16 @@ function roundKey(match: MatchRow, competition: CompetitionKey, seasonFirstMatch
   return `fallback-date-${key}`;
 }
 
-function buildBuckets(matches: MatchRow[], competition: CompetitionKey, locale: Locale, seasonFirstMatchDate: string | null) {
+function buildBuckets(matches: MatchRow[], competition: CompetitionKey, locale: Locale, seasonFirstMatchDate: string | null, preferCalculatedWeeks: boolean) {
   const map = new Map<string, RoundBucket>();
   for (const match of matches) {
-    const key = roundKey(match, competition, seasonFirstMatchDate);
+    const key = roundKey(match, competition, seasonFirstMatchDate, preferCalculatedWeeks);
     const existing = map.get(key);
-    const sort = match.roundNumber ?? new Date(match.date).getTime();
+    const sort = competition !== "champions-league" && preferCalculatedWeeks
+      ? fallbackWeekNumber(match.date, seasonFirstMatchDate)
+      : match.roundNumber ?? new Date(match.date).getTime();
     if (existing) existing.matches.push(match);
-    else map.set(key, { key, label: roundLabel(match, competition, locale, seasonFirstMatchDate), sort, matches: [match] });
+    else map.set(key, { key, label: roundLabel(match, competition, locale, seasonFirstMatchDate, preferCalculatedWeeks), sort, matches: [match] });
   }
   return Array.from(map.values())
     .map((bucket) => ({ ...bucket, matches: [...bucket.matches].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) }))
@@ -161,11 +165,13 @@ export default function CompetitionMatchBrowser({
   locale,
   matches,
   seasonFirstMatchDateOverride,
+  preferCalculatedWeeks = false,
 }: {
   competition: CompetitionKey;
   locale: Locale;
   matches: MatchRow[];
   seasonFirstMatchDateOverride?: string | null;
+  preferCalculatedWeeks?: boolean;
 }) {
   const tr = locale === "tr";
   const seasonFirstMatchDate = useMemo(() => {
@@ -176,12 +182,12 @@ export default function CompetitionMatchBrowser({
   }, [competition, matches, seasonFirstMatchDateOverride]);
 
   const fixtureBuckets = useMemo(
-    () => buildBuckets(matches.filter((match) => match.state !== "post"), competition, locale, seasonFirstMatchDate),
-    [competition, locale, matches, seasonFirstMatchDate],
+    () => buildBuckets(matches.filter((match) => match.state !== "post"), competition, locale, seasonFirstMatchDate, preferCalculatedWeeks),
+    [competition, locale, matches, seasonFirstMatchDate, preferCalculatedWeeks],
   );
   const resultBuckets = useMemo(
-    () => buildBuckets(matches.filter((match) => match.state === "post"), competition, locale, seasonFirstMatchDate),
-    [competition, locale, matches, seasonFirstMatchDate],
+    () => buildBuckets(matches.filter((match) => match.state === "post"), competition, locale, seasonFirstMatchDate, preferCalculatedWeeks),
+    [competition, locale, matches, seasonFirstMatchDate, preferCalculatedWeeks],
   );
 
   const now = Date.now();
