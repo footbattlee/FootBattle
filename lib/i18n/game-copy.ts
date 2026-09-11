@@ -84,8 +84,8 @@ export const gameCopy = {
       answer: "Hidden player",
     },
     career: {
-      title: "Career Path",
-      subtitle: "Name the clubs this footballer represented during their career.",
+      title: "Football Career Path Quiz",
+      subtitle: "Guess the clubs this footballer represented and complete the career path.",
       placeholder: "Search a club...",
       firstMessage: "😏 Footy: Complete this player's career path.",
       checking: "👀 Footy: Checking the club...",
