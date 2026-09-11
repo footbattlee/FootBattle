@@ -1,4 +1,5 @@
 import { COMPETITIONS, getCompetitionSnapshot, type CompetitionKey, type MatchRow } from "@/lib/football/competition-hubs";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
 export type TeamOrganization = {
   key: string;
@@ -118,6 +119,35 @@ function matchesTeam(match: MatchRow, teamId: string, teamName: string) {
   return normalize(match.home.name) === target || normalize(match.away.name) === target;
 }
 
+async function enrichRosterWithDbImages(players: TeamPlayer[]): Promise<TeamPlayer[]> {
+  if (!players.length) return players;
+  const normalizedNames = Array.from(new Set(players.map((player) => normalize(player.name)).filter(Boolean)));
+  if (!normalizedNames.length) return players;
+
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("guess_players")
+      .select("name_normalized, image_url")
+      .in("name_normalized", normalizedNames)
+      .not("image_url", "is", null);
+    if (error || !data?.length) return players;
+
+    const imageByName = new Map<string, string>();
+    for (const row of data as Array<{ name_normalized: string | null; image_url: string | null }>) {
+      if (row.name_normalized && row.image_url && !imageByName.has(row.name_normalized)) {
+        imageByName.set(row.name_normalized, row.image_url);
+      }
+    }
+
+    return players.map((player) => ({
+      ...player,
+      headshot: imageByName.get(normalize(player.name)) ?? player.headshot,
+    }));
+  } catch {
+    return players;
+  }
+}
+
 export async function getTeamOrganizations(teamId: string, teamName: string): Promise<TeamOrganization[]> {
   const mainEntries: Array<TeamOrganization | null> = await Promise.all(
     (Object.keys(COMPETITIONS) as CompetitionKey[]).map(async (key): Promise<TeamOrganization | null> => {
@@ -152,12 +182,9 @@ export async function getTeamRoster(competition: CompetitionKey, teamId: string)
     try {
       const response = await fetch(url, { next: { revalidate: 3600 } });
       if (!response.ok) continue;
-      const payload = await response.json() as {
-        athletes?: Array<any>;
-        items?: Array<any>;
-      };
+      const payload = await response.json() as { athletes?: Array<any>; items?: Array<any> };
       const raw = payload.athletes ?? payload.items ?? [];
-      const players = raw.flatMap((entry: any) => {
+      const players: TeamPlayer[] = raw.flatMap((entry: any) => {
         const athlete = entry?.athlete ?? entry;
         if (!athlete?.id || !athlete?.displayName) return [];
         return [{
@@ -169,7 +196,7 @@ export async function getTeamRoster(competition: CompetitionKey, teamId: string)
           nationality: athlete.citizenship ?? athlete.country?.displayName ?? null,
         } satisfies TeamPlayer];
       });
-      if (players.length) return players;
+      if (players.length) return enrichRosterWithDbImages(players);
     } catch {}
   }
   return [];
