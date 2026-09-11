@@ -11,7 +11,7 @@ type NavItem = { key: "home" | "daily" | "ranked" | "competitions" | "profile"; 
 
 const BADGE_POLL_MS = 60_000;
 const BADGE_MIN_GAP_MS = 15_000;
-const COMPETITION_PATHS = new Set([
+const COMPETITION_PATHS = [
   "/competitions",
   "/super-lig",
   "/premier-league",
@@ -21,13 +21,14 @@ const COMPETITION_PATHS = new Set([
   "/ligue-1",
   "/primeira-liga",
   "/champions-league",
-]);
+] as const;
 
 function getLocale(pathname: string): Locale { return pathname === "/en" || pathname.startsWith("/en/") ? "en" : "tr"; }
 function stripLocale(pathname: string) { if (pathname === "/tr" || pathname === "/en") return "/"; if (pathname.startsWith("/tr/") || pathname.startsWith("/en/")) return pathname.slice(3) || "/"; return pathname; }
+function isCompetitionPath(plain: string) { return COMPETITION_PATHS.some((path) => plain === path || plain.startsWith(`${path}/`)); }
 function shouldShowShell(pathname: string) {
   const plain = stripLocale(pathname);
-  return ["/", "/daily", "/duels", "/rank", "/ranking", "/profile"].includes(plain) || COMPETITION_PATHS.has(plain);
+  return ["/", "/daily", "/duels", "/rank", "/ranking", "/profile"].includes(plain) || isCompetitionPath(plain);
 }
 function routeName(plain: string) {
   if (plain.startsWith("/tic-tac-toe/duel/")) return "tic-tac-toe-duel";
@@ -39,7 +40,7 @@ function routeName(plain: string) {
   if (plain === "/duels") return "duels";
   if (plain === "/rank") return "rank";
   if (plain === "/ranking") return "ranking";
-  if (COMPETITION_PATHS.has(plain)) return "competitions";
+  if (isCompetitionPath(plain)) return "competitions";
   if (plain === "/profile") return "profile";
   if (plain === "/") return "home";
   return "other";
@@ -196,7 +197,7 @@ export default function MobileAppShell() {
     if (item.key === "home") return plainPath === "/";
     if (item.key === "daily") return plainPath === "/daily";
     if (item.key === "ranked") return plainPath === "/rank" || plainPath === "/duels";
-    if (item.key === "competitions") return COMPETITION_PATHS.has(plainPath);
+    if (item.key === "competitions") return isCompetitionPath(plainPath);
     if (item.key === "profile") return plainPath === "/profile";
     return false;
   }
