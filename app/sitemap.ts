@@ -32,6 +32,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/terms", changeFrequency: "weekly", priority: 0.4 },
     { path: "/tr", changeFrequency: "daily", priority: 1 },
     { path: "/en", changeFrequency: "daily", priority: 1 },
+    { path: "/tr/competitions", changeFrequency: "daily", priority: 0.98 },
+    { path: "/en/competitions", changeFrequency: "daily", priority: 0.98 },
     { path: "/tr/super-lig", changeFrequency: "daily", priority: 0.98 },
     { path: "/en/super-lig", changeFrequency: "daily", priority: 0.92 },
     { path: "/tr/premier-league", changeFrequency: "daily", priority: 0.95 },
