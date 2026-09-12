@@ -20,8 +20,6 @@ export type TeamPlayer = {
 };
 
 const EXTRA_ORGANIZATIONS = [
-  { key: "europa-league", espnSlug: "uefa.europa", trName: "UEFA Avrupa Ligi", enName: "UEFA Europa League", emoji: "🟠" },
-  { key: "conference-league", espnSlug: "uefa.europa.conf", trName: "UEFA Konferans Ligi", enName: "UEFA Conference League", emoji: "🟢" },
   { key: "turkish-cup", espnSlug: "tur.cup", trName: "Türkiye Kupası", enName: "Turkish Cup", emoji: "🏆" },
   { key: "fa-cup", espnSlug: "eng.fa", trName: "FA Cup", enName: "FA Cup", emoji: "🏆" },
   { key: "copa-del-rey", espnSlug: "esp.copa_del_rey", trName: "Copa del Rey", enName: "Copa del Rey", emoji: "🏆" },
@@ -134,15 +132,10 @@ async function enrichRosterWithDbImages(players: TeamPlayer[]): Promise<TeamPlay
 
     const imageByName = new Map<string, string>();
     for (const row of data as Array<{ name_normalized: string | null; image_url: string | null }>) {
-      if (row.name_normalized && row.image_url && !imageByName.has(row.name_normalized)) {
-        imageByName.set(row.name_normalized, row.image_url);
-      }
+      if (row.name_normalized && row.image_url && !imageByName.has(row.name_normalized)) imageByName.set(row.name_normalized, row.image_url);
     }
 
-    return players.map((player) => ({
-      ...player,
-      headshot: imageByName.get(normalize(player.name)) ?? player.headshot,
-    }));
+    return players.map((player) => ({ ...player, headshot: imageByName.get(normalize(player.name)) ?? player.headshot }));
   } catch {
     return players;
   }
