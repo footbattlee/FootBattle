@@ -11,15 +11,16 @@ function isCompetition(value: string): value is CompetitionKey {
   return value in COMPETITIONS;
 }
 
+function isUefaCompetition(value: CompetitionKey) {
+  return value === "champions-league" || value === "europa-league" || value === "conference-league";
+}
+
 function uniqueMatches(matches: MatchRow[]) {
   return Array.from(new Map(matches.map((match) => [match.id, match])).values())
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 
-export default async function TeamCompetitionPage({
-  params,
-  searchParams,
-}: {
+export default async function TeamCompetitionPage({ params, searchParams }: {
   params: Promise<{ locale: string; competition: string; teamId: string }>;
   searchParams: Promise<{ org?: string }>;
 }) {
@@ -47,11 +48,10 @@ export default async function TeamCompetitionPage({
   const allMatches = uniqueMatches(organizations.flatMap((item) => item.matches));
   const showingAll = org === "all";
   const teamMatches = showingAll ? allMatches : (selectedOrg?.matches ?? snapshot.matches.filter((match) => match.home.id === teamId || match.away.id === teamId));
-  const browserCompetition: CompetitionKey = showingAll
-    ? "champions-league"
-    : selectedOrg?.competitionKey ?? "champions-league";
+  const browserCompetition: CompetitionKey = showingAll ? "champions-league" : selectedOrg?.competitionKey ?? "champions-league";
+  const predictionsEnabled = !showingAll && selectedOrg?.competitionKey != null;
 
-  const seasonFirstMatchDate = browserCompetition === "champions-league"
+  const seasonFirstMatchDate = isUefaCompetition(browserCompetition)
     ? null
     : (await getCompetitionSnapshot(browserCompetition)).matches[0]?.date ?? null;
 
@@ -73,11 +73,7 @@ export default async function TeamCompetitionPage({
             <div className="min-w-0">
               <p className="text-[11px] font-black uppercase tracking-[.18em] text-cyan-300">{leagueName}</p>
               <h1 className="mt-1 truncate text-2xl font-black sm:text-4xl">{teamName}</h1>
-              {standing ? (
-                <p className="mt-2 text-sm text-slate-400">
-                  {tr ? `${standing.position}. sıra · ${standing.played} maç · ${standing.points} puan` : `${standing.position}${standing.position === 1 ? "st" : standing.position === 2 ? "nd" : standing.position === 3 ? "rd" : "th"} · ${standing.played} played · ${standing.points} pts`}
-                </p>
-              ) : null}
+              {standing ? <p className="mt-2 text-sm text-slate-400">{tr ? `${standing.position}. sıra · ${standing.played} maç · ${standing.points} puan` : `${standing.position}${standing.position === 1 ? "st" : standing.position === 2 ? "nd" : standing.position === 3 ? "rd" : "th"} · ${standing.played} played · ${standing.points} pts`}</p> : null}
             </div>
           </div>
         </section>
@@ -85,11 +81,7 @@ export default async function TeamCompetitionPage({
         <TeamOrganizationSelector
           tr={tr}
           current={showingAll ? "all" : (selectedOrg?.key ?? competition)}
-          options={organizations.map((item) => ({
-            key: item.key,
-            emoji: item.emoji,
-            label: tr ? item.trName : item.enName,
-          }))}
+          options={organizations.map((item) => ({ key: item.key, emoji: item.emoji, label: tr ? item.trName : item.enName }))}
         />
 
         <div className="mt-8">
@@ -98,7 +90,8 @@ export default async function TeamCompetitionPage({
             locale={locale as Locale}
             matches={teamMatches}
             seasonFirstMatchDateOverride={seasonFirstMatchDate}
-            preferCalculatedWeeks={browserCompetition !== "champions-league"}
+            preferCalculatedWeeks={!isUefaCompetition(browserCompetition)}
+            predictionsEnabled={predictionsEnabled}
           />
         </div>
 
@@ -120,18 +113,14 @@ export default async function TeamCompetitionPage({
                     )}
                     <div className="min-w-0">
                       <p className="truncate text-sm font-black text-white">{player.name}</p>
-                      <p className="mt-0.5 truncate text-[10px] text-slate-500">
-                        {[player.jersey ? `#${player.jersey}` : null, player.position].filter(Boolean).join(" · ") || (tr ? "Oyuncu" : "Player")}
-                      </p>
+                      <p className="mt-0.5 truncate text-[10px] text-slate-500">{[player.jersey ? `#${player.jersey}` : null, player.position].filter(Boolean).join(" · ") || (tr ? "Oyuncu" : "Player")}</p>
                     </div>
                   </div>
                 </article>
               ))}
             </div>
           ) : (
-            <p className="rounded-2xl border border-white/10 bg-white/[.025] p-5 text-sm text-slate-500">
-              {tr ? "Kadro verisi şu anda alınamadı." : "Squad data is currently unavailable."}
-            </p>
+            <p className="rounded-2xl border border-white/10 bg-white/[.025] p-5 text-sm text-slate-500">{tr ? "Kadro verisi şu anda alınamadı." : "Squad data is currently unavailable."}</p>
           )}
         </section>
       </div>
