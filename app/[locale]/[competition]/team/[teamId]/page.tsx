@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -6,6 +7,7 @@ import TeamOrganizationSelector from "@/components/football/TeamOrganizationSele
 import { COMPETITIONS, getCompetitionSnapshot, type CompetitionKey, type MatchRow } from "@/lib/football/competition-hubs";
 import { getTeamOrganizations, getTeamRoster } from "@/lib/football/team-hub";
 import { isLocale, type Locale } from "@/lib/i18n/config";
+import { BreadcrumbJsonLd, JsonLd, localizedAlternates, SITE_URL } from "@/lib/seo";
 
 function isCompetition(value: string): value is CompetitionKey {
   return value in COMPETITIONS;
@@ -20,6 +22,58 @@ function uniqueMatches(matches: MatchRow[]) {
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 
+async function getTeamIdentity(competition: CompetitionKey, teamId: string) {
+  const snapshot = await getCompetitionSnapshot(competition);
+  const standing = snapshot.standings.find((row) => row.teamId === teamId);
+  const teamMatch = snapshot.matches.find((match) => match.home.id === teamId || match.away.id === teamId);
+  const teamName = standing?.teamName ?? (teamMatch?.home.id === teamId ? teamMatch.home.name : teamMatch?.away.name);
+  const teamLogo = standing?.logo ?? (teamMatch?.home.id === teamId ? teamMatch.home.logo : teamMatch?.away.logo) ?? null;
+  return { snapshot, standing, teamName, teamLogo };
+}
+
+export async function generateMetadata({ params }: {
+  params: Promise<{ locale: string; competition: string; teamId: string }>;
+}): Promise<Metadata> {
+  const { locale, competition, teamId } = await params;
+  if (!isLocale(locale) || !isCompetition(competition)) return {};
+
+  const { teamName, teamLogo } = await getTeamIdentity(competition, teamId);
+  if (!teamName) return {};
+
+  const tr = locale === "tr";
+  const competitionName = tr ? COMPETITIONS[competition].trName : COMPETITIONS[competition].enName;
+  const title = tr
+    ? `${teamName} Fikstür, Kadro ve Maç Sonuçları | FootBattle`
+    : `${teamName} Fixtures, Squad & Results | FootBattle`;
+  const description = tr
+    ? `${teamName} 2026/27 fikstürü, maç sonuçları, ${competitionName} durumu, oyuncu kadrosu ve skor tahminleri FootBattle'da.`
+    : `${teamName} 2026/27 fixtures, results, ${competitionName} status, squad and score predictions on FootBattle.`;
+  const canonical = `${SITE_URL}/${locale}/${competition}/team/${teamId}`;
+
+  return {
+    title: { absolute: title },
+    description,
+    alternates: {
+      canonical,
+      languages: localizedAlternates(`/${competition}/team/${teamId}`),
+    },
+    openGraph: {
+      type: "website",
+      siteName: "FootBattle",
+      title,
+      description,
+      url: canonical,
+      ...(teamLogo ? { images: [{ url: teamLogo, alt: teamName }] } : {}),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      ...(teamLogo ? { images: [teamLogo] } : {}),
+    },
+  };
+}
+
 export default async function TeamCompetitionPage({ params, searchParams }: {
   params: Promise<{ locale: string; competition: string; teamId: string }>;
   searchParams: Promise<{ org?: string }>;
@@ -28,11 +82,7 @@ export default async function TeamCompetitionPage({ params, searchParams }: {
   const { org } = await searchParams;
   if (!isLocale(locale) || !isCompetition(competition)) notFound();
 
-  const snapshot = await getCompetitionSnapshot(competition);
-  const standing = snapshot.standings.find((row) => row.teamId === teamId);
-  const teamMatch = snapshot.matches.find((match) => match.home.id === teamId || match.away.id === teamId);
-  const teamName = standing?.teamName ?? (teamMatch?.home.id === teamId ? teamMatch.home.name : teamMatch?.away.name);
-  const teamLogo = standing?.logo ?? (teamMatch?.home.id === teamId ? teamMatch.home.logo : teamMatch?.away.logo) ?? null;
+  const { snapshot, standing, teamName, teamLogo } = await getTeamIdentity(competition, teamId);
   if (!teamName) notFound();
 
   const tr = locale === "tr";
@@ -55,8 +105,40 @@ export default async function TeamCompetitionPage({ params, searchParams }: {
     ? null
     : (await getCompetitionSnapshot(browserCompetition)).matches[0]?.date ?? null;
 
+  const teamUrl = `${SITE_URL}/${locale}/${competition}/team/${teamId}`;
+  const teamSchema = {
+    "@context": "https://schema.org",
+    "@type": "SportsTeam",
+    "@id": `${teamUrl}#team`,
+    name: teamName,
+    sport: "Football",
+    url: teamUrl,
+    ...(teamLogo ? { logo: teamLogo, image: teamLogo } : {}),
+    memberOf: {
+      "@type": "SportsOrganization",
+      name: leagueName,
+      url: `${SITE_URL}/${locale}/${competition}`,
+    },
+    athlete: roster.slice(0, 40).map((player) => ({
+      "@type": "Person",
+      name: player.name,
+      ...(player.headshot ? { image: player.headshot } : {}),
+      ...(player.position ? { jobTitle: player.position } : {}),
+    })),
+  };
+
   return (
     <main className="min-h-screen bg-[#07111f] text-white">
+      <JsonLd data={teamSchema} />
+      <BreadcrumbJsonLd
+        items={[
+          { name: "FootBattle", path: `/${locale}` },
+          { name: tr ? "Ligler ve Turnuvalar" : "Leagues and Tournaments", path: `/${locale}/competitions` },
+          { name: leagueName, path: `/${locale}/${competition}` },
+          { name: teamName },
+        ]}
+      />
+
       <div className="mx-auto max-w-5xl px-4 py-7 sm:px-6 sm:py-10">
         <Link href={`/${locale}/${competition}`} className="inline-flex items-center gap-2 text-xs font-black text-emerald-300">
           ← {tr ? `${leagueName} merkezine dön` : `Back to ${leagueName}`}
@@ -66,7 +148,7 @@ export default async function TeamCompetitionPage({ params, searchParams }: {
           <div className="flex items-center gap-4">
             {teamLogo ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={teamLogo} alt="" className="h-16 w-16 object-contain sm:h-20 sm:w-20" />
+              <img src={teamLogo} alt={`${teamName} logo`} className="h-16 w-16 object-contain sm:h-20 sm:w-20" />
             ) : (
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 text-lg font-black">{teamName.slice(0, 2).toUpperCase()}</div>
             )}
@@ -76,6 +158,11 @@ export default async function TeamCompetitionPage({ params, searchParams }: {
               {standing ? <p className="mt-2 text-sm text-slate-400">{tr ? `${standing.position}. sıra · ${standing.played} maç · ${standing.points} puan` : `${standing.position}${standing.position === 1 ? "st" : standing.position === 2 ? "nd" : standing.position === 3 ? "rd" : "th"} · ${standing.played} played · ${standing.points} pts`}</p> : null}
             </div>
           </div>
+          <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-400">
+            {tr
+              ? `${teamName} 2026/27 fikstürünü, son maç sonuçlarını, organizasyon bazlı karşılaşmalarını ve güncel oyuncu kadrosunu takip et. Yaklaşan desteklenen maçlarda skor tahminini maç başlamadan kaydedebilirsin.`
+              : `Follow ${teamName}'s 2026/27 fixtures, recent results, matches by competition and current squad. You can submit score predictions for supported upcoming matches before kickoff.`}
+          </p>
         </section>
 
         <TeamOrganizationSelector
@@ -107,7 +194,7 @@ export default async function TeamCompetitionPage({ params, searchParams }: {
                   <div className="flex items-center gap-3">
                     {player.headshot ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={player.headshot} alt="" loading="lazy" className="h-11 w-11 shrink-0 rounded-full bg-white/5 object-cover" />
+                      <img src={player.headshot} alt={`${player.name} football player`} loading="lazy" className="h-11 w-11 shrink-0 rounded-full bg-white/5 object-cover" />
                     ) : (
                       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-black">{player.name.slice(0, 2).toUpperCase()}</div>
                     )}
