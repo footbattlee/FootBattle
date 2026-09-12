@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import CompetitionMatchBrowser from "@/components/football/CompetitionMatchBrowser";
+import CompetitionSeoContent from "@/components/football/CompetitionSeoContent";
 import { COMPETITIONS, getCompetitionSnapshot, type CompetitionKey } from "@/lib/football/competition-hubs";
 import type { Locale } from "@/lib/i18n/config";
 
@@ -105,6 +106,8 @@ export default async function CompetitionHub({ competition, locale }: { competit
 
           <CompetitionMatchBrowser competition={competition} locale={locale} matches={snapshot.matches} />
         </div>
+
+        <CompetitionSeoContent competition={competition} locale={locale} snapshot={snapshot} />
       </div>
     </main>
   );
