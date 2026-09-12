@@ -7,14 +7,29 @@ import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 
 type Locale = "tr" | "en";
-type NavItem = { key: "home" | "daily" | "ranked" | "leaderboard" | "profile"; label: string; icon: string; href: string };
+type NavItem = { key: "home" | "daily" | "ranked" | "competitions" | "profile"; label: string; icon: string; href: string };
 
 const BADGE_POLL_MS = 60_000;
 const BADGE_MIN_GAP_MS = 15_000;
+const COMPETITION_PATHS = [
+  "/competitions",
+  "/super-lig",
+  "/premier-league",
+  "/la-liga",
+  "/serie-a",
+  "/bundesliga",
+  "/ligue-1",
+  "/primeira-liga",
+  "/champions-league",
+] as const;
 
 function getLocale(pathname: string): Locale { return pathname === "/en" || pathname.startsWith("/en/") ? "en" : "tr"; }
 function stripLocale(pathname: string) { if (pathname === "/tr" || pathname === "/en") return "/"; if (pathname.startsWith("/tr/") || pathname.startsWith("/en/")) return pathname.slice(3) || "/"; return pathname; }
-function shouldShowShell(pathname: string) { return ["/", "/daily", "/duels", "/rank", "/ranking", "/profile"].includes(stripLocale(pathname)); }
+function isCompetitionPath(plain: string) { return COMPETITION_PATHS.some((path) => plain === path || plain.startsWith(`${path}/`)); }
+function shouldShowShell(pathname: string) {
+  const plain = stripLocale(pathname);
+  return ["/", "/daily", "/duels", "/rank", "/ranking", "/profile"].includes(plain) || isCompetitionPath(plain);
+}
 function routeName(plain: string) {
   if (plain.startsWith("/tic-tac-toe/duel/")) return "tic-tac-toe-duel";
   if (plain === "/tic-tac-toe") return "tic-tac-toe-solo";
@@ -25,6 +40,7 @@ function routeName(plain: string) {
   if (plain === "/duels") return "duels";
   if (plain === "/rank") return "rank";
   if (plain === "/ranking") return "ranking";
+  if (isCompetitionPath(plain)) return "competitions";
   if (plain === "/profile") return "profile";
   if (plain === "/") return "home";
   return "other";
@@ -163,7 +179,7 @@ export default function MobileAppShell() {
       { key: "home", label: tr ? "Ana Sayfa" : "Home", icon: "⌂", href: `/${locale}` },
       { key: "daily", label: tr ? "Günlük" : "Daily", icon: "🔥", href: `/${locale}/daily` },
       { key: "ranked", label: "Ranked", icon: "⚔", href: `/${locale}/rank` },
-      { key: "leaderboard", label: tr ? "Sıralama" : "Ranks", icon: "♛", href: `/${locale}/ranking` },
+      { key: "competitions", label: tr ? "Ligler" : "Leagues", icon: "🏆", href: `/${locale}/competitions` },
       { key: "profile", label: tr ? "Profil" : "Profile", icon: "●", href: `/${locale}/profile` },
     ];
   }, [locale]);
@@ -181,7 +197,7 @@ export default function MobileAppShell() {
     if (item.key === "home") return plainPath === "/";
     if (item.key === "daily") return plainPath === "/daily";
     if (item.key === "ranked") return plainPath === "/rank" || plainPath === "/duels";
-    if (item.key === "leaderboard") return plainPath === "/ranking";
+    if (item.key === "competitions") return isCompetitionPath(plainPath);
     if (item.key === "profile") return plainPath === "/profile";
     return false;
   }
