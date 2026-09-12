@@ -1,16 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import MatchPredictionControls, { type MatchPrediction } from "@/components/football/MatchPredictionControls";
 import type { CompetitionKey, MatchRow } from "@/lib/football/competition-hubs";
 import type { Locale } from "@/lib/i18n/config";
 
-type RoundBucket = {
-  key: string;
-  label: string;
-  sort: number;
-  matches: MatchRow[];
-};
+type RoundBucket = { key: string; label: string; sort: number; matches: MatchRow[] };
+
+function isUefaCompetition(competition: CompetitionKey) {
+  return competition === "champions-league" || competition === "europa-league" || competition === "conference-league";
+}
 
 function matchDate(value: string, locale: Locale) {
   return new Intl.DateTimeFormat(locale === "tr" ? "tr-TR" : "en-GB", {
@@ -28,7 +28,15 @@ function TeamLogo({ src, name }: { src: string | null; name: string }) {
   return <img src={src} alt="" loading="lazy" className="h-8 w-8 object-contain" />;
 }
 
-function MatchCard({ match, locale }: { match: MatchRow; locale: Locale }) {
+function MatchCard({ match, locale, competition, prediction, authRequired, predictionsEnabled, onSaved }: {
+  match: MatchRow;
+  locale: Locale;
+  competition: CompetitionKey;
+  prediction: MatchPrediction | null;
+  authRequired: boolean;
+  predictionsEnabled: boolean;
+  onSaved: (prediction: MatchPrediction) => void;
+}) {
   const tr = locale === "tr";
   const live = match.state === "in";
   const finished = match.state === "post";
@@ -49,6 +57,9 @@ function MatchCard({ match, locale }: { match: MatchRow; locale: Locale }) {
           </div>
         ))}
       </div>
+      {predictionsEnabled ? (
+        <MatchPredictionControls match={match} competition={competition} locale={locale} prediction={prediction} authRequired={authRequired} onSaved={onSaved} />
+      ) : null}
     </article>
   );
 }
@@ -63,7 +74,7 @@ function fallbackWeekNumber(date: string, seasonFirstMatchDate: string | null) {
 
 function fallbackRoundLabel(date: string, competition: CompetitionKey, locale: Locale, seasonFirstMatchDate: string | null) {
   const tr = locale === "tr";
-  if (competition !== "champions-league") {
+  if (!isUefaCompetition(competition)) {
     const week = fallbackWeekNumber(date, seasonFirstMatchDate);
     return tr ? `${week}. Hafta` : `Matchweek ${week}`;
   }
@@ -76,26 +87,21 @@ function fallbackRoundLabel(date: string, competition: CompetitionKey, locale: L
 
 function roundLabel(match: MatchRow, competition: CompetitionKey, locale: Locale, seasonFirstMatchDate: string | null, preferCalculatedWeeks: boolean) {
   const tr = locale === "tr";
-  if (competition !== "champions-league" && preferCalculatedWeeks) return fallbackRoundLabel(match.date, competition, locale, seasonFirstMatchDate);
-  if (competition !== "champions-league" && match.roundNumber) return tr ? `${match.roundNumber}. Hafta` : `Matchweek ${match.roundNumber}`;
+  if (!isUefaCompetition(competition) && preferCalculatedWeeks) return fallbackRoundLabel(match.date, competition, locale, seasonFirstMatchDate);
+  if (!isUefaCompetition(competition) && match.roundNumber) return tr ? `${match.roundNumber}. Hafta` : `Matchweek ${match.roundNumber}`;
   if (match.roundLabel) return match.roundLabel;
-  if (match.roundNumber) return tr ? `${match.roundNumber}. Hafta` : `Matchday ${match.roundNumber}`;
+  if (match.roundNumber) return tr ? `${match.roundNumber}. Maç Günü` : `Matchday ${match.roundNumber}`;
   return fallbackRoundLabel(match.date, competition, locale, seasonFirstMatchDate);
 }
 
 function roundKey(match: MatchRow, competition: CompetitionKey, seasonFirstMatchDate: string | null, preferCalculatedWeeks: boolean) {
-  if (competition !== "champions-league" && preferCalculatedWeeks) return `fallback-week-${fallbackWeekNumber(match.date, seasonFirstMatchDate)}`;
-  if (competition !== "champions-league" && match.roundNumber) return `week-${match.roundNumber}`;
+  if (!isUefaCompetition(competition) && preferCalculatedWeeks) return `fallback-week-${fallbackWeekNumber(match.date, seasonFirstMatchDate)}`;
+  if (!isUefaCompetition(competition) && match.roundNumber) return `week-${match.roundNumber}`;
   if (match.roundLabel) return `label-${match.roundLabel}`;
   if (match.roundNumber) return `round-${match.roundNumber}`;
-  if (competition !== "champions-league") return `fallback-week-${fallbackWeekNumber(match.date, seasonFirstMatchDate)}`;
+  if (!isUefaCompetition(competition)) return `fallback-week-${fallbackWeekNumber(match.date, seasonFirstMatchDate)}`;
   const d = new Date(match.date);
-  const key = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Istanbul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
+  const key = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
   return `fallback-date-${key}`;
 }
 
@@ -104,9 +110,7 @@ function buildBuckets(matches: MatchRow[], competition: CompetitionKey, locale: 
   for (const match of matches) {
     const key = roundKey(match, competition, seasonFirstMatchDate, preferCalculatedWeeks);
     const existing = map.get(key);
-    const sort = competition !== "champions-league" && preferCalculatedWeeks
-      ? fallbackWeekNumber(match.date, seasonFirstMatchDate)
-      : match.roundNumber ?? new Date(match.date).getTime();
+    const sort = !isUefaCompetition(competition) && preferCalculatedWeeks ? fallbackWeekNumber(match.date, seasonFirstMatchDate) : match.roundNumber ?? new Date(match.date).getTime();
     if (existing) existing.matches.push(match);
     else map.set(key, { key, label: roundLabel(match, competition, locale, seasonFirstMatchDate, preferCalculatedWeeks), sort, matches: [match] });
   }
@@ -115,23 +119,25 @@ function buildBuckets(matches: MatchRow[], competition: CompetitionKey, locale: 
     .sort((a, b) => a.sort - b.sort);
 }
 
-function RoundSection({
-  title,
-  subtitle,
-  buckets,
-  defaultKey,
-  emptyText,
-  locale,
-}: {
+function RoundSection({ title, subtitle, buckets, defaultKey, emptyText, locale, competition, predictions, authRequired, predictionsEnabled, onSaved }: {
   title: string;
   subtitle: string;
   buckets: RoundBucket[];
   defaultKey: string;
   emptyText: string;
   locale: Locale;
+  competition: CompetitionKey;
+  predictions: Map<string, MatchPrediction>;
+  authRequired: boolean;
+  predictionsEnabled: boolean;
+  onSaved: (prediction: MatchPrediction) => void;
 }) {
   const [selected, setSelected] = useState(defaultKey);
   const active = buckets.find((bucket) => bucket.key === selected) ?? buckets[0];
+
+  useEffect(() => {
+    if (defaultKey && !buckets.some((bucket) => bucket.key === selected)) setSelected(defaultKey);
+  }, [buckets, defaultKey, selected]);
 
   return (
     <section>
@@ -141,54 +147,67 @@ function RoundSection({
           <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
         </div>
         {buckets.length ? (
-          <select
-            value={active?.key ?? ""}
-            onChange={(event) => setSelected(event.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-[#0d1828] px-3 py-2.5 text-sm font-black text-white outline-none sm:w-auto"
-            aria-label={title}
-          >
+          <select value={active?.key ?? ""} onChange={(event) => setSelected(event.target.value)} className="w-full rounded-xl border border-white/10 bg-[#0d1828] px-3 py-2.5 text-sm font-black text-white outline-none sm:w-auto" aria-label={title}>
             {buckets.map((bucket) => <option key={bucket.key} value={bucket.key}>{bucket.label}</option>)}
           </select>
         ) : null}
       </div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-        {active?.matches.length ? active.matches.map((match) => <MatchCard key={match.id} match={match} locale={locale} />) : (
-          <p className="rounded-2xl border border-white/10 p-5 text-sm text-slate-500">{emptyText}</p>
-        )}
+        {active?.matches.length ? active.matches.map((match) => (
+          <MatchCard key={match.id} match={match} locale={locale} competition={competition} prediction={predictions.get(match.id) ?? null} authRequired={authRequired} predictionsEnabled={predictionsEnabled} onSaved={onSaved} />
+        )) : <p className="rounded-2xl border border-white/10 p-5 text-sm text-slate-500">{emptyText}</p>}
       </div>
     </section>
   );
 }
 
-export default function CompetitionMatchBrowser({
-  competition,
-  locale,
-  matches,
-  seasonFirstMatchDateOverride,
-  preferCalculatedWeeks = false,
-}: {
+export default function CompetitionMatchBrowser({ competition, locale, matches, seasonFirstMatchDateOverride, preferCalculatedWeeks = false, predictionsEnabled = true }: {
   competition: CompetitionKey;
   locale: Locale;
   matches: MatchRow[];
   seasonFirstMatchDateOverride?: string | null;
   preferCalculatedWeeks?: boolean;
+  predictionsEnabled?: boolean;
 }) {
   const tr = locale === "tr";
+  const [predictions, setPredictions] = useState<Map<string, MatchPrediction>>(new Map());
+  const [authRequired, setAuthRequired] = useState(false);
+
+  useEffect(() => {
+    if (!predictionsEnabled) return;
+    let active = true;
+    void (async () => {
+      const response = await fetch(`/api/predictions?competition=${encodeURIComponent(competition)}`, { cache: "no-store" }).catch(() => null);
+      if (!active || !response) return;
+      if (response.status === 401) {
+        setAuthRequired(true);
+        return;
+      }
+      const payload = await response.json().catch(() => null);
+      if (!payload?.predictions || !Array.isArray(payload.predictions)) return;
+      setPredictions(new Map((payload.predictions as MatchPrediction[]).map((item) => [item.match_id, item])));
+    })();
+    return () => { active = false; };
+  }, [competition, predictionsEnabled]);
+
+  const onSaved = (prediction: MatchPrediction) => {
+    setAuthRequired(false);
+    setPredictions((current) => {
+      const next = new Map(current);
+      next.set(prediction.match_id, prediction);
+      return next;
+    });
+  };
+
   const seasonFirstMatchDate = useMemo(() => {
-    if (competition === "champions-league") return null;
+    if (isUefaCompetition(competition)) return null;
     if (seasonFirstMatchDateOverride !== undefined) return seasonFirstMatchDateOverride;
     if (!matches.length) return null;
     return [...matches].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]?.date ?? null;
   }, [competition, matches, seasonFirstMatchDateOverride]);
 
-  const fixtureBuckets = useMemo(
-    () => buildBuckets(matches.filter((match) => match.state !== "post"), competition, locale, seasonFirstMatchDate, preferCalculatedWeeks),
-    [competition, locale, matches, seasonFirstMatchDate, preferCalculatedWeeks],
-  );
-  const resultBuckets = useMemo(
-    () => buildBuckets(matches.filter((match) => match.state === "post"), competition, locale, seasonFirstMatchDate, preferCalculatedWeeks),
-    [competition, locale, matches, seasonFirstMatchDate, preferCalculatedWeeks],
-  );
+  const fixtureBuckets = useMemo(() => buildBuckets(matches.filter((match) => match.state !== "post"), competition, locale, seasonFirstMatchDate, preferCalculatedWeeks), [competition, locale, matches, seasonFirstMatchDate, preferCalculatedWeeks]);
+  const resultBuckets = useMemo(() => buildBuckets(matches.filter((match) => match.state === "post"), competition, locale, seasonFirstMatchDate, preferCalculatedWeeks), [competition, locale, matches, seasonFirstMatchDate, preferCalculatedWeeks]);
 
   const now = Date.now();
   const nextFixture = fixtureBuckets.find((bucket) => bucket.matches.some((match) => new Date(match.date).getTime() >= now)) ?? fixtureBuckets[0];
@@ -196,22 +215,8 @@ export default function CompetitionMatchBrowser({
 
   return (
     <div className="space-y-8">
-      <RoundSection
-        title={tr ? "Yaklaşan Maçlar" : "Upcoming Fixtures"}
-        subtitle={tr ? "Haftayı seçerek fikstürü görüntüle · Türkiye saatiyle" : "Choose a matchweek to view fixtures · Türkiye time"}
-        buckets={fixtureBuckets}
-        defaultKey={nextFixture?.key ?? ""}
-        emptyText={tr ? "Yaklaşan maç bulunamadı." : "No upcoming fixtures found."}
-        locale={locale}
-      />
-      <RoundSection
-        title={tr ? "Sonuçlar" : "Results"}
-        subtitle={tr ? "Önceki haftaların sonuçlarını görüntüle" : "Browse results from previous matchweeks"}
-        buckets={resultBuckets}
-        defaultKey={lastResult?.key ?? ""}
-        emptyText={tr ? "Sonuç bulunamadı." : "No results found."}
-        locale={locale}
-      />
+      <RoundSection title={tr ? "Yaklaşan Maçlar" : "Upcoming Fixtures"} subtitle={tr ? "Haftayı seç, skoru tahmin et · Türkiye saatiyle" : "Choose a matchweek and predict the score · Türkiye time"} buckets={fixtureBuckets} defaultKey={nextFixture?.key ?? ""} emptyText={tr ? "Yaklaşan maç bulunamadı." : "No upcoming fixtures found."} locale={locale} competition={competition} predictions={predictions} authRequired={authRequired} predictionsEnabled={predictionsEnabled} onSaved={onSaved} />
+      <RoundSection title={tr ? "Sonuçlar" : "Results"} subtitle={tr ? "Önceki haftaların sonuçlarını ve tahmin XP'lerini görüntüle" : "Browse previous results and prediction XP"} buckets={resultBuckets} defaultKey={lastResult?.key ?? ""} emptyText={tr ? "Sonuç bulunamadı." : "No results found."} locale={locale} competition={competition} predictions={predictions} authRequired={authRequired} predictionsEnabled={predictionsEnabled} onSaved={onSaved} />
     </div>
   );
 }
