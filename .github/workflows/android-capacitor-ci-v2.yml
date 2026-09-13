@@ -89,13 +89,16 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p android-ci/runtime-assets
+          base64 --decode android-ci/play-store-icon.webp.b64 > android-ci/runtime-assets/play-store-icon.webp
           cp public/footbattle-logo.png android-ci/runtime-assets/footbattle-logo.png
+          identify android-ci/runtime-assets/play-store-icon.webp
           identify android-ci/runtime-assets/footbattle-logo.png
 
       - name: Generate FootBattle launcher and splash assets
         run: |
           set -euo pipefail
-          SOURCE="android-ci/runtime-assets/footbattle-logo.png"
+          SOURCE="android-ci/runtime-assets/play-store-icon.webp"
+          SPLASH_SOURCE="android-ci/runtime-assets/footbattle-logo.png"
           RES="android/app/src/main/res"
           for spec in "mdpi 48" "hdpi 72" "xhdpi 96" "xxhdpi 144" "xxxhdpi 192"; do
             set -- $spec
@@ -126,7 +129,7 @@ jobs:
               text = re.sub(r"\s*<color\s+name='ic_launcher_background'[^>]*>.*?</color>\s*", '\n', text, flags=re.S)
               p.write_text(text)
           PY
-          convert "$SOURCE" -resize '420x420' -gravity center -background '#07111f' -extent '1080x1920' "$RES/drawable-nodpi/splash.png"
+          convert "$SPLASH_SOURCE" -resize '420x420' -gravity center -background '#07111f' -extent '1080x1920' "$RES/drawable-nodpi/splash.png"
           find "$RES" -type f -name 'splash.png' ! -path "$RES/drawable-nodpi/splash.png" -print0 | while IFS= read -r -d '' target; do cp "$RES/drawable-nodpi/splash.png" "$target"; done
 
       - name: Apply controlled Android release version
