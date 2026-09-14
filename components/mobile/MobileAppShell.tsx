@@ -179,7 +179,7 @@ export default function MobileAppShell() {
       { key: "home", label: tr ? "Ana Sayfa" : "Home", icon: "⌂", href: `/${locale}` },
       { key: "daily", label: tr ? "Günlük" : "Daily", icon: "🔥", href: `/${locale}/daily` },
       { key: "ranked", label: "Ranked", icon: "⚔", href: `/${locale}/rank` },
-      { key: "competitions", label: tr ? "Ligler" : "Leagues", icon: "🏆", href: `/${locale}/competitions` },
+      { key: "competitions", label: tr ? "Turnuvalar" : "Competitions", icon: "🏆", href: `/${locale}/competitions` },
       { key: "profile", label: tr ? "Profil" : "Profile", icon: "●", href: `/${locale}/profile` },
     ];
   }, [locale]);
