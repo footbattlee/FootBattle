@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 type Locale = "tr" | "en";
 
@@ -9,6 +9,20 @@ type Props = {
   open: boolean;
   locale: Locale;
   onClose: () => void;
+};
+
+type Me = {
+  rank: number | null;
+  totalPlayers: number;
+  score: number;
+  gamesPlayed: number;
+  gamesWon: number;
+  username: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+  xp: number;
+  level: number;
+  currentStreak: number;
 };
 
 const menu = (locale: Locale) => {
@@ -25,6 +39,31 @@ const menu = (locale: Locale) => {
 
 export default function ProfileDrawer({ open, locale, onClose }: Props) {
   const tr = locale === "tr";
+  const [me, setMe] = useState<Me | null>(null);
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+
+    void fetch("/api/leaderboard/me?game=overall&period=all", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("profile-load-failed");
+        return response.json();
+      })
+      .then((body) => {
+        if (cancelled) return;
+        setAuthenticated(Boolean(body?.authenticated));
+        setMe(body?.me ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setAuthenticated(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -39,6 +78,9 @@ export default function ProfileDrawer({ open, locale, onClose }: Props) {
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [open, onClose]);
+
+  const displayName = me?.displayName || me?.username || (tr ? "FootBattle Oyuncusu" : "FootBattle Player");
+  const username = me?.username ? `@${me.username}` : null;
 
   return (
     <div className={`fixed inset-0 z-[140] md:hidden ${open ? "pointer-events-auto" : "pointer-events-none"}`} aria-hidden={!open}>
@@ -68,15 +110,37 @@ export default function ProfileDrawer({ open, locale, onClose }: Props) {
           </button>
         </div>
 
-        <div className="mx-5 rounded-3xl border border-green-300/15 bg-gradient-to-br from-green-400/[.10] to-white/[.03] p-4">
+        <Link
+          href={`/${locale}/profile`}
+          onClick={onClose}
+          className="mx-5 rounded-3xl border border-green-300/15 bg-gradient-to-br from-green-400/[.10] to-white/[.03] p-4 active:scale-[.99]"
+        >
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-green-300/20 bg-green-400/10 text-xl">⚽</div>
-            <div className="min-w-0">
-              <p className="truncate text-base font-black text-white">{tr ? "FootBattle Profilin" : "Your FootBattle Profile"}</p>
-              <p className="mt-0.5 text-xs text-slate-400">{tr ? "Profil, sıralama ve ilerlemen tek yerde" : "Profile, ranking and progress in one place"}</p>
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-green-300/20 bg-green-400/10 text-xl">
+              {me?.avatarUrl ? (
+                <img src={me.avatarUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span>⚽</span>
+              )}
             </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-base font-black text-white">{authenticated === false ? (tr ? "Profiline giriş yap" : "Sign in to your profile") : displayName}</p>
+              {authenticated === false ? (
+                <p className="mt-0.5 text-xs text-slate-400">{tr ? "Sıralama ve ilerlemeni görmek için giriş yap" : "Sign in to see your ranking and progress"}</p>
+              ) : (
+                <>
+                  {username ? <p className="mt-0.5 truncate text-xs font-semibold text-slate-400">{username}</p> : null}
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-black">
+                    <span className="rounded-full border border-white/10 bg-white/[.05] px-2 py-1 text-slate-300">{tr ? "Seviye" : "Level"} {me?.level ?? 1}</span>
+                    <span className="rounded-full border border-white/10 bg-white/[.05] px-2 py-1 text-slate-300">{me?.xp ?? 0} XP</span>
+                    {me?.rank ? <span className="rounded-full border border-yellow-300/15 bg-yellow-300/[.07] px-2 py-1 text-yellow-200">#{me.rank}</span> : null}
+                  </div>
+                </>
+              )}
+            </div>
+            <span className="text-lg text-slate-600">›</span>
           </div>
-        </div>
+        </Link>
 
         <nav className="mt-4 flex-1 overflow-y-auto px-3 pb-6">
           {menu(locale).map((item) => (
