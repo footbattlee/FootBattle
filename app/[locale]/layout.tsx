@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import FavoriteTeamPicker from "@/components/football/FavoriteTeamPicker";
 import { isLocale, locales, type Locale } from "@/lib/i18n/config";
 import { SITE_URL } from "@/lib/seo";
 
@@ -59,6 +60,7 @@ export default async function LocaleLayout({
   return (
     <div data-locale={locale as Locale} lang={locale}>
       {children}
+      <FavoriteTeamPicker locale={locale as Locale} />
     </div>
   );
 }

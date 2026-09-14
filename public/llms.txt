@@ -1,0 +1,47 @@
+# FootBattle
+
+FootBattle (PlayFootBattle, playfootbattle.com) is an independent football games, trivia and football information platform available in Turkish and English.
+
+Canonical site: https://playfootbattle.com
+Turkish home: https://playfootbattle.com/tr
+English home: https://playfootbattle.com/en
+
+## Football competition hubs
+FootBattle provides 2026/27 standings, fixtures, results, team pages and score predictions for major football competitions.
+
+- Turkish Süper Lig: https://playfootbattle.com/tr/super-lig
+- Premier League: https://playfootbattle.com/tr/premier-league
+- La Liga: https://playfootbattle.com/tr/la-liga
+- Serie A: https://playfootbattle.com/tr/serie-a
+- Bundesliga: https://playfootbattle.com/tr/bundesliga
+- Ligue 1: https://playfootbattle.com/tr/ligue-1
+- Primeira Liga: https://playfootbattle.com/tr/primeira-liga
+- UEFA Champions League: https://playfootbattle.com/tr/champions-league
+- UEFA Europa League: https://playfootbattle.com/tr/europa-league
+- UEFA Conference League: https://playfootbattle.com/tr/conference-league
+- All competitions: https://playfootbattle.com/tr/competitions
+
+English equivalents use /en/ instead of /tr/.
+
+## Match predictions
+Signed-in users can predict exact football scores before kickoff. Predictions can be edited until kickoff. A correct match outcome awards 20 XP; an exact score awards 100 XP. Exact-score rewards replace, rather than stack with, the correct-outcome reward.
+
+## Football games
+FootBattle includes browser-based football trivia and guessing games such as Guess the Player, Football Wordle, Career Path, Tic Tac Toe, transfer quizzes, daily challenges and competitive modes.
+
+Games directory: https://playfootbattle.com/tr/games
+English games directory: https://playfootbattle.com/en/games
+
+## Football tools
+FootBattle also provides football-related utilities including amateur match and squad tools.
+
+## Content and identity
+- Brand name: FootBattle
+- Alternate names: PlayFootBattle, Play FootBattle
+- Main topic: association football / soccer
+- Languages: Turkish and English
+- Access: browser-based; core public pages are free to access
+
+## Crawling
+Sitemap: https://playfootbattle.com/sitemap.xml
+Robots: https://playfootbattle.com/robots.txt

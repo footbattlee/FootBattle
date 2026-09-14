@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import GeoAnswerSection from "@/components/GeoAnswerSection";
+import CompetitionLinks from "@/components/football/CompetitionLinks";
 import DesktopHomeOnly from "@/components/mobile/DesktopHomeOnly";
 import { isLocale, type Locale } from "@/lib/i18n/config";
 
@@ -15,6 +16,7 @@ export default async function LocaleHomePage({
   return (
     <>
       <DesktopHomeOnly locale={locale as Locale} />
+      <CompetitionLinks locale={locale as Locale} />
       {locale === "en" ? (
         <GeoAnswerSection
           title="What is FootBattle?"

@@ -2,19 +2,36 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 
+import ProfileDrawer from "@/components/mobile/ProfileDrawer";
+
 type Locale = "tr" | "en";
-type NavItem = { key: "home" | "daily" | "ranked" | "leaderboard" | "profile"; label: string; icon: string; href: string };
+type NavItem = { key: "home" | "daily" | "ranked" | "competitions" | "profile"; label: string; icon: string; href: string };
 
 const BADGE_POLL_MS = 60_000;
 const BADGE_MIN_GAP_MS = 15_000;
+const COMPETITION_PATHS = [
+  "/competitions",
+  "/super-lig",
+  "/premier-league",
+  "/la-liga",
+  "/serie-a",
+  "/bundesliga",
+  "/ligue-1",
+  "/primeira-liga",
+  "/champions-league",
+] as const;
 
 function getLocale(pathname: string): Locale { return pathname === "/en" || pathname.startsWith("/en/") ? "en" : "tr"; }
 function stripLocale(pathname: string) { if (pathname === "/tr" || pathname === "/en") return "/"; if (pathname.startsWith("/tr/") || pathname.startsWith("/en/")) return pathname.slice(3) || "/"; return pathname; }
-function shouldShowShell(pathname: string) { return ["/", "/daily", "/duels", "/rank", "/ranking", "/profile"].includes(stripLocale(pathname)); }
+function isCompetitionPath(plain: string) { return COMPETITION_PATHS.some((path) => plain === path || plain.startsWith(`${path}/`)); }
+function shouldShowShell(pathname: string) {
+  const plain = stripLocale(pathname);
+  return ["/", "/daily", "/duels", "/rank", "/ranking", "/profile"].includes(plain) || isCompetitionPath(plain);
+}
 function routeName(plain: string) {
   if (plain.startsWith("/tic-tac-toe/duel/")) return "tic-tac-toe-duel";
   if (plain === "/tic-tac-toe") return "tic-tac-toe-solo";
@@ -25,6 +42,7 @@ function routeName(plain: string) {
   if (plain === "/duels") return "duels";
   if (plain === "/rank") return "rank";
   if (plain === "/ranking") return "ranking";
+  if (isCompetitionPath(plain)) return "competitions";
   if (plain === "/profile") return "profile";
   if (plain === "/") return "home";
   return "other";
@@ -36,11 +54,14 @@ export default function MobileAppShell() {
   const plainPath = stripLocale(pathname);
   const [incomingCount, setIncomingCount] = useState(0);
   const [rankedContext, setRankedContext] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const lastBadgeLoadAt = useRef(0);
   const badgeInFlight = useRef(false);
+  const closeProfileMenu = useCallback(() => setProfileMenuOpen(false), []);
 
   useEffect(() => { document.body.dataset.mobileRoute = routeName(plainPath); return () => { delete document.body.dataset.mobileRoute; }; }, [plainPath]);
   useEffect(() => { setRankedContext(new URLSearchParams(window.location.search).get("ranked") === "1"); }, [pathname]);
+  useEffect(() => { setProfileMenuOpen(false); }, [pathname]);
 
   useEffect(() => {
     let cancelled = false;
@@ -163,7 +184,7 @@ export default function MobileAppShell() {
       { key: "home", label: tr ? "Ana Sayfa" : "Home", icon: "⌂", href: `/${locale}` },
       { key: "daily", label: tr ? "Günlük" : "Daily", icon: "🔥", href: `/${locale}/daily` },
       { key: "ranked", label: "Ranked", icon: "⚔", href: `/${locale}/rank` },
-      { key: "leaderboard", label: tr ? "Sıralama" : "Ranks", icon: "♛", href: `/${locale}/ranking` },
+      { key: "competitions", label: tr ? "Turnuvalar" : "Competitions", icon: "🏆", href: `/${locale}/competitions` },
       { key: "profile", label: tr ? "Profil" : "Profile", icon: "●", href: `/${locale}/profile` },
     ];
   }, [locale]);
@@ -181,21 +202,22 @@ export default function MobileAppShell() {
     if (item.key === "home") return plainPath === "/";
     if (item.key === "daily") return plainPath === "/daily";
     if (item.key === "ranked") return plainPath === "/rank" || plainPath === "/duels";
-    if (item.key === "leaderboard") return plainPath === "/ranking";
-    if (item.key === "profile") return plainPath === "/profile";
+    if (item.key === "competitions") return isCompetitionPath(plainPath);
+    if (item.key === "profile") return plainPath === "/profile" || profileMenuOpen;
     return false;
   }
 
   const navLayer = plainPath === "/duels" ? "z-[60]" : "z-[100]";
 
   return <>
+    <ProfileDrawer open={profileMenuOpen} locale={locale} onClose={closeProfileMenu} />
     <div aria-hidden="true" className="h-[calc(74px+env(safe-area-inset-bottom))] md:hidden" />
     <nav aria-label={locale === "tr" ? "Mobil ana navigasyon" : "Mobile primary navigation"} className={`fixed inset-x-0 bottom-0 ${navLayer} border-t border-white/10 bg-[#07111f]/95 px-1 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl md:hidden`}>
       <div className="mx-auto grid h-[74px] max-w-[620px] grid-cols-5 items-stretch">
         {items.map((item) => {
           const active = isActive(item);
           const ranked = item.key === "ranked";
-          return <Link key={item.key} href={item.href} aria-current={active ? "page" : undefined} className={`group relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-0.5 text-center transition active:scale-95 ${active ? "text-green-300" : "text-slate-500"}`}>
+          const content = <>
             {ranked ? (
               <span className={`relative flex h-9 w-9 -translate-y-1 items-center justify-center rounded-2xl border text-base font-black shadow-lg ${active ? "border-green-200/40 bg-green-400 text-[#07111f] shadow-green-950/30" : "border-green-300/20 bg-green-500 text-[#07111f] shadow-green-950/20"}`}>
                 {item.icon}
@@ -206,7 +228,14 @@ export default function MobileAppShell() {
             )}
             <span className={`truncate text-[9px] font-black sm:text-[10px] ${ranked ? "-mt-1" : ""}`}>{item.label}</span>
             {active && !ranked ? <span className="absolute bottom-1.5 h-1 w-4 rounded-full bg-green-400" /> : null}
-          </Link>;
+          </>;
+          const className = `group relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-0.5 text-center transition active:scale-95 ${active ? "text-green-300" : "text-slate-500"}`;
+
+          if (item.key === "profile") {
+            return <button key={item.key} type="button" aria-expanded={profileMenuOpen} aria-controls="mobile-profile-drawer" onClick={() => setProfileMenuOpen((value) => !value)} className={className}>{content}</button>;
+          }
+
+          return <Link key={item.key} href={item.href} aria-current={active ? "page" : undefined} className={className}>{content}</Link>;
         })}
       </div>
     </nav>
