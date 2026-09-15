@@ -8,7 +8,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const pages: Array<{ path: string; changeFrequency: "daily" | "weekly"; priority: number }> = [
     { path: "/futbol-oyunlari", changeFrequency: "weekly", priority: 0.95 },
     { path: "/futbolcu-tahmin-oyunu", changeFrequency: "weekly", priority: 0.9 },
-    { path: "/super-lig-futbolcu-tahmin", changeFrequency: "weekly", priority: 0.92 },
     { path: "/futbol-bilgi-yarismasi", changeFrequency: "weekly", priority: 0.9 },
     { path: "/football-wordle", changeFrequency: "weekly", priority: 0.9 },
     { path: "/super-lig-quiz", changeFrequency: "weekly", priority: 0.9 },
@@ -56,7 +55,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/en/conference-league", changeFrequency: "daily", priority: 0.94 },
     { path: "/tr/guess-the-player", changeFrequency: "daily", priority: 0.95 },
     { path: "/en/guess-the-player", changeFrequency: "daily", priority: 0.95 },
-    { path: "/tr/guess-the-player/super-lig", changeFrequency: "daily", priority: 0.98 },
+    { path: "/tr/guess-the-player/super-lig", changeFrequency: "daily", priority: 1 },
     { path: "/en/guess-the-player/super-lig", changeFrequency: "daily", priority: 0.92 },
     { path: "/tr/career-path", changeFrequency: "daily", priority: 0.9 },
     { path: "/en/career-path", changeFrequency: "daily", priority: 0.9 },
