@@ -26,16 +26,27 @@ export async function GET(
   request: Request,
   context: { params: Promise<{ token: string }> },
 ) {
+  const startedAt = performance.now();
+  let checkpoint = startedAt;
+  const timings: Record<string, number> = {};
+  const mark = (name: string) => {
+    const now = performance.now();
+    timings[name] = Math.round(now - checkpoint);
+    checkpoint = now;
+  };
+
   try {
     const locale = footballLocaleFromRequest(request);
     const { token: rawToken } = await context.params;
     const token = sanitizeDuelToken(rawToken);
+    mark("params");
 
     let challenge: DuelChallenge;
     let role: DuelSide;
     let publicView = false;
 
     const access = await requireTicTacToeParticipant(token);
+    mark("participant_auth");
     if (access.ok) {
       challenge = access.challenge;
       role = access.role;
@@ -60,9 +71,12 @@ export async function GET(
     if (challenge.status === "playing") {
       await runRankedTicTacToeBotTick(challenge);
     }
+    mark("ranked_bot_tick");
 
     const duel = await ensureTicTacToeDuel(challenge);
+    mark("ensure_duel");
     const attempts = await getDuelAttempts(duel.id);
+    mark("attempts");
 
     if (challenge.status !== "completed") {
       const winner = getWinningSide(attempts);
@@ -78,9 +92,11 @@ export async function GET(
     } else {
       await syncRankedMatchCompletion(challenge.invite_token, challenge.winner_side);
     }
+    mark("completion_sync");
 
     let turn = await ensureTurnState(duel.id);
     if (challenge.status !== "completed") turn = await normalizeExpiredTurn(duel.id, turn);
+    mark("turn_state");
 
     const playerIds = Array.from(
       new Set(attempts.filter((attempt) => attempt.correct).map((attempt) => Number(attempt.player_id))),
@@ -92,6 +108,7 @@ export async function GET(
           .in("player_id", playerIds)
       : { data: [], error: null };
     if (playerError) throw playerError;
+    mark("player_details");
 
     const playerMap = new Map(
       (playerRows ?? []).map((player) => [
@@ -132,6 +149,9 @@ export async function GET(
             : "loss"
       : null;
 
+    timings.total = Math.round(performance.now() - startedAt);
+    console.info("[TTT_PERF]", JSON.stringify({ token: token.slice(0, 8), challengeId: challenge.id, timings }));
+
     return NextResponse.json({
       ok: true,
       role,
@@ -143,6 +163,7 @@ export async function GET(
       isMyTurn: !publicView && !completed && turn.currentTurn === role,
       turnRemainingSeconds: completed ? 0 : turnRemainingSeconds(turn.turnStartedAt),
       drawOfferBy: completed ? null : turn.drawOfferBy,
+      perf: process.env.NODE_ENV !== "production" ? timings : undefined,
       game: {
         code: "tic_tac_toe",
         label: locale === "en" ? "Football Tic Tac Toe Duel" : "Futbol Tic Tac Toe Düello",
@@ -177,7 +198,8 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Tic Tac Toe duel state error:", error);
+    timings.total = Math.round(performance.now() - startedAt);
+    console.error("Tic Tac Toe duel state error:", error, timings);
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "Düello durumu okunamadı." },
       { status: 500 },
