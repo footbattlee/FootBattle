@@ -9,10 +9,14 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   const en = locale === "en";
+  const canonical = `${SITE_URL}/${locale}/champions-league`;
+  const title = en ? "Champions League Standings, Fixtures & Results 2026/27 | FootBattle" : "Şampiyonlar Ligi Puan Durumu, Fikstür ve Maç Sonuçları | FootBattle";
+  const description = en ? "Follow the 2026/27 UEFA Champions League standings, fixtures, results, teams and score predictions on FootBattle." : "2026/27 UEFA Şampiyonlar Ligi puan durumu, fikstür, maç sonuçları, takımlar ve skor tahminlerini FootBattle'da takip et.";
   return {
-    title: en ? "Champions League Standings & Fixtures | FootBattle" : "Şampiyonlar Ligi Puan Durumu ve Fikstür | FootBattle",
-    description: en ? "Follow UEFA Champions League standings, recent results and upcoming fixtures on FootBattle." : "UEFA Şampiyonlar Ligi puan durumu, son sonuçlar ve yaklaşan maçları FootBattle'da takip et.",
-    alternates: { canonical: `${SITE_URL}/${locale}/champions-league`, languages: localizedAlternates("/champions-league") },
+    title, description,
+    keywords: en ? ["Champions League standings", "Champions League fixtures", "Champions League results", "UCL fixtures", "UCL standings"] : ["şampiyonlar ligi puan durumu", "şampiyonlar ligi fikstür", "şampiyonlar ligi maç sonuçları", "şampiyonlar ligi maçları", "ucl fikstür"],
+    alternates: { canonical, languages: localizedAlternates("/champions-league") },
+    openGraph: { type: "website", siteName: "FootBattle", title, description, url: canonical },
   };
 }
 
