@@ -42,36 +42,22 @@ export default function DesktopHomeOnly({ locale }: { locale: Locale }) {
       if (firstCard && !gameSection?.querySelector('[data-desktop-shooter-card="true"]')) {
         const shooterCard = firstCard.cloneNode(true) as HTMLElement;
         shooterCard.dataset.desktopShooterCard = "true";
-
         const title = shooterCard.querySelector("h3");
         if (title) title.textContent = locale === "tr" ? "Penaltı" : "Penalty Challenge";
-
         const paragraphs = Array.from(shooterCard.querySelectorAll("p"));
-        if (paragraphs[0]) {
-          paragraphs[0].textContent = locale === "tr"
-            ? "Topu geri ve yana çek, hedefini belirle ve kaleciyi geç. 10 şutta en yüksek skoru yap."
-            : "Pull the ball back and sideways, pick your target and beat the keeper. Score as high as you can in 10 shots.";
-        }
-
+        if (paragraphs[0]) paragraphs[0].textContent = locale === "tr" ? "Topu geri ve yana çek, hedefini belirle ve kaleciyi geç. 10 şutta en yüksek skoru yap." : "Pull the ball back and sideways, pick your target and beat the keeper. Score as high as you can in 10 shots.";
         const emoji = Array.from(shooterCard.querySelectorAll("span")).find((span) => span.textContent?.trim() === "🟩");
         if (emoji) emoji.textContent = "⚽";
-
         const modeBadge = Array.from(shooterCard.querySelectorAll("span")).find((span) => {
           const text = span.textContent?.trim().toLocaleLowerCase("tr-TR") ?? "";
           return text.includes("tek oyuncu") || text === "solo";
         });
         if (modeBadge) modeBadge.textContent = locale === "tr" ? "TEK OYUNCU" : "SOLO";
-
         const actionLinks = Array.from(shooterCard.querySelectorAll("a"));
         actionLinks.forEach((link, index) => {
-          if (index === 0) {
-            link.setAttribute("href", "/penalty");
-            link.textContent = locale === "tr" ? "Oyna" : "Play";
-          } else {
-            link.remove();
-          }
+          if (index === 0) { link.setAttribute("href", "/penalty"); link.textContent = locale === "tr" ? "Oyna" : "Play"; }
+          else link.remove();
         });
-
         firstCard.parentElement?.insertBefore(shooterCard, firstCard);
       }
 
@@ -83,15 +69,12 @@ export default function DesktopHomeOnly({ locale }: { locale: Locale }) {
         const title = card.querySelector("h3")?.textContent?.trim() ?? "";
         const actionLinks = Array.from(card.querySelectorAll("a"));
         const duelLinks = actionLinks.filter((link) => link.textContent?.includes("Düello") || link.textContent?.includes("Duel"));
-
         if (unsupportedDuelTitles.has(title)) {
           duelLinks.forEach((link) => link.remove());
           const modeBadge = Array.from(card.querySelectorAll("span")).find((span) => span.textContent?.includes("Düello") || span.textContent?.includes("Duel"));
           if (modeBadge) modeBadge.textContent = locale === "tr" ? "TEK OYUNCU" : "SOLO";
         }
-
         if (clubClashTitles.has(title)) duelLinks.forEach((link) => link.setAttribute("href", duelsHref));
-
         if (!rankedGameTitles.has(title) || card.querySelector('[data-desktop-ranked-card="true"]')) return;
         const actionRows = Array.from(card.querySelectorAll("div")).filter((node) => node.className.includes("flex") && node.className.includes("flex-wrap") && node.className.includes("gap-2"));
         const actions = actionRows[actionRows.length - 1];
@@ -108,8 +91,8 @@ export default function DesktopHomeOnly({ locale }: { locale: Locale }) {
         const text = node.textContent ?? "";
         if (text.includes("Tic Tac Toe düello modu") || text.includes("Tic Tac Toe duel mode")) {
           node.textContent = locale === "tr"
-            ? "Yeni rekabetçi oyun modları ve FootBattle özellikleri geliştirmeye devam ediyor."
-            : "New competitive game modes and FootBattle features are continuing to grow.";
+            ? "Futbol Tic Tac Toe artık Ranked Arena'da gerçek rakiplere karşı oynanabiliyor. ELO sıralamasında yüksel, arkadaşlarınla düello yap ve rekabetçi futbol bilgini kanıtla."
+            : "Football Tic Tac Toe is now playable against real opponents in Ranked Arena. Climb the ELO rankings, challenge friends and prove your competitive football knowledge.";
         }
       });
     };
