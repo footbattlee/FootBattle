@@ -1,7 +1,7 @@
 import SeoLandingPage from "@/components/SeoLandingPage";
 import { createGameMetadata, GameJsonLd } from "@/lib/seo";
 
-const description = "Football Wordle oyna. Gizli futbolcu soyadını harf ipuçlarıyla bul, günlük değil istediğin kadar tekrar oyna. Ücretsiz futbol Wordle oyunu.";
+const description = "Football Wordle oyna. Gizli futbolcu soyadını harf ipuçlarıyla bul, istediğin kadar tekrar oyna. Ücretsiz Türkçe futbol Wordle oyunu.";
 
 export const metadata = createGameMetadata({
   path: "/football-wordle",
@@ -31,9 +31,10 @@ export default function Page() {
           { question: "Oyunda futbolcuların adı mı soyadı mı tahmin ediliyor?", answer: "Temel oyun futbolcu soyadını tahmin etme mantığıyla çalışır." }
         ]}
         relatedLinks={[
-          { href: "/futbolcu-tahmin-oyunu", label: "Futbolcu Tahmin", description: "Özellik ipuçlarından oyuncuyu bul." },
-          { href: "/kariyerden-futbolcu-bul", label: "Career Path", description: "Kariyer yolundan futbolcuyu tahmin et." },
-          { href: "/futbol-bilgi-yarismasi", label: "Futbol Bilgi Yarışması", description: "Futbol bilgini farklı kategorilerde test et." }
+          { href: "/tr/guess-the-player", label: "Guess The Player", description: "Kulüp, lig, milliyet ve diğer ipuçlarından gizli futbolcuyu bul." },
+          { href: "/tr/guess-the-player/super-lig", label: "Süper Lig Futbolcu Tahmin", description: "Süper Lig oyuncularını ipuçlarından tahmin et." },
+          { href: "/tr/career-path", label: "Career Path", description: "Kulüp kariyerinden futbolcuyu tahmin et." },
+          { href: "/futbol-oyunlari", label: "Tüm Futbol Oyunları", description: "FootBattle'daki diğer ücretsiz futbol oyunlarını keşfet." }
         ]}
       />
     </>
