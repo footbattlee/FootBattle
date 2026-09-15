@@ -44,7 +44,16 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
   async function prepareAndOpenMatch(match: NonNullable<MatchmakingResponse["match"]>) {
     if (match.game_code === "tic_tac_toe" && match.challenge_token) {
       setMatchMessage(match.opponent_kind === "bot" ? (match.bot_name ?? "Bot Eren :)") : (tr ? "Gerçek Oyuncu" : "Real Player"));
-      await fetch(`/api/challenges/${encodeURIComponent(match.challenge_token)}/tic-tac-toe/state`, { cache: "no-store" }).catch(() => null);
+      const duelUrl = `/tic-tac-toe/duel/${encodeURIComponent(match.challenge_token)}?ranked=1&match=${encodeURIComponent(match.id)}`;
+      try {
+        const response = await fetch(`/api/challenges/${encodeURIComponent(match.challenge_token)}/tic-tac-toe/state`, { cache: "no-store" });
+        if (!response.ok) throw new Error("grid_prewarm_failed");
+      } catch {
+        router.push(`/${locale}/rank/match/${match.id}`);
+        return;
+      }
+      router.push(duelUrl);
+      return;
     }
     router.push(`/${locale}/rank/match/${match.id}`);
   }
