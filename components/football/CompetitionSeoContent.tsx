@@ -4,21 +4,15 @@ import { COMPETITIONS, type CompetitionKey, type CompetitionSnapshot } from "@/l
 import type { Locale } from "@/lib/i18n/config";
 import { BreadcrumbJsonLd, FAQJsonLd, JsonLd, SITE_URL } from "@/lib/seo";
 
-function dateText(value: string, locale: Locale) {
-  return new Intl.DateTimeFormat(locale === "tr" ? "tr-TR" : "en-GB", { timeZone: "Europe/Istanbul", day: "numeric", month: "long", year: "numeric" }).format(new Date(value));
-}
+function dateText(value: string, locale: Locale) { return new Intl.DateTimeFormat(locale === "tr" ? "tr-TR" : "en-GB", { timeZone: "Europe/Istanbul", day: "numeric", month: "long", year: "numeric" }).format(new Date(value)); }
 
 export default function CompetitionSeoContent({ competition, locale, snapshot }: { competition: CompetitionKey; locale: Locale; snapshot: CompetitionSnapshot }) {
-  const tr = locale === "tr";
-  const config = COMPETITIONS[competition];
-  const name = tr ? config.trName : config.enName;
-  const path = `/${locale}/${competition}`;
-  const url = `${SITE_URL}${path}`;
-  const upcoming = snapshot.matches.filter((match) => match.state === "pre").slice(0, 8);
-  const completed = snapshot.matches.filter((match) => match.state === "post");
-  const nextMatch = upcoming[0];
-  const superLig = competition === "super-lig";
-  const featuredTeams = superLig ? snapshot.standings.slice(0, 8) : [];
+  const tr = locale === "tr"; const config = COMPETITIONS[competition]; const name = tr ? config.trName : config.enName; const url = `${SITE_URL}/${locale}/${competition}`;
+  const upcoming = snapshot.matches.filter((m) => m.state === "pre").slice(0, 8); const completed = snapshot.matches.filter((m) => m.state === "post"); const nextMatch = upcoming[0];
+  const superLig = competition === "super-lig"; const featuredTeams = snapshot.standings.slice(0, 8);
+  const related: { key: CompetitionKey; tr: string; en: string }[] = [
+    { key: "super-lig", tr: "Süper Lig", en: "Süper Lig" }, { key: "champions-league", tr: "Şampiyonlar Ligi", en: "Champions League" }, { key: "premier-league", tr: "Premier League", en: "Premier League" }, { key: "europa-league", tr: "Avrupa Ligi", en: "Europa League" }, { key: "conference-league", tr: "Konferans Ligi", en: "Conference League" },
+  ].filter((x) => x.key !== competition);
 
   const faqs = tr ? [
     { question: `${name} puan durumu nereden takip edilir?`, answer: `FootBattle ${name} merkezinde 2026/27 sezonunun güncel puan durumunu, oynanan maçları ve puanları tek sayfada gösterir.` },
@@ -37,35 +31,16 @@ export default function CompetitionSeoContent({ competition, locale, snapshot }:
     ...(upcoming.length ? [{ "@type": "ItemList", "@id": `${url}#upcoming-matches`, name: tr ? `${name} yaklaşan maçlar` : `${name} upcoming matches`, itemListElement: upcoming.map((match, index) => ({ "@type": "ListItem", position: index + 1, item: { "@type": "SportsEvent", name: `${match.home.name} - ${match.away.name}`, startDate: match.date, sport: "Football", homeTeam: { "@type": "SportsTeam", name: match.home.name }, awayTeam: { "@type": "SportsTeam", name: match.away.name }, eventStatus: "https://schema.org/EventScheduled" } })) }] : []),
   ] };
 
-  return <>
-    <JsonLd data={graph} />
-    <BreadcrumbJsonLd items={[{ name: "FootBattle", path: `/${locale}` }, { name: tr ? "Ligler ve Turnuvalar" : "Leagues and Tournaments", path: `/${locale}/competitions` }, { name }]} />
-    <FAQJsonLd faqs={faqs} />
+  return <><JsonLd data={graph} /><BreadcrumbJsonLd items={[{ name: "FootBattle", path: `/${locale}` }, { name: tr ? "Ligler ve Turnuvalar" : "Leagues and Tournaments", path: `/${locale}/competitions` }, { name }]} /><FAQJsonLd faqs={faqs} />
     <section className="mt-10 rounded-3xl border border-white/10 bg-white/[.025] p-6 sm:p-8">
-      <p className="text-xs font-black uppercase tracking-[.2em] text-cyan-300">{tr ? "2026/27 LİG REHBERİ" : "2026/27 COMPETITION GUIDE"}</p>
-      <h2 className="mt-2 text-2xl font-black">{tr ? `${name} puan durumu, fikstür ve maç sonuçları` : `${name} standings, fixtures and results`}</h2>
+      <p className="text-xs font-black uppercase tracking-[.2em] text-cyan-300">{tr ? "2026/27 LİG REHBERİ" : "2026/27 COMPETITION GUIDE"}</p><h2 className="mt-2 text-2xl font-black">{tr ? `${name} puan durumu, fikstür ve maç sonuçları` : `${name} standings, fixtures and results`}</h2>
       <p className="mt-4 max-w-4xl text-sm leading-7 text-slate-300">{tr ? `FootBattle'da ${name} sezonunu tek ekrandan takip edebilirsin. Güncel puan durumu, hafta veya tur bazlı fikstür, tamamlanan maçların skorları ve takım sayfaları aynı veri akışında bir araya gelir.` : `Follow the ${name} season in one place on FootBattle. Current standings, fixtures by matchweek or round, completed results and team pages are combined in the same football data experience.`}</p>
-
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl border border-white/10 bg-[#0d1828] p-4"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">{tr ? "Takım" : "Teams"}</p><p className="mt-1 text-2xl font-black">{snapshot.standings.length || "—"}</p></div>
-        <div className="rounded-2xl border border-white/10 bg-[#0d1828] p-4"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">{tr ? "Tamamlanan Maç" : "Completed Matches"}</p><p className="mt-1 text-2xl font-black">{completed.length}</p></div>
-        <div className="rounded-2xl border border-white/10 bg-[#0d1828] p-4"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">{tr ? "Sıradaki Maç" : "Next Match"}</p><p className="mt-1 text-sm font-black">{nextMatch ? dateText(nextMatch.date, locale) : (tr ? "Henüz açıklanmadı" : "Not announced yet")}</p></div>
-      </div>
-
-      {superLig && featuredTeams.length ? <div className="mt-8">
-        <h3 className="text-lg font-black">{tr ? "Süper Lig takım sayfaları" : "Süper Lig team pages"}</h3>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">{tr ? "Takım sayfalarından fikstür, son maç sonuçları, lig durumu ve güncel kadroya ulaş." : "Open a team page for fixtures, recent results, league position and the current squad."}</p>
-        <div className="mt-4 flex flex-wrap gap-2">{featuredTeams.map((team) => <Link key={team.teamId} href={`/${locale}/super-lig/team/${team.teamId}`} className="rounded-xl border border-white/10 bg-white/[.04] px-4 py-2.5 text-xs font-black hover:border-emerald-300/30 hover:text-emerald-300">{team.teamName}</Link>)}</div>
-      </div> : null}
-
-      {superLig ? <div className="mt-8 rounded-2xl border border-emerald-400/20 bg-emerald-400/[.06] p-5">
-        <h3 className="text-lg font-black">{tr ? "Süper Lig bilginizi test edin" : "Test your Süper Lig knowledge"}</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-400">{tr ? "Fikstür ve puan durumunu takip ettikten sonra aktif Süper Lig futbolcularını ipuçlarıyla tahmin et." : "After checking the standings and fixtures, identify active Süper Lig players from football clues."}</p>
-        <Link href={`/${locale}/guess-the-player/super-lig`} className="mt-4 inline-flex rounded-xl bg-emerald-400 px-4 py-3 text-xs font-black text-[#07111f] hover:bg-emerald-300">{tr ? "Süper Lig Futbolcu Tahmin Oyunu" : "Play Süper Lig Guess the Player"}</Link>
-      </div> : null}
-
-      <div className="mt-8"><h3 className="text-lg font-black">{tr ? `${name} hakkında sık sorulanlar` : `Frequently asked questions about ${name}`}</h3><div className="mt-4 space-y-3">{faqs.map((faq) => <details key={faq.question} className="rounded-2xl border border-white/10 bg-white/[.025] p-4"><summary className="cursor-pointer text-sm font-black text-white">{faq.question}</summary><p className="mt-3 text-sm leading-6 text-slate-400">{faq.answer}</p></details>)}</div></div>
-      <div className="mt-7 flex flex-wrap gap-3 text-xs font-black"><Link href={`/${locale}/competitions`} className="rounded-xl border border-white/10 bg-white/[.04] px-4 py-3 hover:bg-white/[.08]">{tr ? "Tüm ligleri gör" : "See all competitions"}</Link><Link href={`/${locale}/games`} className="rounded-xl border border-white/10 bg-white/[.04] px-4 py-3 hover:bg-white/[.08]">{tr ? "Futbol oyunlarını oyna" : "Play football games"}</Link></div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-3"><div className="rounded-2xl border border-white/10 bg-[#0d1828] p-4"><p className="text-[10px] font-black uppercase text-slate-500">{tr ? "Takım" : "Teams"}</p><p className="mt-1 text-2xl font-black">{snapshot.standings.length || "—"}</p></div><div className="rounded-2xl border border-white/10 bg-[#0d1828] p-4"><p className="text-[10px] font-black uppercase text-slate-500">{tr ? "Tamamlanan Maç" : "Completed Matches"}</p><p className="mt-1 text-2xl font-black">{completed.length}</p></div><div className="rounded-2xl border border-white/10 bg-[#0d1828] p-4"><p className="text-[10px] font-black uppercase text-slate-500">{tr ? "Sıradaki Maç" : "Next Match"}</p><p className="mt-1 text-sm font-black">{nextMatch ? dateText(nextMatch.date, locale) : (tr ? "Henüz açıklanmadı" : "Not announced yet")}</p></div></div>
+      {featuredTeams.length ? <div className="mt-8"><h3 className="text-lg font-black">{tr ? `${name} takım sayfaları` : `${name} team pages`}</h3><p className="mt-2 text-sm leading-6 text-slate-400">{tr ? "Takım sayfalarından fikstür, sonuçlar, organizasyon durumu ve güncel kadroya ulaş." : "Open team pages for fixtures, results, competition status and current squads."}</p><div className="mt-4 flex flex-wrap gap-2">{featuredTeams.map((team) => <Link key={team.teamId} href={`/${locale}/${competition}/team/${team.teamId}`} className="rounded-xl border border-white/10 bg-white/[.04] px-4 py-2.5 text-xs font-black hover:text-emerald-300">{team.teamName}</Link>)}</div></div> : null}
+      {superLig ? <div className="mt-8 rounded-2xl border border-emerald-400/20 bg-emerald-400/[.06] p-5"><h3 className="text-lg font-black">{tr ? "Süper Lig bilginizi test edin" : "Test your Süper Lig knowledge"}</h3><p className="mt-2 text-sm leading-6 text-slate-400">{tr ? "Aktif Süper Lig futbolcularını kulüp, milliyet, pozisyon, yaş ve ayak ipuçlarıyla tahmin et." : "Identify active Süper Lig players from club, nationality, position, age and foot clues."}</p><Link href={`/${locale}/guess-the-player/super-lig`} className="mt-4 inline-flex rounded-xl bg-emerald-400 px-4 py-3 text-xs font-black text-[#07111f]">{tr ? "Süper Lig Futbolcu Tahmin Oyunu" : "Play Süper Lig Guess the Player"}</Link></div> : null}
+      <div className="mt-8"><h3 className="text-lg font-black">{tr ? "Diğer lig ve turnuvalar" : "More leagues and tournaments"}</h3><div className="mt-4 flex flex-wrap gap-2">{related.map((item) => <Link key={item.key} href={`/${locale}/${item.key}`} className="rounded-xl border border-white/10 bg-white/[.04] px-4 py-2.5 text-xs font-black hover:border-cyan-300/30 hover:text-cyan-300">{tr ? item.tr : item.en}</Link>)}</div></div>
+      <div className="mt-8"><h3 className="text-lg font-black">{tr ? `${name} hakkında sık sorulanlar` : `Frequently asked questions about ${name}`}</h3><div className="mt-4 space-y-3">{faqs.map((faq) => <details key={faq.question} className="rounded-2xl border border-white/10 bg-white/[.025] p-4"><summary className="cursor-pointer text-sm font-black">{faq.question}</summary><p className="mt-3 text-sm leading-6 text-slate-400">{faq.answer}</p></details>)}</div></div>
+      <div className="mt-7 flex flex-wrap gap-3 text-xs font-black"><Link href={`/${locale}/competitions`} className="rounded-xl border border-white/10 bg-white/[.04] px-4 py-3">{tr ? "Tüm ligleri gör" : "See all competitions"}</Link><Link href={`/${locale}/games`} className="rounded-xl border border-white/10 bg-white/[.04] px-4 py-3">{tr ? "Futbol oyunlarını oyna" : "Play football games"}</Link></div>
     </section>
   </>;
 }
