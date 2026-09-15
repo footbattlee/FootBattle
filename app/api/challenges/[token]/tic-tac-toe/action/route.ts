@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { syncRankedMatchCompletion } from "@/lib/ranked/shared-engine";
 import { ensureTicTacToeDuel, requireTicTacToeParticipant, type DuelSide } from "@/lib/tic-tac-toe/duel-server";
 import { ensureTurnState, finalizeTurnDuel, otherSide } from "@/lib/tic-tac-toe/turn-duel";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -21,16 +22,14 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     if (body.action === "forfeit") {
       const winner = otherSide(side);
       await finalizeTurnDuel(access.challenge, winner);
+      await syncRankedMatchCompletion(access.challenge.invite_token, winner);
       return NextResponse.json({ ok: true, completed: true, winnerSide: winner, message: "Pes ettin. Rakip kazandı." });
     }
 
     if (body.action === "offer_draw") {
       if (turn.drawOfferBy === side) return NextResponse.json({ ok: true, drawOfferBy: side, message: "Beraberlik teklifin zaten bekliyor." });
       const now = new Date().toISOString();
-      const { error } = await supabaseAdmin
-        .from("tic_tac_toe_duels")
-        .update({ draw_offer_by: side, updated_at: now })
-        .eq("id", duel.id);
+      const { error } = await supabaseAdmin.from("tic_tac_toe_duels").update({ draw_offer_by: side, updated_at: now }).eq("id", duel.id);
       if (error) throw error;
       return NextResponse.json({ ok: true, drawOfferBy: side, message: "Beraberlik teklifi gönderildi." });
     }
@@ -38,16 +37,14 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     if (body.action === "accept_draw") {
       if (!turn.drawOfferBy || turn.drawOfferBy === side) return NextResponse.json({ ok: false, error: "Kabul edilecek rakip beraberlik teklifi yok." }, { status: 409 });
       await finalizeTurnDuel(access.challenge, "draw");
+      await syncRankedMatchCompletion(access.challenge.invite_token, "draw");
       return NextResponse.json({ ok: true, completed: true, winnerSide: "draw", message: "Beraberlik kabul edildi." });
     }
 
     if (body.action === "decline_draw") {
       if (!turn.drawOfferBy || turn.drawOfferBy === side) return NextResponse.json({ ok: false, error: "Reddedilecek rakip beraberlik teklifi yok." }, { status: 409 });
       const now = new Date().toISOString();
-      const { error } = await supabaseAdmin
-        .from("tic_tac_toe_duels")
-        .update({ draw_offer_by: null, updated_at: now })
-        .eq("id", duel.id);
+      const { error } = await supabaseAdmin.from("tic_tac_toe_duels").update({ draw_offer_by: null, updated_at: now }).eq("id", duel.id);
       if (error) throw error;
       return NextResponse.json({ ok: true, drawOfferBy: null, message: "Beraberlik teklifi reddedildi." });
     }
