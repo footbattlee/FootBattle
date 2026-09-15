@@ -41,17 +41,9 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
     return gameCode === "club_nation" ? "/api/rank/club-nation-matchmaking" : "/api/rank/matchmaking";
   }
 
-  async function prepareAndOpenMatch(match: NonNullable<MatchmakingResponse["match"]>) {
+  function prepareAndOpenMatch(match: NonNullable<MatchmakingResponse["match"]>) {
     if (match.game_code === "tic_tac_toe" && match.challenge_token) {
-      setMatchMessage(match.opponent_kind === "bot" ? (match.bot_name ?? "Bot Eren :)") : (tr ? "Gerçek Oyuncu" : "Real Player"));
       const duelUrl = `/tic-tac-toe/duel/${encodeURIComponent(match.challenge_token)}?ranked=1&match=${encodeURIComponent(match.id)}`;
-      try {
-        const response = await fetch(`/api/challenges/${encodeURIComponent(match.challenge_token)}/tic-tac-toe/state`, { cache: "no-store" });
-        if (!response.ok) throw new Error("grid_prewarm_failed");
-      } catch {
-        router.push(`/${locale}/rank/match/${match.id}`);
-        return;
-      }
       router.push(duelUrl);
       return;
     }
@@ -70,7 +62,7 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
       setMatched(result.match);
       setMatchMessage(result.match.opponent_kind === "bot" ? (result.match.bot_name ?? "Bot Eren :)") : (tr ? "Gerçek Oyuncu" : "Real Player"));
       setBotCountdown(null);
-      void prepareAndOpenMatch(result.match);
+      prepareAndOpenMatch(result.match);
       return;
     }
     setBotCountdown(Math.max(0, Math.ceil(Number(result.botInMs ?? 0) / 1000)));
@@ -142,7 +134,7 @@ export default function MobileRankPage({ locale }: { locale: Locale }) {
               <div className={`rounded-3xl border p-4 ${matched ? "border-purple-400/35 bg-purple-500/[0.08]" : "border-white/10 bg-[#0c1929]"}`}><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-2xl">{matched?.opponent_kind === "bot" ? "🤖" : matched ? "👤" : "?"}</div><p className="mt-3 truncate text-sm font-black">{matched ? matchMessage : (tr ? "RAKİP" : "OPPONENT")}</p><p className="mt-1 text-[9px] text-slate-500">{matched?.opponent_kind === "bot" ? (tr ? "Antrenman Rakibi" : "Training Opponent") : matched ? (tr ? "Ranked Oyuncu" : "Ranked Player") : (tr ? "aranıyor..." : "searching...")}</p></div>
             </div>
 
-            {matched ? <div className="mt-6 rounded-2xl border border-green-400/20 bg-green-500/[0.06] p-3"><div className="mx-auto mb-2 h-4 w-4 animate-spin rounded-full border-2 border-white/10 border-t-green-400" /><p className="text-sm font-black text-green-300">⚡ {selectedGame === "tic_tac_toe" ? (tr ? "GRID HAZIRLANIYOR..." : "PREPARING GRID...") : (tr ? "MAÇ BAŞLIYOR..." : "MATCH STARTING...")}</p>{matched.opponent_kind === "bot" ? <p className="mt-1 text-[10px] text-slate-500">{tr ? "Bot maçları ELO puanını etkilemez." : "Bot matches do not affect your ELO."}</p> : null}</div> : <><div className="mt-7 text-4xl font-black tabular-nums">00:{String(botCountdown ?? 10).padStart(2, "0")}</div><p className="mt-2 text-[10px] text-slate-500">{tr ? "Öncelik gerçek oyuncu. Süre dolarsa Bot Eren :) devreye girer." : "Real players first. Bot Eren :) joins when the timer ends."}</p><button type="button" onClick={() => void cancelSearch()} className="mt-6 rounded-2xl border border-white/10 px-5 py-3 text-[11px] font-black text-slate-400">{tr ? "ARAMAYI İPTAL ET" : "CANCEL SEARCH"}</button></>}
+            {matched ? <div className="mt-6 rounded-2xl border border-green-400/20 bg-green-500/[0.06] p-3"><div className="mx-auto mb-2 h-4 w-4 animate-spin rounded-full border-2 border-white/10 border-t-green-400" /><p className="text-sm font-black text-green-300">⚡ {tr ? "MAÇ AÇILIYOR..." : "OPENING MATCH..."}</p>{matched.opponent_kind === "bot" ? <p className="mt-1 text-[10px] text-slate-500">{tr ? "Bot maçları ELO puanını etkilemez." : "Bot matches do not affect your ELO."}</p> : null}</div> : <><div className="mt-7 text-4xl font-black tabular-nums">00:{String(botCountdown ?? 10).padStart(2, "0")}</div><p className="mt-2 text-[10px] text-slate-500">{tr ? "Öncelik gerçek oyuncu. Süre dolarsa Bot Eren :) devreye girer." : "Real players first. Bot Eren :) joins when the timer ends."}</p><button type="button" onClick={() => void cancelSearch()} className="mt-6 rounded-2xl border border-white/10 px-5 py-3 text-[11px] font-black text-slate-400">{tr ? "ARAMAYI İPTAL ET" : "CANCEL SEARCH"}</button></>}
           </section>
         )}
       </div>
