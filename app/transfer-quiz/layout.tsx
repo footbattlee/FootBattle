@@ -1,18 +1,18 @@
 import Link from "next/link";
 
 import GeoAnswerSection from "@/components/GeoAnswerSection";
-import { createGameMetadata, GameJsonLd } from "@/lib/seo";
+import { BreadcrumbJsonLd, createGameMetadata, GameJsonLd } from "@/lib/seo";
 
-const title = "Transfer Oyunu | Futbolcu Transfer Tahmin Oyunu | FootBattle";
-const description = "Transfer oyunu oyna: eski kulüp, yeni kulüp, transfer ücreti ve sezon ipuçlarından futbolcuyu tahmin et. 2 dakikada transfer bilginle puan topla.";
+const title = "Transferi Bil | Futbolcu Transfer Tahmin Oyunu | FootBattle";
+const description = "Transferi bil ve futbolcuyu tahmin et: eski kulüp, yeni kulüp, transfer ücreti ve sezon ipuçlarından doğru oyuncuyu bul. 2 dakikada puan topla.";
 
 export const metadata = createGameMetadata({
   path: "/transfer-quiz",
   title,
   description,
   keywords: [
-    "transfer oyunu",
     "transferi bil",
+    "transfer oyunu",
     "futbol transfer tahmin oyunu",
     "futbolcu transfer tahmin",
     "transfer quiz",
@@ -23,7 +23,7 @@ export const metadata = createGameMetadata({
 });
 
 const faqs = [
-  { question: "Transfer oyunu nasıl oynanır?", answer: "Ekranda eski kulüp, yeni kulüp, transfer ücreti ve varsa sezon bilgisi gösterilir. Bu ipuçlarından transferi yapan futbolcuyu bulup arama alanından seçmen gerekir." },
+  { question: "Transferi Bil oyunu nasıl oynanır?", answer: "Ekranda eski kulüp, yeni kulüp, transfer ücreti ve varsa sezon bilgisi gösterilir. Bu ipuçlarından transferi yapan futbolcuyu bulup arama alanından seçmen gerekir." },
   { question: "Bir tur ne kadar sürer?", answer: "Standart Transfer Oyunu turu 2 dakika sürer. Süre dolana kadar mümkün olduğunca fazla doğru transfer bulmaya çalışırsın." },
   { question: "Pas hakkı var mı?", answer: "Evet. Standart turda 5 pas hakkı bulunur. Zorlandığın transferi pas geçerek yeni bir soruya geçebilirsin." },
   { question: "Doğru cevap kaç puan kazandırır?", answer: "Standart oyunda her doğru cevap 20 puan kazandırır. Oyun ekranındaki puan alanından tur boyunca toplam skorunu takip edebilirsin." },
@@ -32,15 +32,22 @@ const faqs = [
 export default function Layout({ children }: { children: React.ReactNode }) {
   const faqSchema = { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: faqs.map((faq) => ({ "@type": "Question", name: faq.question, acceptedAnswer: { "@type": "Answer", text: faq.answer } })) };
   return <>
+    <BreadcrumbJsonLd
+      items={[
+        { name: "FootBattle", path: "/tr" },
+        { name: "Futbol Oyunları", path: "/futbol-oyunlari" },
+        { name: "Transferi Bil", path: "/transfer-quiz" },
+      ]}
+    />
     {children}
     <section className="bg-[#07111f] px-5 pb-16 text-white sm:px-8">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
       <div className="mx-auto max-w-5xl space-y-8">
         <article className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 sm:p-8">
           <p className="text-sm font-black uppercase tracking-[0.2em] text-emerald-300">Futbol transfer hafızanı test et</p>
-          <h2 className="mt-3 text-2xl font-black sm:text-3xl">Transfer Oyunu nasıl oynanır?</h2>
+          <h2 className="mt-3 text-2xl font-black sm:text-3xl">Transferi Bil: Futbolcu transfer tahmin oyunu</h2>
           <div className="mt-5 space-y-4 text-[15px] leading-8 text-slate-300 sm:text-base">
-            <p>Transfer Oyunu, bir futbolcunun adını doğrudan vermek yerine transfer geçmişinden ipuçları sunan hızlı bir futbol tahmin oyunudur. Her soruda futbolcunun ayrıldığı eski kulübü ve gittiği yeni kulübü görürsün. Buna transfer ücreti ve veri mevcutsa transfer sezonu da eklenir. Görevin, bu bilgileri bir araya getirip transferi yapan futbolcuyu süre bitmeden bulmaktır.</p>
+            <p>Transferi Bil, bir futbolcunun adını doğrudan vermek yerine transfer geçmişinden ipuçları sunan hızlı bir futbol tahmin oyunudur. Her soruda futbolcunun ayrıldığı eski kulübü ve gittiği yeni kulübü görürsün. Buna transfer ücreti ve veri mevcutsa transfer sezonu da eklenir. Görevin, bu bilgileri bir araya getirip transferi yapan futbolcuyu süre bitmeden bulmaktır.</p>
             <p>Oyuncu arama alanına en az üç harf yazarak aday futbolcuları görüntüleyebilirsin. Seçtiğin isim doğruysa puan kazanır ve yeni transfere geçersin. Yanlış seçim oyunu bitirmez; aynı soruda yeniden düşünebilir, başka bir futbolcu deneyebilir veya pas hakkını kullanabilirsin.</p>
           </div>
         </article>
@@ -50,7 +57,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
         <article className="rounded-3xl border border-emerald-300/20 bg-emerald-300/[0.045] p-6 sm:p-8"><h2 className="text-2xl font-black">5 pas hakkını doğru zamanda kullan</h2><div className="mt-4 space-y-4 text-[15px] leading-8 text-slate-300 sm:text-base"><p>Standart turda 5 pas hakkın vardır. Pas kullandığında mevcut transfer atlanır ve yeni soru gelir. Bu haklar özellikle hiç hatırlamadığın bir transferde süre kaybetmeni önlemek için değerlidir.</p></div></article>
         <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-6 sm:p-8"><h2 className="text-2xl font-black">Sık sorulan sorular</h2><div className="mt-5 space-y-3">{faqs.map((faq) => <details key={faq.question} className="rounded-2xl border border-white/10 bg-black/20 p-4"><summary className="cursor-pointer font-black">{faq.question}</summary><p className="mt-3 leading-7 text-slate-300">{faq.answer}</p></details>)}</div></section>
-        <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-6 sm:p-8"><h2 className="text-2xl font-black">Farklı futbol oyunlarıyla devam et</h2><p className="mt-3 max-w-3xl leading-7 text-slate-300">Transfer geçmişi dışında kariyer yolu, futbolcu özellikleri veya genel futbol bilgisiyle kendini test etmek istersen FootBattle'ın diğer oyunlarına geçebilirsin.</p><div className="mt-5 flex flex-wrap gap-3"><Link href="/kariyerden-futbolcu-bul" className="rounded-xl border border-white/10 px-4 py-3 font-bold text-emerald-300 hover:bg-white/5">Kariyerden Futbolcu Bul</Link><Link href="/super-lig-futbolcu-tahmin" className="rounded-xl border border-white/10 px-4 py-3 font-bold text-emerald-300 hover:bg-white/5">Süper Lig Futbolcu Tahmin</Link><Link href="/futbolcu-tahmin-oyunu" className="rounded-xl border border-white/10 px-4 py-3 font-bold text-emerald-300 hover:bg-white/5">Futbolcu Tahmin Oyunu</Link><Link href="/futbol-oyunlari" className="rounded-xl border border-white/10 px-4 py-3 font-bold text-emerald-300 hover:bg-white/5">Tüm Futbol Oyunları</Link></div></section>
+        <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-6 sm:p-8"><h2 className="text-2xl font-black">Farklı futbol oyunlarıyla devam et</h2><p className="mt-3 max-w-3xl leading-7 text-slate-300">Transfer geçmişi dışında kariyer yolu, futbolcu özellikleri veya genel futbol bilgisiyle kendini test etmek istersen FootBattle'ın diğer oyunlarına geçebilirsin.</p><div className="mt-5 flex flex-wrap gap-3"><Link href="/kariyerden-futbolcu-bul" className="rounded-xl border border-white/10 px-4 py-3 font-bold text-emerald-300 hover:bg-white/5">Kariyerden Futbolcu Bul</Link><Link href="/super-lig-futbolcu-tahmin" className="rounded-xl border border-white/10 px-4 py-3 font-bold text-emerald-300 hover:bg-white/5">Süper Lig Futbolcu Tahmin</Link><Link href="/football-wordle" className="rounded-xl border border-white/10 px-4 py-3 font-bold text-emerald-300 hover:bg-white/5">Football Wordle</Link><Link href="/futbol-tic-tac-toe" className="rounded-xl border border-white/10 px-4 py-3 font-bold text-emerald-300 hover:bg-white/5">Futbolcu Tic Tac Toe</Link><Link href="/futbolcu-tahmin-oyunu" className="rounded-xl border border-white/10 px-4 py-3 font-bold text-emerald-300 hover:bg-white/5">Futbolcu Tahmin Oyunu</Link><Link href="/futbol-oyunlari" className="rounded-xl border border-white/10 px-4 py-3 font-bold text-emerald-300 hover:bg-white/5">Tüm Futbol Oyunları</Link></div></section>
       </div>
     </section>
     <GeoAnswerSection
@@ -76,6 +83,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         },
       ]}
     />
-    <GameJsonLd name="Transfer Oyunu" description={description} path="/transfer-quiz" />
+    <GameJsonLd name="Transferi Bil" description={description} path="/transfer-quiz" />
   </>;
 }
