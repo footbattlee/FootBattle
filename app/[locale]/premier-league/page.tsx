@@ -9,10 +9,14 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   const { locale } = await params;
   if (!isLocale(locale)) return {};
   const en = locale === "en";
+  const canonical = `${SITE_URL}/${locale}/premier-league`;
+  const title = en ? "Premier League Standings, Fixtures & Results 2026/27 | FootBattle" : "Premier League Puan Durumu, Fikstür ve Maç Sonuçları | FootBattle";
+  const description = en ? "Follow the 2026/27 Premier League standings, fixtures, results, teams, squads and score predictions on FootBattle." : "2026/27 Premier League puan durumu, fikstür, maç sonuçları, takım kadroları ve skor tahminlerini FootBattle'da takip et.";
   return {
-    title: en ? "Premier League Standings & Fixtures | FootBattle" : "Premier League Puan Durumu ve Fikstür | FootBattle",
-    description: en ? "Follow Premier League standings, recent results and upcoming fixtures on FootBattle." : "Premier League puan durumu, son sonuçlar ve yaklaşan maçları FootBattle'da takip et.",
-    alternates: { canonical: `${SITE_URL}/${locale}/premier-league`, languages: localizedAlternates("/premier-league") },
+    title, description,
+    keywords: en ? ["Premier League standings", "Premier League fixtures", "Premier League results", "Premier League teams", "Premier League table"] : ["premier league puan durumu", "premier league fikstür", "premier league maç sonuçları", "premier league maçları", "premier league takımları"],
+    alternates: { canonical, languages: localizedAlternates("/premier-league") },
+    openGraph: { type: "website", siteName: "FootBattle", title, description, url: canonical },
   };
 }
 
