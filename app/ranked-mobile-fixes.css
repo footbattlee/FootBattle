@@ -1,6 +1,33 @@
 @media (max-width: 767px) {
   body.ranked-match-active a[href$="/rank"] { display: none !important; }
 
+  /* Ranked Tic Tac Toe: keep the competitive state and full grid above the fold. */
+  body.ranked-match-active:not(.ranked-club-clash-active) main {
+    padding: 6px 8px calc(16px + env(safe-area-inset-bottom)) !important;
+  }
+  body.ranked-match-active:not(.ranked-club-clash-active) main > div { max-width: 620px !important; }
+  body.ranked-match-active:not(.ranked-club-clash-active) main header { min-height: 34px !important; }
+  body.ranked-match-active:not(.ranked-club-clash-active) main header a {
+    min-height: 34px !important;
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+  }
+  body.ranked-match-active:not(.ranked-club-clash-active) main section { border-radius: 18px !important; }
+  body.ranked-match-active:not(.ranked-club-clash-active) main .mt-5,
+  body.ranked-match-active:not(.ranked-club-clash-active) main .mt-4,
+  body.ranked-match-active:not(.ranked-club-clash-active) main .mt-3 { margin-top: 7px !important; }
+  body.ranked-match-active:not(.ranked-club-clash-active) main .p-6,
+  body.ranked-match-active:not(.ranked-club-clash-active) main .p-5,
+  body.ranked-match-active:not(.ranked-club-clash-active) main .p-4 { padding: 10px !important; }
+  body.ranked-match-active:not(.ranked-club-clash-active) main h1 { font-size: 18px !important; line-height: 1.08 !important; }
+  body.ranked-match-active:not(.ranked-club-clash-active) main .text-3xl { font-size: 22px !important; }
+  body.ranked-match-active:not(.ranked-club-clash-active) main [class*="grid-cols-[72px"] {
+    grid-template-columns: 58px repeat(3,minmax(0,1fr)) !important;
+    gap: 4px !important;
+  }
+  body.ranked-match-active:not(.ranked-club-clash-active) main [class*="aspect-square"] { border-radius: 10px !important; }
+  body.ranked-match-active:not(.ranked-club-clash-active) main button { touch-action: manipulation; }
+
   /* Ranked 2 Takım 1 Oyuncu: skor + round + takım çifti + input mümkün olduğunca aynı ekranda. */
   body.ranked-club-clash-active main {
     padding: 6px 8px calc(18px + env(safe-area-inset-bottom)) !important;
@@ -31,134 +58,50 @@
 
   /* iOS Solo Tic Tac Toe: use one stable scrollable sheet; no overlapping layers. */
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 {
-    display: flex !important;
-    align-items: flex-end !important;
-    justify-content: center !important;
-    padding: 8px !important;
-    padding-bottom: calc(8px + env(safe-area-inset-bottom)) !important;
-    overflow: hidden !important;
-    pointer-events: auto !important;
+    display: flex !important; align-items: flex-end !important; justify-content: center !important;
+    padding: 8px !important; padding-bottom: calc(8px + env(safe-area-inset-bottom)) !important;
+    overflow: hidden !important; pointer-events: auto !important;
   }
-
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 > form,
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 > div {
-    position: relative !important;
-    inset: auto !important;
-    display: flex !important;
-    flex-direction: column !important;
-    width: calc(100vw - 16px) !important;
-    max-width: 520px !important;
-    min-width: 0 !important;
-    max-height: calc(100dvh - 24px - env(safe-area-inset-bottom)) !important;
-    height: auto !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    -webkit-overflow-scrolling: touch !important;
-    padding: 16px !important;
-    pointer-events: auto !important;
+    position: relative !important; inset: auto !important; display: flex !important; flex-direction: column !important;
+    width: calc(100vw - 16px) !important; max-width: 520px !important; min-width: 0 !important;
+    max-height: calc(100dvh - 24px - env(safe-area-inset-bottom)) !important; height: auto !important;
+    overflow-y: auto !important; overflow-x: hidden !important; -webkit-overflow-scrolling: touch !important;
+    padding: 16px !important; pointer-events: auto !important;
   }
-
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form {
-    position: relative !important;
-    display: flex !important;
-    flex-direction: column !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-    gap: 0 !important;
+    position: relative !important; display: flex !important; flex-direction: column !important; width: 100% !important;
+    max-width: 100% !important; min-width: 0 !important; height: auto !important; max-height: none !important;
+    overflow: visible !important; gap: 0 !important;
   }
-
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > input {
-    display: block !important;
-    position: static !important;
-    order: 2 !important;
-    z-index: auto !important;
-    width: 100% !important;
-    min-width: 0 !important;
-    min-height: 52px !important;
-    margin-top: 14px !important;
-    flex: 0 0 auto !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-    touch-action: manipulation !important;
-    font-size: 16px !important;
+    display: block !important; position: static !important; order: 2 !important; z-index: auto !important; width: 100% !important;
+    min-width: 0 !important; min-height: 52px !important; margin-top: 14px !important; flex: 0 0 auto !important;
+    opacity: 1 !important; visibility: visible !important; pointer-events: auto !important; touch-action: manipulation !important; font-size: 16px !important;
   }
-
-  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > p {
-    order: 3 !important;
-    flex: 0 0 auto !important;
-  }
-
-  /* Suggestion list is part of document flow on iOS, never absolute. */
+  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > p { order: 3 !important; flex: 0 0 auto !important; }
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > div:nth-of-type(2) {
-    position: static !important;
-    inset: auto !important;
-    order: 4 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    max-height: 32dvh !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    margin-top: 8px !important;
-    flex: 0 1 auto !important;
+    position: static !important; inset: auto !important; order: 4 !important; width: 100% !important; max-width: 100% !important;
+    min-width: 0 !important; max-height: 32dvh !important; overflow-y: auto !important; overflow-x: hidden !important;
+    margin-top: 8px !important; flex: 0 1 auto !important;
   }
-
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > div:nth-of-type(2) button {
-    width: 100% !important;
-    min-width: 0 !important;
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    gap: 10px !important;
-    white-space: normal !important;
-    word-break: normal !important;
-    overflow-wrap: normal !important;
-    text-align: left !important;
-    line-height: 1.25 !important;
+    width: 100% !important; min-width: 0 !important; display: flex !important; flex-direction: row !important; align-items: center !important;
+    justify-content: space-between !important; gap: 10px !important; white-space: normal !important; word-break: normal !important;
+    overflow-wrap: normal !important; text-align: left !important; line-height: 1.25 !important;
   }
-
-  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > div:first-child {
-    order: 1 !important;
-    flex: 0 0 auto !important;
-  }
-
+  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > div:first-child { order: 1 !important; flex: 0 0 auto !important; }
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > div:last-child {
-    position: static !important;
-    inset: auto !important;
-    order: 6 !important;
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr) !important;
-    gap: 10px !important;
-    width: 100% !important;
-    margin-top: 14px !important;
-    padding: 0 !important;
-    flex: 0 0 auto !important;
+    position: static !important; inset: auto !important; order: 6 !important; display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr) !important; gap: 10px !important; width: 100% !important;
+    margin-top: 14px !important; padding: 0 !important; flex: 0 0 auto !important;
   }
-
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > div:last-child > button {
-    position: static !important;
-    width: 100% !important;
-    min-width: 0 !important;
-    min-height: 52px !important;
-    margin: 0 !important;
-    padding: 0 12px !important;
-    justify-content: center !important;
-    text-align: center !important;
+    position: static !important; width: 100% !important; min-width: 0 !important; min-height: 52px !important;
+    margin: 0 !important; padding: 0 12px !important; justify-content: center !important; text-align: center !important;
   }
-
-  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > p[class*="green"] {
-    order: 5 !important;
-  }
-
+  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 form > p[class*="green"] { order: 5 !important; }
   body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 h2,
-  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 h3 {
-    line-height: 1.15 !important;
-    margin-bottom: 0 !important;
-  }
+  body[data-mobile-route="tic-tac-toe-solo"] .fixed.inset-0.z-50 h3 { line-height: 1.15 !important; margin-bottom: 0 !important; }
 }
