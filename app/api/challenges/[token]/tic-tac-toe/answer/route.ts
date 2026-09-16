@@ -73,15 +73,29 @@ export async function POST(
     );
     if (occupied) return NextResponse.json({ ok: false, error: "Bu hücre zaten dolu." }, { status: 409 });
 
+    // This is a turn-based game. Valid turn/ownership checks above already reject
+    // out-of-turn requests, so this limiter is only a last-resort abuse guard.
+    // The previous 20/minute threshold could falsely block normal mobile play
+    // when requests accumulated in the same security session.
     const security = await recordGameSecurityEvent({
       request,
       gameCode: "tic_tac_toe",
       sourceSessionId: duelSourceSessionId(duel.id, side),
       eventType: "duel_answer",
       payload: { rowIndex, columnIndex, playerId },
-      maxPerMinute: 20,
+      maxPerMinute: 60,
     });
-    if (!security.allowed) return NextResponse.json({ ok: false, error: "Çok hızlı cevap gönderiyorsun." }, { status: 429 });
+    if (!security.allowed) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: locale === "en"
+            ? "Too many answer requests. Please try again in a moment."
+            : "Çok fazla cevap isteği gönderildi. Biraz sonra tekrar dene.",
+        },
+        { status: 429 },
+      );
+    }
 
     const cell = duel.grid_cells.find(
       (item) => Number(item.rowIndex) === rowIndex && Number(item.columnIndex) === columnIndex,
