@@ -4,6 +4,27 @@ import { useEffect, useState } from "react";
 import UnifiedHomePage from "@/components/UnifiedHomePage";
 import type { Locale } from "@/lib/i18n/config";
 
+type DesktopMenuItem = { icon: string; labelTr: string; labelEn: string; href: string };
+
+const gameMenuItems: DesktopMenuItem[] = [
+  { icon: "🟩", labelTr: "Wordle", labelEn: "Wordle", href: "/wordle" },
+  { icon: "🕵️", labelTr: "Guess The Player", labelEn: "Guess The Player", href: "/guess-the-player" },
+  { icon: "🧠", labelTr: "Player Quiz", labelEn: "Player Quiz", href: "/player-quiz" },
+  { icon: "⭕", labelTr: "Futbol Tic Tac Toe", labelEn: "Football Tic Tac Toe", href: "/tic-tac-toe" },
+  { icon: "⚔️", labelTr: "2 Takım 1 Oyuncu", labelEn: "2 Clubs 1 Player", href: "/club-clash" },
+  { icon: "🌍", labelTr: "1 Takım 1 Millet", labelEn: "1 Club 1 Nation", href: "/club-nation" },
+  { icon: "🛣️", labelTr: "Career Path", labelEn: "Career Path", href: "/career-path" },
+  { icon: "⚽", labelTr: "Penaltı", labelEn: "Penalty Challenge", href: "/penalty" },
+];
+
+const competitionMenuItems: DesktopMenuItem[] = [
+  { icon: "🇹🇷", labelTr: "Süper Lig", labelEn: "Turkish Süper Lig", href: "/super-lig" },
+  { icon: "⭐", labelTr: "Şampiyonlar Ligi", labelEn: "Champions League", href: "/champions-league" },
+  { icon: "🏴", labelTr: "Premier League", labelEn: "Premier League", href: "/premier-league" },
+  { icon: "🟠", labelTr: "Avrupa Ligi", labelEn: "Europa League", href: "/europa-league" },
+  { icon: "🟢", labelTr: "Konferans Ligi", labelEn: "Conference League", href: "/conference-league" },
+];
+
 export default function DesktopHomeOnly({ locale }: { locale: Locale }) {
   const [showDesktopHome, setShowDesktopHome] = useState(true);
 
@@ -20,21 +41,93 @@ export default function DesktopHomeOnly({ locale }: { locale: Locale }) {
 
     const rankedHref = `/${locale}/rank`;
     const duelsHref = `/${locale}/duels`;
+    const localizedHref = (href: string) => `/${locale}${href}`;
+
+    const makeDropdown = (label: string, items: DesktopMenuItem[], allLabel: string, allHref: string) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "relative";
+      wrapper.dataset.desktopDropdown = "true";
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "flex items-center gap-1.5 py-3 font-bold text-slate-400 transition hover:text-white";
+      button.innerHTML = `${label}<span class="text-[10px]">⌄</span>`;
+      button.setAttribute("aria-expanded", "false");
+
+      const panel = document.createElement("div");
+      panel.className = "invisible absolute left-1/2 top-full z-[100] mt-1 w-72 -translate-x-1/2 translate-y-2 rounded-2xl border border-white/10 bg-[#0b1626]/[0.98] p-2 opacity-0 shadow-2xl backdrop-blur-xl transition-all duration-150";
+
+      items.forEach((item) => {
+        const link = document.createElement("a");
+        link.href = item.href.startsWith("/player-") || item.href.startsWith("/club-") || item.href === "/penalty" ? item.href : localizedHref(item.href);
+        link.className = "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-200 transition hover:bg-emerald-400/10 hover:text-emerald-300";
+        const icon = document.createElement("span");
+        icon.className = "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-base";
+        icon.textContent = item.icon;
+        const text = document.createElement("span");
+        text.textContent = locale === "tr" ? item.labelTr : item.labelEn;
+        link.append(icon, text);
+        panel.appendChild(link);
+      });
+
+      const divider = document.createElement("div");
+      divider.className = "my-1 border-t border-white/10";
+      panel.appendChild(divider);
+
+      const allLink = document.createElement("a");
+      allLink.href = allHref;
+      allLink.className = "flex items-center justify-between rounded-xl px-3 py-2.5 text-xs font-black uppercase tracking-[0.12em] text-yellow-300 transition hover:bg-yellow-400/10";
+      allLink.innerHTML = `<span>${allLabel}</span><span>→</span>`;
+      panel.appendChild(allLink);
+
+      const open = () => {
+        panel.classList.remove("invisible", "opacity-0", "translate-y-2");
+        panel.classList.add("visible", "opacity-100", "translate-y-0");
+        button.setAttribute("aria-expanded", "true");
+      };
+      const close = () => {
+        panel.classList.add("invisible", "opacity-0", "translate-y-2");
+        panel.classList.remove("visible", "opacity-100", "translate-y-0");
+        button.setAttribute("aria-expanded", "false");
+      };
+      wrapper.addEventListener("mouseenter", open);
+      wrapper.addEventListener("mouseleave", close);
+      button.addEventListener("click", () => button.getAttribute("aria-expanded") === "true" ? close() : open());
+      wrapper.append(button, panel);
+      return wrapper;
+    };
 
     const decorateDesktopParity = () => {
       const nav = document.querySelector("header nav");
-      if (nav && !nav.querySelector('[data-desktop-ranked-nav="true"]')) {
-        const link = document.createElement("a");
-        link.href = rankedHref;
-        link.dataset.desktopRankedNav = "true";
-        link.className = "transition hover:text-yellow-300 text-yellow-300";
-        link.textContent = "🏆 Ranked";
+      if (nav && !nav.querySelector('[data-desktop-dropdown="true"]')) {
         const gamesButton = Array.from(nav.children).find((child) => {
           const text = child.textContent?.trim().toLocaleLowerCase("tr-TR");
           return text === "oyunlar" || text === "games";
         });
-        if (gamesButton?.nextSibling) nav.insertBefore(link, gamesButton.nextSibling);
-        else nav.appendChild(link);
+        if (gamesButton) {
+          const gamesDropdown = makeDropdown(
+            locale === "tr" ? "Oyunlar" : "Games",
+            gameMenuItems,
+            locale === "tr" ? "Tüm oyunları gör" : "View all games",
+            "#oyunlar",
+          );
+          nav.replaceChild(gamesDropdown, gamesButton);
+
+          const rankedLink = document.createElement("a");
+          rankedLink.href = rankedHref;
+          rankedLink.dataset.desktopRankedNav = "true";
+          rankedLink.className = "transition hover:text-yellow-300 text-yellow-300";
+          rankedLink.textContent = "🏆 Ranked";
+          gamesDropdown.after(rankedLink);
+
+          const competitionsDropdown = makeDropdown(
+            locale === "tr" ? "Turnuvalar" : "Competitions",
+            competitionMenuItems,
+            locale === "tr" ? "Tüm turnuvalar" : "All competitions",
+            localizedHref("/competitions"),
+          );
+          rankedLink.after(competitionsDropdown);
+        }
       }
 
       const gameSection = document.querySelector("#oyunlar");
@@ -103,7 +196,7 @@ export default function DesktopHomeOnly({ locale }: { locale: Locale }) {
     return () => {
       window.clearTimeout(firstRetry);
       window.clearTimeout(secondRetry);
-      document.querySelectorAll('[data-desktop-ranked-nav="true"], [data-desktop-ranked-card="true"], [data-desktop-shooter-card="true"]').forEach((node) => node.remove());
+      document.querySelectorAll('[data-desktop-ranked-card="true"], [data-desktop-shooter-card="true"]').forEach((node) => node.remove());
     };
   }, [locale, showDesktopHome]);
 
