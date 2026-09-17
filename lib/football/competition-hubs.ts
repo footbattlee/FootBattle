@@ -99,18 +99,46 @@ function parseMatches(payload: unknown): MatchRow[] {
 
 function ymd(date: Date) { const y = date.getUTCFullYear(); const m = String(date.getUTCMonth() + 1).padStart(2, "0"); const d = String(date.getUTCDate()).padStart(2, "0"); return `${y}${m}${d}`; }
 
-export async function getCompetitionSnapshot(key: CompetitionKey): Promise<CompetitionSnapshot> {
-  const config = COMPETITIONS[key];
+function seasonWindows() {
+  const windows: Array<{ start: Date; end: Date }> = [];
   const seasonStart = new Date("2026-07-01T00:00:00Z");
   const seasonEnd = new Date("2027-06-30T23:59:59Z");
+  let cursor = seasonStart;
+  while (cursor.getTime() <= seasonEnd.getTime()) {
+    const start = new Date(cursor);
+    const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 2, 0, 23, 59, 59));
+    if (end.getTime() > seasonEnd.getTime()) end.setTime(seasonEnd.getTime());
+    windows.push({ start, end });
+    cursor = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate() + 1));
+  }
+  return windows;
+}
+
+async function fetchScoreboardWindow(slug: string, start: Date, end: Date) {
+  const url = `${ESPN_BASE}/site/v2/sports/soccer/${slug}/scoreboard?dates=${ymd(start)}-${ymd(end)}&limit=250`;
+  const response = await fetch(url, { next: { revalidate: 300 } });
+  if (!response.ok) throw new Error(`Scoreboard ${response.status}`);
+  return parseMatches(await response.json());
+}
+
+async function fetchSeasonMatches(slug: string) {
+  const results = await Promise.allSettled(seasonWindows().map(({ start, end }) => fetchScoreboardWindow(slug, start, end)));
+  const byId = new Map<string, MatchRow>();
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    for (const match of result.value) byId.set(match.id, match);
+  }
+  return Array.from(byId.values()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+}
+
+export async function getCompetitionSnapshot(key: CompetitionKey): Promise<CompetitionSnapshot> {
+  const config = COMPETITIONS[key];
   const standingsUrl = `${ESPN_BASE}/v2/sports/soccer/${config.espnSlug}/standings`;
-  const scoreboardUrl = `${ESPN_BASE}/site/v2/sports/soccer/${config.espnSlug}/scoreboard?dates=${ymd(seasonStart)}-${ymd(seasonEnd)}&limit=500`;
   const [standingsResult, matchesResult] = await Promise.allSettled([
     fetch(standingsUrl, { next: { revalidate: 900 } }).then((r) => { if (!r.ok) throw new Error(`Standings ${r.status}`); return r.json(); }),
-    fetch(scoreboardUrl, { next: { revalidate: 300 } }).then((r) => { if (!r.ok) throw new Error(`Scoreboard ${r.status}`); return r.json(); }),
+    fetchSeasonMatches(config.espnSlug),
   ]);
   const standings = standingsResult.status === "fulfilled" ? parseStandings(standingsResult.value) : [];
-  const matches = matchesResult.status === "fulfilled" ? parseMatches(matchesResult.value) : [];
-  const sorted = [...matches].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  return { standings, matches: sorted, fetchedAt: new Date().toISOString() };
+  const matches = matchesResult.status === "fulfilled" ? matchesResult.value : [];
+  return { standings, matches, fetchedAt: new Date().toISOString() };
 }
