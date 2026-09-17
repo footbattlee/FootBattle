@@ -20,12 +20,32 @@ function normalize(value: string) { return value.normalize("NFD").replace(/[\u03
 function parseMatches(payload: unknown): MatchRow[] {
   const events = ((payload as { events?: unknown[] } | null)?.events ?? []) as Array<any>;
   return events.flatMap((event) => {
-    const competition = event.competitions?.[0]; const competitors = competition?.competitors ?? [];
-    const home = competitors.find((team: any) => team.homeAway === "home"); const away = competitors.find((team: any) => team.homeAway === "away");
+    const competition = event.competitions?.[0];
+    const competitors = competition?.competitors ?? [];
+    const home = competitors.find((team: any) => team.homeAway === "home");
+    const away = competitors.find((team: any) => team.homeAway === "away");
     if (!event.id || !event.date || !home?.team || !away?.team) return [];
-    const rawState = event.status?.type?.state; const state: MatchRow["state"] = rawState === "post" ? "post" : rawState === "in" ? "in" : "pre";
+
+    // Team schedule responses can keep the authoritative status on the competition
+    // instead of the event. Prefer whichever status actually exists.
+    const status = competition?.status ?? event.status;
+    const statusType = status?.type ?? {};
+    const completed = statusType.completed === true || status?.completed === true;
+    const rawState = statusType.state;
+    const state: MatchRow["state"] = completed || rawState === "post" ? "post" : rawState === "in" ? "in" : "pre";
     const noteHeadline = competition?.notes?.find((note: any) => note.headline)?.headline ?? null;
-    return [{ id: event.id, date: event.date, state, statusText: event.status?.type?.shortDetail ?? event.status?.type?.detail ?? "", roundNumber: typeof event.week?.number === "number" ? event.week.number : null, roundLabel: event.week?.text ?? noteHeadline, home: { id: home.team.id ?? "", name: home.team.displayName ?? "-", abbreviation: home.team.abbreviation ?? "-", logo: home.team.logo ?? home.team.logos?.[0]?.href ?? null, score: home.score ?? null }, away: { id: away.team.id ?? "", name: away.team.displayName ?? "-", abbreviation: away.team.abbreviation ?? "-", logo: away.team.logo ?? away.team.logos?.[0]?.href ?? null, score: away.score ?? null } } satisfies MatchRow];
+    const week = event.week ?? competition?.week;
+
+    return [{
+      id: event.id,
+      date: event.date,
+      state,
+      statusText: statusType.shortDetail ?? statusType.detail ?? "",
+      roundNumber: typeof week?.number === "number" ? week.number : null,
+      roundLabel: week?.text ?? noteHeadline,
+      home: { id: home.team.id ?? "", name: home.team.displayName ?? "-", abbreviation: home.team.abbreviation ?? "-", logo: home.team.logo ?? home.team.logos?.[0]?.href ?? null, score: home.score ?? null },
+      away: { id: away.team.id ?? "", name: away.team.displayName ?? "-", abbreviation: away.team.abbreviation ?? "-", logo: away.team.logo ?? away.team.logos?.[0]?.href ?? null, score: away.score ?? null },
+    } satisfies MatchRow];
   });
 }
 
