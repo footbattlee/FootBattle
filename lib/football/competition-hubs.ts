@@ -1,144 +1,43 @@
 export type CompetitionKey = "super-lig" | "premier-league" | "la-liga" | "serie-a" | "bundesliga" | "ligue-1" | "primeira-liga" | "champions-league" | "europa-league" | "conference-league";
 
-export type CompetitionConfig = {
-  key: CompetitionKey;
-  espnSlug: string;
-  trName: string;
-  enName: string;
-  emoji: string;
-  accent: string;
-};
-
-export type StandingRow = {
-  position: number;
-  teamId: string;
-  teamName: string;
-  abbreviation: string;
-  logo: string | null;
-  played: number;
-  won: number;
-  drawn: number;
-  lost: number;
-  goalsFor: number;
-  goalsAgainst: number;
-  goalDifference: number;
-  points: number;
-};
-
-export type MatchRow = {
-  id: string;
-  date: string;
-  state: "pre" | "in" | "post";
-  statusText: string;
-  roundNumber: number | null;
-  roundLabel: string | null;
-  home: { id: string; name: string; abbreviation: string; logo: string | null; score: string | null };
-  away: { id: string; name: string; abbreviation: string; logo: string | null; score: string | null };
-};
-
-export type CompetitionSnapshot = {
-  standings: StandingRow[];
-  matches: MatchRow[];
-  fetchedAt: string;
-};
+export type CompetitionConfig = { key: CompetitionKey; espnSlug: string; trName: string; enName: string; emoji: string; accent: string; };
+export type StandingRow = { position:number; teamId:string; teamName:string; abbreviation:string; logo:string|null; played:number; won:number; drawn:number; lost:number; goalsFor:number; goalsAgainst:number; goalDifference:number; points:number; };
+export type MatchRow = { id:string; date:string; state:"pre"|"in"|"post"; statusText:string; roundNumber:number|null; roundLabel:string|null; home:{id:string;name:string;abbreviation:string;logo:string|null;score:string|null}; away:{id:string;name:string;abbreviation:string;logo:string|null;score:string|null}; };
+export type CompetitionSnapshot = { standings:StandingRow[]; matches:MatchRow[]; fetchedAt:string; };
 
 export const COMPETITIONS: Record<CompetitionKey, CompetitionConfig> = {
-  "super-lig": { key: "super-lig", espnSlug: "tur.1", trName: "Trendyol Süper Lig", enName: "Turkish Süper Lig", emoji: "🇹🇷", accent: "from-red-500/20 to-white/5" },
-  "premier-league": { key: "premier-league", espnSlug: "eng.1", trName: "Premier League", enName: "Premier League", emoji: "🏴", accent: "from-violet-500/20 to-cyan-400/5" },
-  "la-liga": { key: "la-liga", espnSlug: "esp.1", trName: "La Liga", enName: "La Liga", emoji: "🇪🇸", accent: "from-orange-500/20 to-red-400/5" },
-  "serie-a": { key: "serie-a", espnSlug: "ita.1", trName: "Serie A", enName: "Serie A", emoji: "🇮🇹", accent: "from-blue-500/20 to-sky-400/5" },
-  "bundesliga": { key: "bundesliga", espnSlug: "ger.1", trName: "Bundesliga", enName: "Bundesliga", emoji: "🇩🇪", accent: "from-red-500/20 to-yellow-400/5" },
-  "ligue-1": { key: "ligue-1", espnSlug: "fra.1", trName: "Ligue 1", enName: "Ligue 1", emoji: "🇫🇷", accent: "from-blue-500/20 to-red-400/5" },
-  "primeira-liga": { key: "primeira-liga", espnSlug: "por.1", trName: "Primeira Liga", enName: "Primeira Liga", emoji: "🇵🇹", accent: "from-emerald-500/20 to-red-400/5" },
-  "champions-league": { key: "champions-league", espnSlug: "uefa.champions", trName: "UEFA Şampiyonlar Ligi", enName: "UEFA Champions League", emoji: "⭐", accent: "from-blue-500/20 to-indigo-400/5" },
-  "europa-league": { key: "europa-league", espnSlug: "uefa.europa", trName: "UEFA Avrupa Ligi", enName: "UEFA Europa League", emoji: "🟠", accent: "from-orange-500/20 to-amber-400/5" },
-  "conference-league": { key: "conference-league", espnSlug: "uefa.europa.conf", trName: "UEFA Konferans Ligi", enName: "UEFA Conference League", emoji: "🟢", accent: "from-emerald-500/20 to-lime-400/5" },
+  "super-lig": { key:"super-lig", espnSlug:"tur.1", trName:"Trendyol Süper Lig", enName:"Turkish Süper Lig", emoji:"🇹🇷", accent:"from-red-500/20 to-white/5" },
+  "premier-league": { key:"premier-league", espnSlug:"eng.1", trName:"Premier League", enName:"Premier League", emoji:"🏴", accent:"from-violet-500/20 to-cyan-400/5" },
+  "la-liga": { key:"la-liga", espnSlug:"esp.1", trName:"La Liga", enName:"La Liga", emoji:"🇪🇸", accent:"from-orange-500/20 to-red-400/5" },
+  "serie-a": { key:"serie-a", espnSlug:"ita.1", trName:"Serie A", enName:"Serie A", emoji:"🇮🇹", accent:"from-blue-500/20 to-sky-400/5" },
+  "bundesliga": { key:"bundesliga", espnSlug:"ger.1", trName:"Bundesliga", enName:"Bundesliga", emoji:"🇩🇪", accent:"from-red-500/20 to-yellow-400/5" },
+  "ligue-1": { key:"ligue-1", espnSlug:"fra.1", trName:"Ligue 1", enName:"Ligue 1", emoji:"🇫🇷", accent:"from-blue-500/20 to-red-400/5" },
+  "primeira-liga": { key:"primeira-liga", espnSlug:"por.1", trName:"Primeira Liga", enName:"Primeira Liga", emoji:"🇵🇹", accent:"from-emerald-500/20 to-red-400/5" },
+  "champions-league": { key:"champions-league", espnSlug:"uefa.champions", trName:"UEFA Şampiyonlar Ligi", enName:"UEFA Champions League", emoji:"⭐", accent:"from-blue-500/20 to-indigo-400/5" },
+  "europa-league": { key:"europa-league", espnSlug:"uefa.europa", trName:"UEFA Avrupa Ligi", enName:"UEFA Europa League", emoji:"🟠", accent:"from-orange-500/20 to-amber-400/5" },
+  "conference-league": { key:"conference-league", espnSlug:"uefa.europa.conf", trName:"UEFA Konferans Ligi", enName:"UEFA Conference League", emoji:"🟢", accent:"from-emerald-500/20 to-lime-400/5" },
 };
 
 const ESPN_BASE = "https://site.api.espn.com/apis";
+function numericStat(stats:Array<{name?:string;value?:number;displayValue?:string}>|undefined,names:string[]){const stat=stats?.find(i=>i.name&&names.includes(i.name));if(!stat)return 0;if(typeof stat.value==="number"&&Number.isFinite(stat.value))return stat.value;const parsed=Number(stat.displayValue??0);return Number.isFinite(parsed)?parsed:0;}
+function flattenStandingsChildren(input:unknown):unknown[]{if(!input||typeof input!=="object")return[];const obj=input as {standings?:{entries?:unknown[]};children?:unknown[]};return [...(obj.standings?.entries??[]),...(obj.children??[]).flatMap(flattenStandingsChildren)];}
+function parseStandings(payload:unknown):StandingRow[]{const entries=flattenStandingsChildren(payload) as Array<{team?:{id?:string;displayName?:string;abbreviation?:string;logos?:Array<{href?:string}>};stats?:Array<{name?:string;value?:number;displayValue?:string}>}>;return entries.map((entry,index)=>{const stats=entry.stats??[];return {position:numericStat(stats,["rank","rankCurrent","position"])||index+1,teamId:entry.team?.id??String(index+1),teamName:entry.team?.displayName??"-",abbreviation:entry.team?.abbreviation??"-",logo:entry.team?.logos?.[0]?.href??null,played:numericStat(stats,["gamesPlayed","gamesplayed"]),won:numericStat(stats,["wins"]),drawn:numericStat(stats,["ties","draws"]),lost:numericStat(stats,["losses"]),goalsFor:numericStat(stats,["pointsFor","goalsFor"]),goalsAgainst:numericStat(stats,["pointsAgainst","goalsAgainst"]),goalDifference:numericStat(stats,["pointDifferential","goalDifference"]),points:numericStat(stats,["points"])};}).filter(r=>r.teamName!=="-").sort((a,b)=>a.position-b.position);}
 
-function numericStat(stats: Array<{ name?: string; value?: number; displayValue?: string }> | undefined, names: string[]) {
-  const stat = stats?.find((item) => item.name && names.includes(item.name));
-  if (!stat) return 0;
-  if (typeof stat.value === "number" && Number.isFinite(stat.value)) return stat.value;
-  const parsed = Number(stat.displayValue ?? 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function flattenStandingsChildren(input: unknown): unknown[] {
-  if (!input || typeof input !== "object") return [];
-  const obj = input as { standings?: { entries?: unknown[] }; children?: unknown[] };
-  const direct = obj.standings?.entries ?? [];
-  const nested = (obj.children ?? []).flatMap((child) => flattenStandingsChildren(child));
-  return [...direct, ...nested];
-}
-
-function parseStandings(payload: unknown): StandingRow[] {
-  const entries = flattenStandingsChildren(payload) as Array<{ team?: { id?: string; displayName?: string; abbreviation?: string; logos?: Array<{ href?: string }> }; stats?: Array<{ name?: string; value?: number; displayValue?: string }> }>;
-  return entries.map((entry, index) => {
-    const stats = entry.stats ?? [];
-    const position = numericStat(stats, ["rank", "rankCurrent", "position"]) || index + 1;
-    return { position, teamId: entry.team?.id ?? String(index + 1), teamName: entry.team?.displayName ?? "-", abbreviation: entry.team?.abbreviation ?? "-", logo: entry.team?.logos?.[0]?.href ?? null, played: numericStat(stats, ["gamesPlayed", "gamesplayed"]), won: numericStat(stats, ["wins"]), drawn: numericStat(stats, ["ties", "draws"]), lost: numericStat(stats, ["losses"]), goalsFor: numericStat(stats, ["pointsFor", "goalsFor"]), goalsAgainst: numericStat(stats, ["pointsAgainst", "goalsAgainst"]), goalDifference: numericStat(stats, ["pointDifferential", "goalDifference"]), points: numericStat(stats, ["points"]) } satisfies StandingRow;
-  }).filter((row) => row.teamName !== "-").sort((a, b) => a.position - b.position);
-}
-
-function parseMatches(payload: unknown): MatchRow[] {
-  const events = ((payload as { events?: unknown[] } | null)?.events ?? []) as Array<{ id?: string; date?: string; week?: { number?: number; text?: string }; status?: { type?: { state?: string; shortDetail?: string; detail?: string } }; competitions?: Array<{ notes?: Array<{ headline?: string }>; competitors?: Array<{ homeAway?: "home" | "away"; score?: string; team?: { id?: string; displayName?: string; abbreviation?: string; logo?: string; logos?: Array<{ href?: string }> } }> }> }>;
-  return events.flatMap((event) => {
-    const competition = event.competitions?.[0];
-    const competitors = competition?.competitors ?? [];
-    const home = competitors.find((team) => team.homeAway === "home");
-    const away = competitors.find((team) => team.homeAway === "away");
-    if (!event.id || !event.date || !home?.team || !away?.team) return [];
-    const rawState = event.status?.type?.state;
-    const state: MatchRow["state"] = rawState === "post" ? "post" : rawState === "in" ? "in" : "pre";
-    const noteHeadline = competition?.notes?.find((note) => note.headline)?.headline ?? null;
-    return [{ id: event.id, date: event.date, state, statusText: event.status?.type?.shortDetail ?? event.status?.type?.detail ?? "", roundNumber: typeof event.week?.number === "number" ? event.week.number : null, roundLabel: event.week?.text ?? noteHeadline, home: { id: home.team.id ?? "", name: home.team.displayName ?? "-", abbreviation: home.team.abbreviation ?? "-", logo: home.team.logo ?? home.team.logos?.[0]?.href ?? null, score: home.score ?? null }, away: { id: away.team.id ?? "", name: away.team.displayName ?? "-", abbreviation: away.team.abbreviation ?? "-", logo: away.team.logo ?? away.team.logos?.[0]?.href ?? null, score: away.score ?? null } } satisfies MatchRow];
+export function parseEspnMatches(payload:unknown):MatchRow[]{
+  const events=((payload as {events?:unknown[]}|null)?.events??[]) as Array<any>;
+  return events.flatMap(event=>{
+    const competition=event.competitions?.[0]; const competitors=competition?.competitors??[];
+    const home=competitors.find((t:any)=>t.homeAway==="home"); const away=competitors.find((t:any)=>t.homeAway==="away");
+    if(!event.id||!event.date||!home?.team||!away?.team)return [];
+    const status=competition?.status??event.status; const rawState=status?.type?.state;
+    const completed=status?.type?.completed===true||rawState==="post";
+    const state:MatchRow["state"]=completed?"post":rawState==="in"?"in":"pre";
+    const noteHeadline=competition?.notes?.find((n:any)=>n.headline)?.headline??null;
+    return [{id:String(event.id),date:event.date,state,statusText:status?.type?.shortDetail??status?.type?.detail??"",roundNumber:typeof event.week?.number==="number"?event.week.number:null,roundLabel:event.week?.text??noteHeadline,home:{id:String(home.team.id??""),name:home.team.displayName??"-",abbreviation:home.team.abbreviation??"-",logo:home.team.logo??home.team.logos?.[0]?.href??null,score:home.score==null?null:String(home.score)},away:{id:String(away.team.id??""),name:away.team.displayName??"-",abbreviation:away.team.abbreviation??"-",logo:away.team.logo??away.team.logos?.[0]?.href??null,score:away.score==null?null:String(away.score)}} satisfies MatchRow];
   });
 }
-
-function ymd(date: Date) { const y = date.getUTCFullYear(); const m = String(date.getUTCMonth() + 1).padStart(2, "0"); const d = String(date.getUTCDate()).padStart(2, "0"); return `${y}${m}${d}`; }
-
-function seasonWindows() {
-  const windows: Array<{ start: Date; end: Date }> = [];
-  const seasonStart = new Date("2026-07-01T00:00:00Z");
-  const seasonEnd = new Date("2027-06-30T23:59:59Z");
-  let cursor = seasonStart;
-  while (cursor.getTime() <= seasonEnd.getTime()) {
-    const start = new Date(cursor);
-    const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 2, 0, 23, 59, 59));
-    if (end.getTime() > seasonEnd.getTime()) end.setTime(seasonEnd.getTime());
-    windows.push({ start, end });
-    cursor = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate() + 1));
-  }
-  return windows;
-}
-
-async function fetchScoreboardWindow(slug: string, start: Date, end: Date) {
-  const url = `${ESPN_BASE}/site/v2/sports/soccer/${slug}/scoreboard?dates=${ymd(start)}-${ymd(end)}&limit=250`;
-  const response = await fetch(url, { next: { revalidate: 300 } });
-  if (!response.ok) throw new Error(`Scoreboard ${response.status}`);
-  return parseMatches(await response.json());
-}
-
-async function fetchSeasonMatches(slug: string) {
-  const results = await Promise.allSettled(seasonWindows().map(({ start, end }) => fetchScoreboardWindow(slug, start, end)));
-  const byId = new Map<string, MatchRow>();
-  for (const result of results) {
-    if (result.status !== "fulfilled") continue;
-    for (const match of result.value) byId.set(match.id, match);
-  }
-  return Array.from(byId.values()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-}
-
-export async function getCompetitionSnapshot(key: CompetitionKey): Promise<CompetitionSnapshot> {
-  const config = COMPETITIONS[key];
-  const standingsUrl = `${ESPN_BASE}/v2/sports/soccer/${config.espnSlug}/standings`;
-  const [standingsResult, matchesResult] = await Promise.allSettled([
-    fetch(standingsUrl, { next: { revalidate: 900 } }).then((r) => { if (!r.ok) throw new Error(`Standings ${r.status}`); return r.json(); }),
-    fetchSeasonMatches(config.espnSlug),
-  ]);
-  const standings = standingsResult.status === "fulfilled" ? parseStandings(standingsResult.value) : [];
-  const matches = matchesResult.status === "fulfilled" ? matchesResult.value : [];
-  return { standings, matches, fetchedAt: new Date().toISOString() };
-}
+function ymd(date:Date){const y=date.getUTCFullYear();const m=String(date.getUTCMonth()+1).padStart(2,"0");const d=String(date.getUTCDate()).padStart(2,"0");return `${y}${m}${d}`;}
+function seasonWindows(){const windows:Array<{start:Date;end:Date}>=[];const seasonStart=new Date("2026-07-01T00:00:00Z");const seasonEnd=new Date("2027-06-30T23:59:59Z");let cursor=seasonStart;while(cursor.getTime()<=seasonEnd.getTime()){const start=new Date(cursor);const end=new Date(Date.UTC(start.getUTCFullYear(),start.getUTCMonth()+2,0,23,59,59));if(end.getTime()>seasonEnd.getTime())end.setTime(seasonEnd.getTime());windows.push({start,end});cursor=new Date(Date.UTC(end.getUTCFullYear(),end.getUTCMonth(),end.getUTCDate()+1));}return windows;}
+async function fetchScoreboardWindow(slug:string,start:Date,end:Date){const response=await fetch(`${ESPN_BASE}/site/v2/sports/soccer/${slug}/scoreboard?dates=${ymd(start)}-${ymd(end)}&limit=250`,{next:{revalidate:300}});if(!response.ok)throw new Error(`Scoreboard ${response.status}`);return parseEspnMatches(await response.json());}
+async function fetchSeasonMatches(slug:string){const results=await Promise.allSettled(seasonWindows().map(({start,end})=>fetchScoreboardWindow(slug,start,end)));const byId=new Map<string,MatchRow>();for(const result of results){if(result.status!=="fulfilled")continue;for(const match of result.value)byId.set(match.id,match);}return Array.from(byId.values()).sort((a,b)=>new Date(a.date).getTime()-new Date(b.date).getTime());}
+export async function getCompetitionSnapshot(key:CompetitionKey):Promise<CompetitionSnapshot>{const config=COMPETITIONS[key];const standingsUrl=`${ESPN_BASE}/v2/sports/soccer/${config.espnSlug}/standings`;const [standingsResult,matchesResult]=await Promise.allSettled([fetch(standingsUrl,{next:{revalidate:900}}).then(r=>{if(!r.ok)throw new Error(`Standings ${r.status}`);return r.json();}),fetchSeasonMatches(config.espnSlug)]);return {standings:standingsResult.status==="fulfilled"?parseStandings(standingsResult.value):[],matches:matchesResult.status==="fulfilled"?matchesResult.value:[],fetchedAt:new Date().toISOString()};}
