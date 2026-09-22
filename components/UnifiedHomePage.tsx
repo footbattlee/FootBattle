@@ -450,7 +450,7 @@ export default function UnifiedHomePage({ locale }: { locale: Locale }) {
             <button type="button" onClick={() => scrollToSection("oyunlar")} className="transition hover:text-white">{c.nav.games}</button>
             <Link href="/takim-kadro" className="transition hover:text-white">{c.nav.squad}</Link>
             <Link href="/halisaha-kadro" className="transition hover:text-white">{c.nav.pickup}</Link>
-            <Link href="/firsatlar" className="font-black text-orange-300 transition hover:text-orange-200">{c.nav.deals}</Link>
+            <Link href={`/${locale}/firsatlar`} className="font-black text-orange-300 transition hover:text-orange-200">{c.nav.deals}</Link>
           </nav>
 
           <div className="flex shrink-0 items-center gap-2">
