@@ -22,10 +22,10 @@ async function getDeals(): Promise<Deal[]> {
 
 const money = (v:number) => new Intl.NumberFormat("tr-TR",{style:"currency",currency:"TRY",maximumFractionDigits:2}).format(Number(v||0));
 
-export default async function FirsatlarPage(){
+export default async function FirsatlarPage({ params }: { params: Promise<{ locale: string }> }){\n  const { locale } = await params;
   const deals=await getDeals();
   return <main className="dealsPage"><div className="dealsWrap">
-    <Link href="/tr" className="dealsBack">← FootBattle'a dön</Link>
+    <Link href={`/${locale}`} className="dealsBack">← FootBattle'a dön</Link>
     <section className="dealsHero">
       <div className="dealsKicker">FİYATZADE × FOOTBATTLE</div>
       <h1>Günün fırsatları 🔥</h1>
