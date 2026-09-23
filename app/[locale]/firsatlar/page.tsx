@@ -13,7 +13,7 @@ type Deal = { id:string; title:string; image_url:string|null; merchant:string; p
 
 async function getDeals(): Promise<Deal[]> {
   try {
-    const res = await fetch("https://cmexmobjpeavlppmffqi.supabase.co/functions/v1/public-deals", { next: { revalidate: 120 } });
+    const res = await fetch("https://cmexmobjpeavlppmffqi.supabase.co/functions/v1/public-deals", { cache: "no-store" });
     if (!res.ok) return [];
     const json = await res.json();
     return Array.isArray(json.deals) ? json.deals : [];
