@@ -30,7 +30,7 @@ export default async function FirsatlarPage(){
       <div className="dealsKicker">FİYATZADE × FOOTBATTLE</div>
       <h1>Günün fırsatları 🔥</h1>
       <p>Fiyatzade farklı mağazalardaki fiyatları takip eder; dikkat çeken fırsatları burada toplar. Satın alma işlemi ilgili mağazanın kendi sitesinde tamamlanır.</p>
-      <div className="dealsMeta"><span className="dealsPill">⚡ Güncel fırsatlar</span><span className="dealsPill">🔎 Fiyat karşılaştırma</span><span className="dealsPill">📸 Instagram: @anlikindirimradari</span></div>
+      <div className="dealsMeta"><span className="dealsPill">⚡ Güncel fırsatlar</span><span className="dealsPill">🔎 Fiyat karşılaştırma</span><a className="dealsPill" href="https://www.instagram.com/anlikindirimradari/" target="_blank" rel="noopener noreferrer" aria-label="Fiyatzade Instagram">📸 Instagram</a><a className="dealsPill" href="https://t.me/fiyatzadefirsatlar" target="_blank" rel="noopener noreferrer" aria-label="Fiyatzade Telegram">✈️ Telegram</a><a className="dealsPill" href="https://whatsapp.com/channel/0029Vb8cOXqICVfs1X66jY1E" target="_blank" rel="noopener noreferrer" aria-label="Fiyatzade WhatsApp">💬 WhatsApp</a></div>
     </section>
     {deals.length ? <section className="dealsGrid" aria-label="Güncel fırsatlar">{deals.map(d=><article className="dealCard" key={d.id}>
       <div className="dealImageWrap">{d.image_url ? <Image className="dealImage" src={d.image_url} alt={d.title} width={420} height={320} unoptimized /> : null}</div>
